@@ -543,61 +543,6 @@
     padding: 4px 8px; font-size: 11px; letter-spacing: 2px;
     transform: rotate(-2deg);
   }
-
-.bazi-table { width:100%; border-collapse:collapse; text-align:center; font-size:14px; margin:10px 0; }
-.bazi-table th { background:var(--paper-deep); padding:8px 6px; font-weight:normal; color:var(--ink-soft); border:1px solid var(--line-faint); }
-.bazi-table td { padding:8px 6px; border:1px solid var(--line-faint); }
-.bazi-table .gan { font-weight:bold; font-size:18px; }
-.bazi-table .day-master { color:var(--vermillion); font-size:20px; }
-.bazi-table .label { color:var(--ink-soft); font-size:11px; }
-.bazi-table .canggan { font-size:11px; color:var(--ink-soft); }
-.ziwei-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:10px 0; }
-.zw-gong { background:var(--paper-card); border:1px solid var(--line-soft); padding:8px; text-align:center; font-size:12px; }
-.zw-gong-head { margin-bottom:4px; }
-.zw-ganzhi { font-size:16px; font-weight:bold; }
-.zw-name { color:var(--ink-soft); margin-left:4px; }
-.zw-main { font-size:13px; color:var(--ink); margin:3px 0; }
-.zw-aux { font-size:11px; color:var(--ink-soft); }
-.zw-sihua { font-size:10px; color:var(--azure); margin-top:2px; }
-.zw-daxian { font-size:10px; color:var(--ink-faint); margin-top:2px; }
-
-
-@media (max-width: 600px) {
-  body { padding: 8px; font-size: 11px; }
-  .report { padding: 12px; }
-  .header { grid-template-columns: 1fr; text-align: center; }
-  .title-block h1 { font-size: 22px; }
-  .top-grid { grid-template-columns: 1fr; }
-  .core-data { grid-template-columns: repeat(2, 1fr); }
-  .bazi-table { font-size: 10px; }
-  .bazi-table .gan { font-size: 13px; }
-  .bazi-table .day-master { font-size: 15px; }
-  .bazi-table th, .bazi-table td { padding: 4px 2px; }
-  .ziwei-grid { grid-template-columns: repeat(2, 1fr); gap: 4px; }
-  .zw-gong { padding: 4px; font-size: 10px; }
-  .zw-ganzhi { font-size: 12px; }
-  .zw-main { font-size: 10px; }
-  .dayun-grid { grid-template-columns: repeat(4, 1fr); }
-  .section h2 { font-size: 13px; }
-}
-
-
-/* === BLUR OVERLAY === */
-.blur-locked { position: relative; overflow: hidden; margin: 16px 0; }
-.blur-content { filter: none; user-select: auto; pointer-events: auto; }
-.blur-cover {
-  display: none;
-  position: absolute; inset: 0;
-  background: rgba(245,241,232,0.25);
-  z-index: 1;
-}
-.blur-cover .unlock-hint {
-  font-size: 13px; color: var(--ink-soft); letter-spacing: 4px;
-  border: 1px dashed var(--line-soft); padding: 10px 28px;
-  background: rgba(250,246,236,0.85); border-radius: 2px;
-  text-align: center;
-}
-.unlock-hint .lock-icon { font-size: 24px; display: block; margin-bottom: 6px; }
 </style>
 </head>
 <body>
@@ -653,7 +598,6 @@
           </div>
         </div>
       </div>
-      <div class="blur-locked"><div class="blur-content">
       <div class="strengths-block">
         <div class="strength-side">
           <h4>★ 三大优势</h4>
@@ -670,7 +614,6 @@
       </div>
     </div>
   </div>
-</div><div class="blur-cover"><div class="unlock-hint"><span class="lock-icon">&#x1F512;</span>解锁查看完整分析</div></div></div>
 
   <!-- ============ CORE DATA (full-width row) ============ -->
   <div class="core-data-row">
@@ -890,7 +833,6 @@
         </div>
 
         <!-- DAYUN -->
-        <div class="blur-locked"><div class="blur-content">
         <div class="dayun-strip">
           <div class="strip-head">大运 <span class="small">(起运 {{bazi.dayunStart}} 岁)</span></div>
           <div class="strip-row">
@@ -907,9 +849,7 @@
           </div>
         </div>
 
-        </div></div><div class="blur-cover"><div class="unlock-hint"><span class="lock-icon">&#x1F512;</span>解锁查看完整分析</div></div></div>
         <!-- LIUNIAN -->
-        <div class="blur-locked"><div class="blur-content">
         <div class="liunian-strip">
           <div class="strip-head">流年 <span class="small">(当前大运：{{liunian_dayun_label}})</span></div>
           <div class="strip-row">
@@ -925,7 +865,6 @@
             <div class="strip-cell {{liunian.9.current_class}}"><div class="ages num">{{liunian.9.year}}</div><div class="ages num">{{liunian.9.age}}</div><div class="gz">{{liunian.9.gz}}</div><div class="ss">{{liunian.9.shishen}}</div></div>
           </div>
         </div>
-</div><div class="blur-cover"><div class="unlock-hint"><span class="lock-icon">&#x1F512;</span>解锁查看完整分析</div></div></div>
       </div>
     </div>
   </div>
@@ -933,160 +872,186 @@
   <!-- ============ NUMBERED SECTIONS ============ -->
 
   <div class="row-2col">
-    
+    <!-- 01 主轴印证结论 -->
+    <section class="section">
+      <h2><span class="num-box">01</span>主轴印证结论</h2>
+      <div class="axis-conclusion">
+        {{section_01.text}}
+        <div class="wc">字数：{{section_01.word_count}}</div>
+      </div>
+    </section>
 
-<div class="blur-locked"><div class="blur-content">
-<section class="section">
-<h2><span class="num-box">01</span>两盘主轴印证</h2>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-<div class="info-card">
-<div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">八字主轴</div>
-<div style="font-size:14px;line-height:1.8;">{{axes.bazi_main}}</div>
-</div>
-<div class="info-card">
-<div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">紫微主轴</div>
-<div style="font-size:14px;line-height:1.8;">{{axes.ziwei_main}}</div>
-</div>
-</div>
-</section>
+    <!-- 02 阶段印证时间轴 -->
+    <section class="section">
+      <h2><span class="num-box">02</span>阶段印证时间轴 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（水平双轨）</small></h2>
+      <div class="stage-legend">
+        <span><span class="dot up"></span>关键上升期</span>
+        <span><span class="dot flat"></span>调整期</span>
+        <span><span class="dot down"></span>压力期</span>
+      </div>
+      <div class="stage-grid">
+        <div class="sg-label">八字大运</div>
+        <div class="stage-head">{{section_02.bazi.0.range}}</div>
+        <div class="stage-head">{{section_02.bazi.1.range}}</div>
+        <div class="stage-head">{{section_02.bazi.2.range}}</div>
+        <div class="stage-head {{section_02.bazi.3.current_class}}">{{section_02.bazi.3.range}}</div>
+        <div class="stage-head">{{section_02.bazi.4.range}}</div>
+        <div class="stage-head">{{section_02.bazi.5.range}}</div>
+        <div class="stage-head">{{section_02.bazi.6.range}}</div>
 
+        <div class="sg-label">八字大运</div>
+        <div>{{section_02.bazi.0.gz}}<br>{{section_02.bazi.0.shishen}}</div>
+        <div>{{section_02.bazi.1.gz}}<br>{{section_02.bazi.1.shishen}}</div>
+        <div>{{section_02.bazi.2.gz}}<br>{{section_02.bazi.2.shishen}}</div>
+        <div class="{{section_02.bazi.3.current_class}}">{{section_02.bazi.3.gz}}<br>{{section_02.bazi.3.shishen}}</div>
+        <div>{{section_02.bazi.4.gz}}<br>{{section_02.bazi.4.shishen}}</div>
+        <div>{{section_02.bazi.5.gz}}<br>{{section_02.bazi.5.shishen}}</div>
+        <div>{{section_02.bazi.6.gz}}<br>{{section_02.bazi.6.shishen}}</div>
 
-<section class="section">
-<h2><span class="num-box">02</span>大运流年</h2>
-<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;background:var(--line-soft);">
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;"><small style="color:var(--ink-soft);">{{section_02.bazi.0.range}}</small><br><b>{{section_02.bazi.0.gz}}</b></div>
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;"><small style="color:var(--ink-soft);">{{section_02.bazi.1.range}}</small><br><b>{{section_02.bazi.1.gz}}</b></div>
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;"><small style="color:var(--ink-soft);">{{section_02.bazi.2.range}}</small><br><b>{{section_02.bazi.2.gz}}</b></div>
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;border:2px solid var(--vermillion);"><small style="color:var(--ink-soft);">{{section_02.bazi.3.range}}</small><br><b style="color:var(--vermillion);">{{section_02.bazi.3.gz}}</b></div>
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;"><small style="color:var(--ink-soft);">{{section_02.bazi.4.range}}</small><br><b>{{section_02.bazi.4.gz}}</b></div>
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;"><small style="color:var(--ink-soft);">{{section_02.bazi.5.range}}</small><br><b>{{section_02.bazi.5.gz}}</b></div>
-<div style="background:var(--paper-card);padding:8px 4px;text-align:center;"><small style="color:var(--ink-soft);">{{section_02.bazi.6.range}}</small><br><b>{{section_02.bazi.6.gz}}</b></div>
-</div>
-</section>
+        <div class="sg-label">紫微大限</div>
+        <div>{{section_02.ziwei.0.range}}</div>
+        <div>{{section_02.ziwei.1.range}}</div>
+        <div>{{section_02.ziwei.2.range}}</div>
+        <div class="{{section_02.ziwei.3.current_class}}">{{section_02.ziwei.3.range}}</div>
+        <div>{{section_02.ziwei.4.range}}</div>
+        <div>{{section_02.ziwei.5.range}}</div>
+        <div>{{section_02.ziwei.6.range}}</div>
+      </div>
+      <div class="stage-conclusion">
+        <b>印证结论：</b>{{section_02.conclusion}}
+      </div>
+    </section>
+  </div>
 
+  <!-- 03 六维交叉对账 + 04 冲突清单 -->
+  <div class="row-2col">
+    <section class="section">
+      <h2><span class="num-box">03</span>六维交叉对账</h2>
+      <div class="cross-grid">
+        <div class="ch"></div>
+        <div class="ch">事业</div><div class="ch">财运</div><div class="ch">婚恋</div>
+        <div class="ch">子女</div><div class="ch">六亲</div><div class="ch">健康</div>
 
-<!-- 03 六维交叉对账 -->
-<section class="section">
-<h2><span class="num-box">03</span>六维交叉对账</h2>
-<div class="cross-grid">
-<div class="info-card">
-<div class="dim-label"><span class="dim-icon">&#x1F4BC;</span> 事业</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{dim.career.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{dim.career.ziwei}}</div>
-<div class="dim-row"><span class="dim-tag verdict-yes">印证</span>{{dim.career.verdict}}</div>
-</div>
-<div class="info-card">
-<div class="dim-label"><span class="dim-icon">&#x1F4B0;</span> 财富</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{dim.wealth.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{dim.wealth.ziwei}}</div>
-<div class="dim-row"><span class="dim-tag verdict-yes">印证</span>{{dim.wealth.verdict}}</div>
-</div>
-<div class="info-card">
-<div class="dim-label"><span class="dim-icon">&#x2764;</span> 感情</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{dim.marriage.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{dim.marriage.ziwei}}</div>
-<div class="dim-row"><span class="dim-tag verdict-yes">印证</span>{{dim.marriage.verdict}}</div>
-</div>
-<div class="info-card">
-<div class="dim-label"><span class="dim-icon">&#x1F476;</span> 子女</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{dim.children.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{dim.children.ziwei}}</div>
-<div class="dim-row"><span class="dim-tag verdict-yes">印证</span>{{dim.children.verdict}}</div>
-</div>
-<div class="info-card">
-<div class="dim-label"><span class="dim-icon">&#x1F3E0;</span> 家庭</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{dim.family.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{dim.family.ziwei}}</div>
-<div class="dim-row"><span class="dim-tag verdict-yes">印证</span>{{dim.family.verdict}}</div>
-</div>
-<div class="info-card">
-<div class="dim-label"><span class="dim-icon">&#x1F3E5;</span> 健康</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{dim.health.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{dim.health.ziwei}}</div>
-<div class="dim-row"><span class="dim-tag verdict-yes">印证</span>{{dim.health.verdict}}</div>
-</div>
-</div>
-</section>
+        <div class="lh">八字观点</div>
+        <div>{{dim.career.bazi}}</div><div>{{dim.wealth.bazi}}</div><div>{{dim.marriage.bazi}}</div>
+        <div>{{dim.children.bazi}}</div><div>{{dim.family.bazi}}</div><div>{{dim.health.bazi}}</div>
 
-<style>
-.cross-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
-.dim-label { font-size:14px; font-weight:bold; margin-bottom:6px; color:var(--ink); }
-.dim-icon { font-size:16px; }
-.dim-row { display:flex; gap:6px; align-items:center; margin:3px 0; font-size:12px; }
-.dim-tag { font-size:10px; padding:1px 6px; border-radius:2px; color:var(--ink-soft); background:var(--paper-deep); }
-.verdict-yes { color:var(--jade); }
-@media (max-width:600px) { .cross-grid { grid-template-columns:1fr; } }
+        <div class="lh">紫微观点</div>
+        <div>{{dim.career.ziwei}}</div><div>{{dim.wealth.ziwei}}</div><div>{{dim.marriage.ziwei}}</div>
+        <div>{{dim.children.ziwei}}</div><div>{{dim.family.ziwei}}</div><div>{{dim.health.ziwei}}</div>
 
-/* === BLUR OVERLAY === */
-.blur-locked { position: relative; overflow: hidden; margin: 16px 0; }
-.blur-content { filter: none; user-select: auto; pointer-events: auto; }
-.blur-cover {
-  display: none;
-  position: absolute; inset: 0;
-  background: rgba(245,241,232,0.25);
-  z-index: 1;
-}
-.blur-cover .unlock-hint {
-  font-size: 13px; color: var(--ink-soft); letter-spacing: 4px;
-  border: 1px dashed var(--line-soft); padding: 10px 28px;
-  background: rgba(250,246,236,0.85); border-radius: 2px;
-  text-align: center;
-}
-.unlock-hint .lock-icon { font-size: 24px; display: block; margin-bottom: 6px; }
-</style>
+        <div class="lh">印证标记</div>
+        <div><span class="verdict-tag {{dim.career.verdict_class}}">{{dim.career.verdict}}</span></div>
+        <div><span class="verdict-tag {{dim.wealth.verdict_class}}">{{dim.wealth.verdict}}</span></div>
+        <div><span class="verdict-tag {{dim.marriage.verdict_class}}">{{dim.marriage.verdict}}</span></div>
+        <div><span class="verdict-tag {{dim.children.verdict_class}}">{{dim.children.verdict}}</span></div>
+        <div><span class="verdict-tag {{dim.family.verdict_class}}">{{dim.family.verdict}}</span></div>
+        <div><span class="verdict-tag {{dim.health.verdict_class}}">{{dim.health.verdict}}</span></div>
 
-<!-- 04 冲突清单 -->
-<section class="section">
-<h2><span class="num-box">04</span>冲突清单</h2>
-<div style="display:grid;gap:8px;">
-<div class="info-card">
-<div style="font-weight:bold;margin-bottom:4px;">&#x26A0; {{conflicts.0.point}}</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{conflicts.0.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{conflicts.0.ziwei}}</div>
-<div class="dim-row"><span class="impact-dot {{conflicts.0.impact_class}}"></span>影响：{{conflicts.0.impact}}</div>
-</div>
-<div class="info-card">
-<div style="font-weight:bold;margin-bottom:4px;">&#x26A0; {{conflicts.1.point}}</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{conflicts.1.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{conflicts.1.ziwei}}</div>
-<div class="dim-row"><span class="impact-dot {{conflicts.1.impact_class}}"></span>影响：{{conflicts.1.impact}}</div>
-</div>
-<div class="info-card">
-<div style="font-weight:bold;margin-bottom:4px;">&#x26A0; {{conflicts.2.point}}</div>
-<div class="dim-row"><span class="dim-tag">八字</span>{{conflicts.2.bazi}}</div>
-<div class="dim-row"><span class="dim-tag">紫微</span>{{conflicts.2.ziwei}}</div>
-<div class="dim-row"><span class="impact-dot {{conflicts.2.impact_class}}"></span>影响：{{conflicts.2.impact}}</div>
-</div>
-</div>
-</section>
+        <div class="lh">融合结论</div>
+        <div>{{dim.career.fused}}</div><div>{{dim.wealth.fused}}</div><div>{{dim.marriage.fused}}</div>
+        <div>{{dim.children.fused}}</div><div>{{dim.family.fused}}</div><div>{{dim.health.fused}}</div>
+      </div>
+    </section>
 
-<!-- 05 综合定论 -->
-<section class="section">
-<h2><span class="num-box">05</span>综合定论</h2>
-<div class="final-block" style="margin-bottom:16px;">
-<h3 style="color:var(--vermillion);font-size:16px;letter-spacing:2px;">终极主轴</h3>
-<div style="font-size:20px;font-weight:bold;color:var(--ink);padding:12px 0;">{{final.life_axis}}</div>
-</div>
-<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;">
-<div class="info-card"><h4>5个关键节点</h4></div>
-<div class="info-card"><h4>3个高风险窗口</h4></div>
-<div class="info-card"><h4>2条优势放大策略</h4></div>
-<div class="info-card"><h4>行动建议清单</h4></div>
-</div>
-</section>
+    <section class="section">
+      <h2><span class="num-box">04</span>冲突清单 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（已识别的主要冲突点）</small></h2>
+      <div class="conflict-grid">
+        <div class="ch">冲突点</div>
+        <div class="ch">八字视角</div>
+        <div class="ch">紫微视角</div>
+        <div class="ch">影响程度</div>
+        <div class="ch">建议</div>
 
-<!-- 06 置信度 -->
-<section class="section">
-<h2><span class="num-box">06</span>置信度自评</h2>
-<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;">
-<div class="info-card"><div style="font-size:11px;color:var(--ink-soft);">八字模型</div><div style="font-size:16px;font-weight:bold;">{{confidence.bazi_level}}</div><small style="color:var(--ink-faint);">({{confidence.bazi_score}})</small></div>
-<div class="info-card"><div style="font-size:11px;color:var(--ink-soft);">紫微模型</div><div style="font-size:16px;font-weight:bold;">{{confidence.ziwei_level}}</div><small style="color:var(--ink-faint);">({{confidence.ziwei_score}})</small></div>
-<div class="info-card"><div style="font-size:11px;color:var(--ink-soft);">两盘一致性</div><div style="font-size:16px;font-weight:bold;">{{confidence.consistency_level}}</div><small style="color:var(--ink-faint);">({{confidence.consistency_score}})</small></div>
-<div class="info-card"><div style="font-size:11px;color:var(--ink-soft);">结论稳定性</div><div style="font-size:16px;font-weight:bold;">{{confidence.stability_level}}</div><small style="color:var(--ink-faint);">({{confidence.stability_score}})</small></div>
-</div>
-<p style="font-size:10px;color:var(--ink-faint);margin-top:8px;text-align:center;">{{confidence.note}}</p>
-</section>
-</div><div class="blur-cover"><div class="unlock-hint"><span class="lock-icon">&#x1F512;</span>解锁查看完整分析</div></div></div>
+        <div>{{conflicts.0.point}}</div>
+        <div>{{conflicts.0.bazi}}</div>
+        <div>{{conflicts.0.ziwei}}</div>
+        <div><span class="impact-dot impact-{{conflicts.0.impact_class}}"></span>{{conflicts.0.impact}}</div>
+        <div>{{conflicts.0.advice}}</div>
+
+        <div>{{conflicts.1.point}}</div>
+        <div>{{conflicts.1.bazi}}</div>
+        <div>{{conflicts.1.ziwei}}</div>
+        <div><span class="impact-dot impact-{{conflicts.1.impact_class}}"></span>{{conflicts.1.impact}}</div>
+        <div>{{conflicts.1.advice}}</div>
+
+        <div>{{conflicts.2.point}}</div>
+        <div>{{conflicts.2.bazi}}</div>
+        <div>{{conflicts.2.ziwei}}</div>
+        <div><span class="impact-dot impact-{{conflicts.2.impact_class}}"></span>{{conflicts.2.impact}}</div>
+        <div>{{conflicts.2.advice}}</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- 05 综合定论 -->
+  <section class="section">
+    <h2><span class="num-box">05</span>综合定论</h2>
+    <div class="final-grid">
+      <div class="final-block">
+        <h4>终极主轴</h4>
+        <div class="big">{{final.life_axis}}</div>
+      </div>
+      <div class="final-block">
+        <h4>5 个关键节点（人生里程碑）</h4>
+        <ul class="nodes-list">
+          <li>{{final.nodes.0.age}}岁（{{final.nodes.0.year}}）：{{final.nodes.0.event}}</li>
+          <li>{{final.nodes.1.age}}岁（{{final.nodes.1.year}}）：{{final.nodes.1.event}}</li>
+          <li>{{final.nodes.2.age}}岁（{{final.nodes.2.year}}）：{{final.nodes.2.event}}</li>
+          <li>{{final.nodes.3.age}}岁（{{final.nodes.3.year}}）：{{final.nodes.3.event}}</li>
+          <li>{{final.nodes.4.age}}岁（{{final.nodes.4.year}}）：{{final.nodes.4.event}}</li>
+        </ul>
+      </div>
+      <div class="final-block">
+        <h4>3 个高风险窗口 <small style="color:var(--ink-faint)">（需谨慎）</small></h4>
+        <div class="risk-item"><span class="head">{{final.risks.0.range}}</span><br>{{final.risks.0.desc}}</div>
+        <div class="risk-item"><span class="head">{{final.risks.1.range}}</span><br>{{final.risks.1.desc}}</div>
+        <div class="risk-item"><span class="head">{{final.risks.2.range}}</span><br>{{final.risks.2.desc}}</div>
+      </div>
+      <div class="final-block">
+        <h4>2 条优势放大策略</h4>
+        <div class="leverage-item"><span class="head">▸ {{final.leverage.0.title}}</span><br>{{final.leverage.0.desc}}</div>
+        <div class="leverage-item"><span class="head">▸ {{final.leverage.1.title}}</span><br>{{final.leverage.1.desc}}</div>
+      </div>
+      <div class="final-block">
+        <h4>行动建议清单 <small style="color:var(--ink-faint)">（优先级）</small></h4>
+        <div class="advice-item"><span class="num">1</span>{{final.advice.0}}</div>
+        <div class="advice-item"><span class="num">2</span>{{final.advice.1}}</div>
+        <div class="advice-item"><span class="num">3</span>{{final.advice.2}}</div>
+        <div class="advice-item"><span class="num">4</span>{{final.advice.3}}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 置信度 -->
+  <section class="section">
+    <h2><span class="num-box">06</span>置信度自评 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（综合模型不确定性）</small></h2>
+    <div class="confidence-row">
+      <div class="conf-card">
+        <div class="label">八字模型置信度</div>
+        <div class="level">{{confidence.bazi_level}}</div>
+        <div class="score">({{confidence.bazi_score}})</div>
+      </div>
+      <div class="conf-card">
+        <div class="label">紫微模型置信度</div>
+        <div class="level">{{confidence.ziwei_level}}</div>
+        <div class="score">({{confidence.ziwei_score}})</div>
+      </div>
+      <div class="conf-card">
+        <div class="label">两盘印证一致性</div>
+        <div class="level">{{confidence.consistency_level}}</div>
+        <div class="score">({{confidence.consistency_score}})</div>
+      </div>
+      <div class="conf-card">
+        <div class="label">关键结论稳定性</div>
+        <div class="level">{{confidence.stability_level}}</div>
+        <div class="score">({{confidence.stability_score}})</div>
+      </div>
+      <div class="conf-note">
+        <b>说明：</b>{{confidence.note}}
+      </div>
+    </div>
+  </section>
 
   <!-- ============ FOOTER ============ -->
   <div class="footer-disclaim">
