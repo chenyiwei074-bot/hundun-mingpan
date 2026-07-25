@@ -123,6 +123,7 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
   out['sihuaStars.ke'] = (sihuaStars['科'] || []).join('·') || '—';
   out['sihuaStars.ji'] = (sihuaStars['忌'] || []).join('·') || '—';
 
+
   const en = bz.enrichment;
   out['core.geju'] = en?.格局?.primary || '-';
   out['core.geju_confidence'] = en?.格局?.confidence || '-';
@@ -146,6 +147,19 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
   for (const k of ['木','火','土','金','水']) out['core.wuxing_pct.' + k] = Math.round(((+wx[k] || 0) / wxMax) * 100);
 
   if (bi.name) out['name'] = bi.name;
+
+  // === 头部回退值 ===
+  if (!out['meta.archetype_name'] || out['meta.archetype_name'] === '-') {
+    out['meta.archetype_name'] = (bz.dayMaster || '') + '日主 · ' + (en?.格局?.primary || '');
+  }
+  if (!out['meta.axis_oneliner'] || out['meta.axis_oneliner'] === '-') {
+    out['meta.axis_oneliner'] = (en?.格局?.primary || '') + ' · ' + (en?.旺衰?.verdict || '');
+  }
+  ['year','month','day','hour'].forEach(p => {
+    if (!out['bazi.'+p+'.ziZuo'] || out['bazi.'+p+'.ziZuo'] === '') out['bazi.'+p+'.ziZuo'] = '—';
+    if (!out['bazi.'+p+'.shiShen'] || out['bazi.'+p+'.shiShen'] === '') out['bazi.'+p+'.shiShen'] = '—';
+  });
+
   return out;
 }
 
