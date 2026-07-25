@@ -160,11 +160,33 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
     if (!out['bazi.'+p+'.shiShen'] || out['bazi.'+p+'.shiShen'] === '') out['bazi.'+p+'.shiShen'] = '—';
   });
 
+
+  // === 两盘主轴印证 ===
+  out['axes.bazi_main'] = (bz.dayMaster || '') + '日主，' + (en?.格局?.primary || '普通格局') + '，日主' + (en?.旺衰?.verdict || '中和') + '。' + ((en?.调候用神||[]).length > 0 ? '调候用神：' + (en?.调候用神||[]).join('、') + '。' : '');
+  out['axes.ziwei_main'] = '命宫' + (zw.gongs[0]?.tiangan||'') + (zw.gongs[0]?.dizhi||'') + '，主星' + ((zw.gongs[0]?.mainStars||[]).join('、')||'无') + '，' + (zw.wuXingJu?.name||'') + '局。';
+
+  // === 大运流年 (7步大运) ===
+  const dayun = bz.dayun || [];
+  for (let i = 0; i < 7; i++) {
+    const d = dayun[i];
+    const startYr = d ? (d.startYear || (d.startAge||0) + bi.year) : 0;
+    const endYr = d ? (d.endYear || startYr + 9) : 0;
+    out['section_02.bazi.'+i+'.range'] = d ? (startYr + '-' + endYr + ' (' + (d.startAge||'') + '-' + (d.endAge||(d.startAge||0)+9) + '岁)') : '';
+    out['section_02.bazi.'+i+'.gz'] = d ? (d.ganZhi.gan + d.ganZhi.zhi) : '';
+    out['section_02.bazi.'+i+'.shishen'] = d ? (d.ganZhi.gan + d.ganZhi.zhi) : '';
+    out['section_02.bazi.'+i+'.current_class'] = (d && d.isCurrent) ? 'current' : '';
+  }
+
   return out;
 }
 
 function analysisToFlat(analysis: any): Record<string, any> {
   const out: Record<string, any> = {};
+  // 营销文案
+  if (analysis.marketing) {
+    out['meta.archetype_name'] = analysis.marketing.title || '';
+    out['meta.axis_oneliner'] = analysis.marketing.hook || '';
+  }
   if (analysis.meta) {
     out['meta.archetype_name'] = analysis.meta.archetype_name;
     out['meta.axis_oneliner'] = analysis.meta.axis_oneliner;
