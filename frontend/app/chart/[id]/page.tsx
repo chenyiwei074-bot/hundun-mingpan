@@ -32,6 +32,11 @@ export default function ChartPage() {
   const [error, setError] = useState<string | null>(null);
   const [stageIndex, setStageIndex] = useState(0);
   const [pollCount, setPollCount] = useState(0);
+
+  const POSTER_WIDTH = 750;
+  const [scale, setScale] = useState(1);
+  const [posterHeight, setPosterHeight] = useState(3000);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timedOutRef = useRef(false);
 
@@ -105,6 +110,27 @@ export default function ChartPage() {
     }, 3000);
     return () => clearInterval(stageTimer);
   }, [data, error]);
+
+  // Scale poster on mobile
+  useEffect(() => {
+    const calcScale = () => {
+      const w = window.innerWidth;
+      setScale(w < POSTER_WIDTH ? w / POSTER_WIDTH : 1);
+    };
+    calcScale();
+    window.addEventListener('resize', calcScale);
+    return () => window.removeEventListener('resize', calcScale);
+  }, [POSTER_WIDTH]);
+
+  const handleIframeLoad = () => {
+    try {
+      const doc = iframeRef.current?.contentDocument;
+      if (doc?.body) {
+        const h = doc.body.scrollHeight;
+        if (h > 100) setPosterHeight(h);
+      }
+    } catch {}
+  };
 
   // ====== Loading ======
   if (!data && !error) {
@@ -189,7 +215,23 @@ export default function ChartPage() {
           </h2>
           <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-[#2a2520]">
             {data?.posterHtml ? (
-              <iframe srcDoc={data.posterHtml} className="w-full border-0" style={{width:"100%",minHeight:"600px"}} scrolling="auto" title="命盘海报" />
+              <div style={{ width: '100%', overflow: 'hidden', height: posterHeight * scale + 'px' }}>
+                <iframe
+                  ref={iframeRef}
+                  srcDoc={data.posterHtml}
+                  onLoad={handleIframeLoad}
+                  style={{
+                    width: POSTER_WIDTH + 'px',
+                    height: posterHeight + 'px',
+                    transform: `scale(${scale})`,
+                    transformOrigin: 'top left',
+                    border: 'none',
+                    display: 'block'
+                  }}
+                  scrolling="no"
+                  title="命盘海报"
+                />
+              </div>
             ) : (
               <div className="p-8 text-center text-[#a89a85]">海报加载中...</div>
             )}
