@@ -115,7 +115,11 @@ export async function getChartResult(req: Request, res: Response) {
 
     // 提取免费内容
     const chartData = JSON.parse(chart.chartJson || '{}');
-    const { bazi, ziwei, keywords } = extractFreeSummary(chartData);
+    let analysisData = null;
+    if (chart.analysisJson) {
+      try { analysisData = JSON.parse(chart.analysisJson); } catch {}
+    }
+    const { bazi, ziwei, keywords } = extractFreeSummary(chartData, analysisData);
 
     // 提取 marketing 文案
     let unlockDescription = [
