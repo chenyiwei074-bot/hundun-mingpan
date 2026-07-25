@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+:root {
+  --bg-deep: #0a0806;
+  --bg-card: #141110;
+  --bg-surface: #1c1815;
+  --gold: #c9a84c;
+  --gold-light: #e0c878;
+  --gold-dim: #8a7a4a;
+  --purple: #7b5ea7;
+  --purple-light: #9b7ec5;
+  --vermillion: #c1432f;
+  --vermillion-light: #e05a45;
+  --text-primary: #e8e0d5;
+  --text-secondary: #a89a85;
+  --text-muted: #6b5f52;
+  --border-subtle: #2a2520;
+  --border-gold: rgba(201, 168, 76, 0.3);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: "Source Han Serif SC", "Noto Serif SC", "STSong", Georgia, "SimSun", serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 金色纹理背景 */
+.bg-texture {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(201,168,76,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 60%, rgba(123,94,167,0.04) 0%, transparent 50%),
+    var(--bg-deep);
+}
+
+/* 卡片 */
+.card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.card-gold {
+  background: linear-gradient(135deg, #1c1815 0%, #221d18 100%);
+  border: 1px solid var(--border-gold);
+  border-radius: 8px;
+  padding: 24px;
+}
+
+/* 按钮 */
+.btn-primary {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #c1432f, #a83726);
+  color: #fff;
+  padding: 14px 36px;
+  border-radius: 4px;
+  font-size: 15px;
+  letter-spacing: 3px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #e05a45, #c1432f);
+  box-shadow: 0 4px 24px rgba(193,67,47,0.3);
+  transform: translateY(-1px);
+}
+
+.btn-gold {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #c9a84c, #a8883a);
+  color: #1a1815;
+  padding: 14px 36px;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+.btn-gold:hover {
+  background: linear-gradient(135deg, #e0c878, #c9a84c);
+  box-shadow: 0 4px 24px rgba(201,168,76,0.3);
+}
+
+.btn-outline {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  color: var(--gold);
+  padding: 10px 28px;
+  border-radius: 4px;
+  font-size: 14px;
+  letter-spacing: 2px;
+  border: 1px solid var(--border-gold);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.btn-outline:hover {
+  background: rgba(201,168,76,0.1);
+}
+
+/* 输入框 */
+.input-field {
+  width: 100%;
+  padding: 12px 16px;
+  background: #141110;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 15px;
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+.input-field:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
+}
+.input-field::placeholder { color: var(--text-muted); }
+
+/* 分割线 */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+  margin: 24px 0;
+}
+
+/* 关键词标签 */
+.keyword-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-gold);
+  border-radius: 20px;
+  color: var(--gold-light);
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+/* 动画 */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fadeUp 0.6s ease-out; }
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201,168,76,0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(201,168,76,0); }
+}
+.animate-pulse-gold { animation: pulse-gold 2s infinite; }
+
+/* 微信弹窗 */
+.wechat-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  padding: 24px;
+}
+.wechat-modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-gold);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  animation: fadeUp 0.3s ease-out;
+}

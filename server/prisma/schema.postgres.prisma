@@ -1,0 +1,80 @@
+// Supabase PostgreSQL 部署用 Schema
+// 使用方式: 替换 prisma/schema.prisma 的 datasource 部分
+
+/*
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Supabase 使用连接池:
+  // DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres"
+}
+*/
+
+// SQLite (本地开发用)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  openid    String?  @unique
+  email     String?  @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  charts    Chart[]
+  orders    Order[]
+  usageLogs UsageLog[]
+  @@map("users")
+}
+
+model Chart {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  name         String
+  gender       String
+  birthData    String   @map("birth_data")
+  birthPlace   String   @default("") @map("birth_place")
+  currentPlace String   @default("") @map("current_place")
+  chartJson    String?  @map("chart_json")
+  analysisJson String?  @map("analysis_json")
+  posterHtml   String?  @map("poster_html")
+  posterUrl    String?  @map("poster_url")
+  status       String   @default("processing")
+  freeViews    Int      @default(0) @map("free_views")
+  isPaid       Boolean  @default(false) @map("is_paid")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  vernacularReport   String? @map("vernacular_report")
+  professionalReport String? @map("professional_report")
+  user   User    @relation(fields: [userId], references: [id])
+  orders Order[]
+  @@map("charts")
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  chartId   String   @map("chart_id")
+  amount    Float
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user  User  @relation(fields: [userId], references: [id])
+  chart Chart @relation(fields: [chartId], references: [id])
+  @@map("orders")
+}
+
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  action    String   @default("chart_create")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id])
+  @@map("usage_logs")
+}

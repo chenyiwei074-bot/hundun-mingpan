@@ -1,0 +1,13 @@
+﻿node_modules/
+.next/
+dist/
+coverage/
+*.db
+*.db-journal
+*.log
+.env
+.env.*
+!.env.example
+deploy.tar.gz
+*.tar.gz
+logs/

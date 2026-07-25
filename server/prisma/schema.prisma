@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Chart {
+  id           String   @id @default(cuid())
+  visitorId    String   @map("visitor_id")
+  name         String
+  gender       String
+  birthData    String   @map("birth_data")
+  birthPlace   String   @default("") @map("birth_place")
+  currentPlace String   @default("") @map("current_place")
+  chartJson    String?  @map("chart_json")
+  analysisJson String?  @map("analysis_json")
+  posterHtml   String?  @map("poster_html")
+  posterUrl    String?  @map("poster_url")
+  status       String   @default("processing")
+  freeViews    Int      @default(0) @map("free_views")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("charts")
+}
+
+model UsageLog {
+  id        String   @id @default(cuid())
+  visitorId String   @map("visitor_id")
+  action    String   @default("chart_create")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("usage_logs")
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  eventName String   @map("event_name")
+  visitorId String   @map("visitor_id")
+  chartId   String?  @map("chart_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("events")
+}
