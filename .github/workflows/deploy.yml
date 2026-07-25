@@ -24,13 +24,12 @@ jobs:
               exit 1
             fi
             git fetch origin
-            git checkout main
-            git pull origin main
-            echo "OK: git pull done"
+            git reset --hard origin/main
+            echo "OK: $(git log -1 --oneline)"
 
             echo "===== [2/5] Backend Build ====="
             cd /opt/server
-            npm ci
+            npm ci --production=false
             npm run build
             echo "OK: backend built"
 
@@ -40,15 +39,15 @@ jobs:
 
             echo "===== [4/5] Frontend Build ====="
             cd /opt/frontend
-            npm ci
+            npm ci --production=false
             npm run build
             pm2 restart hundun-web
             echo "OK: frontend built & restarted"
 
             echo "===== [5/5] Health Check ====="
-            sleep 2
-            curl -s -o /dev/null -w "API: %{http_code}" http://localhost:3000/health
+            sleep 3
+            echo -n "API: "; curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health
             echo ""
-            curl -s -o /dev/null -w "Web: %{http_code}" http://localhost:3001/
+            echo -n "Web: "; curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/
             echo ""
             echo "===== DEPLOY DONE ====="
