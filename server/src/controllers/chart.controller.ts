@@ -1,10 +1,10 @@
-import { Request, Response } from 'express';
+﻿import { Request, Response } from 'express';
 import prisma from '../database';
 import { generateChart, extractFreeSummary } from '../services/chart.service';
 import { runPipeline } from '../services/pipeline.service';
 import { CreateChartSchema } from '../utils/types';
 
-const DAILY_FREE_LIMIT = 3;
+const DAILY_FREE_LIMIT = 999; // 测试阶段不限制
 
 function getTodayRange() {
   const now = new Date();
@@ -26,28 +26,27 @@ export async function createChart(req: Request, res: Response) {
   try {
     const input = CreateChartSchema.parse(req.body);
 
-    // 检查每日免费额度
-    const usage = await checkDailyUsage(input.visitor_id);
+    // 妫€鏌ユ瘡鏃ュ厤璐归搴?    const usage = await checkDailyUsage(input.visitor_id);
     if (usage.used >= DAILY_FREE_LIMIT) {
       return res.status(429).json({
         success: false,
-        error: '今日免费排盘次数已用完',
-        tip: '如需继续体验，请添加混沌阁客服微信获取深度解析',
+        error: '浠婃棩鍏嶈垂鎺掔洏娆℃暟宸茬敤瀹?,
+        tip: '濡傞渶缁х画浣撻獙锛岃娣诲姞娣锋矊闃佸鏈嶅井淇¤幏鍙栨繁搴﹁В鏋?,
         data: { used: usage.used, limit: DAILY_FREE_LIMIT },
       });
     }
 
-    // 序列化 birthData
+    // 搴忓垪鍖?birthData
     const [datePart, timePart] = input.birthday.split(' ');
     const [year, month, day] = datePart.split('-').map(Number);
     const [hour, minute] = timePart.split(':').map(Number);
     const birthData = JSON.stringify({
       year, month, day, hour, minute,
-      isLunar: input.calendar === '农历',
+      isLunar: input.calendar === '鍐滃巻',
       calendar: input.calendar,
     });
 
-    // 创建记录
+    // 鍒涘缓璁板綍
     const chart = await prisma.chart.create({
       data: {
         visitorId: input.visitor_id,
@@ -60,13 +59,12 @@ export async function createChart(req: Request, res: Response) {
       },
     });
 
-    // 记录用量
+    // 璁板綍鐢ㄩ噺
     await prisma.usageLog.create({
       data: { visitorId: input.visitor_id, action: 'chart_create' },
     });
 
-    // 异步流水线
-    runPipeline(input, chart.id).catch(err => console.error('Pipeline error:', err));
+    // 寮傛娴佹按绾?    runPipeline(input, chart.id).catch(err => console.error('Pipeline error:', err));
 
     return res.json({
       success: true,
@@ -78,7 +76,7 @@ export async function createChart(req: Request, res: Response) {
     });
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ success: false, error: '参数校验失败', details: error.errors });
+      return res.status(400).json({ success: false, error: '鍙傛暟鏍￠獙澶辫触', details: error.errors });
     }
     return res.status(500).json({ success: false, error: error.message });
   }
@@ -88,7 +86,7 @@ export async function createChart(req: Request, res: Response) {
 export async function getChartStatus(req: Request, res: Response) {
   try {
     const chart = await prisma.chart.findUnique({ where: { id: req.params.id as string } });
-    if (!chart) return res.status(404).json({ success: false, error: '命盘不存在' });
+    if (!chart) return res.status(404).json({ success: false, error: '鍛界洏涓嶅瓨鍦? });
     return res.json({
       success: true,
       data: { id: chart.id, status: chart.status, createdAt: chart.createdAt.toISOString() },
@@ -102,29 +100,29 @@ export async function getChartStatus(req: Request, res: Response) {
 export async function getChartResult(req: Request, res: Response) {
   try {
     const chart = await prisma.chart.findUnique({ where: { id: req.params.id as string } });
-    if (!chart) return res.status(404).json({ success: false, error: '命盘不存在' });
+    if (!chart) return res.status(404).json({ success: false, error: '鍛界洏涓嶅瓨鍦? });
     if (chart.status !== 'completed') {
       return res.status(202).json({ success: false, data: { status: chart.status } });
     }
 
-    // 增加免费查看计数
+    // 澧炲姞鍏嶈垂鏌ョ湅璁℃暟
     await prisma.chart.update({
       where: { id: chart.id },
       data: { freeViews: { increment: 1 } },
     });
 
-    // 提取免费内容
+    // 鎻愬彇鍏嶈垂鍐呭
     const chartData = JSON.parse(chart.chartJson || '{}');
     const { bazi, ziwei, keywords } = extractFreeSummary(chartData);
 
-    // 提取 marketing 文案
+    // 鎻愬彇 marketing 鏂囨
     let unlockDescription = [
-      { title: '整体命格解析', desc: '八字格局 + 紫微星曜，全面剖析你的天赋特质' },
-      { title: '财富节奏分析', desc: '大运财气走势，精准标注积累期与扩张期' },
-      { title: '事业突破方向', desc: '六维度交叉印证，锁定你的职场优势窗口' },
-      { title: '感情正缘画像', desc: '八字合盘 + 紫微夫妻宫，解读缘分图谱' },
-      { title: '未来五年趋势', desc: '逐年分析关键转折节点与高风险窗口' },
-      { title: '风险提醒与趋吉建议', desc: '基于命盘冲突分析，给出可落地的趋吉避凶方案' },
+      { title: '鏁翠綋鍛芥牸瑙ｆ瀽', desc: '鍏瓧鏍煎眬 + 绱井鏄熸洔锛屽叏闈㈠墫鏋愪綘鐨勫ぉ璧嬬壒璐? },
+      { title: '璐㈠瘜鑺傚鍒嗘瀽', desc: '澶ц繍璐㈡皵璧板娍锛岀簿鍑嗘爣娉ㄧН绱湡涓庢墿寮犳湡' },
+      { title: '浜嬩笟绐佺牬鏂瑰悜', desc: '鍏淮搴︿氦鍙夊嵃璇侊紝閿佸畾浣犵殑鑱屽満浼樺娍绐楀彛' },
+      { title: '鎰熸儏姝ｇ紭鐢诲儚', desc: '鍏瓧鍚堢洏 + 绱井澶瀹紝瑙ｈ缂樺垎鍥捐氨' },
+      { title: '鏈潵浜斿勾瓒嬪娍', desc: '閫愬勾鍒嗘瀽鍏抽敭杞姌鑺傜偣涓庨珮椋庨櫓绐楀彛' },
+      { title: '椋庨櫓鎻愰啋涓庤秼鍚夊缓璁?, desc: '鍩轰簬鍛界洏鍐茬獊鍒嗘瀽锛岀粰鍑哄彲钀藉湴鐨勮秼鍚夐伩鍑舵柟妗? },
     ];
 
     if (chart.analysisJson) {
@@ -158,7 +156,7 @@ export async function getChartResult(req: Request, res: Response) {
 export async function getPoster(req: Request, res: Response) {
   try {
     const chart = await prisma.chart.findUnique({ where: { id: req.params.id as string } });
-    if (!chart?.posterHtml) return res.status(404).json({ success: false, error: '海报不存在' });
+    if (!chart?.posterHtml) return res.status(404).json({ success: false, error: '娴锋姤涓嶅瓨鍦? });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.send(chart.posterHtml);
   } catch (error: any) {
@@ -172,7 +170,7 @@ export async function trackEvent(req: Request, res: Response) {
   try {
     const { event_name, visitor_id, chart_id } = req.body;
     if (!event_name || !visitor_id) {
-      return res.status(400).json({ success: false, error: '缺少 event_name 或 visitor_id' });
+      return res.status(400).json({ success: false, error: '缂哄皯 event_name 鎴?visitor_id' });
     }
 
     await prisma.event.create({
@@ -198,7 +196,7 @@ export async function getStats(req: Request, res: Response) {
 
     const eventTypes = ['page_view', 'create_click', 'chart_complete', 'wechat_click'];
 
-    // 今日统计
+    // 浠婃棩缁熻
     const today: Record<string, number> = {};
     for (const ev of eventTypes) {
       today[ev] = await prisma.event.count({
@@ -206,14 +204,13 @@ export async function getStats(req: Request, res: Response) {
       });
     }
 
-    // 累计统计
+    // 绱缁熻
     const total: Record<string, number> = {};
     for (const ev of eventTypes) {
       total[ev] = await prisma.event.count({ where: { eventName: ev } });
     }
 
-    // 转化率
-    const pct = (a: number, b: number) => b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '0%';
+    // 杞寲鐜?    const pct = (a: number, b: number) => b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '0%';
     const conversion = {
       visit_to_create: pct(total.create_click, total.page_view),
       create_to_complete: pct(total.chart_complete, total.create_click),
@@ -230,7 +227,7 @@ export async function getStats(req: Request, res: Response) {
 export async function getQuota(req: Request, res: Response) {
   try {
     const vid = req.query.visitor_id as string;
-    if (!vid) return res.status(400).json({ success: false, error: '缺少 visitor_id' });
+    if (!vid) return res.status(400).json({ success: false, error: '缂哄皯 visitor_id' });
     const usage = await checkDailyUsage(vid);
     return res.json({ success: true, data: usage });
   } catch (error: any) {
