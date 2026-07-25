@@ -177,6 +177,33 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
     out['section_02.bazi.'+i+'.current_class'] = (d && d.isCurrent) ? 'current' : '';
   }
 
+
+  // === 六维 + 冲突 + 定论回退数据 ===
+  const dims = ['career','wealth','marriage','children','family','health'];
+  const dimLabels: Record<string,string> = {career:'事业',wealth:'财富',marriage:'感情',children:'子女',family:'家庭',health:'健康'};
+  dims.forEach(dim => {
+    if (!out['dim.'+dim+'.bazi'] || out['dim.'+dim+'.bazi'] === '-') out['dim.'+dim+'.bazi'] = '（八字维度待AI分析）';
+    if (!out['dim.'+dim+'.ziwei'] || out['dim.'+dim+'.ziwei'] === '-') out['dim.'+dim+'.ziwei'] = '（紫微维度待AI分析）';
+    if (!out['dim.'+dim+'.verdict'] || out['dim.'+dim+'.verdict'] === '-') out['dim.'+dim+'.verdict'] = '待两盘印证';
+  });
+  for (let i=0; i<3; i++) {
+    if (!out['conflicts.'+i+'.point'] || out['conflicts.'+i+'.point'] === '-') out['conflicts.'+i+'.point'] = '待AI冲突检测';
+    if (!out['conflicts.'+i+'.bazi'] || out['conflicts.'+i+'.bazi'] === '-') out['conflicts.'+i+'.bazi'] = '—';
+    if (!out['conflicts.'+i+'.ziwei'] || out['conflicts.'+i+'.ziwei'] === '-') out['conflicts.'+i+'.ziwei'] = '—';
+    if (!out['conflicts.'+i+'.impact'] || out['conflicts.'+i+'.impact'] === '-') out['conflicts.'+i+'.impact'] = '—';
+  }
+  if (!out['final.life_axis'] || out['final.life_axis'] === '-') {
+    out['final.life_axis'] = (bz.dayMaster||'') + '日主，' + (en?.格局?.primary||'普通格局') + '，命宫主星' + ((zw.gongs[0]?.mainStars||[]).join('、')||'—') + '。完整报告中由AI综合两盘深度分析。';
+  }
+  const confLabels = ['bazi','ziwei','consistency','stability'];
+  const confDefaults = ['中','中','待测','待测'];
+  const confScores = ['0.65','0.60','0.50','0.50'];
+  confLabels.forEach((k,i) => {
+    if (!out['confidence.'+k+'_level'] || out['confidence.'+k+'_level'] === '-') out['confidence.'+k+'_level'] = confDefaults[i];
+    if (!out['confidence.'+k+'_score'] || out['confidence.'+k+'_score'] === '-') out['confidence.'+k+'_score'] = confScores[i];
+  });
+  if (!out['confidence.note'] || out['confidence.note'] === '-') out['confidence.note'] = '当前为基础排盘结果。完整报告由AI深度分析后更新置信度评估。';
+
   return out;
 }
 
