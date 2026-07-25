@@ -189,7 +189,7 @@ export default function ChartPage() {
           </h2>
           <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-[#2a2520]">
             {data?.posterHtml ? (
-              <iframe srcDoc={data.posterHtml} className="w-full border-0" style={{ minHeight: "80vh", height: "auto" }} scrolling="auto" sandbox="allow-same-origin allow-scripts" title="????" />
+              <iframe ref={el=>{if(el&&el.contentDocument&&el.contentDocument.body){el.style.height=el.contentDocument.body.scrollHeight+"px"}}} srcDoc={data.posterHtml} className="w-full border-0" style={{width:"100%",minHeight:"600px"}} scrolling="no" onLoad={e=>{try{const doc=e.currentTarget.contentDocument;if(doc&&doc.body){e.currentTarget.style.height=doc.body.scrollHeight+"px"}}catch(err){}}} title="????" />
             ) : (
               <div className="p-8 text-center text-[#a89a85]">海报加载中...</div>
             )}
