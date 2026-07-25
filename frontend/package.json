@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node -e \"var f=require('fs');var p='./.next';f.cpSync(p+'/static',p+'/standalone/.next/static',{recursive:true})\"",
+    "build": "next build && node -e \"var f=require('fs');f.cpSync('./.next/static','./.next/standalone/.next/static',{recursive:true})\"",
     "start": "next start",
     "lint": "eslint"
   },
