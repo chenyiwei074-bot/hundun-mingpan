@@ -73,7 +73,7 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
   const cg = bz.cangGan || {};
   ['year','month','day','hour'].forEach((p,i) => {
     const arr = cg[p] || [];
-    for (let j=0; j<3; j++) out['bazi.canggan.'+p+'.'+j] = arr[j] || '';
+    for (let j=0; j<3; j++) out['bazi.canggan.'+p+'.'+j] = arr[j]?.gan || '';
   });
 
   // 大运
