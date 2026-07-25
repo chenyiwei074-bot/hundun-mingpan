@@ -14,12 +14,16 @@ export async function runPipeline(input: CreateChartInput, chartId: string): Pro
 
     const posterHtml = renderPoster({ chart, name: input.name });
 
+    // 过滤空字节 (PostgreSQL TEXT 不允许 \x00)
+    const safePosterHtml = posterHtml.replace(/\x00/g, '');
+    const safeChartJson = chartJson.replace(/\x00/g, '');
+
     await prisma.chart.update({
       where: { id: chartId },
       data: {
-        chartJson,
+        chartJson: safeChartJson,
         analysisJson,
-        posterHtml,
+        posterHtml: safePosterHtml,
         posterUrl: '/api/chart/poster/' + chartId,
         status: 'completed',
       },
