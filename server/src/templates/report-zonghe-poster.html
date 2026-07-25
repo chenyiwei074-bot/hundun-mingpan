@@ -51,8 +51,7 @@
   }
 
   /* ============ HEADER ============ */
-  .header {
-    display: grid;
+  .header { overflow: hidden; display: grid;
     grid-template-columns: auto 1fr auto;
     gap: 16px;
     align-items: start;
@@ -69,10 +68,9 @@
     font-size: 11px; letter-spacing: 2px; line-height: 1.1;
     transform: rotate(-3deg);
   }
-  .title-block h1 { font-size: 36px; margin: 0 0 6px; letter-spacing: 4px; font-weight: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .title-block { overflow: hidden; } .title-block h1 { font-size: 36px; margin: 0 0 6px; letter-spacing: 4px; font-weight: normal; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .title-block .subtitle { font-size: 13px; color: var(--ink-soft); letter-spacing: 1px; max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .header-right {
-    text-align: right;
+  .header-right { overflow: hidden; text-align: right;
     font-size: 11px; color: var(--ink-soft);
   }
   .header-right .gen-time { margin-bottom: 6px; }
