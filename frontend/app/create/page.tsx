@@ -289,7 +289,7 @@ export default function CreatePage() {
     v ? <span className="text-[#e8e0d5]">{v}</span> : <span className="text-[#5a5045]">{placeholder}</span>;
 
   return (
-    <div className="min-h-screen bg-texture pb-20">
+    <div className="min-h-screen bg-texture pb-20 relative overflow-hidden"><div className="absolute inset-0 pointer-events-none"><div className="absolute top-10 left-5 w-48 h-48 bg-[#7b5ea7] rounded-full opacity-[0.04] blur-3xl"></div><div className="absolute bottom-40 right-5 w-64 h-64 bg-[#c9a84c] rounded-full opacity-[0.04] blur-3xl"></div></div>
       {/* Header */}
       <div className="border-b border-[#2a2520] py-6 px-4 text-center">
         <a href="/" className="text-[#c9a84c] text-sm tracking-[4px] no-underline hover:text-[#e0c878] transition-colors">
