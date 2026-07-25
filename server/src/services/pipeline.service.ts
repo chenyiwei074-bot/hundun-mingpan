@@ -2,6 +2,7 @@ import prisma from '../database';
 import { generateChart } from './chart.service';
 import { renderPoster } from './render.service';
 import { generateMarketing } from './marketing.service';
+import { generateAIAnalysis } from './analysis.service';
 import type { CreateChartInput } from '../utils/types';
 
 export async function runPipeline(input: CreateChartInput, chartId: string): Promise<void> {
@@ -10,11 +11,20 @@ export async function runPipeline(input: CreateChartInput, chartId: string): Pro
     const chartJson = JSON.stringify(chart);
 
     const marketing = generateMarketing(chart);
-    const analysisJson = JSON.stringify({ marketing });
 
-    const posterHtml = renderPoster({ chart, name: input.name });
+    let aiAnalysis: Record<string, unknown> = {};
+    try {
+      aiAnalysis = await generateAIAnalysis(chart, input.name);
+      console.log('AI analysis generated successfully for chart ' + chartId);
+    } catch (aiError) {
+      console.error('AI analysis failed, using defaults:', (aiError as Error).message);
+    }
 
-    // 过滤空字节 (PostgreSQL TEXT 不允许 \x00)
+    const merged = { marketing, ...aiAnalysis };
+    const analysisJson = JSON.stringify(merged);
+
+    const posterHtml = renderPoster({ chart, analysis: merged, name: input.name });
+
     const safePosterHtml = posterHtml.replace(/\x00/g, '');
     const safeChartJson = chartJson.replace(/\x00/g, '');
 

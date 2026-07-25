@@ -39,7 +39,7 @@ export class DeepSeekProvider implements AIProvider {
         model: modelName,
         messages,
         temperature: 0.7,
-        max_tokens: 4096,
+        max_tokens: request.type === 'comprehensive' ? 16384 : 4096,
         response_format: { type: 'json_object' },
       }),
     });
