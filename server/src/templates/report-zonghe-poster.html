@@ -90,7 +90,7 @@
     gap: 16px;
     margin-bottom: 16px;
   }
-  /* core-data 独立一行, 全宽 5 卡 */
+  /* core-data 独立一�? 全宽 5 �?*/
   .core-data-row {
     margin-bottom: 20px;
   }
@@ -235,10 +235,10 @@
     border-bottom: 1px solid var(--line-soft);
   }
   .ziwei-pan h3 small { font-size: 10px; color: var(--ink-soft); margin-left: 8px; }
-  .ziwei-pan h3 .sh-禄 { color: var(--vermillion); }
-  .ziwei-pan h3 .sh-权 { color: var(--azure); }
-  .ziwei-pan h3 .sh-科 { color: var(--jade); }
-  .ziwei-pan h3 .sh-忌 { color: var(--obsidian); }
+  .ziwei-pan h3 .sh-�?{ color: var(--vermillion); }
+  .ziwei-pan h3 .sh-�?{ color: var(--azure); }
+  .ziwei-pan h3 .sh-�?{ color: var(--jade); }
+  .ziwei-pan h3 .sh-�?{ color: var(--obsidian); }
   .ziwei-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -253,10 +253,11 @@
     font-size: 10px;
     position: relative;
     display: flex; flex-direction: column;
+    overflow: hidden;
   }
   .palace.ming { box-shadow: inset 0 0 0 2px var(--vermillion); }
   .palace.ming .p-gong { color: var(--vermillion); }
-  /* 身宫: 宫名后的内联小徽标, 不绝对定位, 不遮挡内容 */
+  /* 身宫: 宫名后的内联小徽�? 不绝对定�? 不遮挡内�?*/
   .shen-badge {
     display: inline-block; margin-left: 3px;
     color: var(--vermillion); border: 1px solid var(--vermillion);
@@ -286,10 +287,10 @@
     font-size: 9px; color: var(--ink-soft);
   }
   .palace.current-daxian .daxian { color: var(--vermillion); font-weight: bold; }
-  .sihua-禄 { color: var(--vermillion); }
-  .sihua-权 { color: var(--azure); }
-  .sihua-科 { color: var(--jade); }
-  .sihua-忌 { color: var(--obsidian); text-decoration: underline; text-decoration-thickness: 1.5px; }
+  .sihua-�?{ color: var(--vermillion); }
+  .sihua-�?{ color: var(--azure); }
+  .sihua-�?{ color: var(--jade); }
+  .sihua-�?{ color: var(--obsidian); text-decoration: underline; text-decoration-thickness: 1.5px; }
   .sihua-tag {
     display: inline-block; padding: 0 3px;
     border: 1px solid currentColor; border-radius: 2px;
@@ -483,7 +484,7 @@
     margin-bottom: 6px; line-height: 1.5;
   }
   .nodes-list li::before {
-    content: "●"; position: absolute; left: 0; top: 0;
+    content: "�?; position: absolute; left: 0; top: 0;
     color: var(--vermillion); font-size: 10px;
   }
   .risk-item, .leverage-item, .advice-item {
@@ -531,7 +532,7 @@
     padding: 4px 8px; font-size: 11px; letter-spacing: 2px;
     transform: rotate(-2deg);
   }
-﻿/* ============ MOBILE RESPONSIVE ============ */
+�?* ============ MOBILE RESPONSIVE ============ */
 @media (max-width: 768px) {
   html, body { font-size: 12px; padding: 8px; }
   body { padding: 8px; min-height: auto; }
@@ -553,8 +554,8 @@
   .axes-row { grid-template-columns: 1fr; gap: 8px; }
   .strengths-block { grid-template-columns: 1fr; gap: 8px; }
   .charts-grid { grid-template-columns: 1fr; gap: 10px; }
-  .ziwei-grid { height: auto; grid-template-columns: repeat(4, 1fr); grid-template-rows: auto; }
-  .palace { font-size: 8px; padding: 3px 4px; min-height: 80px; }
+  .ziwei-grid { height: auto; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, minmax(110px, auto)); }
+  .palace { font-size: 8px; padding: 3px 4px; min-height: 100px; overflow: hidden; }
   .palace .main-star { font-size: 9px; }
   .palace .aux-star { font-size: 8px; }
   .palace .small-star { font-size: 7px; }
@@ -573,9 +574,9 @@
   .ziwei-pan h3 small { font-size: 8px; display: none; }
   .bazi-body { padding: 8px; overflow-x: auto; }
   .bazi-pillars { grid-template-columns: repeat(4, 1fr); }
-  .b-gan { font-size: 22px; }
-  .b-zhi { font-size: 18px; }
-  .b-canggan { font-size: 8px; min-height: 30px; }
+  .b-gan { font-size: 18px; }
+  .b-zhi { font-size: 15px; }
+  .b-canggan { font-size: 7px; min-height: 36px; line-height: 1.3; }
   .b-head { font-size: 8px; }
   .b-shishen { font-size: 9px; }
   .b-extra-row { font-size: 7px; }
@@ -609,14 +610,63 @@
   .conf-note { font-size: 9px; padding: 6px 8px; }
 }
 
-</style>
+
+/* ============ SMALL PHONE < 400px ============ */
+@media (max-width: 400px) {
+  html, body { font-size: 11px; padding: 4px; }
+  body { padding: 4px; }
+  .report { padding: 8px; }
+  .title-block h1 { font-size: 18px; letter-spacing: 1px; }
+  .header { gap: 6px; }
+  .seal { width: 32px; height: 32px; font-size: 9px; }
+  .ziwei-grid { grid-template-rows: repeat(4, minmax(100px, auto)); }
+  .palace { min-height: 90px; padding: 2px 3px; font-size: 7px; }
+  .palace .main-star { font-size: 8px; }
+  .palace .aux-star { font-size: 7px; }
+  .palace .small-star { font-size: 6px; }
+  .palace .p-head { font-size: 6px; }
+  .palace .p-gong { font-size: 7px; }
+  .palace .p-ganzhi { font-size: 6px; }
+  .palace .daxian { font-size: 6px; }
+  .center-palace { padding: 6px; }
+  .center-palace h4 { font-size: 9px; letter-spacing: 1px; }
+  .center-palace .info-line { font-size: 8px; }
+  .center-palace .pillars { gap: 2px; }
+  .center-palace .pillar { padding: 2px 3px; }
+  .center-palace .pillar .pgan { font-size: 10px; }
+  .center-palace .pillar .pzhi { font-size: 9px; }
+  .b-gan { font-size: 16px; }
+  .b-zhi { font-size: 13px; }
+  .b-canggan { font-size: 6px; min-height: 32px; }
+  .b-head { font-size: 7px; }
+  .b-shishen { font-size: 7px; }
+  .b-col { padding: 4px 2px; }
+  .bazi-body { padding: 4px; }
+  .core-data { grid-template-columns: repeat(2, 1fr); gap: 4px; }
+  .data-card { padding: 6px 4px; }
+  .data-card .value { font-size: 14px; }
+  .data-card .label { font-size: 9px; }
+  .section { padding: 8px 10px; margin-bottom: 8px; }
+  .section h2 { font-size: 11px; }
+  .final-grid { grid-template-columns: 1fr; gap: 6px; }
+  .confidence-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .charts-grid { gap: 8px; }
+  .top-grid { gap: 8px; }
+  .row-2col { gap: 8px; }
+  .info-card { font-size: 10px; padding: 8px 10px; }
+  .info-card .row { gap: 4px; }
+  .info-card .key { width: 36px; }
+  .strengths-block { gap: 6px; }
+  .axes-row { gap: 6px; }
+  .footer-disclaim { font-size: 9px; gap: 6px; }
+}</style>
 </head>
 <body>
 <div class="report">
 
   <!-- ============ HEADER ============ -->
   <header class="header">
-    <div class="seal">混沌<br>阁</div>
+    <div class="seal">混沌<br>�?/div>
     <div class="title-block">
       <div style="font-size:10px;color:var(--ink-soft);letter-spacing:2px;margin-bottom:4px">综合印证报告</div>
       <div class="person-name">{{name}}</div>
@@ -624,15 +674,15 @@
       <div class="subtitle">{{meta.axis_oneliner}}</div>
     </div>
     <div class="header-right">
-      <div class="gen-time">生成时间：<span class="num">{{meta.gen_time}}</span></div>
+      <div class="gen-time">生成时间�?span class="num">{{meta.gen_time}}</span></div>
       <div>综合印证评级</div>
-      <div class="badge-grade">✓ {{ziwei.consistency}}</div>
+      <div class="badge-grade">�?{{ziwei.consistency}}</div>
       <div class="meta-row">
         <span>命主星：<b>{{ziwei.ming_zhu}}</b></span>
         <span>身主星：<b>{{ziwei.shen_zhu}}</b></span>
       </div>
       <div class="meta-row">
-        <span>子年斗君：<b>{{ziwei.zi_dou_jun}}</b></span>
+        <span>子年斗君�?b>{{ziwei.zi_dou_jun}}</b></span>
         <span>{{ziwei.wuxing_ju}}</span>
       </div>
     </div>
@@ -643,10 +693,10 @@
 
     <!-- left info card -->
     <div class="info-card">
-      <div class="row"><span class="icon">☉</span><span class="key">阳历</span><span class="val num">{{meta.solar_date}}</span></div>
-      <div class="row"><span class="icon">☽</span><span class="key">农历</span><span class="val">{{meta.lunar_date}}</span></div>
-      <div class="row"><span class="icon">⚧</span><span class="key">性别</span><span class="val">{{meta.gender_full}}</span></div>
-      <div class="row"><span class="icon">⌛</span><span class="key">年龄</span><span class="val">虚岁 <span class="num">{{meta.age_virtual}}</span>（截至 <span class="num">{{meta.current_year}}</span>）</span></div>
+      <div class="row"><span class="icon">�?/span><span class="key">阳历</span><span class="val num">{{meta.solar_date}}</span></div>
+      <div class="row"><span class="icon">�?/span><span class="key">农历</span><span class="val">{{meta.lunar_date}}</span></div>
+      <div class="row"><span class="icon">�?/span><span class="key">性别</span><span class="val">{{meta.gender_full}}</span></div>
+      <div class="row"><span class="icon">�?/span><span class="key">年龄</span><span class="val">虚岁 <span class="num">{{meta.age_virtual}}</span>（截�?<span class="num">{{meta.current_year}}</span>�?/span></div>
     </div>
 
     <!-- right block: axes + strengths -->
@@ -666,16 +716,16 @@
       </div>
       <div class="strengths-block">
         <div class="strength-side">
-          <h4>★ 三大优势</h4>
-          <div class="item"><span class="star">★</span><div><span class="t">{{strengths.0.title}}</span><span class="d">{{strengths.0.desc}}</span></div></div>
-          <div class="item"><span class="star">★</span><div><span class="t">{{strengths.1.title}}</span><span class="d">{{strengths.1.desc}}</span></div></div>
-          <div class="item"><span class="star">★</span><div><span class="t">{{strengths.2.title}}</span><span class="d">{{strengths.2.desc}}</span></div></div>
+          <h4>�?三大优势</h4>
+          <div class="item"><span class="star">�?/span><div><span class="t">{{strengths.0.title}}</span><span class="d">{{strengths.0.desc}}</span></div></div>
+          <div class="item"><span class="star">�?/span><div><span class="t">{{strengths.1.title}}</span><span class="d">{{strengths.1.desc}}</span></div></div>
+          <div class="item"><span class="star">�?/span><div><span class="t">{{strengths.2.title}}</span><span class="d">{{strengths.2.desc}}</span></div></div>
         </div>
         <div class="weakness-side">
-          <h4>⊗ 三大隐忧</h4>
-          <div class="item"><span class="x">⊗</span><div><span class="t">{{weaknesses.0.title}}</span><span class="d">{{weaknesses.0.desc}}</span></div></div>
-          <div class="item"><span class="x">⊗</span><div><span class="t">{{weaknesses.1.title}}</span><span class="d">{{weaknesses.1.desc}}</span></div></div>
-          <div class="item"><span class="x">⊗</span><div><span class="t">{{weaknesses.2.title}}</span><span class="d">{{weaknesses.2.desc}}</span></div></div>
+          <h4>�?三大隐忧</h4>
+          <div class="item"><span class="x">�?/span><div><span class="t">{{weaknesses.0.title}}</span><span class="d">{{weaknesses.0.desc}}</span></div></div>
+          <div class="item"><span class="x">�?/span><div><span class="t">{{weaknesses.1.title}}</span><span class="d">{{weaknesses.1.desc}}</span></div></div>
+          <div class="item"><span class="x">�?/span><div><span class="t">{{weaknesses.2.title}}</span><span class="d">{{weaknesses.2.desc}}</span></div></div>
         </div>
       </div>
     </div>
@@ -686,24 +736,24 @@
     <div class="section-title">命盘核心数据</div>
     <div class="core-data">
       <div class="data-card">
-        <div class="info-i">ⓘ</div>
+        <div class="info-i">�?/div>
         <div class="label">格局</div>
         <div class="value">{{core.geju}}</div>
         <div class="conf">置信度：{{core.geju_confidence}}</div>
       </div>
       <div class="data-card">
-        <div class="info-i">ⓘ</div>
+        <div class="info-i">�?/div>
         <div class="label">旺衰</div>
         <div class="value">{{core.wangshuai_verdict}}</div>
         <div class="score num">{{core.wangshuai_score}}</div>
         <div class="slider">
           <div class="slider-mark" style="left:{{core.wangshuai_pos_pct}}%"></div>
         </div>
-        <div class="slider-labels"><span>弱</span><span>中</span><span>旺</span></div>
+        <div class="slider-labels"><span>�?/span><span>�?/span><span>�?/span></div>
       </div>
       <div class="data-card">
-        <div class="info-i">ⓘ</div>
-        <div class="label">调候用神</div>
+        <div class="info-i">�?/div>
+        <div class="label">调候用�?/div>
         <div class="value-tiaohou" style="margin-top:6px"><span>{{core.tiaohou.0}}</span><span>{{core.tiaohou.1}}</span></div>
         <div class="conf" style="margin-top:8px">置信度：{{core.tiaohou_confidence}}</div>
       </div>
@@ -714,13 +764,13 @@
         </div>
       </div>
       <div class="data-card">
-        <div class="label">五行统计（含藏干）</div>
+        <div class="label">五行统计（含藏干�?/div>
         <div class="wx-bars">
-          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.木}}%;background:var(--jade)"></div><div class="name">木</div><div class="num-val num">{{core.wuxing.木}}</div></div>
-          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.火}}%;background:var(--vermillion)"></div><div class="name">火</div><div class="num-val num">{{core.wuxing.火}}</div></div>
-          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.土}}%;background:#a07c4a"></div><div class="name">土</div><div class="num-val num">{{core.wuxing.土}}</div></div>
-          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.金}}%;background:#9c9382"></div><div class="name">金</div><div class="num-val num">{{core.wuxing.金}}</div></div>
-          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.水}}%;background:var(--azure)"></div><div class="name">水</div><div class="num-val num">{{core.wuxing.水}}</div></div>
+          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.木}}%;background:var(--jade)"></div><div class="name">�?/div><div class="num-val num">{{core.wuxing.木}}</div></div>
+          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.火}}%;background:var(--vermillion)"></div><div class="name">�?/div><div class="num-val num">{{core.wuxing.火}}</div></div>
+          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.土}}%;background:#a07c4a"></div><div class="name">�?/div><div class="num-val num">{{core.wuxing.土}}</div></div>
+          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.金}}%;background:#9c9382"></div><div class="name">�?/div><div class="num-val num">{{core.wuxing.金}}</div></div>
+          <div class="wx-bar"><div class="col" style="height:{{core.wuxing_pct.水}}%;background:var(--azure)"></div><div class="name">�?/div><div class="num-val num">{{core.wuxing.水}}</div></div>
         </div>
       </div>
     </div>
@@ -730,47 +780,47 @@
   <div class="charts-grid">
     <!-- ZIWEI -->
     <div class="ziwei-pan">
-      <h3>紫微斗数 · 十二宫盘 <small>生年四化：<span class="sh-禄">禄朱砂</span> / <span class="sh-权">权青蓝</span> / <span class="sh-科">科翠绿</span> / <span class="sh-忌">忌玄黑</span></small></h3>
+      <h3>紫微斗数 · 十二宫盘 <small>生年四化�?span class="sh-�?>禄朱�?/span> / <span class="sh-�?>权青�?/span> / <span class="sh-�?>科翠�?/span> / <span class="sh-�?>忌玄�?/span></small></h3>
       <div class="ziwei-grid">
-        <!-- 巳 兄弟 -->
-        <div class="palace {{gongs.巳.flag}}" data-zhi="巳">
-          <div class="p-head"><span class="p-dizhi">巳</span><span class="p-gong">{{gongs.巳.name}}</span>{{gongs.巳.shenBadge}}<span class="p-ganzhi">{{gongs.巳.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.巳.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.巳.auxStars}}</div>
-          <div class="small-star">{{gongs.巳.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.巳.daxian_range}}</div>
+        <!-- �?兄弟 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 午 命宫 -->
-        <div class="palace {{gongs.午.flag}}" data-zhi="午">
-          <div class="p-head"><span class="p-dizhi">午</span><span class="p-gong">{{gongs.午.name}}</span>{{gongs.午.shenBadge}}<span class="p-ganzhi">{{gongs.午.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.午.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.午.auxStars}}</div>
-          <div class="small-star">{{gongs.午.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.午.daxian_range}}</div>
+        <!-- �?命宫 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 未 父母 -->
-        <div class="palace {{gongs.未.flag}}" data-zhi="未">
-          <div class="p-head"><span class="p-dizhi">未</span><span class="p-gong">{{gongs.未.name}}</span>{{gongs.未.shenBadge}}<span class="p-ganzhi">{{gongs.未.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.未.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.未.auxStars}}</div>
-          <div class="small-star">{{gongs.未.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.未.daxian_range}}</div>
+        <!-- �?父母 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 申 福德 -->
-        <div class="palace {{gongs.申.flag}}" data-zhi="申">
-          <div class="p-head"><span class="p-dizhi">申</span><span class="p-gong">{{gongs.申.name}}</span>{{gongs.申.shenBadge}}<span class="p-ganzhi">{{gongs.申.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.申.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.申.auxStars}}</div>
-          <div class="small-star">{{gongs.申.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.申.daxian_range}}</div>
+        <!-- �?福德 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 辰 夫妻(身) -->
-        <div class="palace {{gongs.辰.flag}}" data-zhi="辰">
-          <div class="p-head"><span class="p-dizhi">辰</span><span class="p-gong">{{gongs.辰.name}}</span>{{gongs.辰.shenBadge}}<span class="p-ganzhi">{{gongs.辰.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.辰.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.辰.auxStars}}</div>
-          <div class="small-star">{{gongs.辰.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.辰.daxian_range}}</div>
+        <!-- �?夫妻(�? -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
         <!-- center palace 2x2 -->
         <div class="center-palace">
@@ -778,74 +828,74 @@
           <div class="info-line">{{meta.yinyang}} {{ziwei.wuxing_ju}}</div>
           <div class="info-line">命主：{{ziwei.ming_zhu}}　身主：{{ziwei.shen_zhu}}</div>
           <div class="pillars">
-            <div class="pillar"><div class="pname">年</div><div class="pgan">{{bazi.year.gan}}</div><div class="pzhi">{{bazi.year.zhi}}</div></div>
-            <div class="pillar"><div class="pname">月</div><div class="pgan">{{bazi.month.gan}}</div><div class="pzhi">{{bazi.month.zhi}}</div></div>
-            <div class="pillar"><div class="pname">日</div><div class="pgan">{{bazi.day.gan}}</div><div class="pzhi">{{bazi.day.zhi}}</div></div>
-            <div class="pillar"><div class="pname">时</div><div class="pgan">{{bazi.hour.gan}}</div><div class="pzhi">{{bazi.hour.zhi}}</div></div>
+            <div class="pillar"><div class="pname">�?/div><div class="pgan">{{bazi.year.gan}}</div><div class="pzhi">{{bazi.year.zhi}}</div></div>
+            <div class="pillar"><div class="pname">�?/div><div class="pgan">{{bazi.month.gan}}</div><div class="pzhi">{{bazi.month.zhi}}</div></div>
+            <div class="pillar"><div class="pname">�?/div><div class="pgan">{{bazi.day.gan}}</div><div class="pzhi">{{bazi.day.zhi}}</div></div>
+            <div class="pillar"><div class="pname">�?/div><div class="pgan">{{bazi.hour.gan}}</div><div class="pzhi">{{bazi.hour.zhi}}</div></div>
           </div>
         </div>
-        <!-- 酉 田宅 -->
-        <div class="palace {{gongs.酉.flag}}" data-zhi="酉">
-          <div class="p-head"><span class="p-dizhi">酉</span><span class="p-gong">{{gongs.酉.name}}</span>{{gongs.酉.shenBadge}}<span class="p-ganzhi">{{gongs.酉.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.酉.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.酉.auxStars}}</div>
-          <div class="small-star">{{gongs.酉.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.酉.daxian_range}}</div>
+        <!-- �?田宅 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 卯 子女(来因) -->
-        <div class="palace {{gongs.卯.flag}}" data-zhi="卯">
-          <div class="p-head"><span class="p-dizhi">卯</span><span class="p-gong">{{gongs.卯.name}}</span>{{gongs.卯.shenBadge}}<span class="p-ganzhi">{{gongs.卯.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.卯.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.卯.auxStars}}</div>
-          <div class="small-star">{{gongs.卯.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.卯.daxian_range}}</div>
+        <!-- �?子女(来因) -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 戌 官禄 -->
-        <div class="palace {{gongs.戌.flag}}" data-zhi="戌">
-          <div class="p-head"><span class="p-dizhi">戌</span><span class="p-gong">{{gongs.戌.name}}</span>{{gongs.戌.shenBadge}}<span class="p-ganzhi">{{gongs.戌.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.戌.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.戌.auxStars}}</div>
-          <div class="small-star">{{gongs.戌.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.戌.daxian_range}}</div>
+        <!-- �?官禄 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 寅 财帛 -->
-        <div class="palace {{gongs.寅.flag}}" data-zhi="寅">
-          <div class="p-head"><span class="p-dizhi">寅</span><span class="p-gong">{{gongs.寅.name}}</span>{{gongs.寅.shenBadge}}<span class="p-ganzhi">{{gongs.寅.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.寅.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.寅.auxStars}}</div>
-          <div class="small-star">{{gongs.寅.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.寅.daxian_range}}</div>
+        <!-- �?财帛 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 丑 疾厄 -->
-        <div class="palace {{gongs.丑.flag}}" data-zhi="丑">
-          <div class="p-head"><span class="p-dizhi">丑</span><span class="p-gong">{{gongs.丑.name}}</span>{{gongs.丑.shenBadge}}<span class="p-ganzhi">{{gongs.丑.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.丑.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.丑.auxStars}}</div>
-          <div class="small-star">{{gongs.丑.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.丑.daxian_range}}</div>
+        <!-- �?疾厄 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 子 迁移 -->
-        <div class="palace {{gongs.子.flag}}" data-zhi="子">
-          <div class="p-head"><span class="p-dizhi">子</span><span class="p-gong">{{gongs.子.name}}</span>{{gongs.子.shenBadge}}<span class="p-ganzhi">{{gongs.子.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.子.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.子.auxStars}}</div>
-          <div class="small-star">{{gongs.子.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.子.daxian_range}}</div>
+        <!-- �?迁移 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
-        <!-- 亥 交友 -->
-        <div class="palace {{gongs.亥.flag}}" data-zhi="亥">
-          <div class="p-head"><span class="p-dizhi">亥</span><span class="p-gong">{{gongs.亥.name}}</span>{{gongs.亥.shenBadge}}<span class="p-ganzhi">{{gongs.亥.ganzhi}}</span></div>
-          <div class="main-star">{{gongs.亥.mainStarsHtml}}</div>
-          <div class="aux-star">{{gongs.亥.auxStars}}</div>
-          <div class="small-star">{{gongs.亥.smallStars}}</div>
-          <div class="daxian">大限 {{gongs.亥.daxian_range}}</div>
+        <!-- �?交友 -->
+        <div class="palace {{gongs.�?flag}}" data-zhi="�?>
+          <div class="p-head"><span class="p-dizhi">�?/span><span class="p-gong">{{gongs.�?name}}</span>{{gongs.�?shenBadge}}<span class="p-ganzhi">{{gongs.�?ganzhi}}</span></div>
+          <div class="main-star">{{gongs.�?mainStarsHtml}}</div>
+          <div class="aux-star">{{gongs.�?auxStars}}</div>
+          <div class="small-star">{{gongs.�?smallStars}}</div>
+          <div class="daxian">大限 {{gongs.�?daxian_range}}</div>
         </div>
       </div>
     </div>
 
     <!-- BAZI -->
     <div class="bazi-pan">
-      <h3>八字四柱盘 <small>藏干含十神 / 星运 / 自坐 / 纳音</small></h3>
+      <h3>八字四柱�?<small>藏干含十�?/ 星运 / 自坐 / 纳音</small></h3>
       <div class="bazi-body">
         <div class="bazi-pillars">
           <div class="b-col">
@@ -900,7 +950,7 @@
 
         <!-- DAYUN -->
         <div class="dayun-strip">
-          <div class="strip-head">大运 <span class="small">(起运 {{bazi.dayunStart}} 岁)</span></div>
+          <div class="strip-head">大运 <span class="small">(起运 {{bazi.dayunStart}} �?</span></div>
           <div class="strip-row">
             <div class="strip-cell {{dayun.0.current_class}}"><div class="gz">{{dayun.0.gz}}</div><div class="ages num">{{dayun.0.age_range}}</div><div class="ss">{{dayun.0.shishen}}</div></div>
             <div class="strip-cell {{dayun.1.current_class}}"><div class="gz">{{dayun.1.gz}}</div><div class="ages num">{{dayun.1.age_range}}</div><div class="ss">{{dayun.1.shishen}}</div></div>
@@ -947,13 +997,13 @@
       </div>
     </section>
 
-    <!-- 02 阶段印证时间轴 -->
+    <!-- 02 阶段印证时间�?-->
     <section class="section">
-      <h2><span class="num-box">02</span>阶段印证时间轴 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（水平双轨）</small></h2>
+      <h2><span class="num-box">02</span>阶段印证时间�?<small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（水平双轨）</small></h2>
       <div class="stage-legend">
-        <span><span class="dot up"></span>关键上升期</span>
-        <span><span class="dot flat"></span>调整期</span>
-        <span><span class="dot down"></span>压力期</span>
+        <span><span class="dot up"></span>关键上升�?/span>
+        <span><span class="dot flat"></span>调整�?/span>
+        <span><span class="dot down"></span>压力�?/span>
       </div>
       <div class="stage-grid">
         <div class="sg-label">八字大运</div>
@@ -984,7 +1034,7 @@
         <div>{{section_02.ziwei.6.range}}</div>
       </div>
       <div class="stage-conclusion">
-        <b>印证结论：</b>{{section_02.conclusion}}
+        <b>印证结论�?/b>{{section_02.conclusion}}
       </div>
     </section>
   </div>
@@ -1021,9 +1071,9 @@
     </section>
 
     <section class="section">
-      <h2><span class="num-box">04</span>冲突清单 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（已识别的主要冲突点）</small></h2>
+      <h2><span class="num-box">04</span>冲突清单 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（已识别的主要冲突点�?/small></h2>
       <div class="conflict-grid">
-        <div class="ch">冲突点</div>
+        <div class="ch">冲突�?/div>
         <div class="ch">八字视角</div>
         <div class="ch">紫微视角</div>
         <div class="ch">影响程度</div>
@@ -1069,18 +1119,18 @@
         </ul>
       </div>
       <div class="final-block">
-        <h4>3 个高风险窗口 <small style="color:var(--ink-faint)">（需谨慎）</small></h4>
+        <h4>3 个高风险窗口 <small style="color:var(--ink-faint)">（需谨慎�?/small></h4>
         <div class="risk-item"><span class="head">{{final.risks.0.range}}</span><br>{{final.risks.0.desc}}</div>
         <div class="risk-item"><span class="head">{{final.risks.1.range}}</span><br>{{final.risks.1.desc}}</div>
         <div class="risk-item"><span class="head">{{final.risks.2.range}}</span><br>{{final.risks.2.desc}}</div>
       </div>
       <div class="final-block">
-        <h4>2 条优势放大策略</h4>
-        <div class="leverage-item"><span class="head">▸ {{final.leverage.0.title}}</span><br>{{final.leverage.0.desc}}</div>
-        <div class="leverage-item"><span class="head">▸ {{final.leverage.1.title}}</span><br>{{final.leverage.1.desc}}</div>
+        <h4>2 条优势放大策�?/h4>
+        <div class="leverage-item"><span class="head">�?{{final.leverage.0.title}}</span><br>{{final.leverage.0.desc}}</div>
+        <div class="leverage-item"><span class="head">�?{{final.leverage.1.title}}</span><br>{{final.leverage.1.desc}}</div>
       </div>
       <div class="final-block">
-        <h4>行动建议清单 <small style="color:var(--ink-faint)">（优先级）</small></h4>
+        <h4>行动建议清单 <small style="color:var(--ink-faint)">（优先级�?/small></h4>
         <div class="advice-item"><span class="num">1</span>{{final.advice.0}}</div>
         <div class="advice-item"><span class="num">2</span>{{final.advice.1}}</div>
         <div class="advice-item"><span class="num">3</span>{{final.advice.2}}</div>
@@ -1089,40 +1139,40 @@
     </div>
   </section>
 
-  <!-- 06 置信度 -->
+  <!-- 06 置信�?-->
   <section class="section">
-    <h2><span class="num-box">06</span>置信度自评 <small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（综合模型不确定性）</small></h2>
+    <h2><span class="num-box">06</span>置信度自�?<small style="font-size:11px;color:var(--ink-soft);font-weight:normal">（综合模型不确定性）</small></h2>
     <div class="confidence-row">
       <div class="conf-card">
-        <div class="label">八字模型置信度</div>
+        <div class="label">八字模型置信�?/div>
         <div class="level">{{confidence.bazi_level}}</div>
         <div class="score">({{confidence.bazi_score}})</div>
       </div>
       <div class="conf-card">
-        <div class="label">紫微模型置信度</div>
+        <div class="label">紫微模型置信�?/div>
         <div class="level">{{confidence.ziwei_level}}</div>
         <div class="score">({{confidence.ziwei_score}})</div>
       </div>
       <div class="conf-card">
-        <div class="label">两盘印证一致性</div>
+        <div class="label">两盘印证一致�?/div>
         <div class="level">{{confidence.consistency_level}}</div>
         <div class="score">({{confidence.consistency_score}})</div>
       </div>
       <div class="conf-card">
-        <div class="label">关键结论稳定性</div>
+        <div class="label">关键结论稳定�?/div>
         <div class="level">{{confidence.stability_level}}</div>
         <div class="score">({{confidence.stability_score}})</div>
       </div>
       <div class="conf-note">
-        <b>说明：</b>{{confidence.note}}
+        <b>说明�?/b>{{confidence.note}}
       </div>
     </div>
   </section>
 
   <!-- ============ FOOTER ============ -->
   <div class="footer-disclaim">
-    <span>① 命理分析仅供参考，不构成任何决策依据。人生的方向掌握在自己手中。　　✉ 混沌阁 · 命理研究</span>
-    <span class="footer-seal">混沌<br>阁</span>
+    <span>�?命理分析仅供参考，不构成任何决策依据。人生的方向掌握在自己手中。　　�?混沌�?· 命理研究</span>
+    <span class="footer-seal">混沌<br>�?/span>
   </div>
 
 </div>
