@@ -1,10 +1,10 @@
-import { Request, Response } from 'express';
+﻿import { Request, Response } from 'express';
 import prisma from '../database';
 import { generateChart, extractFreeSummary } from '../services/chart.service';
 import { runPipeline } from '../services/pipeline.service';
 import { CreateChartSchema } from '../utils/types';
 
-const DAILY_FREE_LIMIT = 999; // 测试阶段不限制
+const DAILY_FREE_LIMIT = 3; // 每日免费3次
 
 function getTodayRange() {
   const now = new Date();
