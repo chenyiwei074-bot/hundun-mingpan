@@ -1,4 +1,4 @@
-import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
+﻿import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
 
 /**
  * DeepSeek AI Provider
@@ -27,7 +27,7 @@ export class DeepSeekProvider implements AIProvider {
     const startTime = Date.now();
 
     const messages = this.buildMessages(request);
-    const modelName = process.env.DEEPSEEK_MODEL || 'deepseek-chat';
+    const modelName = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
 
     const response = await fetch(this.baseUrl + '/v1/chat/completions', {
       method: 'POST',
