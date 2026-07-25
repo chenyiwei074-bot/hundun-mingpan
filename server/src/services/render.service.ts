@@ -150,10 +150,21 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
 
   // === 头部回退值 ===
   if (!out['meta.archetype_name'] || out['meta.archetype_name'] === '-') {
-    out['meta.archetype_name'] = (bz.dayMaster || '') + '日主 · ' + (en?.格局?.primary || '');
+    const mingStars = (zw.gongs[0]?.mainStars || []).join('') || '';
+    const pattern = en?.格局?.primary || '';
+    out['meta.archetype_name'] = mingStars ? (mingStars + '坐命' + (pattern ? ' · ' + pattern : '')) : ((bz.dayMaster || '') + '日主' + (pattern ? ' · ' + pattern : ''));
   }
   if (!out['meta.axis_oneliner'] || out['meta.axis_oneliner'] === '-') {
-    out['meta.axis_oneliner'] = (en?.格局?.primary || '') + ' · ' + (en?.旺衰?.verdict || '');
+    const dm = bz.dayMaster || '';
+    const ws = en?.旺衰?.verdict || '';
+    const ms = (zw.gongs[0]?.mainStars || []).join('') || '';
+    const mg = (zw.gongs[0]?.tiangan || '') + (zw.gongs[0]?.dizhi || '');
+    const pattern = en?.格局?.primary || '';
+    const parts: string[] = [];
+    if (dm && ws) parts.push(dm + '日主' + ws);
+    if (ms && mg) parts.push(ms + '坐命' + mg);
+    if (pattern) parts.push(pattern);
+    out['meta.axis_oneliner'] = parts.length > 0 ? parts.join('，') : '';
   }
   ['year','month','day','hour'].forEach(p => {
     if (!out['bazi.'+p+'.ziZuo'] || out['bazi.'+p+'.ziZuo'] === '') out['bazi.'+p+'.ziZuo'] = '—';
