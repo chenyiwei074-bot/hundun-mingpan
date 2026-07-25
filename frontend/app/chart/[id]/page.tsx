@@ -27,6 +27,8 @@ export default function ChartPage() {
   const id = params.id as string;
 
   const [data, setData] = useState<ChartResultData | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [iframeHeight, setIframeHeight] = useState('100vh');
   const [error, setError] = useState<string | null>(null);
   const [stageIndex, setStageIndex] = useState(0);
   const [pollCount, setPollCount] = useState(0);
@@ -187,7 +189,23 @@ export default function ChartPage() {
           </h2>
           <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-[#2a2520]">
             {data?.posterHtml ? (
-              <div dangerouslySetInnerHTML={{ __html: data.posterHtml }} />
+              <iframe
+                ref={iframeRef}
+                srcDoc={data.posterHtml}
+                className="w-full border-0"
+                style={{ height: iframeHeight }}
+                scrolling="no"
+                onLoad={() => {
+                  try {
+                    const doc = iframeRef.current?.contentDocument;
+                    if (doc?.body) {
+                      const h = doc.body.scrollHeight;
+                      if (h > 0) setIframeHeight((h + 40) + 'px');
+                    }
+                  } catch(e) {}
+                }}
+                title="命盘海报"
+              />
             ) : (
               <div className="p-8 text-center text-[#a89a85]">海报加载中...</div>
             )}
