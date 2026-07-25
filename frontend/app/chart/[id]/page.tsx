@@ -322,7 +322,7 @@ export default function ChartPage() {
                 获取完整万字命理报告
               </button>
               <p className="mt-3 text-xs text-[#6b5f52] tracking-[2px]">
-                \u00A5 199 / 份 &nbsp;|&nbsp; 添加客服微信，立即获取深度解析
+                &yen;199 / 份 &nbsp;|&nbsp; 添加客服微信，立即获取深度解析
               </p>
             </div>
           </div>
@@ -348,7 +348,7 @@ export default function ChartPage() {
           <div className="text-4xl mb-4">{'\uD83D\uDCAC'}</div>
           <h3 className="text-[#e8e0d5] text-lg tracking-[4px] mb-2 font-normal">添加混沌阁客服</h3>
           <p className="text-[#a89a85] text-sm tracking-[2px] mb-6">
-            获取专属万字命理深度解读  ¥ 199/份  \u00A5 199/\u4EFD
+            获取专属万字命理深度解读  &yen;199 / 份
           </p>
 
           <div className="bg-[#0a0806] rounded-lg p-4 mb-4 border border-[#2a2520]">
