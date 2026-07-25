@@ -39,10 +39,12 @@ jobs:
 
             echo "===== [4/5] Frontend Build ====="
             cd /opt/frontend
+            pm2 stop hundun-web 2>/dev/null || true
             npm ci --production=false
+            rm -rf .next
             npm run build
-            pm2 restart hundun-web
-            echo "OK: frontend built & restarted"
+            pm2 start hundun-web
+            echo "OK: frontend built & started"
 
             echo "===== [5/5] Health Check ====="
             sleep 3
