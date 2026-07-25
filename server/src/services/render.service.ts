@@ -176,35 +176,118 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
   out['axes.bazi_main'] = (bz.dayMaster || '') + '日主，' + (en?.格局?.primary || '普通格局') + '，日主' + (en?.旺衰?.verdict || '中和') + '。' + ((en?.调候用神||[]).length > 0 ? '调候用神：' + (en?.调候用神||[]).join('、') + '。' : '');
   out['axes.ziwei_main'] = '命宫' + (zw.gongs[0]?.tiangan||'') + (zw.gongs[0]?.dizhi||'') + '，主星' + ((zw.gongs[0]?.mainStars||[]).join('、')||'无') + '，' + (zw.wuXingJu?.name||'') + '局。';
 
-  // === 大运流年 (7步大运) ===
+  // === 大运流年 (section_02 + dayun table) ===
   const dayun = bz.dayun || [];
-  for (let i = 0; i < 7; i++) {
+  const dayunLen = Math.min(dayun.length, 10);
+  for (let i = 0; i < dayunLen; i++) {
     const d = dayun[i];
     const startYr = d ? (d.startYear || (d.startAge||0) + bi.year) : 0;
     const endYr = d ? (d.endYear || startYr + 9) : 0;
-    out['section_02.bazi.'+i+'.range'] = d ? (startYr + '-' + endYr + ' (' + (d.startAge||'') + '-' + (d.endAge||(d.startAge||0)+9) + '岁)') : '';
-    out['section_02.bazi.'+i+'.gz'] = d ? (d.ganZhi.gan + d.ganZhi.zhi) : '';
-    out['section_02.bazi.'+i+'.shishen'] = d ? (d.ganZhi.gan + d.ganZhi.zhi) : '';
-    out['section_02.bazi.'+i+'.current_class'] = (d && d.isCurrent) ? 'current' : '';
+    const gz = d ? (d.ganZhi.gan + d.ganZhi.zhi) : '';
+    const range = d ? (d.startAge + '-' + d.endAge + '岁') : '';
+    const fullRange = d ? (startYr + '-' + endYr + ' (' + range + ')') : '';
+    const isCurrent = (d && d.startYear <= currentYear && d.endYear >= currentYear) || d?.isCurrent;
+    out['section_02.bazi.'+i+'.range'] = fullRange || '-';
+    out['section_02.bazi.'+i+'.gz'] = gz || '-';
+    out['section_02.bazi.'+i+'.shishen'] = (d?.ganShiShen || d?.zhiShiShen || gz) || '-';
+    out['section_02.bazi.'+i+'.current_class'] = isCurrent ? 'current' : '';
+    out['dayun.'+i+'.age_range'] = range || '-';
+    out['dayun.'+i+'.gz'] = gz || '-';
+    out['dayun.'+i+'.shishen'] = (d?.ganShiShen || d?.zhiShiShen || gz) || '-';
+    out['dayun.'+i+'.current_class'] = isCurrent ? 'current' : '';
+  }
+  for (let i = dayunLen; i < 10; i++) {
+    out['dayun.'+i+'.age_range'] = '-';
+    out['dayun.'+i+'.gz'] = '-';
+    out['dayun.'+i+'.shishen'] = '-';
+    out['dayun.'+i+'.current_class'] = '';
+    out['section_02.bazi.'+i+'.range'] = '-';
+    out['section_02.bazi.'+i+'.gz'] = '-';
+    out['section_02.bazi.'+i+'.shishen'] = '-';
+    out['section_02.bazi.'+i+'.current_class'] = '';
   }
 
+  let currentDayun = null;
+  for (const d of dayun) {
+    if (d.startYear <= currentYear && d.endYear >= currentYear) { currentDayun = d; break; }
+  }
+  if (!currentDayun) currentDayun = dayun[0];
+  const liunianList = currentDayun?.liuNian || [];
+  const liunianLen = Math.min(liunianList.length, 10);
+  out['liunian_dayun_label'] = currentDayun
+    ? (currentDayun.ganZhi.gan + currentDayun.ganZhi.zhi + '大运（' + currentDayun.startAge + '-' + currentDayun.endAge + '岁）')
+    : '—';
+  for (let i = 0; i < liunianLen; i++) {
+    const ln = liunianList[i];
+    out['liunian.'+i+'.year'] = ln.year?.toString() || '-';
+    out['liunian.'+i+'.age'] = ln.age?.toString() || '-';
+    out['liunian.'+i+'.gz'] = (ln.ganZhi?.gan || '') + (ln.ganZhi?.zhi || '') || '-';
+    out['liunian.'+i+'.shishen'] = (ln.ganZhi?.gan || '') + (ln.ganZhi?.zhi || '') || '-';
+    out['liunian.'+i+'.current_class'] = (ln.year === currentYear) ? 'current' : '';
+  }
+  for (let i = liunianLen; i < 10; i++) {
+    out['liunian.'+i+'.year'] = '-';
+    out['liunian.'+i+'.age'] = '-';
+    out['liunian.'+i+'.gz'] = '-';
+    out['liunian.'+i+'.shishen'] = '-';
+    out['liunian.'+i+'.current_class'] = '';
+  }
 
-  // === 六维 + 冲突 + 定论回退数据 ===
   const dims = ['career','wealth','marriage','children','family','health'];
-  const dimLabels: Record<string,string> = {career:'事业',wealth:'财富',marriage:'感情',children:'子女',family:'家庭',health:'健康'};
   dims.forEach(dim => {
     if (!out['dim.'+dim+'.bazi'] || out['dim.'+dim+'.bazi'] === '-') out['dim.'+dim+'.bazi'] = '（八字维度待AI分析）';
     if (!out['dim.'+dim+'.ziwei'] || out['dim.'+dim+'.ziwei'] === '-') out['dim.'+dim+'.ziwei'] = '（紫微维度待AI分析）';
     if (!out['dim.'+dim+'.verdict'] || out['dim.'+dim+'.verdict'] === '-') out['dim.'+dim+'.verdict'] = '待两盘印证';
+    if (!out['dim.'+dim+'.fused'] || out['dim.'+dim+'.fused'] === '-') out['dim.'+dim+'.fused'] = '待AI融合分析';
   });
   for (let i=0; i<3; i++) {
     if (!out['conflicts.'+i+'.point'] || out['conflicts.'+i+'.point'] === '-') out['conflicts.'+i+'.point'] = '待AI冲突检测';
     if (!out['conflicts.'+i+'.bazi'] || out['conflicts.'+i+'.bazi'] === '-') out['conflicts.'+i+'.bazi'] = '—';
     if (!out['conflicts.'+i+'.ziwei'] || out['conflicts.'+i+'.ziwei'] === '-') out['conflicts.'+i+'.ziwei'] = '—';
     if (!out['conflicts.'+i+'.impact'] || out['conflicts.'+i+'.impact'] === '-') out['conflicts.'+i+'.impact'] = '—';
+    if (!out['conflicts.'+i+'.advice'] || out['conflicts.'+i+'.advice'] === '-') out['conflicts.'+i+'.advice'] = '—';
   }
   if (!out['final.life_axis'] || out['final.life_axis'] === '-') {
     out['final.life_axis'] = (bz.dayMaster||'') + '日主，' + (en?.格局?.primary||'普通格局') + '，命宫主星' + ((zw.gongs[0]?.mainStars||[]).join('、')||'—') + '。完整报告中由AI综合两盘深度分析。';
+  }
+  for (let i=0; i<5; i++) {
+    if (!out['final.nodes.'+i+'.age']) out['final.nodes.'+i+'.age'] = '—';
+    if (!out['final.nodes.'+i+'.year']) out['final.nodes.'+i+'.year'] = '—';
+    if (!out['final.nodes.'+i+'.event']) out['final.nodes.'+i+'.event'] = '（待AI分析关键人生节点）';
+  }
+  for (let i=0; i<3; i++) {
+    if (!out['final.risks.'+i+'.range']) out['final.risks.'+i+'.range'] = '—';
+    if (!out['final.risks.'+i+'.desc']) out['final.risks.'+i+'.desc'] = '（待AI分析高风险窗口）';
+  }
+  for (let i=0; i<2; i++) {
+    if (!out['final.leverage.'+i+'.title']) out['final.leverage.'+i+'.title'] = '—';
+    if (!out['final.leverage.'+i+'.desc']) out['final.leverage.'+i+'.desc'] = '（待AI分析优势放大策略）';
+  }
+  for (let i=0; i<4; i++) {
+    if (!out['final.advice.'+i]) out['final.advice.'+i] = '（待AI生成建议）';
+  }
+  if (!out['section_01.text'] || out['section_01.text'] === '-') {
+    out['section_01.text'] = '命主' + (bz.dayMaster||'') + '日主，' + (en?.格局?.primary||'格局待定') + '。完整命盘已生成，主轴印证结论待AI深度解读。';
+    out['section_01.word_count'] = '待解读';
+  }
+  if (!out['section_02.conclusion'] || out['section_02.conclusion'] === '-') {
+    out['section_02.conclusion'] = '大运流转已排定，阶段印证分析待AI完成。';
+  }
+  const defaultStrengths = [
+    {title:'待AI分析', desc:'命盘优势特征待AI从八字与紫微双盘交叉验证后生成。'},
+    {title:'待AI分析', desc:'命盘优势特征待AI从八字与紫微双盘交叉验证后生成。'},
+    {title:'待AI分析', desc:'命盘优势特征待AI从八字与紫微双盘交叉验证后生成。'}
+  ];
+  const defaultWeaknesses = [
+    {title:'待AI分析', desc:'命盘隐忧特征待AI从八字与紫微双盘交叉验证后生成。'},
+    {title:'待AI分析', desc:'命盘隐忧特征待AI从八字与紫微双盘交叉验证后生成。'},
+    {title:'待AI分析', desc:'命盘隐忧特征待AI从八字与紫微双盘交叉验证后生成。'}
+  ];
+  for (let i=0; i<3; i++) {
+    if (!out['strengths.'+i+'.title'] || out['strengths.'+i+'.title'] === '-') out['strengths.'+i+'.title'] = defaultStrengths[i].title;
+    if (!out['strengths.'+i+'.desc'] || out['strengths.'+i+'.desc'] === '-') out['strengths.'+i+'.desc'] = defaultStrengths[i].desc;
+    if (!out['weaknesses.'+i+'.title'] || out['weaknesses.'+i+'.title'] === '-') out['weaknesses.'+i+'.title'] = defaultWeaknesses[i].title;
+    if (!out['weaknesses.'+i+'.desc'] || out['weaknesses.'+i+'.desc'] === '-') out['weaknesses.'+i+'.desc'] = defaultWeaknesses[i].desc;
   }
   const confLabels = ['bazi','ziwei','consistency','stability'];
   const confDefaults = ['中','中','待测','待测'];
