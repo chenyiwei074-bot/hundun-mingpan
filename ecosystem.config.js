@@ -19,8 +19,8 @@ module.exports = {
     {
       name: 'hundun-web',
       cwd: './frontend',
-      script: 'node_modules/.bin/next',
-      args: 'start -p 3001',
+      script: '.next/standalone/server.js',
+      // standalone mode, no args needed
       instances: 1,
       exec_mode: 'fork',
       env: {
