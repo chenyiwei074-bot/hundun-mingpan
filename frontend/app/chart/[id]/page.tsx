@@ -33,7 +33,7 @@ export default function ChartPage() {
   const [stageIndex, setStageIndex] = useState(0);
   const [pollCount, setPollCount] = useState(0);
 
-  const POSTER_WIDTH = 750;
+  const POSTER_WIDTH = 780;
   const [scale, setScale] = useState(1);
   const [posterHeight, setPosterHeight] = useState(3000);
   const iframeRef = useRef<HTMLIFrameElement>(null);
