@@ -303,85 +303,93 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
 
 function analysisToFlat(analysis: any): Record<string, any> {
   const out: Record<string, any> = {};
-  // 营销文案
+  const setIf = (key: string, val: any) => {
+    if (val !== undefined && val !== null && val !== '' && val !== '-') out[key] = val;
+  };
   if (analysis.marketing) {
-    out['meta.archetype_name'] = analysis.marketing.title || '';
-    out['meta.axis_oneliner'] = analysis.marketing.hook || '';
+    setIf('meta.archetype_name', analysis.marketing.title);
+    setIf('meta.axis_oneliner', analysis.marketing.hook);
   }
   if (analysis.meta) {
-    out['meta.archetype_name'] = analysis.meta.archetype_name;
-    out['meta.axis_oneliner'] = analysis.meta.axis_oneliner;
+    setIf('meta.archetype_name', analysis.meta.archetype_name);
+    setIf('meta.axis_oneliner', analysis.meta.axis_oneliner);
   }
   if (analysis.axes) {
-    out['axes.bazi_main'] = analysis.axes.bazi_main;
-    out['axes.ziwei_main'] = analysis.axes.ziwei_main;
+    setIf('axes.bazi_main', analysis.axes.bazi_main);
+    setIf('axes.ziwei_main', analysis.axes.ziwei_main);
   }
-  if (analysis.consistency) out['ziwei.consistency'] = analysis.consistency;
+  if (analysis.consistency) setIf('ziwei.consistency', analysis.consistency);
 
   for (let i = 0; i < 3; i++) {
-    const s = analysis.strengths?.[i] || {};
-    out['strengths.' + i + '.title'] = s.title || '-';
-    out['strengths.' + i + '.desc'] = s.desc || '-';
-    const w = analysis.weaknesses?.[i] || {};
-    out['weaknesses.' + i + '.title'] = w.title || '-';
-    out['weaknesses.' + i + '.desc'] = w.desc || '-';
+    const s = analysis.strengths?.[i];
+    if (s) { setIf('strengths.' + i + '.title', s.title); setIf('strengths.' + i + '.desc', s.desc); }
+    const w = analysis.weaknesses?.[i];
+    if (w) { setIf('weaknesses.' + i + '.title', w.title); setIf('weaknesses.' + i + '.desc', w.desc); }
   }
 
   if (analysis.section_01) {
-    out['section_01.text'] = analysis.section_01.text || '-';
-    out['section_01.word_count'] = analysis.section_01.word_count || '-';
+    setIf('section_01.text', analysis.section_01.text);
+    setIf('section_01.word_count', analysis.section_01.word_count);
   }
   if (analysis.section_02) {
-    out['section_02.conclusion'] = analysis.section_02.conclusion || '-';
+    setIf('section_02.conclusion', analysis.section_02.conclusion);
   }
 
   const dims = ['career','wealth','marriage','children','family','health'];
   for (const k of dims) {
-    const d = analysis.dim?.[k] || {};
-    out['dim.' + k + '.bazi'] = d.bazi || '-';
-    out['dim.' + k + '.ziwei'] = d.ziwei || '-';
-    out['dim.' + k + '.verdict'] = d.verdict || '-';
-    out['dim.' + k + '.verdict_class'] = d.verdict_class || 'verdict-yes';
-    out['dim.' + k + '.fused'] = d.fused || '-';
+    const d = analysis.dim?.[k];
+    if (d) {
+      setIf('dim.' + k + '.bazi', d.bazi);
+      setIf('dim.' + k + '.ziwei', d.ziwei);
+      setIf('dim.' + k + '.verdict', d.verdict);
+      setIf('dim.' + k + '.verdict_class', d.verdict_class);
+      setIf('dim.' + k + '.fused', d.fused);
+    }
   }
 
   for (let i = 0; i < 3; i++) {
-    const c = analysis.conflicts?.[i] || {};
-    out['conflicts.' + i + '.point'] = c.point || '-';
-    out['conflicts.' + i + '.bazi'] = c.bazi || '-';
-    out['conflicts.' + i + '.ziwei'] = c.ziwei || '-';
-    out['conflicts.' + i + '.impact'] = c.impact || '-';
-    out['conflicts.' + i + '.impact_class'] = c.impact_class || 'low';
-    out['conflicts.' + i + '.advice'] = c.advice || '-';
+    const c = analysis.conflicts?.[i];
+    if (c) {
+      setIf('conflicts.' + i + '.point', c.point);
+      setIf('conflicts.' + i + '.bazi', c.bazi);
+      setIf('conflicts.' + i + '.ziwei', c.ziwei);
+      setIf('conflicts.' + i + '.impact', c.impact);
+      setIf('conflicts.' + i + '.impact_class', c.impact_class);
+      setIf('conflicts.' + i + '.advice', c.advice);
+    }
   }
 
   if (analysis.final) {
-    out['final.life_axis'] = analysis.final.life_axis || '-';
-    for (let i = 0; i < 5; i++) {
-      const n = analysis.final.nodes?.[i] || {};
-      out['final.nodes.' + i + '.age'] = n.age || '-';
-      out['final.nodes.' + i + '.year'] = n.year || '-';
-      out['final.nodes.' + i + '.event'] = n.event || '-';
+    setIf('final.life_axis', analysis.final.life_axis);
+    if (analysis.final.nodes) {
+      for (let i = 0; i < 5; i++) {
+        const n = analysis.final.nodes[i];
+        if (n) { setIf('final.nodes.' + i + '.age', n.age); setIf('final.nodes.' + i + '.year', n.year); setIf('final.nodes.' + i + '.event', n.event); }
+      }
     }
-    for (let i = 0; i < 3; i++) {
-      const r = analysis.final.risks?.[i] || {};
-      out['final.risks.' + i + '.range'] = r.range || '-';
-      out['final.risks.' + i + '.desc'] = r.desc || '-';
+    if (analysis.final.risks) {
+      for (let i = 0; i < 3; i++) {
+        const r = analysis.final.risks[i];
+        if (r) { setIf('final.risks.' + i + '.range', r.range); setIf('final.risks.' + i + '.desc', r.desc); }
+      }
     }
-    for (let i = 0; i < 2; i++) {
-      const l = analysis.final.leverage?.[i] || {};
-      out['final.leverage.' + i + '.title'] = l.title || '-';
-      out['final.leverage.' + i + '.desc'] = l.desc || '-';
+    if (analysis.final.leverage) {
+      for (let i = 0; i < 2; i++) {
+        const l = analysis.final.leverage[i];
+        if (l) { setIf('final.leverage.' + i + '.title', l.title); setIf('final.leverage.' + i + '.desc', l.desc); }
+      }
     }
-    for (let i = 0; i < 4; i++) out['final.advice.' + i] = analysis.final.advice?.[i] || '-';
+    if (analysis.final.advice) {
+      for (let i = 0; i < 4; i++) setIf('final.advice.' + i, analysis.final.advice[i]);
+    }
   }
 
   if (analysis.confidence) {
     for (const k of ['bazi','ziwei','consistency','stability']) {
-      out['confidence.' + k + '_level'] = analysis.confidence[k + '_level'] || '-';
-      out['confidence.' + k + '_score'] = analysis.confidence[k + '_score'] || '-';
+      setIf('confidence.' + k + '_level', analysis.confidence[k + '_level']);
+      setIf('confidence.' + k + '_score', analysis.confidence[k + '_score']);
     }
-    out['confidence.note'] = analysis.confidence.note || '-';
+    setIf('confidence.note', analysis.confidence.note);
   }
 
   return out;
