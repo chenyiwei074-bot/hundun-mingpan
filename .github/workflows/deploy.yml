@@ -1,0 +1,54 @@
+﻿name: Deploy to Alibaba Cloud
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            echo "===== [1/5] Git Pull ====="
+            cd /opt
+            if [ ! -d .git ]; then
+              echo "ERROR: /opt is not a git repository"
+              exit 1
+            fi
+            git fetch origin
+            git checkout main
+            git pull origin main
+            echo "OK: git pull done"
+
+            echo "===== [2/5] Backend Build ====="
+            cd /opt/server
+            npm ci
+            npm run build
+            echo "OK: backend built"
+
+            echo "===== [3/5] Restart API ====="
+            pm2 restart hundun-api
+            echo "OK: API restarted"
+
+            echo "===== [4/5] Frontend Build ====="
+            cd /opt/frontend
+            npm ci
+            npm run build
+            pm2 restart hundun-web
+            echo "OK: frontend built & restarted"
+
+            echo "===== [5/5] Health Check ====="
+            sleep 2
+            curl -s -o /dev/null -w "API: %{http_code}" http://localhost:3000/health
+            echo ""
+            curl -s -o /dev/null -w "Web: %{http_code}" http://localhost:3001/
+            echo ""
+            echo "===== DEPLOY DONE ====="
