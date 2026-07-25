@@ -61,68 +61,67 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
   out['ziwei.wuxing_ju'] = zw.wuXingJu?.name || '-';
 
 
-  // === 八字四柱 ===
+  // === 八字四柱 (匹配原始模板 {{bazi.柱.字段}}) ===
   const sz = bz.siZhu;
-  out['bazi.year_gan'] = sz.year.gan; out['bazi.year_zhi'] = sz.year.zhi;
-  out['bazi.month_gan'] = sz.month.gan; out['bazi.month_zhi'] = sz.month.zhi;
-  out['bazi.day_gan'] = sz.day.gan; out['bazi.day_zhi'] = sz.day.zhi;
-  out['bazi.hour_gan'] = sz.hour.gan; out['bazi.hour_zhi'] = sz.hour.zhi;
-  out['bazi.day_master'] = bz.dayMaster;
-
-  // 藏干
   const cg = bz.cangGan || {};
-  ['year','month','day','hour'].forEach((p,i) => {
-    const arr = cg[p] || [];
-    for (let j=0; j<3; j++) out['bazi.canggan.'+p+'.'+j] = arr[j]?.gan || '';
-  });
+  const nayinData = bz.naYin || {};
+  const zsData = bz.zhangSheng || {};
 
-  // 大运
-  const dayun = bz.dayun || [];
-  out['bazi.dayun_start'] = bz.dayunStart;
-  for (let i=0; i<8; i++) {
-    const d = dayun[i];
-    if (d) {
-      out['bazi.dayun.'+i+'.gan'] = d.ganZhi.gan;
-      out['bazi.dayun.'+i+'.zhi'] = d.ganZhi.zhi;
-      out['bazi.dayun.'+i+'.start'] = d.startYear+'';
-      out['bazi.dayun.'+i+'.end'] = (d.endYear || d.startYear+9)+'';
-      out['bazi.dayun.'+i+'.age'] = (d.startAge || 0)+'';
+  ['year','month','day','hour'].forEach(p => {
+    const pillar = sz[p];
+    out['bazi.'+p+'.gan'] = pillar.gan;
+    out['bazi.'+p+'.zhi'] = pillar.zhi;
+    out['bazi.'+p+'.naYin'] = nayinData[p] || '';
+    out['bazi.'+p+'.zhangSheng'] = zsData[p] || '';
+    out['bazi.'+p+'.shiShen'] = '';
+    out['bazi.'+p+'.ziZuo'] = '';
+    // cangGan HTML
+    const cgArr = cg[p] || [];
+    out['bazi.'+p+'.cangGanHtml'] = cgArr.map((x:any) => 
+      '<span>' + x.gan + '<small>(' + (x.shiShen||'') + ')</small></span>'
+    ).join('');
+    // Also keep underscore versions for my table
+    out['bazi.'+p+'_gan'] = pillar.gan;
+    out['bazi.'+p+'_zhi'] = pillar.zhi;
+  });
+  out['bazi.day_master'] = bz.dayMaster;
+  out['bazi.dayMaster'] = bz.dayMaster;
+  out['bazi.dayunStart'] = bz.dayunStart || '';
+
+  // === 紫微十二宫 (匹配原始模板 {{gongs.地支.*}}) ===
+  zw.gongs.forEach((g: any) => {
+    const branch = g.dizhi; // 巳,午,未,申,酉,戌,亥,子,丑,寅,卯,辰
+    if (!branch) return;
+    out['gongs.'+branch+'.flag'] = g.gong === '命宫' ? '命' : (g.gong === '身宫' ? '身' : '');
+    out['gongs.'+branch+'.name'] = g.gong || '';
+    out['gongs.'+branch+'.shenBadge'] = g.gong === '身宫' ? '身' : '';
+    out['gongs.'+branch+'.ganzhi'] = (g.tiangan||'') + (g.dizhi||'');
+    out['gongs.'+branch+'.mainStarsHtml'] = (g.mainStars || []).map((s: string) => '<span>'+s+'</span>').join('') || '';
+    out['gongs.'+branch+'.auxStars'] = (g.auxStars || []).join(' · ') || '';
+    out['gongs.'+branch+'.smallStars'] = '';
+    if (g.sihua && g.sihua.length > 0) {
+      out['gongs.'+branch+'.sihua'] = g.sihua.map((s: any) => s.star+s.hua).join(' · ');
     } else {
-      for (const k of ['gan','zhi','start','end','age']) out['bazi.dayun.'+i+'.'+k] = '';
+      out['gongs.'+branch+'.sihua'] = '';
     }
-  }
-
-  // 纳音
-  if (bz.naYin) {
-    out['bazi.nayin.year'] = bz.naYin.year || '';
-    out['bazi.nayin.month'] = bz.naYin.month || '';
-    out['bazi.nayin.day'] = bz.naYin.day || '';
-    out['bazi.nayin.hour'] = bz.naYin.hour || '';
-  }
-
-  // 长生
-  if (bz.zhangSheng) {
-    out['bazi.zhangsheng.year'] = bz.zhangSheng.year || '';
-    out['bazi.zhangsheng.month'] = bz.zhangSheng.month || '';
-    out['bazi.zhangsheng.day'] = bz.zhangSheng.day || '';
-    out['bazi.zhangsheng.hour'] = bz.zhangSheng.hour || '';
-  }
-
-  // === 紫微十二宫 ===
-  zw.gongs.forEach((g: any, idx: number) => {
-    const p = 'ziwei.gong.'+idx;
-    out[p+'.name'] = g.gong || '';
-    out[p+'.gan'] = g.tiangan || '';
-    out[p+'.zhi'] = g.dizhi || '';
-    out[p+'.main'] = (g.mainStars || []).join('·') || '—';
-    out[p+'.aux'] = (g.auxStars || []).join('·') || '';
-    out[p+'.sihua'] = (g.sihua || []).map((s: any) => s.star+s.hua).join('·') || '';
     if (g.daXian) {
-      out[p+'.daxian_age'] = (g.daXian.startAge||'')+'-'+(g.daXian.endAge||'');
-      out[p+'.daxian_ganzhi'] = (g.daXian.ganZhi?.gan||'')+(g.daXian.ganZhi?.zhi||'');
+      out['gongs.'+branch+'.daxian_range'] = (g.daXian.startAge||'')+'-'+(g.daXian.endAge||'')+'岁 '+(g.daXian.ganZhi?.gan||'')+(g.daXian.ganZhi?.zhi||'');
+    } else {
+      out['gongs.'+branch+'.daxian_range'] = '';
     }
-    out[p+'.is_ming'] = g.gong === '命宫' ? '★' : '';
   });
+
+  // 四化星
+  const sihuaStars: any = {};
+  zw.gongs.forEach((g: any) => {
+    (g.sihua || []).forEach((s: any) => {
+      sihuaStars[s.hua] = (sihuaStars[s.hua] || []).concat(s.star);
+    });
+  });
+  out['sihuaStars.lu'] = (sihuaStars['禄'] || []).join('·') || '—';
+  out['sihuaStars.quan'] = (sihuaStars['权'] || []).join('·') || '—';
+  out['sihuaStars.ke'] = (sihuaStars['科'] || []).join('·') || '—';
+  out['sihuaStars.ji'] = (sihuaStars['忌'] || []).join('·') || '—';
 
   const en = bz.enrichment;
   out['core.geju'] = en?.格局?.primary || '-';
