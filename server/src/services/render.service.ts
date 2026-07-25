@@ -60,6 +60,70 @@ function chartToFlat(chart: any, currentYear?: number): Record<string, any> {
   out['ziwei.zi_dou_jun'] = zw.ziDouJun || '-';
   out['ziwei.wuxing_ju'] = zw.wuXingJu?.name || '-';
 
+
+  // === 八字四柱 ===
+  const sz = bz.siZhu;
+  out['bazi.year_gan'] = sz.year.gan; out['bazi.year_zhi'] = sz.year.zhi;
+  out['bazi.month_gan'] = sz.month.gan; out['bazi.month_zhi'] = sz.month.zhi;
+  out['bazi.day_gan'] = sz.day.gan; out['bazi.day_zhi'] = sz.day.zhi;
+  out['bazi.hour_gan'] = sz.hour.gan; out['bazi.hour_zhi'] = sz.hour.zhi;
+  out['bazi.day_master'] = bz.dayMaster;
+
+  // 藏干
+  const cg = bz.cangGan || {};
+  ['year','month','day','hour'].forEach((p,i) => {
+    const arr = cg[p] || [];
+    for (let j=0; j<3; j++) out['bazi.canggan.'+p+'.'+j] = arr[j] || '';
+  });
+
+  // 大运
+  const dayun = bz.dayun || [];
+  out['bazi.dayun_start'] = bz.dayunStart;
+  for (let i=0; i<8; i++) {
+    const d = dayun[i];
+    if (d) {
+      out['bazi.dayun.'+i+'.gan'] = d.ganZhi.gan;
+      out['bazi.dayun.'+i+'.zhi'] = d.ganZhi.zhi;
+      out['bazi.dayun.'+i+'.start'] = d.startYear+'';
+      out['bazi.dayun.'+i+'.end'] = (d.endYear || d.startYear+9)+'';
+      out['bazi.dayun.'+i+'.age'] = (d.startAge || 0)+'';
+    } else {
+      for (const k of ['gan','zhi','start','end','age']) out['bazi.dayun.'+i+'.'+k] = '';
+    }
+  }
+
+  // 纳音
+  if (bz.naYin) {
+    out['bazi.nayin.year'] = bz.naYin.year || '';
+    out['bazi.nayin.month'] = bz.naYin.month || '';
+    out['bazi.nayin.day'] = bz.naYin.day || '';
+    out['bazi.nayin.hour'] = bz.naYin.hour || '';
+  }
+
+  // 长生
+  if (bz.zhangSheng) {
+    out['bazi.zhangsheng.year'] = bz.zhangSheng.year || '';
+    out['bazi.zhangsheng.month'] = bz.zhangSheng.month || '';
+    out['bazi.zhangsheng.day'] = bz.zhangSheng.day || '';
+    out['bazi.zhangsheng.hour'] = bz.zhangSheng.hour || '';
+  }
+
+  // === 紫微十二宫 ===
+  zw.gongs.forEach((g: any, idx: number) => {
+    const p = 'ziwei.gong.'+idx;
+    out[p+'.name'] = g.gong || '';
+    out[p+'.gan'] = g.tiangan || '';
+    out[p+'.zhi'] = g.dizhi || '';
+    out[p+'.main'] = (g.mainStars || []).join('·') || '—';
+    out[p+'.aux'] = (g.auxStars || []).join('·') || '';
+    out[p+'.sihua'] = (g.sihua || []).map((s: any) => s.star+s.hua).join('·') || '';
+    if (g.daXian) {
+      out[p+'.daxian_age'] = (g.daXian.startAge||'')+'-'+(g.daXian.endAge||'');
+      out[p+'.daxian_ganzhi'] = (g.daXian.ganZhi?.gan||'')+(g.daXian.ganZhi?.zhi||'');
+    }
+    out[p+'.is_ming'] = g.gong === '命宫' ? '★' : '';
+  });
+
   const en = bz.enrichment;
   out['core.geju'] = en?.格局?.primary || '-';
   out['core.geju_confidence'] = en?.格局?.confidence || '-';
