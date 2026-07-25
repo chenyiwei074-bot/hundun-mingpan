@@ -536,7 +536,6 @@
     text-align: center; font-size: 11px; color: var(--ink-faint);
     margin-top: 18px; padding: 14px 0;
     border-top: 1px solid var(--line-soft);
-    display: flex; align-items: center; justify-content: center; gap: 20px;
   }
   .footer-disclaim .footer-seal {
     color: var(--vermillion); border: 1px solid var(--vermillion);
@@ -925,7 +924,7 @@
 
   <!-- ============ NUMBERED SECTIONS ============ -->
 
-  <div class="row-2col">
+  
     
 
 
@@ -944,32 +943,6 @@
 
 
 
-<style>
-.cross-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
-.dim-label { font-size:14px; font-weight:bold; margin-bottom:6px; color:var(--ink); }
-.dim-icon { font-size:16px; }
-.dim-row { display:flex; gap:6px; align-items:center; margin:3px 0; font-size:12px; }
-.dim-tag { font-size:10px; padding:1px 6px; border-radius:2px; color:var(--ink-soft); background:var(--paper-deep); }
-.verdict-yes { color:var(--jade); }
-@media (max-width:600px) { .cross-grid { grid-template-columns:1fr; } }
-
-/* === BLUR OVERLAY === */
-.blur-locked { margin: 16px 0; }
-.blur-content { filter: none; user-select: auto; pointer-events: auto; }
-.blur-cover { display: none;
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(245,241,232,0.25);
-  z-index: 1;
-}
-.blur-cover .unlock-hint {
-  font-size: 13px; color: var(--ink-soft); letter-spacing: 4px;
-  border: 1px dashed var(--line-soft); padding: 10px 28px;
-  background: rgba(250,246,236,0.85); border-radius: 2px;
-  text-align: center;
-}
-.unlock-hint .lock-icon { font-size: 24px; display: block; margin-bottom: 6px; }
-</style>
 
 
 <!-- 05 综合定论 -->
