@@ -149,7 +149,7 @@ export function dumpChartText(chart: ChartResult): string {
 /**
  * 提取免费版摘要
  */
-export function extractFreeSummary(chart: ChartResult): {
+export function extractFreeSummary(chart: ChartResult, analysis?: Record<string, unknown> | null): {
   bazi: Record<string, unknown>;
   ziwei: Record<string, unknown>;
   keywords: string[];
@@ -180,11 +180,12 @@ export function extractFreeSummary(chart: ChartResult): {
     sihua: (zw.gongs[0]?.sihua || []).map((s: any) => s.star + s.hua),
   };
 
+  const dim = (analysis as any)?.dim;
   const keywords = [
-    bz.dayMaster,
-    bz.enrichment?.格局?.primary || '普通格局',
-    bz.enrichment?.旺衰?.verdict || '中和',
-  ].filter(Boolean).slice(0, 3);
+    dim?.career?.verdict || bz.enrichment?.格局?.primary || '格局待定',
+    dim?.wealth?.verdict || (bz.dayMaster + '日主'),
+    dim?.marriage?.verdict || (bz.enrichment?.旺衰?.verdict || '中和'),
+  ].filter((k: string) => k && k !== '-').slice(0, 3)
 
   return { bazi, ziwei, keywords };
 }
