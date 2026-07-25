@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
+﻿const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 export interface FreeContent {
   bazi: Record<string, unknown>;
@@ -44,8 +44,13 @@ export async function getChartStatus(id: string) {
 }
 
 export async function getChartResult(id: string) {
-  const res = await fetch(API_BASE + '/chart/result/' + id);
-  return res.json();
+  const url = API_BASE + '/chart/result/' + id;
+  console.log('[DEBUG getChartResult] Fetching:', url);
+  const res = await fetch(url);
+  const json = await res.json();
+  const result = { ...json, httpStatus: res.status };
+  console.log('[DEBUG getChartResult] Response:', { httpStatus: res.status, success: json.success, hasData: !!json.data, keys: json.data ? Object.keys(json.data) : [] });
+  return result;
 }
 
 export async function getQuota(visitorId: string) {

@@ -38,19 +38,17 @@ const months = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), lab
 const hours24 = Array.from({ length: 24 }, (_, i) => ({ value: String(i), label: `${String(i).padStart(2, '0')}:00` }));
 const minutes60 = Array.from({ length: 60 }, (_, i) => ({ value: String(i), label: String(i).padStart(2, '0') }));
 
-function getDaysInMonth(year: number, month: number, isLunar: boolean): number {
-  if (isLunar) {
-    // 农历月份 29 或 30 天，简化处理：大月30小月29，这里统一给30
-    return 30;
-  }
+function getDaysInMonth(year: number, month: number): number {
+  // new Date(year, month, 0) = last day of previous month
+  // month is 1-based, so new Date(2025, 2, 0) = Feb 28/29
   return new Date(year, month, 0).getDate();
 }
 
-function getDays(year: string, month: string, isLunar: boolean) {
+function getDays(year: string, month: string) {
   if (!year || !month) return [];
   const y = parseInt(year), m = parseInt(month);
   if (isNaN(y) || isNaN(m)) return [];
-  const maxDay = getDaysInMonth(y, m, isLunar);
+  const maxDay = getDaysInMonth(y, m);
   return Array.from({ length: maxDay }, (_, i) => ({ value: String(i + 1), label: `${i + 1}日` }));
 }
 
@@ -219,7 +217,7 @@ export default function CreatePage() {
   }, [visitorId]);
 
   const isLunar = form.calendar === '农历';
-  const dayOptions = useMemo(() => getDays(form.year, form.month, isLunar), [form.year, form.month, isLunar]);
+  const dayOptions = useMemo(() => getDays(form.year, form.month), [form.year, form.month]);
   const shichen = useMemo(() => getShichen(parseInt(form.hour)), [form.hour]);
 
   const validate = (): string | null => {
@@ -248,7 +246,9 @@ export default function CreatePage() {
     try {
       const month = form.month.padStart(2, '0');
       const day = form.day.padStart(2, '0');
-      const birthday = form.year + '-' + month + '-' + day + ' ' + form.hour + ':' + form.minute;
+      const shi = form.hour.padStart(2, '0');
+      const fen = form.minute.padStart(2, '0');
+      const birthday = form.year + '-' + month + '-' + day + ' ' + shi + ':' + fen;
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
@@ -262,9 +262,10 @@ export default function CreatePage() {
         currentPlace,
       });
 
+      console.log("[DEBUG create] API raw response:", JSON.stringify(res));
       if (res.success) {
         trackEvent('create_click', visitorId);
-        sessionStorage.setItem('chart_result_' + res.data.id, JSON.stringify(res.data));
+        console.log('[DEBUG create] Navigating to /chart/' + res.data.id);
         router.push('/chart/' + res.data.id);
       } else {
         setError(res.error || '生成失败');
@@ -280,6 +281,8 @@ export default function CreatePage() {
     const next = { ...prev, [k]: v };
     // 切换农历/公历时重置日
     if (k === 'calendar') { next.year = ''; next.month = ''; next.day = ''; }
+    // Clear day when year/month changes (day may become invalid)
+    if (k === 'year' || k === 'month') { next.day = ''; }
     // 切换年/月时重置日
     if (k === 'year' || k === 'month') next.day = '';
     return next;
