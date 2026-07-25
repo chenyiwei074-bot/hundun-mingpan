@@ -37,6 +37,7 @@ export default function ChartPage() {
   const [scale, setScale] = useState(1);
   const [posterHeight, setPosterHeight] = useState(3000);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timedOutRef = useRef(false);
 
@@ -111,15 +112,23 @@ export default function ChartPage() {
     return () => clearInterval(stageTimer);
   }, [data, error]);
 
-  // Scale poster on mobile
+  // Scale poster on mobile (use wrapper actual width, not viewport)
   useEffect(() => {
     const calcScale = () => {
-      const w = window.innerWidth;
-      setScale(w < POSTER_WIDTH ? w / POSTER_WIDTH : 1);
+      const wrapper = wrapperRef.current;
+      if (wrapper) {
+        const available = wrapper.clientWidth;
+        setScale(available < POSTER_WIDTH ? available / POSTER_WIDTH : 1);
+      }
     };
     calcScale();
     window.addEventListener('resize', calcScale);
-    return () => window.removeEventListener('resize', calcScale);
+    const observer = new ResizeObserver(() => calcScale());
+    if (wrapperRef.current) observer.observe(wrapperRef.current);
+    return () => {
+      window.removeEventListener('resize', calcScale);
+      observer.disconnect();
+    };
   }, [POSTER_WIDTH]);
 
   const handleIframeLoad = () => {
@@ -215,7 +224,7 @@ export default function ChartPage() {
           </h2>
           <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-[#2a2520]">
             {data?.posterHtml ? (
-              <div style={{ width: '100%', overflow: 'hidden', height: posterHeight * scale + 'px' }}>
+              <div ref={wrapperRef} style={{ width: '100%', overflow: 'hidden', height: posterHeight * scale + 'px' }}>
                 <iframe
                   ref={iframeRef}
                   srcDoc={data.posterHtml}
