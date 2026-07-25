@@ -1,4 +1,4 @@
-﻿import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
+import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
 
 /**
  * DeepSeek AI Provider
@@ -54,7 +54,9 @@ export class DeepSeekProvider implements AIProvider {
 
     let result: Record<string, unknown>;
     try {
-      result = JSON.parse(content);
+      // Strip markdown code blocks if present
+      let clean = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+      result = JSON.parse(clean);
     } catch {
       result = { raw: content };
     }
