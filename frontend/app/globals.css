@@ -174,3 +174,40 @@ body {
   text-align: center;
   animation: fadeUp 0.3s ease-out;
 }
+/* 选择器按钮 */
+.picker-btn {
+  width: 100%;
+  padding: 12px 16px;
+  background: #141110;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 15px;
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color 0.2s;
+  cursor: pointer;
+  text-align: left;
+}
+.picker-btn:hover { border-color: #3a3530; }
+.picker-btn:active { border-color: var(--gold); }
+
+/* 弹窗滑入动画 */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.animate-slide-up { animation: slideUp 0.25s ease-out; }
+
+/* 滚动条样式 */
+.overscroll-contain {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.overscroll-contain::-webkit-scrollbar { width: 4px; }
+.overscroll-contain::-webkit-scrollbar-track { background: transparent; }
+.overscroll-contain::-webkit-scrollbar-thumb { background: #2a2520; border-radius: 2px; }
+
+/* 选择器项 hover（移动端使用 active） */
+@media (hover: none) {
+  .picker-btn:hover { border-color: var(--border-subtle); }
+}
