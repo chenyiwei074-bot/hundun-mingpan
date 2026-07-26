@@ -131,6 +131,21 @@ export default function ChartPage() {
     };
   }, [POSTER_WIDTH]);
 
+  // Track pay card visibility
+  useEffect(() => {
+    if (!data) return;
+    const el = document.getElementById('pay-section');
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        trackEvent('pay_card_view', getVid(), id);
+        observer.disconnect();
+      }
+    }, { threshold: 0.3 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [data, id]);
+
   const handleIframeLoad = () => {
     try {
       const doc = iframeRef.current?.contentDocument;
@@ -338,21 +353,6 @@ export default function ChartPage() {
         </section>
 
         <div className="my-10 border-t border-[#2a2520]" />
-
-          // Track pay card visibility
-  useEffect(() => {
-    if (!data) return;
-    const el = document.getElementById('pay-section');
-    if (!el) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0]?.isIntersecting) {
-        trackEvent('pay_card_view', getVid(), id);
-        observer.disconnect();
-      }
-    }, { threshold: 0.3 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [data, id]);
 
   {/* ====== 付费引导 ====== */}
         <section id="pay-section" className="mb-16 animate-fade-up" style={{ animationDelay: '0.8s' }}>
