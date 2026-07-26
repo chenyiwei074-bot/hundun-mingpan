@@ -290,7 +290,7 @@ function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
           return (
             <div key={i} className={"flex items-center justify-between text-sm py-1 px-2 rounded " + (isNew ? 'animate-fade-in bg-hu-po-jin/5' : '')}>
               <span className="text-dai-qing/25 text-xs w-6">{POS_NAMES[i+1]}</span>
-              <span className={y.c + " text-2xl"} style={{transform:"scaleX(4)",display:"inline-block"}}>{y.sym}</span>
+              <span className={y.c + " text-2xl w-16 text-center inline-block"}>{y.sym}</span>
               <span className="text-dai-qing/35 text-xs w-10 text-right">{y.label}</span>
               {y.label.includes('动') && <span className="text-[9px] text-hu-po-jin border border-hu-po-jin/30 rounded-full px-1.5 py-0.5">动</span>}
             </div>
