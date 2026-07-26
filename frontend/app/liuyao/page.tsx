@@ -233,11 +233,11 @@ export default function LiuYaoPage() {
                     );
                   })}
                 </div>
-                <div className="text-center py-2 border border-dai-qing/8 rounded-lg bg-xuan-zhi/50 mb-4">
+                <div className="flex justify-center mb-4"><div className="inline-block text-center py-2 px-4 border border-dai-qing/8 rounded-lg bg-xuan-zhi/50">
                   <span className="text-2xl opacity-80">{GUA_EMOJI[shang]}</span>
                   <span className="text-2xl opacity-80 ml-2">{GUA_EMOJI[xia]}</span>
                   <span className="text-[10px] text-dai-qing/30 ml-3">{shang}上{xia}下{hasDong?" · 有动爻":""}</span>
-                </div>
+                </div></div>
                 <button onClick={handleDirect} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>开 始 排 卦</button>
               </div>
               );
