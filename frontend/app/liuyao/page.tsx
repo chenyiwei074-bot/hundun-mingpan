@@ -194,8 +194,8 @@ export default function LiuYaoPage() {
             {/* ── 直接排卦 ── */}
             {method === 'direct' && (function() {
               var YAO_LABELS = ['初','二','三','四','五','上'];
-              var getTrigram = function(a,b,c) {
-                var isYang = function(v){return v===7||v===9;};
+              var getTrigram = function(a:number,b:number,c:number) {
+                var isYang = function(v:number){return v===7||v===9;};
                 var bits = (isYang(a)?4:0)+(isYang(b)?2:0)+(isYang(c)?1:0);
                 return ['坤','艮','坎','巽','震','离','兑','乾'][bits];
               };
