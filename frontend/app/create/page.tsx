@@ -34,13 +34,11 @@ function getShichen(hour: number): string {
 // ========== 日期工具 ==========
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: currentYear - 1899 }, (_, i) => String(currentYear - i));
-const months = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
+const monthsList = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
 const hours24 = Array.from({ length: 24 }, (_, i) => ({ value: String(i), label: `${String(i).padStart(2, '0')}:00` }));
 const minutes60 = Array.from({ length: 60 }, (_, i) => ({ value: String(i), label: String(i).padStart(2, '0') }));
 
 function getDaysInMonth(year: number, month: number): number {
-  // new Date(year, month, 0) = last day of previous month
-  // month is 1-based, so new Date(2025, 2, 0) = Feb 28/29
   return new Date(year, month, 0).getDate();
 }
 
@@ -54,12 +52,8 @@ function getDays(year: string, month: string) {
 
 // ========== Picker 弹窗组件 ==========
 function PickerModal({ title, options, value, onChange, onClose, height = 'h-64' }: {
-  title: string;
-  options: { value: string; label: string }[];
-  value: string;
-  onChange: (v: string) => void;
-  onClose: () => void;
-  height?: string;
+  title: string; options: { value: string; label: string }[]; value: string;
+  onChange: (v: string) => void; onClose: () => void; height?: string;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -72,14 +66,10 @@ function PickerModal({ title, options, value, onChange, onClose, height = 'h-64'
         </div>
         <div className={`overflow-y-auto ${height} overscroll-contain`}>
           {options.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => onChange(opt.value)}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors
-                ${opt.value === value
-                  ? 'text-[#e0c878] bg-[#c9a84c]/10 border-l-2 border-l-[#c9a84c]'
-                  : 'text-[#a89a85] hover:bg-[#201a16]'}`}
-            >
+            <button key={opt.value} onClick={() => onChange(opt.value)}
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${
+                opt.value === value ? 'text-[#e0c878] bg-[#c9a84c]/10 border-l-2 border-l-[#c9a84c]' : 'text-[#a89a85] hover:bg-[#201a16]'
+              }`}>
               {opt.label}
             </button>
           ))}
@@ -90,97 +80,48 @@ function PickerModal({ title, options, value, onChange, onClose, height = 'h-64'
 }
 
 // ========== 地区选择器 ==========
-function RegionPicker({ title, value, province, city, district, onChange, onClose }: {
-  title: string;
+function RegionPicker({ value, onChange, onClose }: {
   value: { province: string; city: string; district: string };
   onChange: (v: { province: string; city: string; district: string }) => void;
   onClose: () => void;
-  province: string;
-  city: string;
-  district: string;
 }) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1|2|3>(1);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [selProvince, setSelProvince] = useState(province);
-  const [selCity, setSelCity] = useState(city);
-  const [selDistrict, setSelDistrict] = useState(district);
+  const [selP, setSelP] = useState(value.province);
+  const [selC, setSelC] = useState(value.city);
+  const [selD, setSelD] = useState(value.district);
 
-  const selectedProvince = provinces.find(p => p.name === selProvince);
-  const selectedCity = selectedProvince?.cities.find(c => c.name === selCity);
-
-  const handleProvinceSelect = (p: string) => {
-    setSelProvince(p);
-    setSelCity('');
-    setSelDistrict('');
-    setStep(2);
-    if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  };
-
-  const handleCitySelect = (c: string) => {
-    setSelCity(c);
-    setSelDistrict('');
-    const cityObj = provinces.find(p => p.name === selProvince)?.cities.find(ct => ct.name === c);
-    if (cityObj && cityObj.districts.length <= 1) {
-      // 只有一个区（如直辖市、省直辖县级市），自动选
-      const d = cityObj.districts[0].name;
-      setSelDistrict(d);
-      onChange({ province: selProvince, city: c, district: d });
-      onClose();
-      return;
-    }
-    setStep(3);
-  };
-
-  const handleDistrictSelect = (d: string) => {
-    setSelDistrict(d);
-    onChange({ province: selProvince, city: selCity, district: d });
-    onClose();
-  };
+  const prov = provinces.find(p => p.name === selP);
+  const city = prov?.cities.find(c => c.name === selC);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-lg bg-[#1a1614] border border-[#2a2520] rounded-t-2xl overflow-hidden animate-slide-up"
         onClick={e => e.stopPropagation()}>
-        {/* Steps indicator */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2520]">
-          <button onClick={() => setStep(s => (s > 1 ? (s - 1) as 1 | 2 | 3 : s))} className="text-[#a89a85] text-sm">
+          <button onClick={() => setStep(s => s > 1 ? (s - 1) as 1|2|3 : s)} className="text-[#a89a85] text-sm">
             {step > 1 ? '← 返回' : ''}
           </button>
-          <div className="flex gap-2">
-            {[1, 2, 3].map(s => (
-              <div key={s} className={`w-2 h-2 rounded-full ${s <= step ? 'bg-[#c9a84c]' : 'bg-[#2a2520]'}`} />
-            ))}
-          </div>
+          <div className="flex gap-2">{ [1,2,3].map(s => (
+            <div key={s} className={`w-2 h-2 rounded-full ${s <= step ? 'bg-[#c9a84c]' : 'bg-[#2a2520]'}`} />
+          ))}</div>
           <button onClick={onClose} className="text-[#a89a85] text-sm px-2 hover:text-[#e0c878]">取消</button>
         </div>
-
         <div className="text-center py-2 text-xs text-[#6b5f52] tracking-[2px]">
-          {step === 1 ? '选择省份' : step === 2 ? '选择城市' : `${selProvince} ${selCity} - 选择区县`}
+          {step === 1 ? '选择省份' : step === 2 ? '选择城市' : `${selP} ${selC} - 选择区县`}
         </div>
-
         <div ref={scrollRef} className="overflow-y-auto h-72 overscroll-contain">
           {step === 1 && provinces.map(p => (
-            <button key={p.name} onClick={() => handleProvinceSelect(p.name)}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors
-                ${p.name === selProvince ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>
-              {p.name}
-            </button>
+            <button key={p.name} onClick={() => { setSelP(p.name); setSelC(''); setSelD(''); setStep(2); if (scrollRef.current) scrollRef.current.scrollTop = 0; }}
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${p.name === selP ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>{p.name}</button>
           ))}
-
-          {step === 2 && selectedProvince?.cities.map(c => (
-            <button key={c.name} onClick={() => handleCitySelect(c.name)}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors
-                ${c.name === selCity ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>
-              {c.name}
-            </button>
+          {step === 2 && prov?.cities.map(c => (
+            <button key={c.name} onClick={() => { setSelC(c.name); setSelD(''); setStep(3); if (scrollRef.current) scrollRef.current.scrollTop = 0; }}
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${c.name === selC ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>{c.name}</button>
           ))}
-
-          {step === 3 && selectedCity?.districts.map(d => (
-            <button key={d.name} onClick={() => handleDistrictSelect(d.name)}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors
-                ${d.name === selDistrict ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>
-              {d.name}
-            </button>
+          {step === 3 && city?.districts.map(d => (
+            <button key={d.name} onClick={() => { setSelD(d.name); onChange({ province: selP, city: selC, district: d.name }); onClose(); }}
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${d.name === selD ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>{d.name}</button>
           ))}
         </div>
       </div>
@@ -192,26 +133,33 @@ function RegionPicker({ title, value, province, city, district, onChange, onClos
 export default function CreatePage() {
   const router = useRouter();
   const [visitorId, setVisitorId] = useState('');
+  const [tab, setTab] = useState<'single'|'double'>('single');
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
 
   const [form, setForm] = useState({
     name: '',
-    gender: '男' as '男' | '女',
-    calendar: '农历' as '农历' | '公历',
-    year: '',
-    month: '',
-    day: '',
-    hour: '12',
-    minute: '00',
+    gender: '男' as '男'|'女',
+    calendar: '公历' as '公历'|'农历',
+    year: '', month: '', day: '',
+    hour: '12', minute: '00',
     birthProvince: '', birthCity: '', birthDistrict: '',
     currentProvince: '', currentCity: '', currentDistrict: '',
+    // 双人合盘 - 对方信息
+    partnerName: '',
+    partnerGender: '女' as '男'|'女',
+    partnerYear: '', partnerMonth: '', partnerDay: '',
+    partnerHour: '12', partnerMinute: '00',
+    partnerBirthProvince: '', partnerBirthCity: '', partnerBirthDistrict: '',
+    partnerCurrentProvince: '', partnerCurrentCity: '', partnerCurrentDistrict: '',
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [quota, setQuota] = useState({ used: 0, remaining: 3 });
   const [activePicker, setActivePicker] = useState<string | null>(null);
+  const [activeRegionPicker, setActiveRegionPicker] = useState<string | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     if (!visitorId) return;
@@ -222,19 +170,35 @@ export default function CreatePage() {
   const dayOptions = useMemo(() => getDays(form.year, form.month), [form.year, form.month]);
   const shichen = useMemo(() => getShichen(parseInt(form.hour)), [form.hour]);
 
+  // Partner day options
+  const partnerDayOptions = useMemo(() => getDays(form.partnerYear, form.partnerMonth), [form.partnerYear, form.partnerMonth]);
+  const partnerShichen = useMemo(() => getShichen(parseInt(form.partnerHour)), [form.partnerHour]);
+
+  const setField = (field: string, value: string) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
   const validate = (): string | null => {
-    if (!form.name.trim()) return '请输入姓名';
-    if (!form.year || !form.month || !form.day) return '请选择完整出生日期';
-    const y = parseInt(form.year), m = parseInt(form.month), d = parseInt(form.day);
-    if (y > currentYear) return '出生年份不能是未来';
-    if (y === currentYear) {
-      const now = new Date();
-      if (m > now.getMonth() + 1) return '出生月份不能是未来';
-      if (m === now.getMonth() + 1 && d > now.getDate()) return '出生日期不能是未来';
+    if (tab === 'single') {
+      if (!form.name.trim()) return '请输入姓名';
+      if (!form.year || !form.month || !form.day) return '请选择完整出生日期';
+      const y = parseInt(form.year), m = parseInt(form.month), d = parseInt(form.day);
+      if (y > currentYear) return '出生年份不能是未来';
+      if (y === currentYear) {
+        const now = new Date();
+        if (m > now.getMonth() + 1) return '出生月份不能是未来';
+        if (m === now.getMonth() + 1 && d > now.getDate()) return '出生日期不能是未来';
+      }
+      if (!form.hour) return '请选择出生时间';
+      if (!form.birthProvince || !form.birthCity) return '请选择出生地区';
+      if (!form.currentProvince || !form.currentCity) return '请选择现居地区';
+    } else {
+      if (!form.name.trim() || !form.partnerName.trim()) return '请输入双方姓名';
+      if (!form.year || !form.month || !form.day) return '请选择您的完整出生日期';
+      if (!form.partnerYear || !form.partnerMonth || !form.partnerDay) return '请选择对方的完整出生日期';
+      if (!form.birthProvince || !form.birthCity) return '请选择您的出生地区';
+      if (!form.partnerBirthProvince || !form.partnerBirthCity) return '请选择对方的出生地区';
     }
-    if (!form.hour) return '请选择出生时间';
-    if (!form.birthProvince || !form.birthCity) return '请选择出生地区';
-    if (!form.currentProvince || !form.currentCity) return '请选择现居地区';
     return null;
   };
 
@@ -246,11 +210,8 @@ export default function CreatePage() {
     setLoading(true);
 
     try {
-      const month = form.month.padStart(2, '0');
-      const day = form.day.padStart(2, '0');
-      const shi = form.hour.padStart(2, '0');
-      const fen = form.minute.padStart(2, '0');
-      const birthday = form.year + '-' + month + '-' + day + ' ' + shi + ':' + fen;
+      const pad = (s: string) => s.padStart(2, '0');
+      const birthday = `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
@@ -260,233 +221,308 @@ export default function CreatePage() {
         gender: form.gender,
         calendar: form.calendar,
         birthday,
-        birthPlace,
-        currentPlace,
+        birthPlace: birthPlace || '未指定',
+        currentPlace: currentPlace || '未指定',
       });
 
-      console.log("[DEBUG create] API raw response:", JSON.stringify(res));
       if (res.success) {
-        trackEvent('create_click', visitorId);
-        console.log('[DEBUG create] Navigating to /chart/' + res.data.id);
-        router.push('/chart/' + res.data.id);
+        trackEvent('create_click', visitorId, res.data.id);
+        router.push(`/chart/${res.data.id}`);
       } else {
-        setError(res.error || '生成失败');
+        setError(res.error || '生成失败，请重试');
       }
-    } catch (err: any) {
-      setError(err.message || '网络错误');
+    } catch {
+      setError('网络错误，请检查连接');
     } finally {
       setLoading(false);
     }
   };
 
-  const update = (k: string, v: string) => setForm(prev => {
-    const next = { ...prev, [k]: v };
-    // 切换农历/公历时重置日
-    if (k === 'calendar') { next.year = ''; next.month = ''; next.day = ''; }
-    // Clear day when year/month changes (day may become invalid)
-    if (k === 'year' || k === 'month') { next.day = ''; }
-    // 切换年/月时重置日
-    if (k === 'year' || k === 'month') next.day = '';
-    return next;
-  });
+  // ========== Render helpers ==========
+  const sectionClass = "bg-[#100e0c] border border-[#1a1814] rounded-xl p-6";
+  const fieldLabelClass = "text-[10px] text-[#6b5f52] tracking-[2px] mb-2";
+  const selectBtnClass = "w-full bg-[#0a0806] border border-[#2a2520] rounded-lg px-4 py-3 text-left text-sm hover:border-[#c9a84c]/30 transition-colors";
+  const selectBtnActiveClass = "text-[#e0c878] border-[#c9a84c]/40";
+  const selectBtnEmptyClass = "text-[#4a4035]";
 
-  const displayValue = (v: string, placeholder: string) =>
-    v ? <span className="text-[#e8e0d5]">{v}</span> : <span className="text-[#5a5045]">{placeholder}</span>;
+  const renderGenderGroup = (gender: string, onChange: (v: string) => void) => (
+    <div className="flex gap-3">
+      {['男', '女'].map(g => (
+        <button key={g} onClick={() => onChange(g)}
+          className={`flex-1 py-2.5 rounded-lg border text-sm tracking-[2px] transition-all ${
+            gender === g
+              ? 'border-[#c9a84c] bg-[#c9a84c]/10 text-[#e0c878]'
+              : 'border-[#1a1814] bg-[#0a0806] text-[#6b5f52] hover:border-[#3a3025]'
+          }`}
+        >{g === '男' ? '乾造' : '坤造'} · {g}</button>
+      ))}
+    </div>
+  );
+
+  const renderDateGroup = (prefix: string) => {
+    const y = form[prefix + 'Year' as keyof typeof form] as string;
+    const m = form[prefix + 'Month' as keyof typeof form] as string;
+    const d = form[prefix + 'Day' as keyof typeof form] as string;
+    const h = form[prefix + 'Hour' as keyof typeof form] as string;
+    const min = form[prefix + 'Minute' as keyof typeof form] as string;
+    const days = prefix === 'partner' ? partnerDayOptions : dayOptions;
+
+    return (
+      <div className="space-y-3">
+        {/* Calendar toggle */}
+        {prefix === '' && (
+          <div className="flex gap-2 mb-3">
+            {['公历', '农历'].map(cal => (
+              <button key={cal} onClick={() => setField('calendar', cal)}
+                className={`text-xs px-4 py-1.5 rounded border tracking-[1px] transition-all ${
+                  form.calendar === cal ? 'border-[#c9a84c] text-[#e0c878] bg-[#c9a84c]/10' : 'border-[#1a1814] text-[#6b5f52]'
+                }`}>{cal}</button>
+            ))}
+          </div>
+        )}
+        {/* Year/Month/Day */}
+        <div className="grid grid-cols-3 gap-3">
+          <button onClick={() => setActivePicker(prefix + 'Year')}
+            className={`${selectBtnClass} ${y ? selectBtnActiveClass : selectBtnEmptyClass}`}>
+            {y || '年'}
+          </button>
+          <button onClick={() => setActivePicker(prefix + 'Month')}
+            className={`${selectBtnClass} ${m ? selectBtnActiveClass : selectBtnEmptyClass}`}>
+            {m ? m + '月' : '月'}
+          </button>
+          <button onClick={() => { if (y && m) setActivePicker(prefix + 'Day'); }}
+            className={`${selectBtnClass} ${d ? selectBtnActiveClass : selectBtnEmptyClass} ${!y || !m ? 'opacity-40 cursor-not-allowed' : ''}`}>
+            {d ? d + '日' : '日'}
+          </button>
+        </div>
+        {/* Time */}
+        <div className="grid grid-cols-2 gap-3">
+          <button onClick={() => setActivePicker(prefix + 'Hour')}
+            className={`${selectBtnClass} ${h ? selectBtnActiveClass : selectBtnEmptyClass}`}>
+            {h ? h.padStart(2, '0') + ':00' : '时'}
+          </button>
+          <button onClick={() => setActivePicker(prefix + 'Minute')}
+            className={`${selectBtnClass} ${min ? selectBtnActiveClass : selectBtnEmptyClass}`}>
+            {min ? min.padStart(2, '0') + '分' : '分'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderRegionGroup = (prefix: string, label: string) => {
+    const p = form[(prefix + 'Province') as keyof typeof form] as string;
+    const c = form[(prefix + 'City') as keyof typeof form] as string;
+    const d = form[(prefix + 'District') as keyof typeof form] as string;
+    const display = [p, c, d].filter(Boolean).join(' ');
+    return (
+      <button onClick={() => setActiveRegionPicker(prefix)}
+        className={`${selectBtnClass} ${p ? selectBtnActiveClass : selectBtnEmptyClass}`}>
+        {display || label}
+      </button>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-texture pb-20 relative overflow-hidden"><div className="absolute inset-0 pointer-events-none"><div className="absolute top-10 left-5 w-48 h-48 bg-[#7b5ea7] rounded-full opacity-[0.04] blur-3xl"></div><div className="absolute bottom-40 right-5 w-64 h-64 bg-[#c9a84c] rounded-full opacity-[0.04] blur-3xl"></div></div>
-      {/* Header */}
-      <div className="border-b border-[#2a2520] py-6 px-4 text-center">
-        <a href="/" className="text-[#c9a84c] text-sm tracking-[4px] no-underline hover:text-[#e0c878] transition-colors">
-          混沌阁
-        </a>
-        <h1 className="text-xl text-[#e8e0d5] tracking-[6px] mt-3 font-normal">生成命盘</h1>
-      </div>
+    <div className="min-h-screen bg-[#0a0a0a] text-[#e0d5b7] font-sans">
+      {/* Nav */}
+      <nav className="border-b border-[#1a1814] px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
+        <div className="flex items-center gap-3">
+          <a href="/" className="text-[#d4a853] text-lg font-bold tracking-[3px] no-underline">混沌阁</a>
+          <span className="text-[#3a3025]">/</span>
+          <span className="text-[#8a7a5a] text-sm tracking-[2px]">命盘排盘</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-[#6b5f52]">
+          <span>今日剩余 {quota.remaining} / {quota.remaining + quota.used}</span>
+        </div>
+      </nav>
 
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <main className="max-w-xl mx-auto px-4 py-6 space-y-6">
+        {/* Header */}
+        <div className="text-center py-4">
+          <div className="inline-flex items-center gap-2 text-[#d4a853] text-2xl mb-2">
+            <span>☰</span><span>☷</span>
+          </div>
+          <p className="text-xs text-[#8a7a5a] tracking-[3px]">八字排盘 · 紫微斗数</p>
+          <p className="text-xs text-[#6b5f52] mt-1">录入生辰，按古法自动起盘排柱</p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-[#1a1814]">
+          {[
+            { key: 'single', label: '单人排盘', desc: '个人命盘推演' },
+            { key: 'double', label: '双人合盘', desc: '缘分契合度分析' },
+          ].map(t => (
+            <button key={t.key} onClick={() => setTab(t.key as 'single'|'double')}
+              className={`flex-1 py-3 text-center border-b-2 transition-all ${
+                tab === t.key ? 'border-[#c9a84c] text-[#e0c878]' : 'border-transparent text-[#6b5f52] hover:text-[#a89a85]'
+              }`}
+            >
+              <div className="text-sm tracking-[2px]">{t.label}</div>
+              <div className="text-[10px] opacity-60 mt-0.5">{t.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* 姓名 */}
-          <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">姓名</label>
-            <input type="text" className="input-field" placeholder="请输入姓名" inputMode="text"
-              value={form.name} onChange={e => update('name', e.target.value)} maxLength={10} />
-          </div>
+          {/* ===== 主位 ===== */}
+          <div className={sectionClass}>
+            <p className="text-[10px] text-[#6b5f52] tracking-[2px] mb-4">
+              {tab === 'single' ? '命主信息' : '主位 · 您'}
+            </p>
 
-          {/* 性别 */}
-          <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">性别</label>
-            <div className="flex gap-3">
-              {['男', '女'].map(g => (
-                <button key={g} type="button" onClick={() => update('gender', g)}
-                  className={'flex-1 py-3 rounded text-sm tracking-[3px] transition-all border ' +
-                    (form.gender === g
-                      ? 'border-[#c9a84c] bg-[#c9a84c]/10 text-[#e0c878]'
-                      : 'border-[#2a2520] bg-[#141110] text-[#a89a85] hover:border-[#3a3530]')}>
-                  {g}
-                </button>
-              ))}
+            {/* Name */}
+            <div className="mb-4">
+              <p className={fieldLabelClass}>称谓</p>
+              <input
+                value={form.name}
+                onChange={e => setField('name', e.target.value)}
+                placeholder="请输入姓名"
+                className="w-full bg-[#0a0806] border border-[#2a2520] rounded-lg px-4 py-3 text-sm text-[#e0d5b7] placeholder-[#4a4035] outline-none focus:border-[#c9a84c]/40 transition-colors"
+              />
+            </div>
+
+            {/* Gender */}
+            <div className="mb-4">
+              <p className={fieldLabelClass}>乾坤定性</p>
+              {renderGenderGroup(form.gender, v => setField('gender', v))}
+            </div>
+
+            {/* Birth date */}
+            <div>
+              <p className={fieldLabelClass}>诞辰之候 {shichen && <span className="text-[#c9a84c]">· {shichen}</span>}</p>
+              {renderDateGroup('')}
             </div>
           </div>
 
-          {/* 历法 */}
-          <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">历法</label>
-            <div className="flex gap-3">
-              {['农历', '公历'].map(c => (
-                <button key={c} type="button" onClick={() => update('calendar', c)}
-                  className={'flex-1 py-3 rounded text-sm tracking-[3px] transition-all border ' +
-                    (form.calendar === c
-                      ? 'border-[#c9a84c] bg-[#c9a84c]/10 text-[#e0c878]'
-                      : 'border-[#2a2520] bg-[#141110] text-[#a89a85] hover:border-[#3a3530]')}>
-                  {c}
-                </button>
-              ))}
-            </div>
+          {/* ===== Birth Place ===== */}
+          <div className={sectionClass}>
+            <p className={fieldLabelClass}>诞生之地</p>
+            {renderRegionGroup('birth', '请选择出生地')}
           </div>
 
-          {/* 出生日期 - 年/月/日 三选 */}
-          <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">出生日期</label>
-            <div className="grid grid-cols-3 gap-2">
-              <button type="button" onClick={() => setActivePicker('year')}
-                className="picker-btn">
-                {displayValue(form.year ? form.year + '年' : '', '年份')}
-              </button>
-              <button type="button" onClick={() => { if (form.year) setActivePicker('month'); }}
-                className={`picker-btn ${!form.year ? 'opacity-50' : ''}`}>
-                {displayValue(form.month ? parseInt(form.month) + '月' : '', '月份')}
-              </button>
-              <button type="button" onClick={() => { if (form.year && form.month) setActivePicker('day'); }}
-                className={`picker-btn ${!form.year || !form.month ? 'opacity-50' : ''}`}>
-                {displayValue(form.day ? parseInt(form.day) + '日' : '', '日期')}
-              </button>
-            </div>
+          {/* ===== Current Place ===== */}
+          <div className={sectionClass}>
+            <p className={fieldLabelClass}>现居之地</p>
+            {renderRegionGroup('current', '请选择现居地')}
           </div>
 
-          {/* 出生时间 */}
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <span className="text-[#c9a84c] text-lg">◆</span>
-              <label className="block text-sm text-[#e8e0d5] tracking-[3px]">出生时间</label>
+          {/* ===== 双人合盘 - 对方信息 ===== */}
+          {tab === 'double' && (
+            <div className={sectionClass}>
+              <div className="border-l-2 border-[#c44] pl-4 mb-4">
+                <p className="text-[10px] text-[#c44] tracking-[2px]">客位 · 对方</p>
+              </div>
+
+              <div className="mb-4">
+                <p className={fieldLabelClass}>称谓</p>
+                <input
+                  value={form.partnerName}
+                  onChange={e => setField('partnerName', e.target.value)}
+                  placeholder="请输入对方姓名"
+                  className="w-full bg-[#0a0806] border border-[#2a2520] rounded-lg px-4 py-3 text-sm text-[#e0d5b7] placeholder-[#4a4035] outline-none focus:border-[#c9a84c]/40 transition-colors"
+                />
+              </div>
+
+              <div className="mb-4">
+                <p className={fieldLabelClass}>乾坤定性</p>
+                {renderGenderGroup(form.partnerGender, v => setField('partnerGender', v))}
+              </div>
+
+              <div>
+                <p className={fieldLabelClass}>诞辰之候 {partnerShichen && <span className="text-[#c9a84c]">· {partnerShichen}</span>}</p>
+                {renderDateGroup('partner')}
+              </div>
             </div>
-            <button type="button" onClick={() => setActivePicker('time')}
-              className="picker-btn w-full text-left flex justify-between items-center">
-              <span className={form.hour ? 'text-[#e8e0d5]' : 'text-[#5a5045]'}>
-                {form.hour ? `${form.hour}:${form.minute}` : '选择时间'}
-              </span>
-              {shichen && (
-                <span className="text-xs text-[#c9a84c] bg-[#c9a84c]/10 px-2 py-0.5 rounded">{shichen}</span>
-              )}
+          )}
+
+          {tab === 'double' && (
+            <>
+              <div className={sectionClass}>
+                <p className={fieldLabelClass}>对方 · 诞生之地</p>
+                {renderRegionGroup('partnerBirth', '请选择对方出生地')}
+              </div>
+              <div className={sectionClass}>
+                <p className={fieldLabelClass}>对方 · 现居之地</p>
+                {renderRegionGroup('partnerCurrent', '请选择对方现居地')}
+              </div>
+            </>
+          )}
+
+          {/* ===== Advanced ===== */}
+          <div className={sectionClass}>
+            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full flex items-center justify-between text-sm tracking-[2px] text-[#8a7a5a] hover:text-[#e0c878] transition-colors">
+              <span>高级排盘选项</span>
+              <span className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▾</span>
             </button>
+            {showAdvanced && (
+              <div className="mt-4 space-y-3 pt-4 border-t border-[#1a1814]">
+                <label className="flex items-center justify-between py-2">
+                  <span className="text-xs text-[#8a7a5a] tracking-[1px]">真太阳时校准</span>
+                  <span className="text-[10px] text-[#6b5f52]">根据出生地经纬度修正平太阳时偏差（默认开启）</span>
+                </label>
+                <label className="flex items-center justify-between py-2">
+                  <span className="text-xs text-[#8a7a5a] tracking-[1px]">夜子时换日柱</span>
+                  <span className="text-[10px] text-[#6b5f52]">23时起按次日日柱排盘（默认开启）</span>
+                </label>
+              </div>
+            )}
           </div>
 
-          {/* 出生地点 */}
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <span className="text-[#c9a84c] text-lg">◆</span>
-              <label className="block text-sm text-[#e8e0d5] tracking-[3px]">出生地点</label>
-            </div>
-            <button type="button" onClick={() => setActivePicker('birthPlace')}
-              className="picker-btn w-full text-left">
-              {displayValue(
-                [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ') || '',
-                '点击选择省/市/区'
-              )}
-            </button>
-          </div>
-
-          {/* 现居地点 */}
-          <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">现居地点</label>
-            <button type="button" onClick={() => setActivePicker('currentPlace')}
-              className="picker-btn w-full text-left">
-              {displayValue(
-                [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ') || '',
-                '点击选择省/市/区'
-              )}
-            </button>
-          </div>
-
-          {/* 错误提示 */}
+          {/* Error */}
           {error && (
-            <div className="text-[#e05a45] text-sm text-center py-3 border border-[#e05a45]/30 rounded bg-[#e05a45]/5">
+            <div className="bg-[#3a1010]/30 border border-[#6b2020]/30 rounded-lg p-3 text-center text-sm text-[#c44]">
               {error}
             </div>
           )}
 
-          {/* 提交按钮 */}
-          <button type="submit" disabled={loading}
-            className="btn-gold w-full text-base py-4 tracking-[4px] disabled:opacity-50">
-            {loading ? '正在生成命盘...' : '生成我的命盘'}
-          </button>
-
-          <p className="text-center text-xs text-[#6b5f52] tracking-[2px]">
-            今日剩余 {quota.remaining} / {quota.used + quota.remaining} 次免费排盘
-          </p>
-        </form>
-      </div>
-
-      {/* ========== Picker Modals ========== */}
-      {activePicker === 'year' && (
-        <PickerModal title="选择年份" options={years.map(y => ({ value: y, label: y + '年' }))}
-          value={form.year} onChange={v => update('year', v)} onClose={() => setActivePicker(null)} />
-      )}
-      {activePicker === 'month' && (
-        <PickerModal title="选择月份" options={months}
-          value={form.month} onChange={v => update('month', v)} onClose={() => setActivePicker(null)} height="h-60" />
-      )}
-      {activePicker === 'day' && (
-        <PickerModal title="选择日期" options={dayOptions}
-          value={form.day} onChange={v => update('day', v)} onClose={() => setActivePicker(null)} />
-      )}
-
-      {activePicker === 'time' && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={() => setActivePicker(null)}>
-          <div className="w-full max-w-lg bg-[#1a1614] border border-[#2a2520] rounded-t-2xl overflow-hidden animate-slide-up"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2520]">
-              <span className="text-xs text-[#6b5f52]">时:分</span>
-              <span className="text-[#e0c878] text-sm">{shichen}</span>
-              <button onClick={() => setActivePicker(null)} className="text-[#a89a85] text-sm px-2 hover:text-[#e0c878]">完成</button>
-            </div>
-            <div className="flex h-64">
-              <div className="flex-1 overflow-y-auto overscroll-contain border-r border-[#2a2520]">
-                {hours24.map(h => (
-                  <button key={h.value} onClick={() => update('hour', h.value)}
-                    className={`w-full text-center py-3 text-sm transition-colors
-                      ${h.value === form.hour ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>
-                      {h.label}
-                    </button>
-                ))}
-              </div>
-              <div className="flex-1 overflow-y-auto overscroll-contain">
-                {minutes60.map(m => (
-                  <button key={m.value} onClick={() => update('minute', m.value)}
-                    className={`w-full text-center py-3 text-sm transition-colors
-                      ${m.value === form.minute ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>
-                      {m.label}
-                    </button>
-                ))}
-              </div>
-            </div>
+          {/* CTA */}
+          <div className="text-center pb-8">
+            <button type="submit" disabled={loading}
+              className="w-full bg-[#c9a84c] text-[#0d0b09] text-base py-4 rounded-lg tracking-[4px] font-medium hover:bg-[#e0c878] disabled:opacity-50 disabled:cursor-wait transition-all"
+            >
+              {loading ? '排盘中...' : tab === 'single' ? '开 启 推 演' : '开 启 合 盘'}
+            </button>
+            <p className="mt-3 text-[10px] text-[#6b5f52] tracking-[2px]">
+              今日剩余 {quota.remaining} 次 · 免费体验
+            </p>
           </div>
-        </div>
+        </form>
+      </main>
+
+      {/* ===== Pickers ===== */}
+      {activePicker && (
+        <PickerModal
+          title={activePicker.includes('Year') ? '选择年份' : activePicker.includes('Month') ? '选择月份' : activePicker.includes('Day') ? '选择日期' : activePicker.includes('Hour') ? '选择小时' : '选择分钟'}
+          options={
+            activePicker.includes('Year') ? years.map(v => ({ value: v, label: v + '年' })) :
+            activePicker.includes('Month') ? monthsList :
+            activePicker.includes('Day') ? (activePicker.startsWith('partner') ? partnerDayOptions : dayOptions) :
+            activePicker.includes('Hour') ? hours24 :
+            minutes60
+          }
+          value={form[activePicker as keyof typeof form] as string || ''}
+          onChange={v => setField(activePicker, v)}
+          onClose={() => setActivePicker(null)}
+        />
       )}
 
-      {activePicker === 'birthPlace' && (
-        <RegionPicker title="出生地区"
-          province={form.birthProvince} city={form.birthCity} district={form.birthDistrict}
-          value={{ province: form.birthProvince, city: form.birthCity, district: form.birthDistrict }}
-          onChange={v => { update('birthProvince', v.province); update('birthCity', v.city); update('birthDistrict', v.district); }}
-          onClose={() => setActivePicker(null)} />
-      )}
-
-      {activePicker === 'currentPlace' && (
-        <RegionPicker title="现居地区"
-          province={form.currentProvince} city={form.currentCity} district={form.currentDistrict}
-          value={{ province: form.currentProvince, city: form.currentCity, district: form.currentDistrict }}
-          onChange={v => { update('currentProvince', v.province); update('currentCity', v.city); update('currentDistrict', v.district); }}
-          onClose={() => setActivePicker(null)} />
+      {activeRegionPicker && (
+        <RegionPicker
+          value={{
+            province: form[(activeRegionPicker + 'Province') as keyof typeof form] as string || '',
+            city: form[(activeRegionPicker + 'City') as keyof typeof form] as string || '',
+            district: form[(activeRegionPicker + 'District') as keyof typeof form] as string || '',
+          }}
+          onChange={v => {
+            setField(activeRegionPicker + 'Province', v.province);
+            setField(activeRegionPicker + 'City', v.city);
+            setField(activeRegionPicker + 'District', v.district);
+          }}
+          onClose={() => setActiveRegionPicker(null)}
+        />
       )}
     </div>
   );
