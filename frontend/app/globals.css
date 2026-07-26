@@ -1,32 +1,30 @@
 @import "tailwindcss";
 
-/* ===== 青囊色板 (qingnang.cc) ===== */
-:root {
-  --xuan-zhi: #f5f5dc;
-  --xuan-zhi-dark: #e8e4c9;
-  --dai-qing: #004d4d;
-  --dai-qing-dark: #003333;
-  --dai-qing-light: #006666;
-  --hu-po-jin: #d4af37;
-  --hu-po-jin-light: #e8c84a;
-  --hu-po-jin-dark: #b8960f;
+/* ===== 主题色板 ===== */
+@theme {
+  --color-xuan-zhi: #f5f5dc;
+  --color-xuan-zhi-dark: #e8e4c9;
+  --color-dai-qing: #004d4d;
+  --color-dai-qing-dark: #003333;
+  --color-dai-qing-light: #006666;
+  --color-hu-po-jin: #d4af37;
+  --color-hu-po-jin-light: #e8c84a;
+  --color-hu-po-jin-dark: #b8960f;
 }
 
 * { box-sizing: border-box; }
 
 body {
-  background: var(--xuan-zhi);
-  color: var(--dai-qing);
+  background: var(--color-xuan-zhi);
+  color: var(--color-dai-qing);
   font-family: "Source Han Serif SC", "Noto Serif SC", "STSong", Georgia, "SimSun", serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* 金色呼吸光 */
 .glow-breathe {
   text-shadow: 0 0 20px rgba(212, 175, 55, 0.3), 0 0 40px rgba(212, 175, 55, 0.1);
 }
 
-/* 古籍滚动 */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
@@ -35,7 +33,6 @@ body {
   animation: marquee 30s linear infinite;
 }
 
-/* 按钮 */
 .qn-btn {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 8px; font-size: 13px; letter-spacing: 2px;
@@ -43,7 +40,7 @@ body {
   border: none; text-decoration: none;
 }
 .qn-btn--primary {
-  background: var(--hu-po-jin); color: var(--xuan-zhi);
+  background: var(--color-hu-po-jin); color: var(--color-xuan-zhi);
 }
-.qn-btn--primary:hover { background: var(--hu-po-jin-light); }
+.qn-btn--primary:hover { background: var(--color-hu-po-jin-light); }
 .qn-btn--sm { padding: 6px 16px; font-size: 12px; }
