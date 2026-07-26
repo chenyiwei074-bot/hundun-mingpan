@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createChart, getQuota, trackEvent } from '@/app/lib/api';
 import { provinces, City } from '@/app/lib/region-data';
@@ -100,6 +100,7 @@ function RegionPicker({ title, value, province, city, district, onChange, onClos
   district: string;
 }) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [selProvince, setSelProvince] = useState(province);
   const [selCity, setSelCity] = useState(city);
   const [selDistrict, setSelDistrict] = useState(district);
@@ -112,6 +113,7 @@ function RegionPicker({ title, value, province, city, district, onChange, onClos
     setSelCity('');
     setSelDistrict('');
     setStep(2);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
   };
 
   const handleCitySelect = (c: string) => {
@@ -156,7 +158,7 @@ function RegionPicker({ title, value, province, city, district, onChange, onClos
           {step === 1 ? '选择省份' : step === 2 ? '选择城市' : `${selProvince} ${selCity} - 选择区县`}
         </div>
 
-        <div className="overflow-y-auto h-72 overscroll-contain">
+        <div ref={scrollRef} className="overflow-y-auto h-72 overscroll-contain">
           {step === 1 && provinces.map(p => (
             <button key={p.name} onClick={() => handleProvinceSelect(p.name)}
               className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors
