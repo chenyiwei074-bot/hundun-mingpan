@@ -1,483 +1,336 @@
 ﻿'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 
-// ========== Types ==========
-interface YaoInfo {
-  position: number; value: number; yinYang: string; isDong: boolean;
-  naGan: string; naZhi: string; liuQin: string; liuShen: string;
-  shiYing: string | null; xunKong: boolean;
-}
-interface GuaInfo {
-  name: string; shangGua: string; xiaGua: string;
-  gongWei: string; gongWuXing: string; guaType: string;
-}
-interface TianPanResult {
-  yaoXiu: { position: number; xiuName: string; qinXiang: string; wuXing: string; boWei: string }[];
-  shiXiu: string; yingXiu: string; tunTie: string; geJu: string[];
-}
-interface DiPanResult {
-  neiGua: string; waiGua: string; neiShu: number; waiShu: number;
-  operations: { type: string; formula: string; result: number; meaning: string }[];
-  huaGua: string;
-}
-interface FullResult {
-  question: string;
-  qiGua: { method: string; dongYaoPositions: number[] };
-  pan: {
-    benGua: GuaInfo; bianGua: GuaInfo | null; yaoList: YaoInfo[];
-    riChen: { gan: string; zhi: string }; yueJian: string; xunKongZhi: string[];
-  };
-  analysis: string;
-  tianPan: TianPanResult;
-  diPan: DiPanResult;
-}
+// ── Types ──
+type YaoInfo = { position:number; value:number; yinYang:string; isDong:boolean; naGan:string; naZhi:string; liuQin:string; liuShen:string; shiYing:string|null; xunKong:boolean };
+type GuaInfo = { name:string; shangGua:string; xiaGua:string; gongWei:string; gongWuXing:string; guaType:string };
+type FullResult = { question:string; qiGua:{method:string; dongYaoPositions:number[]}; pan:{benGua:GuaInfo; bianGua:GuaInfo|null; yaoList:YaoInfo[]; riChen:{gan:string;zhi:string}; yueJian:string; xunKongZhi:string[]}; analysis:string; tianPan:any; diPan:any };
 
-const GUA_EMOJI: Record<string,string> = { '乾':'☰','兑':'☱','离':'☲','震':'☳','巽':'☴','坎':'☵','艮':'☶','坤':'☷' };
-const POS_NAMES = ['','初','二','三','四','五','上'];
-const COIN_FACES = { flower: '⚊', word: '⚋' };
+var GUA_EMOJI: Record<string,string> = { '乾':'☰','兑':'☱','离':'☲','震':'☳','巽':'☴','坎':'☵','艮':'☶','坤':'☷' };
+var POS_NAMES = ['','初','二','三','四','五','上'];
+var GUA_NAMES = ['乾','兑','离','震','巽','坎','艮','坤'];
 
-// ========== Copper Coin Component ==========
-function CopperCoin({ face }: { face: 'flower'|'word'|'spinning' }) {
-  if (face === 'spinning') {
-    return (
-      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-hu-po-jin/20 border border-hu-po-jin/30 animate-spin"
-        style={{ animationDuration: '0.3s' }}>
-        <span className="text-xs">◎</span>
-      </span>
-    );
-  }
+// ── Yao line values for each gua (from bottom up) ──
+var API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'https://hundunmp.vip/api' : '/api';
+var GUA_YAO: Record<string,number[]> = {
+  '乾':[7,7,7], '兑':[8,7,7], '离':[7,8,7], '震':[8,8,7],
+  '巽':[7,7,8], '坎':[8,7,8], '艮':[7,8,8], '坤':[8,8,8]
+};
+
+// ── Loading ──
+function Spinner({ text }: { text: string }) {
   return (
-    <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
-      face === 'flower' ? 'bg-hu-po-jin/20 border-hu-po-jin text-hu-po-jin' : 'bg-xuan-zhi-dark/50 border-dai-qing/20 text-dai-qing/50'
-    }`}>
-      <span className="text-xs">{face === 'flower' ? '背' : '字'}</span>
-    </span>
-  );
-}
-
-// ========== Yao Animation ==========
-function YaoAnimation({ onComplete }: { onComplete: (yaoData: number[]) => void }) {
-  const [round, setRound] = useState(0);
-  const [coins, setCoins] = useState<('flower'|'word'|'spinning')[]>(['spinning','spinning','spinning']);
-  const [yaoResult, setYaoResult] = useState<number[]>([]);
-  const [phase, setPhase] = useState<'spinning'|'reveal'>('spinning');
-
-  const startRound = useCallback(() => {
-    if (round >= 6) {
-      onComplete(yaoResult);
-      return;
-    }
-    setPhase('spinning');
-    setCoins(['spinning','spinning','spinning']);
-    
-    const backs = Array.from({length:3}, () => Math.floor(Math.random()*2));
-    const totalBacks = backs.reduce((a,b)=>a+b,0);
-    const value = totalBacks === 0 ? 9 : totalBacks === 1 ? 7 : totalBacks === 2 ? 8 : 6;
-    
-    setTimeout(() => {
-      setCoins(backs.map(b => b ? 'flower' : 'word') as ('flower'|'word')[]);
-      setYaoResult(prev => [...prev, value]);
-      setPhase('reveal');
-      
-      setTimeout(() => {
-        setRound(r => r + 1);
-      }, 400);
-    }, 600);
-  }, [round, yaoResult, onComplete]);
-
-  // Auto-start on mount
-  useState(() => {
-    setTimeout(startRound, 300);
-    return () => {};
-  });
-
-  // Auto-continue
-  const prevRound = useState(0)[0];
-  if (round > prevRound && round < 6) {
-    setTimeout(startRound, 200);
-  }
-  if (round >= 6 && yaoResult.length === 6) {
-    setTimeout(() => onComplete(yaoResult), 500);
-  }
-
-  const yaoLabel = (val: number) => {
-    switch(val) {
-      case 6: return { label: '老阴', tag: '动' };
-      case 7: return { label: '少阳', tag: '' };
-      case 8: return { label: '少阴', tag: '' };
-      case 9: return { label: '老阳', tag: '动' };
-      default: return { label: '', tag: '' };
-    }
-  };
-
-  return (
-    <div className="text-center py-8">
-      <p className="text-hu-po-jin text-sm tracking-[3px] mb-6">摇 卦 中 ...</p>
-      
-      {/* Coins */}
-      <div className="flex justify-center gap-3 mb-4">
-        {coins.map((f, i) => <CopperCoin key={i} face={f} />)}
+    <div className="flex flex-col items-center py-20">
+      <div className="relative" style={{ width:100, height:100 }}>
+        <div className="absolute inset-0 rounded-full border border-hu-po-jin/20 animate-spin" style={{ animationDuration:'3s' }} />
+        <div className="absolute inset-[12px] rounded-full border border-hu-po-jin/10 animate-spin" style={{ animationDuration:'2s', animationDirection:'reverse', borderStyle:'dashed' }} />
+        <div className="absolute inset-0 flex items-center justify-center text-2xl text-hu-po-jin/60">☯</div>
       </div>
-
-      {/* Progress */}
-      <div className="space-y-2 mt-6">
-        {yaoResult.map((val, i) => {
-          const { label, tag } = yaoLabel(val);
-          return (
-            <div key={i} className="flex items-center justify-center gap-3 text-sm animate-fade-in">
-              <span className="text-dai-qing/50 w-8 text-right">{POS_NAMES[i+1]}</span>
-              <span className={`${tag ? 'text-hu-po-jin' : 'text-dai-qing/65'}`}>
-                {val % 2 === 1 ? '▬▬▬' : '▬ ▬'} {label}
-              </span>
-              {tag && <span className="text-[10px] text-hu-po-jin border border-hu-po-jin/30 rounded px-1">{tag}</span>}
-            </div>
-          );
-        })}
-      </div>
-
-      <p className="text-xs text-dai-qing/30 mt-6">
-        第 {Math.min(round + 1, 6)} / 6 爻
-      </p>
+      <p className="text-dai-qing/40 text-xs tracking-[2px] mt-6">{text}</p>
     </div>
   );
 }
 
-// ========== Main Page ==========
+// ── Main ──
 export default function LiuYaoPage() {
-  const [step, setStep] = useState<'input'|'animating'|'result'>('input');
-  const [question, setQuestion] = useState('');
-  const [method, setMethod] = useState<'random'|'manual'>('random');
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<FullResult | null>(null);
-  const [error, setError] = useState('');
-  const [manualNums, setManualNums] = useState<string[]>(['','','','','','']);
+  var [step, setStep] = useState<'input'|'animating'|'loading'|'result'>('input');
+  var [method, setMethod] = useState<'random'|'manual'|'direct'>('random');
+  var [question, setQuestion] = useState('');
+  var [result, setResult] = useState<FullResult|null>(null);
+  var [error, setError] = useState('');
 
-    const handleSubmit = async () => {
-    setError('');
-    if (!question.trim()) { setError('请填写占问事项'); return; }
-    setLoading(true);
-    try {
-      const body: any = { question: question.trim(), method };
-      if (method === 'manual') {
-        const nums = manualNums.map(n => parseInt(n));
-        if (nums.some(n => isNaN(n) || ![6,7,8,9].includes(n))) {
-          setError('请输入有效的爻值 (6=老阴, 7=少阳, 8=少阴, 9=老阳)'); setLoading(false); return;
-        }
-        body.manualData = nums;
-      }
-      const res = await fetch('/api/liuyao/create', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (json.success) { setResult(json.data); setStep('result'); }
-      else { setError(json.error || '起卦失败'); }
-    } catch { setError('网络错误'); }
-    finally { setLoading(false); }
-  };
+  // Manual input state
+  var [manualNums, setManualNums] = useState<string[]>(['','','','','','']);
+  // Direct pai gua state
+  var [shangGua, setShangGua] = useState('乾');
+  var [xiaGua, setXiaGua] = useState('乾');
+  var [dongYao, setDongYao] = useState(1);
+  // Coin animation state
+  var [animYao, setAnimYao] = useState<{round:number; coins:number[]; results:number[]}>({round:0, coins:[0,0,0], results:[]});
+  var animTimer = useRef<any>(null);
 
-  const handleAnimationComplete = async (yaoData: number[]) => {
-    setLoading(true);
+  // ── Submit helpers ──
+  var submitAPI = async function(yaoData: number[], method: string) {
+    setStep('loading'); setError('');
     try {
-      const res = await fetch('/api/liuyao/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      var res = await fetch(API_BASE + '/liuyao/create', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ question: question.trim(), method, manualData: yaoData }),
       });
-      const json = await res.json();
+      var json = await res.json();
       if (json.success) { setResult(json.data); setStep('result'); }
-      else { setError(json.error || '起卦失败'); setStep('input'); }
+      else { setError(json.error||'起卦失败'); setStep('input'); }
     } catch { setError('网络错误'); setStep('input'); }
-    finally { setLoading(false); }
   };
 
-  const reset = () => { setStep('input'); setResult(null); setQuestion(''); setManualNums(['','','','','','']); };
+  // ── Random coin ──
+  var startCoinAnim = function() {
+    if (!question.trim()) { setError('请填写所问之事'); return; }
+    setStep('animating'); setAnimYao({round:0, coins:[0,0,0], results:[]});
+  };
 
+  useEffect(() => {
+    if (step !== 'animating') return;
+    if (animYao.round >= 6) { submitAPI(animYao.results, 'random'); return; }
+    var t1 = setTimeout(function() {
+      var backs = Array.from({length:3}, function(){ return Math.floor(Math.random()*2); });
+      var totalBacks = backs.reduce(function(a,b){return a+b;}, 0);
+      var value = totalBacks === 0 ? 9 : totalBacks === 1 ? 7 : totalBacks === 2 ? 8 : 6;
+      setAnimYao(function(p) { return {round:p.round, coins:backs, results:[...p.results, value]}; });
+      var t2 = setTimeout(function() { setAnimYao(function(p) { return {...p, round:p.round+1, coins:[0,0,0]}; }); }, 450);
+      animTimer.current = t2;
+    }, 550);
+    animTimer.current = t1;
+    return function() { clearTimeout(t1); if (animTimer.current) clearTimeout(animTimer.current); };
+  }, [step, animYao.round]);
+
+  // ── Manual submit ──
+  var handleManual = function() {
+    if (!question.trim()) { setError('请填写所问之事'); return; }
+    var nums = manualNums.map(function(n){ return parseInt(n); });
+    if (nums.some(function(n){ return isNaN(n) || ![6,7,8,9].includes(n); })) { setError('请输入有效爻值（6/7/8/9）'); return; }
+    submitAPI(nums, 'manual');
+  };
+
+  // ── Direct pai gua ──
+  var handleDirect = function() {
+    if (!question.trim()) { setError('请填写所问之事'); return; }
+    var shangYao = GUA_YAO[shangGua].slice();
+    var xiaYao = GUA_YAO[xiaGua].slice();
+    var allYao = [...xiaYao, ...shangYao];
+    allYao[dongYao-1] = allYao[dongYao-1] % 2 === 1 ? 9 : 6;
+    submitAPI(allYao, 'direct');
+  };
+
+  var reset = function() {
+    setStep('input'); setResult(null); setQuestion('');
+    setManualNums(['','','','','','']); setError('');
+    setShangGua('乾'); setXiaGua('乾'); setDongYao(1);
+  };
+
+  var yaoLabel = function(val: number) {
+    switch(val) {
+      case 6: return { label:'老阴', sym:'⚋⚋', c:'text-hu-po-jin' };
+      case 7: return { label:'少阳', sym:'⚊', c:'text-dai-qing/70' };
+      case 8: return { label:'少阴', sym:'⚋', c:'text-dai-qing/50' };
+      case 9: return { label:'老阳', sym:'⚊', c:'text-hu-po-jin' };
+      default: return { label:'', sym:'', c:'' };
+    }
+  };
+
+  // ── Render ──
   return (
-    <div className="min-h-screen bg-xuan-zhi text-dai-qing font-sans">
-      {/* Nav */}
+    <div className="min-h-screen bg-xuan-zhi text-dai-qing">
       <nav className="border-b border-dai-qing/8 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-hu-po-jin text-lg font-bold tracking-[3px] no-underline">混沌</Link>
-          <span className="text-dai-qing/20">/</span>
-          <span className="text-dai-qing/60 text-sm tracking-[2px]">六爻决策</span>
-        </div>
-        <Link href="/create" className="text-xs text-dai-qing/50 tracking-[2px] border border-dai-qing/15 rounded px-3 py-1 hover:border-hu-po-jin/30 transition-colors no-underline">
-          命盘排盘 →
-        </Link>
+        <Link href="/" className="text-hu-po-jin text-sm tracking-[4px] no-underline">混沌</Link>
+        <Link href="/create" className="text-xs text-dai-qing/40 tracking-[2px] hover:text-hu-po-jin no-underline transition-colors">命盘排盘 →</Link>
       </nav>
 
-      <main className="max-w-xl mx-auto px-4 py-6">
+      <main className="max-w-xl mx-auto px-4 py-8">
         {step === 'input' && (
-          <div className="space-y-6">
-            <div className="text-center py-6">
-              <div className="inline-flex items-center gap-2 text-hu-po-jin text-3xl mb-3">
-                <span>☰</span><span>☵</span><span>☶</span>
-              </div>
-              <h1 className="text-2xl text-dai-qing tracking-[4px] font-normal mb-2">混沌问卦</h1>
-              <p className="text-xs text-dai-qing/60 tracking-[2px] leading-relaxed">
-                投钱成卦 · 一事一占 · 三盘合断
-              </p>
+          <div className="space-y-5">
+            {/* Title */}
+            <div className="text-center py-4">
+              <div className="inline-flex items-center gap-2 text-hu-po-jin/50 text-xl mb-2"><span>☰</span><span>☵</span><span>☶</span></div>
+              <h1 className="text-lg text-dai-qing tracking-[6px] font-normal">混沌问卦</h1>
+              <p className="text-xs text-dai-qing/30 tracking-[2px] mt-2">一事一占 · 三盘合断</p>
             </div>
 
-            {/* 推演问题 */}
-            <section className="bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6">
-              <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-3">推 演 问 题</p>
+            {/* Question */}
+            <div className="qn-card">
+              <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-3 text-center">所 问 之 事</p>
               <textarea
-                value={question} onChange={e => setQuestion(e.target.value)}
-                placeholder="例如：这个工作机会适合我吗？"
+                value={question} onChange={function(e){ setQuestion(e.target.value); }}
+                placeholder="例如：这次跳槽去新公司发展好吗？"
                 rows={3} maxLength={200}
-                className="w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg p-4 text-sm text-dai-qing placeholder-dai-qing/30 resize-none outline-none focus:border-hu-po-jin/40 transition-colors"
+                className="w-full bg-transparent border border-dai-qing/10 rounded-xl p-4 text-sm text-dai-qing placeholder-dai-qing/20 resize-none outline-none focus:border-hu-po-jin/30 transition-colors"
               />
-            </section>
+              <p className="text-[10px] text-dai-qing/25 mt-2 text-right">{question.length}/200</p>
+            </div>
 
-            {/* 起卦方式 */}
-            <section className="bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6">
-              <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-4">起 卦 方 式</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { value:'random', label:'随机起卦', desc:'系统随机模拟铜钱摇卦', icon:'🎲' },
-                  { value:'manual', label:'报数起卦', desc:'从初爻到上爻输入6个数字', icon:'🔢' },
-                ].map(m => (
-                  <button key={m.value} onClick={() => setMethod(m.value as typeof method)}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-all ${
-                      method === m.value ? 'border-hu-po-jin bg-hu-po-jin/5 text-hu-po-jin' : 'border-dai-qing/8 bg-xuan-zhi text-dai-qing/50 hover:border-dai-qing/20'
-                    }`}
-                  ><span className="text-xl">{m.icon}</span>
-                   <span className="text-xs tracking-[1px]">{m.label}</span>
-                   <span className="text-[10px] opacity-60">{m.desc}</span>
-                  </button>
-                ))}
-              </div>
-            </section>
+            {error && <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-4 text-center text-sm text-red-400/80">{error}</div>}
 
-            {/* 报数起卦：六爻输入 */}
-            {method === 'manual' && (
-              <section className="bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6">
-                <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-3">手 动 输 爻 (初→上)</p>
-                <p className="text-[10px] text-dai-qing/40 mb-4">6=老阴(动) 7=少阳 8=少阴 9=老阳(动)</p>
-                <div className="grid grid-cols-6 gap-2">
-                  {manualNums.map((n, i) => (
-                    <div key={i} className="text-center">
-                      <p className="text-[10px] text-dai-qing/40 mb-1">{['初','二','三','四','五','上'][i]}</p>
-                      <input
-                        type="number" min={6} max={9} value={n}
-                        onChange={e => {
-                          const v = e.target.value.slice(-1);
-                          const newNums = [...manualNums];
-                          newNums[i] = v;
-                          setManualNums(newNums);
-                        }}
-                        className="w-full text-center bg-xuan-zhi border border-dai-qing/15 rounded-lg py-2 text-sm text-dai-qing outline-none focus:border-hu-po-jin/40"
-                      />
-                    </div>
-                  ))}
+            {/* ── 起卦方式 Tabs ── */}
+            <div className="flex bg-xuan-zhi-dark rounded-2xl p-1 border border-dai-qing/10">
+              {[
+                { id:'random' as const, icon:'🎲', label:'随机起卦', desc:'模拟铜钱' },
+                { id:'manual' as const, icon:'🔢', label:'报数起卦', desc:'手动输爻' },
+                { id:'direct' as const, icon:'☯', label:'直接排卦', desc:'自选卦爻' },
+              ].map(function(tab) {
+                return (
+                  <button key={tab.id} onClick={function(){ setMethod(tab.id); }}
+                    className={"flex-1 flex flex-col items-center gap-1 py-3 rounded-xl text-xs transition-all " + (method === tab.id ? 'bg-xuan-zhi text-hu-po-jin shadow-sm' : 'text-dai-qing/35 hover:text-dai-qing/60')}
+                  ><span className="text-base">{tab.icon}</span><span className="tracking-[1px]">{tab.label}</span><span className="text-[9px] opacity-50">{tab.desc}</span></button>
+                );
+              })}
+            </div>
+
+            {/* ── 随机起卦 ── */}
+            {method === 'random' && (
+              <div className="qn-card text-center">
+                <div className="py-4">
+                  <div className="flex justify-center gap-3 mb-3">
+                    {[0,1,2].map(function(i){ return <div key={i} className="w-9 h-9 rounded-full border border-hu-po-jin/20 bg-hu-po-jin/5 flex items-center justify-center text-sm text-hu-po-jin/50">◎</div>; })}
+                  </div>
+                  <p className="text-xs text-dai-qing/30">系统模拟铜钱摇卦，共掷 6 次，每次 3 枚铜钱</p>
                 </div>
-              </section>
+                <button onClick={startCoinAnim} className="qn-btn qn-btn--amber qn-btn--md mt-2" style={{borderRadius:'999px',letterSpacing:'.15em'}}>开 始 摇 卦</button>
+              </div>
             )}
 
-            {error && <div className="bg-dai-qing-dark/20/30 border border-dai-qing-dark/30 rounded-lg p-3 text-center text-sm text-hu-po-jin-dark">{error}</div>}
+            {/* ── 报数起卦 ── */}
+            {method === 'manual' && (
+              <div className="qn-card">
+                <p className="text-[10px] text-dai-qing/30 mb-3">从初爻到上爻，依次输入 6 个数值：6=老阴(动) 7=少阳 8=少阴 9=老阳(动)</p>
+                <div className="grid grid-cols-6 gap-2 mb-4">
+                  {manualNums.map(function(n, i) {
+                    return (
+                      <div key={i} className="text-center">
+                        <p className="text-[10px] text-dai-qing/25 mb-1">{['初','二','三','四','五','上'][i]}</p>
+                        <input type="number" min={6} max={9} value={n}
+                          onChange={function(e) { var v = e.target.value.slice(-1); setManualNums(function(p) { var a = [...p]; a[i] = v; return a; }); }}
+                          className="w-full text-center bg-xuan-zhi border border-dai-qing/10 rounded-lg py-2.5 text-sm text-dai-qing outline-none focus:border-hu-po-jin/30"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <button onClick={handleManual} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>提 交 卦 象</button>
+              </div>
+            )}
 
-            <div className="text-center">
-              <button onClick={handleSubmit}
-                className="bg-hu-po-jin text-xuan-zhi text-base px-12 py-4 rounded-lg tracking-[4px] font-medium hover:bg-hu-po-jin transition-all"
-              >{method === 'manual' ? '提 交 卦 象' : '开 始 起 卦'}</button>
-              <p className="mt-4 text-[10px] text-dai-qing/40 tracking-[2px]">心念一动即起卦 · 免费体验</p>
-            </div>
+            {/* ── 直接排卦 ── */}
+            {method === 'direct' && (
+              <div className="qn-card">
+                <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div>
+                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">上卦</p>
+                    <div className="grid grid-cols-4 gap-1">
+                      {GUA_NAMES.map(function(g) {
+                        return <button key={g} onClick={function(){ setShangGua(g); }}
+                          className={"py-1.5 text-xs rounded border transition-all " + (shangGua===g ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
+                        >{g}</button>;
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">下卦</p>
+                    <div className="grid grid-cols-4 gap-1">
+                      {GUA_NAMES.map(function(g) {
+                        return <button key={g} onClick={function(){ setXiaGua(g); }}
+                          className={"py-1.5 text-xs rounded border transition-all " + (xiaGua===g ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
+                        >{g}</button>;
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">动爻</p>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[1,2,3,4,5,6].map(function(n) {
+                        return <button key={n} onClick={function(){ setDongYao(n); }}
+                          className={"py-1.5 text-xs rounded border transition-all " + (dongYao===n ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
+                        >{['初','二','三','四','五','上'][n-1]}</button>;
+                      })}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center py-3 border border-dai-qing/8 rounded-xl bg-xuan-zhi/50 mb-4">
+                  <span className="text-2xl">{GUA_EMOJI[shangGua]}</span>
+                  <span className="text-dai-qing/20 mx-2">+</span>
+                  <span className="text-2xl">{GUA_EMOJI[xiaGua]}</span>
+                  <span className="text-[10px] text-dai-qing/30 ml-3">动 {['初','二','三','四','五','上'][dongYao-1]}爻</span>
+                </div>
+                <button onClick={handleDirect} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>开 始 排 卦</button>
+              </div>
+            )}
+<p className="text-center text-[10px] text-dai-qing/20 tracking-[2px] pb-4">心诚则灵 · 免费体验</p>
           </div>
         )}
 
-        {loading && (
-          <div className="text-center py-12">
-            {/* Ring animation — qingnang style */}
-            <div className="relative inline-flex items-center justify-center" style={{width:200,height:200}}>
-              <div className="anchor-ring absolute inset-0 rounded-full border border-hu-po-jin/15" />
-              <div className="anchor-ring-rev absolute inset-[12px] rounded-full border border-hu-po-jin/10" style={{borderStyle:'dashed'}} />
-              <div className="absolute inset-[50px] rounded-full border border-hu-po-jin/5" />
-              <div className="text-3xl text-hu-po-jin animate-pulse">☯</div>
-            </div>
-            {/* Floating particles */}
-            <div className="relative mx-auto" style={{width:200,height:40}}>
-              {Array.from({length:6}).map((_,i) => (
-                <span key={i} className={i%2===0?'hex-particle':'hex-particle-alt'} style={{
-                  position:'absolute',left:(i*32+10)+'px',top:'10px',
-                  animationDelay:(-i*1.2)+'s',fontSize:'10px',color:'var(--color-hu-po-jin)',opacity:0.4
-                }}>{['⚊','⚋','⚊','⚋','⚊','⚋'][i]}</span>
-              ))}
-            </div>
-            <p className="text-[13px] text-dai-qing/60 tracking-[2px] mt-4 animate-pulse">起卦中...</p>
-            <p className="text-[10px] text-dai-qing/40 mt-2">三盘合断 · 稍等片刻</p>
-          </div>
-        )}
-
-        {step === 'result' && result && (
-          <ResultView result={result} onBack={reset} />
-        )}
+        {/* ── Coin Animation ── */}
+        {step === 'animating' && <CoinAnimation animYao={animYao} yaoLabel={yaoLabel} />}
+        {/* ── Loading ── */}
+        {step === 'loading' && <Spinner text="推演卦象中..." />}
+        {/* ── Result ── */}
+        {step === 'result' && result && <ResultView result={result} onBack={reset} />}
       </main>
     </div>
   );
 }
 
-// ========== Result View ==========
-function ResultView({ result, onBack }: { result: FullResult; onBack: () => void }) {
-  const { analysis, pan, tianPan, diPan } = result;
-  const benGua = pan.benGua;
-  const yaoList = pan.yaoList;
-
+// ── Coin Animation (3D flip + ring + particles) ──
+function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
+  var spinning = animYao.results.length === animYao.round && animYao.coins[0] === 0;
+  var done = animYao.round >= 6;
   return (
-    <div className="space-y-6">
-      {/* ===== 卦象概览 ===== */}
-      <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6 text-center">
-        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4">卦 象 结 果</p>
-        <div className="text-6xl mb-4">{GUA_EMOJI[benGua.shangGua]}{GUA_EMOJI[benGua.xiaGua]}</div>
-        <h2 className="font-serif text-2xl text-dai-qing tracking-[0.05em]">
-          {benGua.name}
-          <span className="text-hu-po-jin/60 text-base ml-2">{benGua.guaType}</span>
-        </h2>
-        <p className="mt-2 text-sm text-dai-qing/50">
-          {benGua.shangGua}{GUA_EMOJI[benGua.shangGua]}上 · {benGua.xiaGua}{GUA_EMOJI[benGua.xiaGua]}下
-        </p>
-        <p className="mt-3 text-[13px] text-dai-qing/70 max-w-md mx-auto leading-relaxed">{analysis}</p>
-        {pan.bianGua && (
-          <div className="mt-6 pt-5 border-t border-dai-qing/10">
-            <p className="text-[10.5px] text-dai-qing/40 tracking-[0.3em] mb-3">变 卦</p>
-            <div className="text-4xl mb-2">{GUA_EMOJI[pan.bianGua.shangGua]}{GUA_EMOJI[pan.bianGua.xiaGua]}</div>
-            <p className="font-serif text-lg text-dai-qing/80">{pan.bianGua.name}</p>
-          </div>
-        )}
+    <div className="py-6">
+      <div className="relative flex items-center justify-center mb-8" style={{height:140}}>
+        <div className="absolute rounded-full border border-hu-po-jin/15 animate-spin" style={{width:120,height:120,animationDuration:'4s'}} />
+        <div className="absolute rounded-full border border-hu-po-jin/10 animate-spin" style={{width:96,height:96,animationDuration:'3s',animationDirection:'reverse',borderStyle:'dashed'}} />
+        <div className="absolute rounded-full border border-hu-po-jin/5" style={{width:64,height:64}} />
+        <p className="relative text-hu-po-jin text-xs tracking-[6px] animate-pulse">{done ? '起 卦 完 成' : '摇 卦 中'}</p>
       </div>
-
-      {/* ===== 人盘 — 六爻纳甲 ===== */}
-      <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
-        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4">人 盘 · 六 爻 纳 甲</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-y border-dai-qing/8 text-dai-qing/50 text-xs">
-                <th className="py-2.5 px-2 font-normal">爻</th>
-                <th className="py-2.5 px-2 font-normal">干支</th>
-                <th className="py-2.5 px-2 font-normal">六亲</th>
-                <th className="py-2.5 px-2 font-normal">六神</th>
-                <th className="py-2.5 px-2 font-normal">世应</th>
-                <th className="py-2.5 px-2 font-normal">空亡</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...yaoList].reverse().map(yao => (
-                <tr key={yao.position} className="border-b border-dai-qing/5 text-center">
-                  <td className="py-2.5 px-2">
-                    <span className="text-dai-qing/60">{POS_NAMES[yao.position]}</span>
-                    <span className={yao.yinYang === "阳" ? "ml-1 text-hu-po-jin" : "ml-1 text-dai-qing/40"}>
-                      {yao.yinYang === "阳" ? "▬▬▬" : "▬ ▬"}
-                    </span>
-                    {yao.isDong && <span className="ml-1 text-[10px] text-hu-po-jin">○</span>}
-                  </td>
-                  <td className="py-2.5 px-2 text-dai-qing/70">{yao.naGan}{yao.naZhi}</td>
-                  <td className="py-2.5 px-2 text-dai-qing/70">{yao.liuQin}</td>
-                  <td className="py-2.5 px-2 text-dai-qing/70">{yao.liuShen}</td>
-                  <td className="py-2.5 px-2">{yao.shiYing&&<span className="text-hu-po-jin text-xs">{yao.shiYing}</span>}</td>
-                  <td className="py-2.5 px-2">{yao.xunKong&&<span className="text-hu-po-jin-dark text-xs">空</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-3 text-[10.5px] text-dai-qing/40 text-right">
-          日辰 {pan.riChen.gan}{pan.riChen.zhi} · 月建 {pan.yueJian}
-        </div>
-      </div>
-
-      {/* ===== 天盘 ===== */}
-      <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
-        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4">天 盘 · 星 宿 演 禽</p>
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-4 py-3 text-center">
-            <p className="text-[10.5px] text-dai-qing/40 mb-1">世爻星宿</p>
-            <p className="text-xl text-hu-po-jin font-serif">{tianPan.shiXiu||"?"}</p>
-          </div>
-          <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-4 py-3 text-center">
-            <p className="text-[10.5px] text-dai-qing/40 mb-1">应爻星宿</p>
-            <p className="text-xl text-hu-po-jin-dark font-serif">{tianPan.yingXiu||"?"}</p>
-          </div>
-        </div>
-        <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-4 py-3 mb-4">
-          <p className="text-xs text-dai-qing/60 mb-1">吞啖关系</p>
-          <p className="text-sm text-dai-qing/80">{tianPan.tunTie}</p>
-        </div>
-        {tianPan.geJu.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {tianPan.geJu.map(g => (
-              <span key={g} className="text-[10px] text-hu-po-jin bg-hu-po-jin/5 border border-hu-po-jin/20 rounded-full px-3 py-1">{g}</span>
-            ))}
-          </div>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-y border-dai-qing/8 text-dai-qing/50">
-                <th className="py-2 px-2 font-normal">爻</th>
-                <th className="py-2 px-2 font-normal">星宿</th>
-                <th className="py-2 px-2 font-normal">禽象</th>
-                <th className="py-2 px-2 font-normal">泊位</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...tianPan.yaoXiu].reverse().map(x => (
-                <tr key={x.position} className="border-b border-dai-qing/5 text-dai-qing/65 text-center">
-                  <td className="py-2 px-2">{POS_NAMES[x.position]}</td>
-                  <td className="py-2 px-2">{x.xiuName}</td>
-                  <td className="py-2 px-2">{x.qinXiang}</td>
-                  <td className="py-2 px-2 text-[10px]">{x.boWei}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ===== 地盘 ===== */}
-      <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
-        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4">地 盘 · 卦 象 数 理</p>
-        <div className="grid grid-cols-2 gap-3 mb-5 text-center">
-          <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-4 py-3">
-            <p className="text-[10.5px] text-dai-qing/40">内数（{diPan.neiGua}）</p>
-            <p className="text-2xl text-hu-po-jin font-serif mt-1">{diPan.neiShu}</p>
-          </div>
-          <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-4 py-3">
-            <p className="text-[10.5px] text-dai-qing/40">外数（{diPan.waiGua}）</p>
-            <p className="text-2xl text-hu-po-jin font-serif mt-1">{diPan.waiShu}</p>
-          </div>
-        </div>
-        <div className="space-y-2 mb-5">
-          {diPan.operations.map(op => (
-            <div key={op.type} className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-4 py-3 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-dai-qing/60 font-mono">{op.formula}</span>
-                <span className="text-[10px] text-dai-qing/40 ml-2">{op.meaning}</span>
-              </div>
-              <span className="text-sm text-hu-po-jin font-serif">{op.result}</span>
+      <div className="flex justify-center gap-5 mb-6">
+        {animYao.coins.map(function(v:number, i:number) {
+          var isSpinning = spinning && animYao.round < 6;
+          return (
+            <div key={i} className="relative" style={{perspective:'200px'}}>
+              <div className={"w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-all " + (isSpinning ? 'animate-coin-flip' : '')}
+                style={isSpinning ? {animation:'coinFlip 0.6s ease-in-out infinite',backgroundColor:'#c9a14a',color:'#0b1414',border:'2px solid #c9a14a',boxShadow:'0 2px 8px rgba(201,161,74,0.4)'} : v===1 ? {backgroundColor:'#c9a14a',color:'#0b1414',border:'2px solid #c9a14a',boxShadow:'0 2px 6px rgba(201,161,74,0.3)'} : {backgroundColor:'transparent',border:'2px solid var(--color-dai-qing)',opacity:'0.5'}}
+              >{isSpinning ? '◎' : v===1 ? '花' : '字'}</div>
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-black/10 rounded-full blur-sm" />
             </div>
-          ))}
-        </div>
-        <div className="text-center pt-3 border-t border-dai-qing/8">
-          <span className="text-[10.5px] text-dai-qing/50">化卦 </span>
-          <span className="text-lg text-hu-po-jin font-serif ml-1">{diPan.huaGua}</span>
-        </div>
+          );
+        })}
+        <style>{"@keyframes coinFlip{0%{transform:rotateY(0deg)}50%{transform:rotateY(180deg)}100%{transform:rotateY(360deg)}}.animate-coin-flip{animation:coinFlip .6s ease-in-out infinite}"}</style>
       </div>
-
-      {/* Actions */}
-      <div className="flex gap-3 justify-center pt-2 pb-8">
-        <button onClick={onBack} className="qn-btn qn-btn--sm border-dai-qing/15 !text-dai-qing/60 hover:!text-dai-qing">
-          ← 重新提问
-        </button>
-        <Link href="/create" className="qn-btn qn-btn--primary qn-btn--sm no-underline">
-          完整命盘 →
-        </Link>
+      <div className="space-y-1.5 max-w-[220px] mx-auto">
+        {animYao.results.map(function(val:number, i:number) {
+          var y = yaoLabel(val);
+          var isNew = i === animYao.results.length - 1 && !spinning && animYao.round < 6;
+          return (
+            <div key={i} className={"flex items-center justify-between text-sm py-1 px-2 rounded " + (isNew ? 'animate-fade-in bg-hu-po-jin/5' : '')}>
+              <span className="text-dai-qing/25 text-xs w-6">{POS_NAMES[i+1]}</span>
+              <span className={y.c + " text-base"}>{y.sym}</span>
+              <span className="text-dai-qing/35 text-xs w-10 text-right">{y.label}</span>
+              {y.label.includes('动') && <span className="text-[9px] text-hu-po-jin border border-hu-po-jin/30 rounded-full px-1.5 py-0.5">动</span>}
+            </div>
+          );
+        })}
       </div>
+      <div className="mt-6 max-w-[200px] mx-auto">
+        <div className="h-1 bg-dai-qing/10 rounded-full overflow-hidden">
+          <div className="h-full bg-hu-po-jin/40 rounded-full transition-all duration-500" style={{width:(animYao.round/6*100)+'%'}} />
+        </div>
+        <p className="text-center text-[10px] text-dai-qing/20 mt-2">第 {Math.min(animYao.round+1,6)} / 6 爻</p>
+      </div>
+    </div>
+  );
+}
 
-      <p className="text-center text-[10px] text-dai-qing/30 tracking-[2px] pb-8">仅供参考 · 不构成决策建议</p>
+// ── Result View ──
+function ResultView({ result, onBack }: { result:FullResult; onBack:()=>void }) {
+  var { question, analysis, pan, tianPan, diPan } = result;
+  var benGua = pan.benGua, yaoList = pan.yaoList;
+  return (
+    <div className="space-y-4">
+      <div className="qn-card text-center">
+        <div className="text-5xl mb-4 opacity-80">{GUA_EMOJI[benGua.shangGua]}{GUA_EMOJI[benGua.xiaGua]}</div>
+        <h2 className="text-xl text-dai-qing tracking-[0.1em] font-normal">{benGua.name}<span className="text-hu-po-jin/50 text-sm ml-2">{benGua.guaType}</span></h2>
+        <p className="text-xs text-dai-qing/35 mt-2">{benGua.shangGua}上 · {benGua.xiaGua}下 · {benGua.gongWei}宫{benGua.gongWuXing}</p>
+        {pan.bianGua && <div className="mt-4 pt-4 border-t border-dai-qing/8"><p className="text-[10px] text-dai-qing/25 tracking-[0.3em] mb-2">变 卦</p><div className="text-3xl opacity-70">{GUA_EMOJI[pan.bianGua.shangGua]}{GUA_EMOJI[pan.bianGua.xiaGua]}</div><p className="text-sm text-dai-qing/50 mt-1">{pan.bianGua.name}</p></div>}
+      </div>
+      {analysis && <div className="qn-card"><p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-3 text-center">卦 象 解 读</p><p className="text-sm text-dai-qing/75 leading-relaxed whitespace-pre-wrap text-center">{analysis}</p></div>}
+      <div className="qn-card">
+        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4 text-center">六 爻 纳 甲</p>
+        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-y border-dai-qing/8 text-dai-qing/35"><th className="py-2 px-1 font-normal">爻</th><th className="py-2 px-1 font-normal">干支</th><th className="py-2 px-1 font-normal">六亲</th><th className="py-2 px-1 font-normal">六神</th><th className="py-2 px-1 font-normal">世应</th><th className="py-2 px-1 font-normal">空亡</th></tr></thead>
+        <tbody>{[...yaoList].reverse().map(function(yao){ return <tr key={yao.position} className="border-b border-dai-qing/5 text-center"><td className="py-2 px-1"><span className="text-dai-qing/35">{POS_NAMES[yao.position]}</span><span className={yao.yinYang==='阳'?'ml-1 text-hu-po-jin':'ml-1 text-dai-qing/25'}>{yao.yinYang==='阳'?'⚊':'⚋'}</span>{yao.isDong&&<span className="text-[10px] text-hu-po-jin ml-0.5">○</span>}</td><td className="py-2 px-1 text-dai-qing/55">{yao.naGan}{yao.naZhi}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuQin}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuShen}</td><td className="py-2 px-1">{yao.shiYing&&<span className="text-hu-po-jin text-[10px]">{yao.shiYing}</span>}</td><td className="py-2 px-1">{yao.xunKong&&<span className="text-hu-po-jin-dark text-[10px]">空</span>}</td></tr>; })}</tbody></table></div>
+        <p className="text-[10px] text-dai-qing/25 mt-3 text-right">日辰 {pan.riChen.gan}{pan.riChen.zhi} · 月建 {pan.yueJian}</p>
+      </div>
+      <div className="flex justify-center pt-2 pb-8"><button onClick={onBack} className="qn-btn qn-btn--amber qn-btn--md" style={{borderRadius:"999px",letterSpacing:".15em"}}>重 新 摇 卦</button></div>
+      <p className="text-center text-[10px] text-dai-qing/15 tracking-[2px] pb-8">仅供参考 · 不构成决策建议</p>
     </div>
   );
 }
