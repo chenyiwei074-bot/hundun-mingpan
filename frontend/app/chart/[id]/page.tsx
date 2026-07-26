@@ -148,64 +148,86 @@ export default function ChartPage() {
           </div>
         )}
 
-        {/* 免费摘要 */}
-        {freeContent && (
+        {/* 八字 + 紫微摘要 */}
+        {freeContent && (freeContent.bazi || freeContent.ziwei) && (
           <>
             {/* 八字四柱 */}
             {freeContent.bazi && (
               <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
                 <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-5 text-center">八 · 字 · 四 · 柱</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-center text-sm">
-                    <thead>
-                      <tr className="border-y border-dai-qing/8 text-dai-qing/50 text-xs">
-                        {['年柱','月柱','日柱','时柱'].map(l => <th key={l} className="py-2.5 font-normal">{l}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-dai-qing/5">
-                        {(['year','month','day','hour'] as const).map(p => {
-                          const pd = freeContent.bazi?.siZhu?.[p] || {};
-                          return <td key={p} className="py-3"><span className="text-lg font-bold text-dai-qing">{pd.gan || '-'}</span><span className="text-dai-qing/70 ml-1">{pd.zhi || '-'}</span></td>;
-                        })}
-                      </tr>
-                      <tr className="border-b border-dai-qing/5">
-                        {(['year','month','day','hour'] as const).map(p => {
-                          const cg = freeContent.bazi?.cangGan?.[p];
-                          return <td key={p} className="py-2 text-xs text-dai-qing/50">{Array.isArray(cg) ? cg.filter(Boolean).join(' ') : '-'}</td>;
-                        })}
-                      </tr>
-                      <tr className="border-b border-dai-qing/5">
-                        {(['year','month','day','hour'] as const).map(p => (
-                          <td key={'na'+p} className="py-1.5 text-xs text-dai-qing/40">{freeContent.bazi?.naYin?.[p] || '-'}</td>
-                        ))}
-                      </tr>
-                      <tr>
-                        {(['year','month','day','hour'] as const).map(p => (
-                          <td key={'ss'+p} className="py-1.5 text-xs text-hu-po-jin/80">{freeContent.bazi?.shiShen?.[p]?.gan || '-'}</td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                {freeContent.bazi.siZhu ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-center text-sm">
+                      <thead>
+                        <tr className="border-y border-dai-qing/8 text-dai-qing/50 text-xs">
+                          {['年柱','月柱','日柱','时柱'].map(l => <th key={l} className="py-2.5 font-normal">{l}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-dai-qing/5">
+                          {(['year','month','day','hour'] as const).map(p => {
+                            const pd = freeContent.bazi?.siZhu?.[p];
+                            const val = typeof pd === 'string' ? pd : (pd?.gan || '') + (pd?.zhi || '');
+                            return <td key={p} className="py-3"><span className="text-lg font-bold text-dai-qing">{val || '-'}</span></td>;
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-center text-dai-qing/50 text-sm py-4">日主：{freeContent.bazi?.dayMaster || '—'}</p>
+                )}
+                {freeContent.bazi?.dayMaster && (
+                  <div className="grid grid-cols-3 gap-3 mt-4 text-center text-xs">
+                    <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-2">
+                      <p className="text-dai-qing/40">日主</p>
+                      <p className="text-hu-po-jin text-lg font-bold mt-0.5">{freeContent.bazi.dayMaster}</p>
+                    </div>
+                    <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-2">
+                      <p className="text-dai-qing/40">格局</p>
+                      <p className="text-dai-qing text-sm mt-0.5">{freeContent.bazi.geju || '—'}</p>
+                    </div>
+                    <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-2">
+                      <p className="text-dai-qing/40">旺衰</p>
+                      <p className="text-dai-qing text-sm mt-0.5">{freeContent.bazi.wangshuai || '—'}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* 紫微十二宫 */}
-            {freeContent.ziwei && freeContent.ziwei.gongs && Object.keys(freeContent.ziwei.gongs).length > 0 && (
+            {freeContent.ziwei && (
               <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
-                <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-5 text-center">紫 · 微 · 十 · 二 · 宫</p>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {DIZHI_ORDER.map(pos => {
-                    const g = freeContent.ziwei.gongs[pos] || {};
-                    return (
-                      <div key={pos} className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 p-1.5 text-center min-h-[60px] flex flex-col justify-center">
-                        <p className="text-[9px] text-dai-qing/40">{pos} · {g.name || pos}</p>
-                        <p className="text-[10px] text-hu-po-jin mt-0.5 leading-tight">{g.mainStars || ''}</p>
-                        <p className="text-[9px] text-dai-qing/50 leading-tight">{g.auxStars || ''}</p>
-                      </div>
-                    );
-                  })}
+                <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-5 text-center">紫 · 微 · 斗 · 数</p>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 px-2 py-1.5">
+                    <span className="text-dai-qing/40">命宫 </span>
+                    <span className="text-hu-po-jin">{freeContent.ziwei.mingGong || '—'}</span>
+                  </div>
+                  <div className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 px-2 py-1.5">
+                    <span className="text-dai-qing/40">身宫 </span>
+                    <span className="text-hu-po-jin">{freeContent.ziwei.shenGong || '—'}</span>
+                  </div>
+                  <div className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 px-2 py-1.5">
+                    <span className="text-dai-qing/40">主星 </span>
+                    <span className="text-hu-po-jin text-[10px]">{(freeContent.ziwei.mainStars || []).join(' ') || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 关键词 */}
+            {freeContent.keywords && freeContent.keywords.length > 0 && (
+              <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6 text-center">
+                <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4">命 · 盘 · 关 · 键 · 词</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {freeContent.keywords.map((kw: string, i: number) => (
+                    <div key={i} className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-3">
+                      <p className="text-[10px] text-dai-qing/40 mb-1">{['事业','财富','感情'][i] || '运势'}</p>
+                      <p className="text-sm text-dai-qing">{kw}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
