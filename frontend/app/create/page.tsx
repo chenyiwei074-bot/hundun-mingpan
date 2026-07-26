@@ -57,18 +57,18 @@ function PickerModal({ title, options, value, onChange, onClose, height = 'h-64'
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg bg-[#1a1614] border border-[#2a2520] rounded-t-2xl overflow-hidden animate-slide-up"
+      <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2520]">
-          <span className="text-xs text-[#6b5f52] tracking-[2px]">请选择</span>
-          <span className="text-[#e8e0d5] text-sm tracking-[2px]">{title}</span>
-          <button onClick={onClose} className="text-[#a89a85] text-sm px-2 hover:text-[#e0c878]">完成</button>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
+          <span className="text-xs text-dai-qing/50 tracking-[2px]">请选择</span>
+          <span className="text-dai-qing text-sm tracking-[2px]">{title}</span>
+          <button onClick={onClose} className="text-dai-qing/70 text-sm px-2 hover:text-hu-po-jin">完成</button>
         </div>
         <div className={`overflow-y-auto ${height} overscroll-contain`}>
           {options.map(opt => (
             <button key={opt.value} onClick={() => onChange(opt.value)}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${
-                opt.value === value ? 'text-[#e0c878] bg-[#c9a84c]/10 border-l-2 border-l-[#c9a84c]' : 'text-[#a89a85] hover:bg-[#201a16]'
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${
+                opt.value === value ? 'text-hu-po-jin bg-hu-po-jin/10 border-l-2 border-l-hu-po-jin' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'
               }`}>
               {opt.label}
             </button>
@@ -96,32 +96,32 @@ function RegionPicker({ value, onChange, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg bg-[#1a1614] border border-[#2a2520] rounded-t-2xl overflow-hidden animate-slide-up"
+      <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
         onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#2a2520]">
-          <button onClick={() => setStep(s => s > 1 ? (s - 1) as 1|2|3 : s)} className="text-[#a89a85] text-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
+          <button onClick={() => setStep(s => s > 1 ? (s - 1) as 1|2|3 : s)} className="text-dai-qing/70 text-sm">
             {step > 1 ? '← 返回' : ''}
           </button>
           <div className="flex gap-2">{ [1,2,3].map(s => (
-            <div key={s} className={`w-2 h-2 rounded-full ${s <= step ? 'bg-[#c9a84c]' : 'bg-[#2a2520]'}`} />
+            <div key={s} className={`w-2 h-2 rounded-full ${s <= step ? 'bg-hu-po-jin' : 'bg-dai-qing/15'}`} />
           ))}</div>
-          <button onClick={onClose} className="text-[#a89a85] text-sm px-2 hover:text-[#e0c878]">取消</button>
+          <button onClick={onClose} className="text-dai-qing/70 text-sm px-2 hover:text-hu-po-jin">取消</button>
         </div>
-        <div className="text-center py-2 text-xs text-[#6b5f52] tracking-[2px]">
+        <div className="text-center py-2 text-xs text-dai-qing/50 tracking-[2px]">
           {step === 1 ? '选择省份' : step === 2 ? '选择城市' : `${selP} ${selC} - 选择区县`}
         </div>
         <div ref={scrollRef} className="overflow-y-auto h-72 overscroll-contain">
           {step === 1 && provinces.map(p => (
             <button key={p.name} onClick={() => { setSelP(p.name); setSelC(''); setSelD(''); setStep(2); if (scrollRef.current) scrollRef.current.scrollTop = 0; }}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${p.name === selP ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>{p.name}</button>
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${p.name === selP ? 'text-hu-po-jin bg-hu-po-jin/10' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'}`}>{p.name}</button>
           ))}
           {step === 2 && prov?.cities.map(c => (
             <button key={c.name} onClick={() => { setSelC(c.name); setSelD(''); setStep(3); if (scrollRef.current) scrollRef.current.scrollTop = 0; }}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${c.name === selC ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>{c.name}</button>
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${c.name === selC ? 'text-hu-po-jin bg-hu-po-jin/10' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'}`}>{c.name}</button>
           ))}
           {step === 3 && city?.districts.map(d => (
             <button key={d.name} onClick={() => { setSelD(d.name); onChange({ province: selP, city: selC, district: d.name }); onClose(); }}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-[#1f1b18] transition-colors ${d.name === selD ? 'text-[#e0c878] bg-[#c9a84c]/10' : 'text-[#a89a85] hover:bg-[#201a16]'}`}>{d.name}</button>
+              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${d.name === selD ? 'text-hu-po-jin bg-hu-po-jin/10' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'}`}>{d.name}</button>
           ))}
         </div>
       </div>
@@ -239,11 +239,11 @@ export default function CreatePage() {
   };
 
   // ========== Render helpers ==========
-  const sectionClass = "bg-[#100e0c] border border-[#1a1814] rounded-xl p-6";
-  const fieldLabelClass = "text-[10px] text-[#6b5f52] tracking-[2px] mb-2";
-  const selectBtnClass = "w-full bg-[#0a0806] border border-[#2a2520] rounded-lg px-4 py-3 text-left text-sm hover:border-[#c9a84c]/30 transition-colors";
-  const selectBtnActiveClass = "text-[#e0c878] border-[#c9a84c]/40";
-  const selectBtnEmptyClass = "text-[#4a4035]";
+  const sectionClass = "bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6";
+  const fieldLabelClass = "text-[10px] text-dai-qing/50 tracking-[2px] mb-2";
+  const selectBtnClass = "w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg px-4 py-3 text-left text-sm hover:border-hu-po-jin/30 transition-colors";
+  const selectBtnActiveClass = "text-hu-po-jin border-hu-po-jin/40";
+  const selectBtnEmptyClass = "text-dai-qing/30";
 
   const renderGenderGroup = (gender: string, onChange: (v: string) => void) => (
     <div className="flex gap-3">
@@ -251,8 +251,8 @@ export default function CreatePage() {
         <button key={g} onClick={() => onChange(g)}
           className={`flex-1 py-2.5 rounded-lg border text-sm tracking-[2px] transition-all ${
             gender === g
-              ? 'border-[#c9a84c] bg-[#c9a84c]/10 text-[#e0c878]'
-              : 'border-[#1a1814] bg-[#0a0806] text-[#6b5f52] hover:border-[#3a3025]'
+              ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin'
+              : 'border-dai-qing/8 bg-xuan-zhi text-dai-qing/50 hover:border-dai-qing/20'
           }`}
         >{g === '男' ? '乾造' : '坤造'} · {g}</button>
       ))}
@@ -275,7 +275,7 @@ export default function CreatePage() {
             {['公历', '农历'].map(cal => (
               <button key={cal} onClick={() => setField('calendar', cal)}
                 className={`text-xs px-4 py-1.5 rounded border tracking-[1px] transition-all ${
-                  form.calendar === cal ? 'border-[#c9a84c] text-[#e0c878] bg-[#c9a84c]/10' : 'border-[#1a1814] text-[#6b5f52]'
+                  form.calendar === cal ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/50'
                 }`}>{cal}</button>
             ))}
           </div>
@@ -324,13 +324,13 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-[#e0d5b7] font-sans">
+    <div className="min-h-screen bg-xuan-zhi text-dai-qing font-sans">
       {/* Nav */}
-      <nav className="border-b border-[#1a1814] px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
+      <nav className="border-b border-dai-qing/8 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
         <div className="flex items-center gap-3">
-          <a href="/" className="text-[#d4a853] text-lg font-bold tracking-[3px] no-underline">混沌阁</a>
-          <span className="text-[#3a3025]">/</span>
-          <span className="text-[#8a7a5a] text-sm tracking-[2px]">命盘排盘</span>
+          <a href="/" className="text-hu-po-jin text-lg font-bold tracking-[3px] no-underline">混沌阁</a>
+          <span className="text-dai-qing/20">/</span>
+          <span className="text-dai-qing/60 text-sm tracking-[2px]">命盘排盘</span>
         </div>
         
       </nav>
@@ -338,22 +338,22 @@ export default function CreatePage() {
       <main className="max-w-xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
         <div className="text-center py-4">
-          <div className="inline-flex items-center gap-2 text-[#d4a853] text-2xl mb-2">
+          <div className="inline-flex items-center gap-2 text-hu-po-jin text-2xl mb-2">
             <span>☰</span><span>☷</span>
           </div>
-          <p className="text-xs text-[#8a7a5a] tracking-[3px]">八字排盘 · 紫微斗数</p>
-          <p className="text-xs text-[#6b5f52] mt-1">录入生辰，按古法自动起盘排柱</p>
+          <p className="text-xs text-dai-qing/60 tracking-[3px]">八字排盘 · 紫微斗数</p>
+          <p className="text-xs text-dai-qing/50 mt-1">录入生辰，按古法自动起盘排柱</p>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#1a1814]">
+        <div className="flex border-b border-dai-qing/8">
           {[
             { key: 'single', label: '单人排盘', desc: '个人命盘推演' },
             { key: 'double', label: '双人合盘', desc: '缘分契合度分析' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key as 'single'|'double')}
               className={`flex-1 py-3 text-center border-b-2 transition-all ${
-                tab === t.key ? 'border-[#c9a84c] text-[#e0c878]' : 'border-transparent text-[#6b5f52] hover:text-[#a89a85]'
+                tab === t.key ? 'border-hu-po-jin text-hu-po-jin' : 'border-transparent text-dai-qing/50 hover:text-dai-qing/70'
               }`}
             >
               <div className="text-sm tracking-[2px]">{t.label}</div>
@@ -366,7 +366,7 @@ export default function CreatePage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* ===== 主位 ===== */}
           <div className={sectionClass}>
-            <p className="text-[10px] text-[#6b5f52] tracking-[2px] mb-4">
+            <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-4">
               {tab === 'single' ? '命主信息' : '主位 · 您'}
             </p>
 
@@ -377,7 +377,7 @@ export default function CreatePage() {
                 value={form.name}
                 onChange={e => setField('name', e.target.value)}
                 placeholder="请输入姓名"
-                className="w-full bg-[#0a0806] border border-[#2a2520] rounded-lg px-4 py-3 text-sm text-[#e0d5b7] placeholder-[#4a4035] outline-none focus:border-[#c9a84c]/40 transition-colors"
+                className="w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg px-4 py-3 text-sm text-dai-qing placeholder-dai-qing/30 outline-none focus:border-hu-po-jin/40 transition-colors"
               />
             </div>
 
@@ -389,7 +389,7 @@ export default function CreatePage() {
 
             {/* Birth date */}
             <div>
-              <p className={fieldLabelClass}>诞辰之候 {shichen && <span className="text-[#c9a84c]">· {shichen}</span>}</p>
+              <p className={fieldLabelClass}>诞辰之候 {shichen && <span className="text-hu-po-jin">· {shichen}</span>}</p>
               {renderDateGroup('')}
             </div>
           </div>
@@ -409,8 +409,8 @@ export default function CreatePage() {
           {/* ===== 双人合盘 - 对方信息 ===== */}
           {tab === 'double' && (
             <div className={sectionClass}>
-              <div className="border-l-2 border-[#c44] pl-4 mb-4">
-                <p className="text-[10px] text-[#c44] tracking-[2px]">客位 · 对方</p>
+              <div className="border-l-2 border-hu-po-jin-dark pl-4 mb-4">
+                <p className="text-[10px] text-hu-po-jin-dark tracking-[2px]">客位 · 对方</p>
               </div>
 
               <div className="mb-4">
@@ -419,7 +419,7 @@ export default function CreatePage() {
                   value={form.partnerName}
                   onChange={e => setField('partnerName', e.target.value)}
                   placeholder="请输入对方姓名"
-                  className="w-full bg-[#0a0806] border border-[#2a2520] rounded-lg px-4 py-3 text-sm text-[#e0d5b7] placeholder-[#4a4035] outline-none focus:border-[#c9a84c]/40 transition-colors"
+                  className="w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg px-4 py-3 text-sm text-dai-qing placeholder-dai-qing/30 outline-none focus:border-hu-po-jin/40 transition-colors"
                 />
               </div>
 
@@ -429,7 +429,7 @@ export default function CreatePage() {
               </div>
 
               <div>
-                <p className={fieldLabelClass}>诞辰之候 {partnerShichen && <span className="text-[#c9a84c]">· {partnerShichen}</span>}</p>
+                <p className={fieldLabelClass}>诞辰之候 {partnerShichen && <span className="text-hu-po-jin">· {partnerShichen}</span>}</p>
                 {renderDateGroup('partner')}
               </div>
             </div>
@@ -451,19 +451,19 @@ export default function CreatePage() {
           {/* ===== Advanced ===== */}
           <div className={sectionClass}>
             <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full flex items-center justify-between text-sm tracking-[2px] text-[#8a7a5a] hover:text-[#e0c878] transition-colors">
+              className="w-full flex items-center justify-between text-sm tracking-[2px] text-dai-qing/60 hover:text-hu-po-jin transition-colors">
               <span>高级排盘选项</span>
               <span className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▾</span>
             </button>
             {showAdvanced && (
-              <div className="mt-4 space-y-3 pt-4 border-t border-[#1a1814]">
+              <div className="mt-4 space-y-3 pt-4 border-t border-dai-qing/8">
                 <label className="flex items-center justify-between py-2">
-                  <span className="text-xs text-[#8a7a5a] tracking-[1px]">真太阳时校准</span>
-                  <span className="text-[10px] text-[#6b5f52]">根据出生地经纬度修正平太阳时偏差（默认开启）</span>
+                  <span className="text-xs text-dai-qing/60 tracking-[1px]">真太阳时校准</span>
+                  <span className="text-[10px] text-dai-qing/50">根据出生地经纬度修正平太阳时偏差（默认开启）</span>
                 </label>
                 <label className="flex items-center justify-between py-2">
-                  <span className="text-xs text-[#8a7a5a] tracking-[1px]">夜子时换日柱</span>
-                  <span className="text-[10px] text-[#6b5f52]">23时起按次日日柱排盘（默认开启）</span>
+                  <span className="text-xs text-dai-qing/60 tracking-[1px]">夜子时换日柱</span>
+                  <span className="text-[10px] text-dai-qing/50">23时起按次日日柱排盘（默认开启）</span>
                 </label>
               </div>
             )}
@@ -471,7 +471,7 @@ export default function CreatePage() {
 
           {/* Error */}
           {error && (
-            <div className="bg-[#3a1010]/30 border border-[#6b2020]/30 rounded-lg p-3 text-center text-sm text-[#c44]">
+            <div className="bg-dai-qing-dark/20/30 border border-dai-qing-dark/30 rounded-lg p-3 text-center text-sm text-hu-po-jin-dark">
               {error}
             </div>
           )}
@@ -479,11 +479,11 @@ export default function CreatePage() {
           {/* CTA */}
           <div className="text-center pb-8">
             <button type="submit" disabled={loading}
-              className="w-full bg-[#c9a84c] text-[#0d0b09] text-base py-4 rounded-lg tracking-[4px] font-medium hover:bg-[#e0c878] disabled:opacity-50 disabled:cursor-wait transition-all"
+              className="w-full bg-hu-po-jin text-xuan-zhi text-base py-4 rounded-lg tracking-[4px] font-medium hover:bg-hu-po-jin disabled:opacity-50 disabled:cursor-wait transition-all"
             >
               {loading ? '排盘中...' : tab === 'single' ? '开 启 推 演' : '开 启 合 盘'}
             </button>
-            <p className="mt-3 text-[10px] text-[#6b5f52] tracking-[2px]">
+            <p className="mt-3 text-[10px] text-dai-qing/50 tracking-[2px]">
               免费体验
             </p>
           </div>
