@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-/* ===== 主题色板 ===== */
 @theme {
   --color-xuan-zhi: #f5f5dc;
   --color-xuan-zhi-dark: #e8e4c9;
@@ -19,45 +18,105 @@ body {
   color: var(--color-dai-qing);
   font-family: "Source Han Serif SC", "Noto Serif SC", "STSong", Georgia, "SimSun", serif;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-.glow-breathe {
-  text-shadow: 0 0 20px rgba(212, 175, 55, 0.3), 0 0 40px rgba(212, 175, 55, 0.1);
+/* ===== Qingnang Animations ===== */
+
+@keyframes glow-breathe {
+  0%, 100% { filter: drop-shadow(rgba(212,175,55,0.3) 0px 0px 8px); }
+  50% { filter: drop-shadow(rgba(212,175,55,0.6) 0px 0px 24px); }
+}
+.glow-breathe { animation: glow-breathe 3s ease-in-out infinite; }
+
+@keyframes glyph-float {
+  0% { opacity: 0; transform: translateY(16px) scale(0.92); }
+  18% { opacity: var(--glyph-peak, 0.2); }
+  60% { opacity: calc(var(--glyph-peak, 0.2) * 0.7); }
+  85% { opacity: 0; }
+  100% { opacity: 0; transform: translateY(-30px) scale(1.05); }
+}
+.qn-glyph {
+  position: absolute; color: currentColor; letter-spacing: 0.12em;
+  will-change: opacity, transform; user-select: none; line-height: 1;
+  animation: glyph-float 10s ease-in-out infinite;
+}
+
+@keyframes ink-wave-bob {
+  0%, 100% { transform: translateY(0px) scaleY(1); }
+  50% { transform: translateY(var(--bob-amp, 8px)) scaleY(1.03); }
+}
+.ink-sea__layer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  transform-origin: 50% 100%; will-change: transform;
+  animation: ink-wave-bob 12s ease-in-out infinite;
+}
+
+@keyframes marquee-scroll {
+  100% { transform: translateX(-50%); }
+}
+.ink-sea__track {
+  will-change: transform; width: max-content; height: 100%;
+  animation: marquee-scroll 75s linear infinite; display: flex;
+}
+
+@keyframes md-ink-in {
+  0% { opacity: 0.12; filter: blur(3px); transform: translateY(4px); }
+  100% { opacity: 1; filter: blur(0); transform: none; }
+}
+.animate-ink-in {
+  animation: md-ink-in 0.6s ease-out forwards;
+}
+
+@keyframes lamp-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.45); }
+  50% { box-shadow: 0 0 0 5px rgba(212,175,55,0); }
+}
+
+@keyframes btn-sheen-sweep {
+  0%, 55% { transform: translateX(-180%) skewX(-18deg); }
+  100% { transform: translateX(340%) skewX(-18deg); }
 }
 
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-.animate-marquee {
-  animation: marquee 30s linear infinite;
-}
+.animate-marquee { animation: marquee 30s linear infinite; }
 
+/* ===== Buttons ===== */
 .qn-btn {
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 8px; font-size: 13px; letter-spacing: 2px;
   font-weight: 500; cursor: pointer; transition: all 0.2s;
-  border: none; text-decoration: none;
+  border: none; text-decoration: none; position: relative; overflow: hidden;
 }
 .qn-btn--primary {
   background: var(--color-hu-po-jin); color: var(--color-xuan-zhi);
 }
+.qn-btn--primary::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.25) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 55%);
+  animation: btn-sheen-sweep 5s ease-in-out infinite;
+}
 .qn-btn--primary:hover { background: var(--color-hu-po-jin-light); }
 .qn-btn--sm { padding: 6px 16px; font-size: 12px; }
 
-
-/* 浮动文字 */
-.qn-glyph {
-  animation: glyphFloat 10s ease-in-out infinite;
-  will-change: transform, opacity;
-}
-@keyframes glyphFloat {
-  0%, 100% { transform: translateY(0) scale(1); opacity: 0.12; }
-  50% { transform: translateY(-20px) scale(1.05); opacity: 0.25; }
-}
-
-/* 分隔线 */
+/* ===== Divider ===== */
 .divider-ink {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--color-hu-po-jin), transparent);
+}
+
+/* ===== Card hover ===== */
+.qn-card {
+  background: var(--color-xuan-zhi);
+  border: 1px solid rgba(0,77,77,0.1);
+  border-radius: 12px;
+  padding: 32px;
+  transition: all 0.3s;
+}
+.qn-card:hover {
+  border-color: rgba(212,175,55,0.3);
+  box-shadow: 0 4px 24px rgba(0,77,77,0.06);
 }

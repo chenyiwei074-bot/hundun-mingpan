@@ -36,6 +36,27 @@ export default function HomePage() {
         <section className="relative flex min-h-[88vh] w-full flex-col items-center justify-center overflow-hidden px-6 text-center">
           <div className="absolute inset-0 bg-gradient-to-b from-xuan-zhi via-xuan-zhi to-dai-qing-dark/10" />
           
+          {/* Ink-sea waves — copied from qingnang */}
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-0">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                <div className="absolute inset-x-0 bottom-0 top-[44%] bg-dai-qing-dark/5" />
+                <div className="ink-sea__layer" style={{ top: '24%', animationDuration: '12s', ['--bob-amp' as string]: '10px' }}>
+                  <div className="ink-sea__track" style={{ animationDuration: '120s' }}>
+                    <img src="/home/sea-strip.webp" alt="" className="h-full w-auto max-w-none select-none" draggable={false} />
+                    <img src="/home/sea-strip.webp" alt="" aria-hidden="true" className="h-full w-auto max-w-none select-none" draggable={false} />
+                  </div>
+                </div>
+                <div className="ink-sea__layer" style={{ top: '56%', animationDuration: '9s', animationDelay: '-4s', ['--bob-amp' as string]: '7px' }}>
+                  <div className="ink-sea__track" style={{ animationDuration: '48s' }}>
+                    <img src="/home/sea-front.webp" alt="" className="h-full w-auto max-w-none select-none" draggable={false} />
+                    <img src="/home/sea-front.webp" alt="" aria-hidden="true" className="h-full w-auto max-w-none select-none" draggable={false} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Ambient blurs */}
           <div aria-hidden="true" className="absolute left-[12%] top-[18%] h-72 w-72 rounded-full bg-hu-po-jin/5 blur-[100px]" />
           <div aria-hidden="true" className="absolute bottom-[20%] right-[8%] h-64 w-64 rounded-full bg-dai-qing-light/10 blur-[80px]" />
@@ -48,7 +69,6 @@ export default function HomePage() {
                 top: `${5 + Math.random() * 90}%`,
                 fontSize: `${16 + Math.random() * 20}px`,
                 color: i % 3 === 0 ? 'var(--color-hu-po-jin)' : 'var(--color-dai-qing)',
-                opacity: 0.15 + Math.random() * 0.15,
                 animationDuration: `${8 + Math.random() * 6}s`,
                 animationDelay: `${-Math.random() * 10}s`,
                 position: 'absolute',
@@ -114,7 +134,7 @@ export default function HomePage() {
             <div className="mt-12 grid gap-4 md:grid-cols-2 max-w-2xl mx-auto">
               {/* 命盘排盘 */}
               <Link href="/create"
-                className="group bg-xuan-zhi border border-dai-qing/10 rounded-xl p-8 hover:border-hu-po-jin/30 hover:shadow-lg transition-all no-underline block"
+                className="qn-card group no-underline block"
               >
                 <div className="text-3xl mb-4">☰☷</div>
                 <h3 className="font-serif text-lg text-dai-qing tracking-[0.03em] mb-2 group-hover:text-hu-po-jin transition-colors">命盘排盘</h3>
@@ -129,7 +149,7 @@ export default function HomePage() {
 
               {/* 六爻起卦 */}
               <Link href="/liuyao"
-                className="group bg-xuan-zhi border border-dai-qing/10 rounded-xl p-8 hover:border-hu-po-jin/30 hover:shadow-lg transition-all no-underline block"
+                className="qn-card group no-underline block"
               >
                 <div className="text-3xl mb-4">☰☵☶</div>
                 <h3 className="font-serif text-lg text-dai-qing tracking-[0.03em] mb-2 group-hover:text-hu-po-jin transition-colors">混沌问卦</h3>
