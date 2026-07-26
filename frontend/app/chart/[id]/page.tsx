@@ -182,7 +182,7 @@ export default function ChartPage() {
             />
           ))}
         </div>
-        <p className="text-dai-qing/50 text-xs tracking-[2px] mt-8">混沌阁 · 命理研究</p>
+        <p className="text-dai-qing/50 text-xs tracking-[2px] mt-8">混沌 · 命理研究</p>
       </div>
     );
   }
@@ -224,7 +224,7 @@ export default function ChartPage() {
       {/* Header */}
       <div className="border-b border-dai-qing/15 py-5 px-4 text-center">
         <a href="/" className="text-hu-po-jin text-sm tracking-[4px] no-underline hover:text-hu-po-jin">
-          混沌阁
+          混沌
         </a>
         <p className="text-dai-qing/70 text-xs tracking-[2px] mt-1">
           {data?.name ?? '-'} · {bz?.dayMaster ?? '-'}日主 · {zw?.mingGong ?? '-'}
@@ -416,7 +416,7 @@ export default function ChartPage() {
         </section>
 
 <div className="text-center pb-10">
-          <span className="text-[10px] text-dai-qing/50 tracking-[3px]">混沌阁 · 命理研究</span>
+          <span className="text-[10px] text-dai-qing/50 tracking-[3px]">混沌 · 命理研究</span>
         </div>
       </div>
 
@@ -433,7 +433,7 @@ export default function ChartPage() {
       >
         <div className="bg-xuan-zhi border border-dai-qing/15 rounded-2xl p-8 max-w-sm w-full mx-4 text-center">
           <div className="text-4xl mb-4">{'\uD83D\uDCAC'}</div>
-          <h3 className="text-dai-qing text-lg tracking-[4px] mb-2 font-normal">添加混沌阁客服</h3>
+          <h3 className="text-dai-qing text-lg tracking-[4px] mb-2 font-normal">添加混沌客服</h3>
           <p className="text-dai-qing/70 text-sm tracking-[2px] mb-6">
             获取专属万字命理深度解读  &yen;199 / 份
           </p>

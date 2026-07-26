@@ -32,7 +32,7 @@ export async function createChart(req: Request, res: Response) {
       return res.status(429).json({
         success: false,
         error: '今日免费排盘次数已用完',
-        tip: '如需继续体验，请添加混沌阁客服微信获取深度解析',
+        tip: '如需继续体验，请添加混沌客服微信获取深度解析',
         data: { used: usage.used, limit: DAILY_FREE_LIMIT },
       });
     }

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect } from 'react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ export default function HomePage() {
       <nav className="fixed top-0 z-50 w-full">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-2 no-underline">
-            <span className="glow-breathe text-2xl font-bold text-hu-po-jin font-serif">混沌阁</span>
+            <span className="glow-breathe text-2xl font-bold text-hu-po-jin font-serif">混沌</span>
             <span className="hidden text-sm sm:inline text-dai-qing/60">命理研究</span>
           </Link>
           <div className="hidden items-center gap-5 md:flex lg:gap-6">
@@ -253,7 +253,7 @@ export default function HomePage() {
 
           {/* ===== Bottom CTA ===== */}
           <section className="w-full bg-dai-qing-dark px-6 py-20 text-center">
-            <h2 className="font-serif text-2xl text-xuan-zhi">随身携带你的混沌阁</h2>
+            <h2 className="font-serif text-2xl text-xuan-zhi">随身携带你的混沌</h2>
             <p className="mt-4 text-sm text-xuan-zhi/55">随时随地，排一盘，问一卦</p>
             <Link href="/create"
               className="btn-glow relative mt-10 inline-block rounded-xl bg-hu-po-jin px-12 py-4 font-medium text-dai-qing-dark transition-all hover:bg-hu-po-jin-light hover:shadow-xl hover:shadow-hu-po-jin/25 no-underline"
@@ -269,7 +269,7 @@ export default function HomePage() {
                 <Link href="/liuyao" className="hover:text-hu-po-jin transition-colors no-underline">混沌问卦</Link>
               </div>
               <p className="text-xs text-dai-qing/20 tracking-[0.03em]">
-                混沌阁 · 命理研究 — 古籍数字化 · AI 参详 · 仅作文化研究与体验，不构成任何决策建议
+                混沌 · 命理研究 — 古籍数字化 · AI 参详 · 仅作文化研究与体验，不构成任何决策建议
               </p>
             </div>
           </footer>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-2xl tracking-[6px] font-normal text-[#c9a84c] mb-2">
-            混沌阁 · 运营面板
+            混沌 · 运营面板
           </h1>
           <p className="text-xs text-[#6b5f52] tracking-[2px]">
             {new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' })}
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
 
         {/* Footer */}
         <p className="text-center text-[10px] text-[#6b5f52] mt-8 tracking-[2px]">
-          混沌阁 · 本地运营面板 · 无需登录
+          混沌 · 本地运营面板 · 无需登录
         </p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -180,7 +180,7 @@ export default function LiuYaoPage() {
       {/* Nav */}
       <nav className="border-b border-dai-qing/8 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
         <div className="flex items-center gap-3">
-          <Link href="/" className="text-hu-po-jin text-lg font-bold tracking-[3px] no-underline">混沌阁</Link>
+          <Link href="/" className="text-hu-po-jin text-lg font-bold tracking-[3px] no-underline">混沌</Link>
           <span className="text-dai-qing/20">/</span>
           <span className="text-dai-qing/60 text-sm tracking-[2px]">六爻决策</span>
         </div>
