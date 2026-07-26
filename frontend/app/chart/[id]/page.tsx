@@ -16,7 +16,6 @@ export default function ChartPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pollStage, setPollStage] = useState(0);
-  const [posterHeight, setPosterHeight] = useState(600);
   const posterWrapRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -54,43 +53,43 @@ export default function ChartPage() {
   }, [id]);
 
   // 海报缩放
-  const rescalePoster = useCallback(() => {
-    const wrap = posterWrapRef.current;
-    const iframe = iframeRef.current;
-    if (!wrap || !iframe) return;
-    const w = wrap.clientWidth;
-    const h = iframe.getBoundingClientRect().height; // post-load height
-    const scale = Math.min(w, 750) / 750;
-    iframe.style.transform = `scale(${scale})`;
-    iframe.style.transformOrigin = 'top left';
-    wrap.style.height = (h * scale) + 'px';
-  }, []);
-
-  // iframe 加载完成后：记录原始高度 + 缩放
+  // iframe 加载完成后：记录高度 + 缩放
   const onIframeLoad = useCallback(() => {
     const iframe = iframeRef.current;
-    if (!iframe) return;
+    const wrap = posterWrapRef.current;
+    if (!iframe || !wrap) return;
     try {
-      const body = iframe.contentDocument?.body;
+      var body = iframe.contentDocument?.body;
       if (body) {
-        const h = body.scrollHeight;
+        var h = body.scrollHeight;
         iframe.style.height = h + 'px';
-        setPosterHeight(h);
+        // 缩放
+        var w = wrap.clientWidth;
+        var scale = Math.min(w, 750) / 750;
+        iframe.style.transform = 'scale(' + scale + ')';
+        iframe.style.transformOrigin = 'top left';
+        wrap.style.height = (h * scale) + 'px';
       }
-    } catch {}
-    setTimeout(rescalePoster, 100);
-  }, [rescalePoster]);
+    } catch (e) {}
+  }, []);
 
-  // posterHtml 变化或窗口大小变化时重新缩放
+  // 窗口大小变化时重新缩放
   useEffect(() => {
     if (!posterHtml) return;
-    const t = setTimeout(rescalePoster, 800); // 等 iframe onLoad
-    window.addEventListener('resize', rescalePoster);
-    return () => {
-      clearTimeout(t);
-      window.removeEventListener('resize', rescalePoster);
+    var onResize = function() {
+      var wrap = posterWrapRef.current;
+      var iframe = iframeRef.current;
+      if (!wrap || !iframe) return;
+      var w = wrap.clientWidth;
+      var scale = Math.min(w, 750) / 750;
+      iframe.style.transform = 'scale(' + scale + ')';
+      iframe.style.transformOrigin = 'top left';
+      // 用当前 offsetHeight（不受 transform 影响）
+      wrap.style.height = (iframe.offsetHeight * scale) + 'px';
     };
-  }, [posterHtml, rescalePoster]);
+    window.addEventListener('resize', onResize);
+    return function() { window.removeEventListener('resize', onResize); };
+  }, [posterHtml]);
 
   if (loading) {
     return (
