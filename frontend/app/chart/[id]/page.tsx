@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getChartResult, trackEvent } from '@/app/lib/api';
 
@@ -20,60 +20,9 @@ export default function ChartPage() {
   const [error, setError] = useState<string | null>(null);
   const [pollStage, setPollStage] = useState(0);
 
-  const posterRef = useRef<HTMLDivElement>(null);
 
-  // 海报自适应缩放
 
-  // 海报自适应缩放（等 DOM 渲染完再量）
-  useEffect(() => {
-    if (!posterHtml) return;
-    const timer = setTimeout(() => {
-      const wrap = posterRef.current;
-      if (!wrap) return;
-      const inner = wrap.firstElementChild as HTMLElement;
-      if (!inner) return;
-      const w = window.innerWidth;
-      const scale = Math.min(w, 750) / 750;
-      inner.style.transform = 'scale(' + scale + ')';
-      inner.style.transformOrigin = 'top left';
-      wrap.style.height = (inner.offsetHeight * scale) + 'px';
-    }, 300);
-    const onResize = () => {
-      const wrap = posterRef.current;
-      if (!wrap) return;
-      const inner = wrap.firstElementChild as HTMLElement;
-      if (!inner) return;
-      const w2 = window.innerWidth;
-      const s2 = Math.min(w2, 750) / 750;
-      inner.style.transform = 'scale(' + s2 + ')';
-      inner.style.transformOrigin = 'top left';
-      wrap.style.height = (inner.offsetHeight * s2) + 'px';
-    };
-    window.addEventListener('resize', onResize);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', onResize);
-    };
-  }, [posterHtml]);
 
-  useEffect(() => {
-    if (!posterHtml || !posterRef.current) return;
-    const doScale = () => {
-      const wrapper = posterRef.current;
-      if (!wrapper) return;
-      const inner = wrapper.querySelector('.poster-inner') as HTMLElement;
-      if (!inner) return;
-      const scale = Math.min(window.innerWidth, 750) / 750;
-      inner.style.transform = 'scale(' + scale + ')';
-      inner.style.transformOrigin = 'top left';
-      requestAnimationFrame(() => {
-        wrapper.style.height = (inner.scrollHeight * scale) + 'px';
-      });
-    };
-    doScale();
-    window.addEventListener('resize', doScale);
-    return () => window.removeEventListener('resize', doScale);
-  }, [posterHtml]);
 
     useEffect(() => {
     if (!id) return;
@@ -161,13 +110,6 @@ export default function ChartPage() {
             <div className="w-full overflow-x-auto">
               <div
                 className="poster-content w-[750px] origin-top-left"
-                ref={el => {
-                  if (el && typeof window !== 'undefined') {
-                    const scale = Math.min(window.innerWidth, 750) / 750;
-                    el.style.transform = `scale(${scale})`;
-                    el.style.height = 'auto';
-                  }
-                }}
                 dangerouslySetInnerHTML={{ __html: posterHtml }}
               />
             </div>
