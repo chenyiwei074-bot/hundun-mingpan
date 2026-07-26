@@ -332,9 +332,7 @@ export default function CreatePage() {
           <span className="text-[#3a3025]">/</span>
           <span className="text-[#8a7a5a] text-sm tracking-[2px]">命盘排盘</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-[#6b5f52]">
-          <span>今日剩余 {quota.remaining} / {quota.remaining + quota.used}</span>
-        </div>
+        
       </nav>
 
       <main className="max-w-xl mx-auto px-4 py-6 space-y-6">
@@ -486,7 +484,7 @@ export default function CreatePage() {
               {loading ? '排盘中...' : tab === 'single' ? '开 启 推 演' : '开 启 合 盘'}
             </button>
             <p className="mt-3 text-[10px] text-[#6b5f52] tracking-[2px]">
-              今日剩余 {quota.remaining} 次 · 免费体验
+              免费体验
             </p>
           </div>
         </form>

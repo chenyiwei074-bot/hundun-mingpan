@@ -73,7 +73,7 @@ export async function createChart(req: Request, res: Response) {
       data: {
         id: chart.id,
         status: 'processing',
-        quota: { used: usage.used + 1, remaining: usage.remaining - 1, limit: DAILY_FREE_LIMIT },
+        quota: { used: 0, remaining: 999, limit: 999 },
       },
     });
   } catch (error: any) {
