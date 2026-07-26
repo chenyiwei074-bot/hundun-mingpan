@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -14,11 +14,11 @@ const POLL_INTERVAL = 2000;
 const TIMEOUT_MS = 60000;
 
 const LOADING_STAGES = [
-  '正在分析出生信息...',
-  '正在生成八字排盘...',
-  '正在计算紫微星曜...',
-  '正在生成专属报告...',
-  '正在渲染命盘海报...',
+  '正在解析出生信息',
+  '正在计算八字五行',
+  '正在排布紫微星曜',
+  '正在生成专属报告',
+  '正在完成最终整理',
 ];
 
 export default function ChartPage() {
@@ -155,7 +155,7 @@ export default function ChartPage() {
           {LOADING_STAGES[stageIndex]}
         </p>
         <p className="text-[#6b5f52] text-xs tracking-[2px] mt-4">
-          已等待 {pollCount * 2} 秒
+          已等待 {pollCount * 2} 秒 · 通常需要几十秒，请耐心等待
         </p>
         <div className="flex gap-2 mt-6">
           {LOADING_STAGES.map((_, i) => (
@@ -339,8 +339,23 @@ export default function ChartPage() {
 
         <div className="my-10 border-t border-[#2a2520]" />
 
-        {/* ====== 付费引导 ====== */}
-        <section className="mb-16 animate-fade-up" style={{ animationDelay: '0.8s' }}>
+          // Track pay card visibility
+  useEffect(() => {
+    if (!data) return;
+    const el = document.getElementById('pay-section');
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        trackEvent('pay_card_view', getVid(), id);
+        observer.disconnect();
+      }
+    }, { threshold: 0.3 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [data, id]);
+
+  {/* ====== 付费引导 ====== */}
+        <section id="pay-section" className="mb-16 animate-fade-up" style={{ animationDelay: '0.8s' }}>
           <div className="bg-[#1a1614] border border-[#2a2520] rounded-lg p-6">
             <div className="text-center mb-6">
               <div className="inline-block px-4 py-1 border border-[#c9a84c]/30 rounded-full text-xs text-[#c9a84c] tracking-[3px] mb-4">

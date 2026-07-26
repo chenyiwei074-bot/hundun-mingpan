@@ -29,33 +29,41 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 标题 */}
-        <h1 className="text-5xl md:text-6xl font-normal text-[#e8e0d5] tracking-[10px] mb-4">
-          混沌阁命盘
+        {/* 主标题 */}
+        <h1 className="text-3xl md:text-4xl font-normal text-[#e8e0d5] tracking-[4px] mb-4 leading-relaxed">
+          你的命盘里，藏着你没看到的人生答案
         </h1>
 
         {/* 副标题 */}
-        <div className="flex items-center justify-center gap-3 mb-3">
-          <span className="w-8 h-px bg-[#c9a84c]/40" />
-          <span className="text-[#7b5ea7] text-sm tracking-[4px]">八字</span>
-          <span className="text-[#c9a84c] text-lg">×</span>
-          <span className="text-[#7b5ea7] text-sm tracking-[4px]">紫微斗数</span>
-          <span className="w-8 h-px bg-[#c9a84c]/40" />
-        </div>
+        <p className="text-base text-[#a89a85] tracking-[2px] mb-12">
+          AI 结合传统八字与紫微斗数，为你生成专属命理分析
+        </p>
 
-        <p className="text-base text-[#a89a85] tracking-[4px] mb-3">
-          AI 智能融合 · 双盘交叉印证
-        </p>
-        <p className="text-sm text-[#6b5f52] tracking-[3px] mb-14">
-          生成你的专属命理档案
-        </p>
+        {/* 三个卖点 */}
+        <div className="grid grid-cols-3 gap-4 mb-12 max-w-lg mx-auto">
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">{'☉'}</span>
+            <span className="text-xs text-[#a89a85] tracking-[1px]">紫微八字</span>
+            <span className="text-xs text-[#6b5f52]">双体系分析</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">{'◆'}</span>
+            <span className="text-xs text-[#a89a85] tracking-[1px]">专属命盘</span>
+            <span className="text-xs text-[#6b5f52]">海报</span>
+          </div>
+          <div className="flex flex-col items-center gap-2">
+            <span className="text-2xl">{'✎'}</span>
+            <span className="text-xs text-[#a89a85] tracking-[1px]">万字深度</span>
+            <span className="text-xs text-[#6b5f52]">解析报告</span>
+          </div>
+        </div>
 
         {/* CTA */}
         <button
           onClick={() => router.push('/create')}
           className="btn-gold text-lg px-12 py-5 tracking-[4px] animate-pulse-gold"
         >
-          免费生成命盘
+          免费生成我的命盘
         </button>
 
         {/* 底部 */}

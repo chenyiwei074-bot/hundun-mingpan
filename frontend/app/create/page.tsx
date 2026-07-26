@@ -363,7 +363,10 @@ export default function CreatePage() {
 
           {/* 出生时间 */}
           <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">出生时间</label>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-[#c9a84c] text-lg">◆</span>
+              <label className="block text-sm text-[#e8e0d5] tracking-[3px]">出生时间</label>
+            </div>
             <button type="button" onClick={() => setActivePicker('time')}
               className="picker-btn w-full text-left flex justify-between items-center">
               <span className={form.hour ? 'text-[#e8e0d5]' : 'text-[#5a5045]'}>
@@ -377,7 +380,10 @@ export default function CreatePage() {
 
           {/* 出生地点 */}
           <div>
-            <label className="block text-sm text-[#a89a85] mb-2 tracking-[2px]">出生地点</label>
+            <div className="flex items-center gap-3 mb-1">
+              <span className="text-[#c9a84c] text-lg">◆</span>
+              <label className="block text-sm text-[#e8e0d5] tracking-[3px]">出生地点</label>
+            </div>
             <button type="button" onClick={() => setActivePicker('birthPlace')}
               className="picker-btn w-full text-left">
               {displayValue(
@@ -409,7 +415,7 @@ export default function CreatePage() {
           {/* 提交按钮 */}
           <button type="submit" disabled={loading}
             className="btn-gold w-full text-base py-4 tracking-[4px] disabled:opacity-50">
-            {loading ? '命盘生成中...' : '生成命盘'}
+            {loading ? '正在生成命盘...' : '生成我的命盘'}
           </button>
 
           <p className="text-center text-xs text-[#6b5f52] tracking-[2px]">
