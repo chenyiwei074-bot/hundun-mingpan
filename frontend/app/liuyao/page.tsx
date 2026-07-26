@@ -166,7 +166,7 @@ export default function LiuYaoPage() {
                   </div>
                   <p className="text-xs text-dai-qing/30">系统模拟铜钱摇卦，共掷 6 次，每次 3 枚铜钱</p>
                 </div>
-                <button onClick={startCoinAnim} className="qn-btn qn-btn--amber qn-btn--md mt-2" style={{borderRadius:'999px',letterSpacing:'.15em'}}>开 始 摇 卦</button>
+                <button onClick={startCoinAnim} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>开 始 摇 卦</button>
               </div>
             )}
 
