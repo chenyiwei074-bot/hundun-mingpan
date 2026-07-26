@@ -237,7 +237,7 @@ export default function ChartPage() {
           <h2 className="text-center text-[#c9a84c] text-sm tracking-[6px] mb-6 font-normal">
             {'\u25C6'} 你的专属命盘海报 {'\u25C6'}
           </h2>
-          <div className="bg-white rounded-lg overflow-hidden shadow-2xl border border-[#2a2520]">
+          <div className="rounded-lg overflow-hidden shadow-2xl border border-[#2a2520]">
             {data?.posterHtml ? (
               <div ref={wrapperRef} style={{ width: '100%', overflow: 'hidden', height: scale < 1 ? posterHeight * scale + 'px' : posterHeight + 'px' }}>
                 <iframe
