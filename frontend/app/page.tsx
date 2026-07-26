@@ -69,6 +69,11 @@ export default function HomePage() {
         {/* 底部 */}
         <p className="mt-12 text-xs text-[#6b5f52] tracking-[2px]">
           每日 3 次免费 · 基于传统命理算法 + AI 深度解读
+
+        {/* 六爻入口 */}
+        <a href="/liuyao" className="mt-6 inline-block text-sm text-[#c9a84c] tracking-[2px] border border-[#c9a84c]/30 rounded-full px-6 py-2 hover:bg-[#c9a84c]/10 transition-colors">
+          🔮 混沌问卦 · 一事一占
+        </a>
         </p>
       </div>
 

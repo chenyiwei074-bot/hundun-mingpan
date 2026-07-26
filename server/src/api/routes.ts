@@ -1,4 +1,5 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
+import { createLiuYao } from '../controllers/liuyao.controller';
 import {
   createChart,
   getChartStatus,
@@ -17,6 +18,8 @@ router.get('/chart/result/:id', getChartResult);
 router.get('/chart/poster/:id', getPoster);
 router.get('/chart/quota', getQuota);
 router.post('/event', trackEvent);
+router.post('/liuyao/create', createLiuYao);
 router.get('/admin/stats', getStats);
 
 export default router;
+

@@ -396,7 +396,26 @@ export default function ChartPage() {
           </div>
         </section>
 
-        <div className="text-center pb-10">
+        
+
+        {/* ====== 进一步探索 ====== */}
+        <section className="max-w-[750px] mx-auto px-4 mb-10">
+          <div className="bg-[#1a1614] border border-[#2a2520] rounded-xl p-6 text-center">
+            <h3 className="text-[#d4a853] text-lg tracking-[4px] mb-4 font-normal">进一步探索</h3>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <a href="/" className="flex-1 bg-[#0a0806] border border-[#2a2520] rounded-lg p-5 hover:border-[#c9a84c]/40 transition-colors no-underline text-left block">
+                <p className="text-[#e0c878] text-base mb-1">📜 完整命盘报告</p>
+                <p className="text-[#8a7a5a] text-sm leading-relaxed">八字 × 紫微双体系互证<br/>了解人生长期趋势 &rarr;</p>
+              </a>
+              <a href="/liuyao" className="flex-1 bg-[#0a0806] border border-[#2a2520] rounded-lg p-5 hover:border-[#c9a84c]/40 transition-colors no-underline text-left block">
+                <p className="text-[#e0c878] text-base mb-1">🔮 混沌问卦</p>
+                <p className="text-[#8a7a5a] text-sm leading-relaxed">一事一占 · 六爻决策<br/>针对具体问题起卦 &rarr;</p>
+              </a>
+            </div>
+          </div>
+        </section>
+
+<div className="text-center pb-10">
           <span className="text-[10px] text-[#6b5f52] tracking-[3px]">混沌阁 · 命理研究</span>
         </div>
       </div>
