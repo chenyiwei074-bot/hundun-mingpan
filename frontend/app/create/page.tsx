@@ -84,24 +84,29 @@ function PickerModal({ title, options, value, onChange, onClose, height = 'h-64'
 function TimePickerModal({ hour, minute, onChange, onClose }: {
   hour: string; minute: string; onChange: (h: string, m: string) => void; onClose: () => void;
 }) {
+  const [h, setH] = useState(hour);
+  const [m, setM] = useState(minute);
+
+  const handleDone = () => { onChange(h, m); onClose(); };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={handleDone}>
       <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
           <span className="text-xs text-dai-qing/50 tracking-[2px]">请选择</span>
-          <span className="text-dai-qing text-sm tracking-[2px]">选择时间</span>
-          <button onClick={onClose} className="text-dai-qing/70 text-sm px-2 hover:text-hu-po-jin">完成</button>
+          <span className="text-dai-qing text-sm tracking-[2px] font-mono">{h.padStart(2,'0')}:{m.padStart(2,'0')}</span>
+          <button onClick={handleDone} className="text-hu-po-jin text-sm px-2 font-medium">完成</button>
         </div>
         {/* Hour row */}
         <div className="px-4 py-3">
           <p className="text-[10px] text-dai-qing/40 tracking-[2px] mb-2">小时</p>
           <div className="grid grid-cols-8 gap-1.5 max-h-24 overflow-y-auto">
-            {hours24.map(h => (
-              <button key={h.value} onClick={() => onChange(h.value, minute)}
+            {hours24.map(opt => (
+              <button key={opt.value} onClick={() => setH(opt.value)}
                 className={`py-2 text-xs rounded-lg border transition-all ${
-                  h.value === hour ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
-                }`}>{h.label}</button>
+                  opt.value === h ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
+                }`}>{opt.label}</button>
             ))}
           </div>
         </div>
@@ -109,11 +114,11 @@ function TimePickerModal({ hour, minute, onChange, onClose }: {
         <div className="px-4 py-3 border-t border-dai-qing/8">
           <p className="text-[10px] text-dai-qing/40 tracking-[2px] mb-2">分钟</p>
           <div className="grid grid-cols-6 gap-1.5 max-h-36 overflow-y-auto">
-            {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => (
-              <button key={m} onClick={() => onChange(hour, m)}
+            {['00','05','10','15','20','25','30','35','40','45','50','55'].map(opt => (
+              <button key={opt} onClick={() => setM(opt)}
                 className={`py-2 text-xs rounded-lg border transition-all ${
-                  m === minute ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
-                }`}>{m}分</button>
+                  opt === m ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
+                }`}>{opt}分</button>
             ))}
           </div>
         </div>
