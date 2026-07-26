@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getChartResult, trackEvent } from '@/app/lib/api';
 
 function getVid() { return typeof window !== 'undefined' ? localStorage.getItem('hundun_visitor_id') || 'visitor_anon' : 'visitor_anon'; }
-
-const DIZHI_ORDER = ['巳','午','未','申','辰','酉','卯','戌','寅','丑','子','亥'];
 
 export default function ChartPage() {
   const params = useParams();
@@ -14,51 +12,40 @@ export default function ChartPage() {
   const id = params.id as string;
 
   const [posterHtml, setPosterHtml] = useState<string | null>(null);
-  const [freeContent, setFreeContent] = useState<any>(null);
   const [chartName, setChartName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pollStage, setPollStage] = useState(0);
+  const [posterHeight, setPosterHeight] = useState(600);
+  const posterWrapRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-
-
-
-
-    useEffect(() => {
+  // 轮询后端
+  useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    let pollCount = 0;
-
+    let count = 0;
     const poll = async () => {
       if (cancelled) return;
       try {
         const res: any = await getChartResult(id);
         if (cancelled) return;
-        pollCount++;
-        setPollStage(pollCount);
-
+        count++;
+        setPollStage(count);
         if (res.httpStatus === 202 || res.data?.status === 'processing') {
-          if (pollCount < 120) { setTimeout(poll, 1500); }
-          else { setError('生成时间较长，请稍后刷新查看'); setLoading(false); }
+          if (count < 120) setTimeout(poll, 1500);
+          else { setError('生成超时，请刷新重试'); setLoading(false); }
         } else if (res.success && res.data) {
-          if (res.data.freeContent) {
-            setFreeContent(res.data.freeContent);
-          }
           setChartName(res.data.name || '');
-          if (res.data.posterHtml) {
-            setPosterHtml(res.data.posterHtml);
-          }
+          if (res.data.posterHtml) setPosterHtml(res.data.posterHtml);
           setLoading(false);
           trackEvent('chart_complete', getVid(), id);
         } else if (res.data?.status === 'failed') {
-          setError('命盘生成失败，请重试');
+          setError('生成失败，请重试');
           setLoading(false);
-        } else if (!res.success) {
-          if (pollCount < 120) { setTimeout(poll, 1500); }
-          else { setError('命盘数据获取失败'); setLoading(false); }
         }
       } catch {
-        if (!cancelled && pollCount < 120) { setTimeout(poll, 1500); }
+        if (!cancelled && count < 120) setTimeout(poll, 1500);
         else if (!cancelled) { setError('网络错误'); setLoading(false); }
       }
     };
@@ -66,16 +53,51 @@ export default function ChartPage() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // 海报缩放
+  const rescalePoster = useCallback(() => {
+    const wrap = posterWrapRef.current;
+    const iframe = iframeRef.current;
+    if (!wrap || !iframe) return;
+    const w = wrap.clientWidth;
+    const h = iframe.getBoundingClientRect().height; // post-load height
+    const scale = Math.min(w, 750) / 750;
+    iframe.style.transform = `scale(${scale})`;
+    iframe.style.transformOrigin = 'top left';
+    wrap.style.height = (h * scale) + 'px';
+  }, []);
+
+  // iframe 加载完成后：记录原始高度 + 缩放
+  const onIframeLoad = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    try {
+      const body = iframe.contentDocument?.body;
+      if (body) {
+        const h = body.scrollHeight;
+        iframe.style.height = h + 'px';
+        setPosterHeight(h);
+      }
+    } catch {}
+    setTimeout(rescalePoster, 100);
+  }, [rescalePoster]);
+
+  // posterHtml 变化或窗口大小变化时重新缩放
+  useEffect(() => {
+    if (!posterHtml) return;
+    const t = setTimeout(rescalePoster, 800); // 等 iframe onLoad
+    window.addEventListener('resize', rescalePoster);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener('resize', rescalePoster);
+    };
+  }, [posterHtml, rescalePoster]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-xuan-zhi flex flex-col items-center justify-center px-4">
         <div className="w-12 h-12 border-2 border-hu-po-jin/30 border-t-hu-po-jin rounded-full animate-spin" />
         <p className="text-dai-qing/60 text-sm mt-6 tracking-[2px]">
-          {pollStage < 5 ? '正在解析出生信息...' :
-           pollStage < 10 ? '正在计算八字五行...' :
-           pollStage < 20 ? '正在排布紫微星曜...' :
-           pollStage < 40 ? '正在生成专属报告...' :
-           '正在完成最终整理...'}
+          {pollStage < 5 ? '正在解析出生信息...' : pollStage < 15 ? '正在排盘分析...' : pollStage < 30 ? '正在生成命理报告...' : '正在完成最终整理...'}
         </p>
         <p className="text-dai-qing/30 text-xs mt-3">通常需要几十秒，请耐心等待</p>
       </div>
@@ -91,134 +113,30 @@ export default function ChartPage() {
     );
   }
 
-  // Display poster first, then free content below
   return (
     <div className="min-h-screen bg-xuan-zhi">
       <div className="border-b border-dai-qing/10 py-5 px-4 text-center">
         <a href="/" className="text-hu-po-jin text-sm tracking-[4px] no-underline">混沌</a>
-        <p className="text-xs text-dai-qing/50 mt-1 tracking-[2px]">
-          {chartName || '-'}
-        </p>
+        <p className="text-xs text-dai-qing/50 mt-1 tracking-[2px]">{chartName || '-'}</p>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
 
-        {/* 命盘海报 */}
-        {posterHtml ? (
-          <div className="rounded-2xl border border-hu-po-jin/20 overflow-hidden">
-            <p className="bg-dai-qing text-xuan-zhi text-xs text-center py-2.5 tracking-[0.3em]">命 · 盘 · 海 · 报</p>
-            <div className="overflow-x-auto">
-              <iframe
-                srcDoc={posterHtml}
-                style={{ width: '750px', height: '500px', border: 'none', display: 'block' }}
-                onLoad={(e) => {
-                  try {
-                    var doc = (e.target as HTMLIFrameElement).contentDocument;
-                    if (doc && doc.body) {
-                      (e.target as HTMLIFrameElement).style.height = doc.body.scrollHeight + 'px';
-                    }
-                  } catch (err) {}
-                }}
-                title="命盘海报"
-              />
-            </div>
+        {/* 海报 */}
+        <div className="rounded-2xl border border-hu-po-jin/20 overflow-hidden">
+          <p className="bg-dai-qing text-xuan-zhi text-xs text-center py-2.5 tracking-[0.3em]">命 · 盘 · 海 · 报</p>
+          <div ref={posterWrapRef} style={{ overflow: 'hidden' }}>
+            <iframe
+              ref={iframeRef}
+              srcDoc={posterHtml || ''}
+              style={{ width: '750px', border: 'none', display: 'block' }}
+              onLoad={onIframeLoad}
+              title="命盘海报"
+            />
           </div>
-        ) : (
-          <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-8 text-center">
-            <div className="animate-pulse">
-              <div className="w-8 h-8 mx-auto border-2 border-hu-po-jin/30 border-t-hu-po-jin rounded-full animate-spin mb-3" />
-              <p className="text-dai-qing/50 text-sm tracking-[2px]">海报生成中...</p>
-            </div>
-          </div>
-        )}
+        </div>
 
-        {/* 八字 + 紫微摘要 */}
-        {freeContent && (freeContent.bazi || freeContent.ziwei) && (
-          <>
-            {/* 八字四柱 */}
-            {freeContent.bazi && (
-              <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
-                <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-5 text-center">八 · 字 · 四 · 柱</p>
-                {freeContent.bazi.siZhu ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-center text-sm">
-                      <thead>
-                        <tr className="border-y border-dai-qing/8 text-dai-qing/50 text-xs">
-                          {['年柱','月柱','日柱','时柱'].map(l => <th key={l} className="py-2.5 font-normal">{l}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-dai-qing/5">
-                          {(['year','month','day','hour'] as const).map(p => {
-                            const pd = freeContent.bazi?.siZhu?.[p];
-                            const val = typeof pd === 'string' ? pd : (pd?.gan || '') + (pd?.zhi || '');
-                            return <td key={p} className="py-3"><span className="text-lg font-bold text-dai-qing">{val || '-'}</span></td>;
-                          })}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-center text-dai-qing/50 text-sm py-4">日主：{freeContent.bazi?.dayMaster || '—'}</p>
-                )}
-                {freeContent.bazi?.dayMaster && (
-                  <div className="grid grid-cols-3 gap-3 mt-4 text-center text-xs">
-                    <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-2">
-                      <p className="text-dai-qing/40">日主</p>
-                      <p className="text-hu-po-jin text-lg font-bold mt-0.5">{freeContent.bazi.dayMaster}</p>
-                    </div>
-                    <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-2">
-                      <p className="text-dai-qing/40">格局</p>
-                      <p className="text-dai-qing text-sm mt-0.5">{freeContent.bazi.geju || '—'}</p>
-                    </div>
-                    <div className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-2">
-                      <p className="text-dai-qing/40">旺衰</p>
-                      <p className="text-dai-qing text-sm mt-0.5">{freeContent.bazi.wangshuai || '—'}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 紫微十二宫 */}
-            {freeContent.ziwei && (
-              <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6">
-                <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-5 text-center">紫 · 微 · 斗 · 数</p>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 px-2 py-1.5">
-                    <span className="text-dai-qing/40">命宫 </span>
-                    <span className="text-hu-po-jin">{freeContent.ziwei.mingGong || '—'}</span>
-                  </div>
-                  <div className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 px-2 py-1.5">
-                    <span className="text-dai-qing/40">身宫 </span>
-                    <span className="text-hu-po-jin">{freeContent.ziwei.shenGong || '—'}</span>
-                  </div>
-                  <div className="rounded-lg border border-dai-qing/8 bg-dai-qing/3 px-2 py-1.5">
-                    <span className="text-dai-qing/40">主星 </span>
-                    <span className="text-hu-po-jin text-[10px]">{(freeContent.ziwei.mainStars || []).join(' ') || '—'}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 关键词 */}
-            {freeContent.keywords && freeContent.keywords.length > 0 && (
-              <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi-dark p-6 text-center">
-                <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4">命 · 盘 · 关 · 键 · 词</p>
-                <div className="grid grid-cols-3 gap-3">
-                  {freeContent.keywords.map((kw: string, i: number) => (
-                    <div key={i} className="rounded-xl border border-dai-qing/8 bg-dai-qing/3 px-3 py-3">
-                      <p className="text-[10px] text-dai-qing/40 mb-1">{['事业','财富','感情'][i] || '运势'}</p>
-                      <p className="text-sm text-dai-qing">{kw}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* 付费墙 */}
+        {/* 付费 */}
         <div className="rounded-2xl border border-hu-po-jin/20 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-8 text-center">
           <div className="text-3xl mb-4">🔀</div>
           <h3 className="font-serif text-xl text-xuan-zhi mb-2">解锁完整命理报告</h3>
@@ -232,7 +150,7 @@ export default function ChartPage() {
               添加微信 Hundunge01
             </button>
           </div>
-          <p className="text-[10px] text-xuan-zhi/30 mt-4">付费后自动生成 · 不满意可退款</p>
+          
         </div>
 
         <p className="text-center text-[10px] text-dai-qing/25 tracking-[2px] pb-8">
