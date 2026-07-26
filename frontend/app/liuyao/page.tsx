@@ -313,6 +313,10 @@ function ResultView({ result, onBack }: { result:FullResult; onBack:()=>void }) 
   var benGua = pan.benGua, yaoList = pan.yaoList;
   return (
     <div className="space-y-4">
+      <div className="text-center">
+        <p className="text-[10px] text-dai-qing/25 tracking-[2px] mb-1">所 问 之 事</p>
+        <p className="text-sm text-dai-qing/70 leading-relaxed">"{question}"</p>
+      </div>
       <div className="qn-card text-center">
         <div className="text-5xl mb-4 opacity-80">{GUA_EMOJI[benGua.shangGua]}{GUA_EMOJI[benGua.xiaGua]}</div>
         <h2 className="text-xl text-dai-qing tracking-[0.1em] font-normal">{benGua.name}<span className="text-hu-po-jin/50 text-sm ml-2">{benGua.guaType}</span></h2>
