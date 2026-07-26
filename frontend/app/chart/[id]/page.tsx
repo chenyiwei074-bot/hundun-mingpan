@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { getChartResult, trackEvent } from '@/app/lib/api';
 
@@ -20,7 +20,29 @@ export default function ChartPage() {
   const [error, setError] = useState<string | null>(null);
   const [pollStage, setPollStage] = useState(0);
 
+  const posterRef = useRef<HTMLDivElement>(null);
+
+  // 海报自适应缩放
   useEffect(() => {
+    if (!posterHtml || !posterRef.current) return;
+    const doScale = () => {
+      const wrapper = posterRef.current;
+      if (!wrapper) return;
+      const inner = wrapper.querySelector('.poster-inner') as HTMLElement;
+      if (!inner) return;
+      const scale = Math.min(window.innerWidth, 750) / 750;
+      inner.style.transform = 'scale(' + scale + ')';
+      inner.style.transformOrigin = 'top left';
+      requestAnimationFrame(() => {
+        wrapper.style.height = (inner.scrollHeight * scale) + 'px';
+      });
+    };
+    doScale();
+    window.addEventListener('resize', doScale);
+    return () => window.removeEventListener('resize', doScale);
+  }, [posterHtml]);
+
+    useEffect(() => {
     if (!id) return;
     let cancelled = false;
     let pollCount = 0;
@@ -103,7 +125,7 @@ export default function ChartPage() {
         {posterHtml ? (
           <div className="rounded-2xl border border-hu-po-jin/20 overflow-hidden">
             <p className="bg-dai-qing text-xuan-zhi text-xs text-center py-2.5 tracking-[0.3em]">命 · 盘 · 海 · 报</p>
-            <div className="poster-wrapper w-full overflow-hidden">
+            <div ref={posterRef} className="poster-wrapper w-full overflow-hidden relative" style={{ transition: 'height 0.2s' }}>
               <div
                 className="poster-content w-[750px] origin-top-left"
                 ref={el => {
