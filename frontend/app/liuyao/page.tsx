@@ -222,7 +222,7 @@ export default function LiuYaoPage() {
                         className={"w-full flex items-center gap-4 px-4 py-2.5 rounded-lg border transition-all " + (isDong ? "border-hu-po-jin/40 bg-hu-po-jin/5" : "border-dai-qing/8 hover:border-dai-qing/20")}
                       >
                         <span className="text-[10px] text-dai-qing/30 w-6 text-left">{YAO_LABELS[yaoIdx]}</span>
-                        <span className={"text-xl flex-1 text-center " + (isYang?"":"text-dai-qing/30")}>{isYang ? (isDong?"○":"⚊") : (isDong?"×":"⚋")}</span>
+                        <span className={"text-xl flex-1 text-center " + (isYang?"":"text-dai-qing/30")} style={{transform:"scaleX(2)",display:"inline-block"}}>{isYang ? (isDong?"○":"⚊") : (isDong?"×":"⚋")}</span>
                         <span className={"text-[10px] w-12 text-right " + (isDong?"text-hu-po-jin":"text-dai-qing/30")}>{label}{isDong?"动":""}</span>
                       </button>
                     );
