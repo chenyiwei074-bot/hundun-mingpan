@@ -26,17 +26,6 @@ export async function createChart(req: Request, res: Response) {
   try {
     const input = CreateChartSchema.parse(req.body);
 
-    // 检查每日免费额度
-    const usage = await checkDailyUsage(input.visitor_id);
-    if (usage.used >= DAILY_FREE_LIMIT) {
-      return res.status(429).json({
-        success: false,
-        error: '今日免费排盘次数已用完',
-        tip: '如需继续体验，请添加混沌客服微信获取深度解析',
-        data: { used: usage.used, limit: DAILY_FREE_LIMIT },
-      });
-    }
-
     // 序列化 birthData
     const [datePart, timePart] = input.birthday.split(' ');
     const [year, month, day] = datePart.split('-').map(Number);
@@ -235,8 +224,10 @@ export async function getQuota(req: Request, res: Response) {
   try {
     const vid = req.query.visitor_id as string;
     if (!vid) return res.status(400).json({ success: false, error: '缺少 visitor_id' });
-    const usage = await checkDailyUsage(vid);
-    return res.json({ success: true, data: usage });
+    return res.json({
+    success: true,
+    data: { used: 0, remaining: 999, limit: 999 },
+  });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }
