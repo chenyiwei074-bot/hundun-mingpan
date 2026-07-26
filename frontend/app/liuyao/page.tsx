@@ -148,13 +148,47 @@ function YaoAnimation({ onComplete }: { onComplete: (yaoData: number[]) => void 
 export default function LiuYaoPage() {
   const [step, setStep] = useState<'input'|'animating'|'result'>('input');
   const [question, setQuestion] = useState('');
-  const [method, setMethod] = useState<'random'|'time'|'coin'>('random');
+  const [method, setMethod] = useState<'random'|'time'|'coin'|'manual'>('random');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<FullResult | null>(null);
   const [error, setError] = useState('');
+  const [manualNums, setManualNums] = useState<string[]>(['','','','','','']);
 
   const handleSubmit = async () => {
+    setError('');
     if (!question.trim()) { setError('请填写占问事项'); return; }
+    if (method === 'manual') {
+      const nums = manualNums.map(n => parseInt(n));
+      if (nums.some(n => isNaN(n) || ![6,7,8,9].includes(n))) {
+        setError('请输入有效的爻值 (6=老阴, 7=少阳, 8=少阴, 9=老阳)'); return;
+      }
+      setLoading(true);
+      try {
+        const res = await fetch('/api/liuyao/create', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question.trim(), method: 'manual', manualData: nums }),
+        });
+        const json = await res.json();
+        if (json.success) { setResult(json.data); setStep('result'); }
+        else { setError(json.error || '起卦失败'); }
+      } catch { setError('网络错误'); }
+      finally { setLoading(false); }
+      return;
+    }
+    if (method === 'random' || method === 'time') {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/liuyao/create', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: question.trim(), method }),
+        });
+        const json = await res.json();
+        if (json.success) { setResult(json.data); setStep('result'); }
+        else { setError(json.error || '起卦失败'); setStep('input'); }
+      } catch { setError('网络错误'); setStep('input'); }
+      finally { setLoading(false); }
+      return;
+    }
     setStep('animating');
   };
 
@@ -216,11 +250,12 @@ export default function LiuYaoPage() {
             {/* 起卦方式 */}
             <section className="bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6">
               <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-4">起 卦 方 式</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 {[
-                  { value:'random', label:'系统摇卦', desc:'随机生成卦象', icon:'🎲' },
+                  { value:'random', label:'随机起卦', desc:'系统随机生成', icon:'🎲' },
                   { value:'time', label:'时间起卦', desc:'以当下时刻起卦', icon:'🕐' },
                   { value:'coin', label:'铜钱摇卦', desc:'模拟三枚铜钱', icon:'🪙' },
+                  { value:'manual', label:'报数起卦', desc:'手动输入六爻', icon:'🔢' },
                 ].map(m => (
                   <button key={m.value} onClick={() => setMethod(m.value as typeof method)}
                     className={`flex flex-col items-center gap-2 p-4 rounded-lg border transition-all ${
@@ -234,19 +269,50 @@ export default function LiuYaoPage() {
               </div>
             </section>
 
+            {/* 报数起卦：六爻输入 */}
+            {method === 'manual' && (
+              <section className="bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6">
+                <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-3">手 动 输 爻 (初→上)</p>
+                <p className="text-[10px] text-dai-qing/40 mb-4">6=老阴(动) 7=少阳 8=少阴 9=老阳(动)</p>
+                <div className="grid grid-cols-6 gap-2">
+                  {manualNums.map((n, i) => (
+                    <div key={i} className="text-center">
+                      <p className="text-[10px] text-dai-qing/40 mb-1">{['初','二','三','四','五','上'][i]}</p>
+                      <input
+                        type="number" min={6} max={9} value={n}
+                        onChange={e => {
+                          const v = e.target.value.slice(-1);
+                          const newNums = [...manualNums];
+                          newNums[i] = v;
+                          setManualNums(newNums);
+                        }}
+                        className="w-full text-center bg-xuan-zhi border border-dai-qing/15 rounded-lg py-2 text-sm text-dai-qing outline-none focus:border-hu-po-jin/40"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {error && <div className="bg-dai-qing-dark/20/30 border border-dai-qing-dark/30 rounded-lg p-3 text-center text-sm text-hu-po-jin-dark">{error}</div>}
 
             <div className="text-center">
               <button onClick={handleSubmit}
                 className="bg-hu-po-jin text-xuan-zhi text-base px-12 py-4 rounded-lg tracking-[4px] font-medium hover:bg-hu-po-jin transition-all"
-              >开 始 摇 卦</button>
+              >{method === 'coin' ? '开 始 摇 卦' : method === 'manual' ? '提 交 卦 象' : '开 始 起 卦'}</button>
               <p className="mt-4 text-[10px] text-dai-qing/40 tracking-[2px]">心念一动即起卦 · 免费体验</p>
             </div>
           </div>
         )}
 
-        {step === 'animating' && (
+        {step === 'animating' && method === 'coin' && (
           <YaoAnimation onComplete={handleAnimationComplete} />
+        )}
+        {loading && step === 'input' && (
+          <div className="text-center py-20">
+            <div className="inline-block w-10 h-10 border-2 border-hu-po-jin/30 border-t-hu-po-jin rounded-full animate-spin mb-4" />
+            <p className="text-sm text-dai-qing/60 tracking-[2px]">起卦中...</p>
+          </div>
         )}
 
         {step === 'result' && result && (
