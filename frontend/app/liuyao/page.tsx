@@ -125,7 +125,6 @@ export default function LiuYaoPage() {
     <div className="min-h-screen bg-xuan-zhi text-dai-qing">
       <nav className="border-b border-dai-qing/8 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
         <Link href="/" className="text-hu-po-jin text-sm tracking-[4px] no-underline">混沌</Link>
-        <Link href="/create" className="text-xs text-dai-qing/40 tracking-[2px] hover:text-hu-po-jin no-underline transition-colors">命盘排盘 →</Link>
       </nav>
 
       <main className="max-w-xl mx-auto px-4 py-8">
