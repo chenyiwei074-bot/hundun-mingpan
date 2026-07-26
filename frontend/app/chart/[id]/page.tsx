@@ -107,10 +107,19 @@ export default function ChartPage() {
         {posterHtml ? (
           <div className="rounded-2xl border border-hu-po-jin/20 overflow-hidden">
             <p className="bg-dai-qing text-xuan-zhi text-xs text-center py-2.5 tracking-[0.3em]">命 · 盘 · 海 · 报</p>
-            <div className="w-full overflow-x-auto">
-              <div
-                className="poster-content w-[750px] origin-top-left"
-                dangerouslySetInnerHTML={{ __html: posterHtml }}
+            <div className="overflow-x-auto">
+              <iframe
+                srcDoc={posterHtml}
+                style={{ width: '750px', height: '500px', border: 'none', display: 'block' }}
+                onLoad={(e) => {
+                  try {
+                    var doc = (e.target as HTMLIFrameElement).contentDocument;
+                    if (doc && doc.body) {
+                      (e.target as HTMLIFrameElement).style.height = doc.body.scrollHeight + 'px';
+                    }
+                  } catch (err) {}
+                }}
+                title="命盘海报"
               />
             </div>
           </div>
