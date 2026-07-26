@@ -149,142 +149,8 @@ export default function CreatePage() {
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
-      // === 前端秒算：八字 + 紫微（使用 lunar-typescript 直接计算）===
-      const [y, m, d] = birthday.split(' ')[0].split('-').map(Number);
-      const [h, min] = (birthday.split(' ')[1] || '12:00').split(':').map(Number);
-      
-      // 用 lunar-typescript 计算八字（完整版）
-      const solar = Solar.fromYmd(y, m, d);
-      const lunar = solar.getLunar();
-      const baZi = lunar.getEightChar();
-      const genderCode = form.gender === '男' ? 1 : 0;
-      
-      // 四柱
-      const siZhu = {
-        year: { gan: baZi.getYearGan(), zhi: baZi.getYearZhi() },
-        month: { gan: baZi.getMonthGan(), zhi: baZi.getMonthZhi() },
-        day: { gan: baZi.getDayGan(), zhi: baZi.getDayZhi() },
-        hour: { gan: baZi.getTimeGan(), zhi: baZi.getTimeZhi() },
-      };
-      
-      // 十神
-      const shiShen = {
-        year: { gan: baZi.getYearShiShenGan(), zhi: baZi.getYearShiShenZhi().join(' ') },
-        month: { gan: baZi.getMonthShiShenGan(), zhi: baZi.getMonthShiShenZhi().join(' ') },
-        day: { gan: baZi.getDayShiShenGan(), zhi: baZi.getDayShiShenZhi().join(' ') },
-        hour: { gan: baZi.getTimeShiShenGan(), zhi: baZi.getTimeShiShenZhi().join(' ') },
-      };
-      
-      // 大运 + 流年
-      let dayunList: any[] = [];
-      let liunianList: any[] = [];
-      try {
-        const yun = baZi.getYun(genderCode);
-        const allDayun = yun.getDaYun();
-        // 跳过第一个（起运前），取前8步大运
-        dayunList = allDayun.slice(1, 9).map((d: any) => ({
-          ganZhi: d.getGanZhi(),
-          startAge: d.getStartAge(),
-          endAge: d.getEndAge(),
-          startYear: d.getStartYear(),
-          endYear: d.getEndYear(),
-          liuNian: d.getLiuNian().slice(0, 10).map((ln: any) => ({
-            year: ln.getYear(),
-            age: ln.getAge(),
-            ganZhi: ln.getGanZhi(),
-          })),
-        }));
-        // 当前流年（取最近10年）
-        liunianList = allDayun[0]?.getLiuNian().slice(0, 10).map((ln: any) => ({
-          year: ln.getYear(),
-          age: ln.getAge(),
-          ganZhi: ln.getGanZhi(),
-        })) || [];
-      } catch(e) { console.error('大运计算失败:', e); }
-      
-      const bz = {
-        siZhu,
-        cangGan: {
-          year: baZi.getYearHideGan() || [],
-          month: baZi.getMonthHideGan() || [],
-          day: baZi.getDayHideGan() || [],
-          hour: baZi.getTimeHideGan() || [],
-        },
-        shiShen,
-        dayMaster: baZi.getDayGan(),
-        naYin: {
-          year: baZi.getYearNaYin(),
-          month: baZi.getMonthNaYin(),
-          day: baZi.getDayNaYin(),
-          hour: baZi.getTimeNaYin(),
-        },
-        dayun: dayunList,
-        liunian: liunianList,
-        geju: '',
-        wangshuai: '',
-        xiyong: '',
-      };
-      
-      // 紫微斗数完整计算
-      let zw: any = { mingGong: '', shenGong: '', wuXingJu: {}, gongs: {} };
-      try {
-        const ziweiChart = createZiweiChart({
-          year: y, month: m, day: d,
-          hour: h || 12, minute: min || 0,
-          isLunar: form.calendar === '农历',
-          gender: (form.gender === '男' ? 'male' : 'female') as 'male' | 'female',
-          timeZone: 8,
-        });
-        const mingGongData = ziweiChart.gongs[ziweiChart.mingGongIndex];
-          const shenGongData = ziweiChart.gongs[ziweiChart.shenGongIndex];
-          zw = {
-            mingGong: mingGongData ? (mingGongData.gong || '') : '',
-            shenGong: shenGongData ? (shenGongData.gong || '') : '',
-            wuXingJu: ziweiChart.wuXingJu || {},
-            gongs: (ziweiChart.gongs || []).reduce((acc: any, g: any) => {
-            const key = g.dizhi || g.gongName || '';
-            acc[key] = {
-              name: g.gong || g.gongName || '',
-              dizhi: g.dizhi || '',
-              mainStars: (g.mainStars || []).join(' '),
-              auxStars: (g.auxStars || []).join(' '),
-              sihua: (g.sihua || []).map((s: any) => s.star + s.hua).join(' '),
-            };
-            return acc;
-          }, {}),
-        };
-      } catch(e) { console.error('紫微计算失败:', e); }
-
-      // 提取免费内容
-      const freeContent = {
-        bazi: {
-          siZhu: bz.siZhu,
-          cangGan: bz.cangGan,
-          shiShen: bz.shiShen,
-          dayMaster: bz.dayMaster,
-          naYin: bz.naYin,
-          dayun: bz.dayun,
-          liunian: bz.liunian,
-          geju: bz.geju,
-          wangshuai: bz.wangshuai,
-          xiyong: bz.xiyong,
-        },
-        ziwei: zw,
-        keywords: [
-          bz.dayMaster + '日主',
-          bz.naYin?.day || '',
-          '命格待定',
-        ],
-      };
-
-      // 生成临时ID并存储
-      const tempId = 'local_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      sessionStorage.setItem('chart_id_' + tempId, '1');
-      sessionStorage.setItem('chart_name_' + tempId, form.name.trim());
-      sessionStorage.setItem('chart_free_' + tempId, JSON.stringify(freeContent));
-
-      // 异步调用后端（保存 + AI分析），不阻塞
-      apiCreateChart({
+      // 调用后端 API
+      const res = await apiCreateChart({
         visitor_id: visitorId,
         name: form.name.trim(),
         gender: form.gender,
@@ -292,24 +158,22 @@ export default function CreatePage() {
         birthday,
         birthPlace: birthPlace || '未指定',
         currentPlace: currentPlace || '未指定',
-      }).then(res => {
-        if (res.success) {
-          // 用后端真实ID更新
-          sessionStorage.setItem('chart_id_' + tempId, res.data.id);
-          sessionStorage.setItem('chart_real_id_' + tempId, res.data.id);
-          trackEvent('create_click', visitorId, res.data.id);
-        }
-      }).catch(() => {});
+      });
 
-      // 立即跳转
-      router.push('/chart/' + tempId);
+      if (res.success && res.data?.id) {
+        trackEvent('create_click', visitorId, res.data.id);
+        router.push('/chart/' + res.data.id);
+      } else {
+        setError(res.error || '创建失败，请重试');
+        setLoading(false);
+      }
     } catch (err: any) {
-      setError('计算失败: ' + (err.message || '未知错误'));
+      setError('网络错误: ' + (err.message || '未知错误'));
       setLoading(false);
     }
   };
 
-  // Render a select dropdown
+    // Render a select dropdown
   
   const renderDateGroup = (prefix: string) => {
     const isPartner = prefix === 'partner';
