@@ -16,16 +16,16 @@
 body {
   background: var(--color-xuan-zhi);
   color: var(--color-dai-qing);
-  font-family: "Source Han Serif SC", "Noto Serif SC", "STSong", Georgia, "SimSun", serif;
+  font-family: system-ui, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
+.font-serif, h1, h2, h3, h4 { font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; }
 
-/* ===== Qingnang Animations ===== */
-
+/* ===== Animations 1:1 from Qingnang ===== */
 @keyframes glow-breathe {
-  0%, 100% { filter: drop-shadow(rgba(212,175,55,0.3) 0px 0px 8px); }
-  50% { filter: drop-shadow(rgba(212,175,55,0.6) 0px 0px 24px); }
+  0%,100% { filter: drop-shadow(rgba(212,175,55,0.3) 0 0 8px); }
+  50% { filter: drop-shadow(rgba(212,175,55,0.6) 0 0 24px); }
 }
 .glow-breathe { animation: glow-breathe 3s ease-in-out infinite; }
 
@@ -43,7 +43,7 @@ body {
 }
 
 @keyframes ink-wave-bob {
-  0%, 100% { transform: translateY(0px) scaleY(1); }
+  0%,100% { transform: translateY(0px) scaleY(1); }
   50% { transform: translateY(var(--bob-amp, 8px)) scaleY(1.03); }
 }
 .ink-sea__layer {
@@ -52,9 +52,7 @@ body {
   animation: ink-wave-bob 12s ease-in-out infinite;
 }
 
-@keyframes marquee-scroll {
-  100% { transform: translateX(-50%); }
-}
+@keyframes marquee-scroll { 100% { transform: translateX(-50%); } }
 .ink-sea__track {
   will-change: transform; width: max-content; height: 100%;
   animation: marquee-scroll 75s linear infinite; display: flex;
@@ -64,43 +62,71 @@ body {
   0% { opacity: 0.12; filter: blur(3px); transform: translateY(4px); }
   100% { opacity: 1; filter: blur(0); transform: none; }
 }
-.animate-ink-in {
-  animation: md-ink-in 0.6s ease-out forwards;
-}
-
-@keyframes lamp-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212,175,55,0.45); }
-  50% { box-shadow: 0 0 0 5px rgba(212,175,55,0); }
-}
+.animate-ink-in { animation: md-ink-in 0.6s ease-out forwards; }
 
 @keyframes btn-sheen-sweep {
-  0%, 55% { transform: translateX(-180%) skewX(-18deg); }
+  0%,55% { transform: translateX(-180%) skewX(-18deg); }
   100% { transform: translateX(340%) skewX(-18deg); }
 }
 
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee { animation: marquee 30s linear infinite; }
-
-/* ===== Buttons ===== */
+/* ===== Buttons 1:1 from Qingnang ===== */
 .qn-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 8px; font-size: 13px; letter-spacing: 2px;
+  border-radius: 10px; font-size: 13px; letter-spacing: 0.65px;
   font-weight: 500; cursor: pointer; transition: all 0.2s;
   border: none; text-decoration: none; position: relative; overflow: hidden;
 }
 .qn-btn--primary {
-  background: var(--color-hu-po-jin); color: var(--color-xuan-zhi);
+  background: var(--color-dai-qing); color: var(--color-xuan-zhi);
+  padding: 0 16px; height: 36px;
 }
 .qn-btn--primary::after {
   content: ''; position: absolute; inset: 0;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.25) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0) 55%);
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.3) 50%, transparent 55%);
   animation: btn-sheen-sweep 5s ease-in-out infinite;
 }
-.qn-btn--primary:hover { background: var(--color-hu-po-jin-light); }
-.qn-btn--sm { padding: 6px 16px; font-size: 12px; }
+.qn-btn--primary:hover { background: var(--color-dai-qing-light); }
+.qn-btn--sm { padding: 0 16px; height: 34px; font-size: 12px; }
+
+/* Gold CTA button */
+.qn-btn--gold {
+  background: var(--color-hu-po-jin); color: var(--color-dai-qing-dark);
+  padding: 14px 36px; font-size: 16px; border-radius: 12px;
+  letter-spacing: normal;
+}
+.qn-btn--gold::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.25) 45%, rgba(255,255,255,0.35) 50%, transparent 55%);
+  animation: btn-sheen-sweep 5s ease-in-out infinite;
+}
+.qn-btn--gold:hover { background: var(--color-hu-po-jin-light); }
+
+/* Outline button for dark bg */
+.qn-btn--outline {
+  border: 1px solid rgba(245,245,220,0.3); color: rgba(245,245,220,0.9);
+  padding: 14px 36px; font-size: 16px; border-radius: 12px;
+  background: transparent; letter-spacing: normal;
+}
+.qn-btn--outline:hover {
+  border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.1); color: var(--color-xuan-zhi);
+}
+
+/* ===== Button glow effect ===== */
+.btn-glow {
+  transition: all 0.2s;
+}
+.btn-glow:hover {
+  box-shadow: 0 8px 30px rgba(212,175,55,0.25);
+}
+
+/* ===== Gold foil text effect ===== */
+.gold-foil-text {
+  background: linear-gradient(135deg, #d4af37 0%, #f0d060 25%, #d4af37 50%, #b8960f 75%, #d4af37 100%);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
 
 /* ===== Divider ===== */
 .divider-ink {
@@ -108,15 +134,54 @@ body {
   background: linear-gradient(90deg, transparent, var(--color-hu-po-jin), transparent);
 }
 
-/* ===== Card hover ===== */
-.qn-card {
-  background: var(--color-xuan-zhi);
-  border: 1px solid rgba(0,77,77,0.1);
-  border-radius: 12px;
-  padding: 32px;
-  transition: all 0.3s;
+/* ===== Card float for dark sections ===== */
+.card-float {
+  transition: all 0.3s ease;
 }
-.qn-card:hover {
-  border-color: rgba(212,175,55,0.3);
-  box-shadow: 0 4px 24px rgba(0,77,77,0.06);
+.card-float:hover {
+  transform: translateY(-2px);
+}
+
+/* ===== Marquee ===== */
+.qn-marquee {
+  overflow: hidden; width: 100%;
+}
+.qn-marquee__track {
+  display: flex; width: max-content; animation: marquee-scroll 40s linear infinite;
+}
+.qn-marquee__item {
+  display: flex; align-items: center; white-space: nowrap; padding: 0 16px;
+}
+.qn-marquee__dot {
+  margin-left: 16px; opacity: 0.4;
+}
+
+/* ===== Demo CTA link ===== */
+.qn-demo__cta {
+  display: inline-block; color: var(--color-hu-po-jin-dark);
+  font-size: 13px; letter-spacing: 0.65px; padding-bottom: 2px;
+  border-bottom: 1px solid rgba(184,150,15,0.3); transition: all 0.2s;
+}
+.qn-demo__cta:hover { color: var(--color-hu-po-jin); border-color: var(--color-hu-po-jin); }
+
+/* ===== Form elements ===== */
+.qn-input {
+  width: 100%; background: var(--color-xuan-zhi);
+  border: 1px solid rgba(0,77,77,0.1); border-radius: 8px;
+  padding: 10px 14px; font-size: 14px; color: var(--color-dai-qing);
+  outline: none; font-family: inherit; transition: border-color 0.2s;
+}
+.qn-input:focus { border-color: rgba(212,175,55,0.4); }
+.qn-input::placeholder { color: rgba(0,77,77,0.25); }
+
+.qn-select {
+  width: 100%; background: var(--color-xuan-zhi);
+  border: 1px solid rgba(0,77,77,0.1); border-radius: 8px;
+  padding: 10px 14px; font-size: 14px; color: var(--color-dai-qing);
+  outline: none; cursor: pointer; font-family: inherit; appearance: none;
+}
+
+.qn-label {
+  font-size: 11px; letter-spacing: 0.28px; color: rgba(0,77,77,0.5);
+  margin-bottom: 6px; display: block;
 }
