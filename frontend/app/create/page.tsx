@@ -79,6 +79,49 @@ function PickerModal({ title, options, value, onChange, onClose, height = 'h-64'
   );
 }
 
+
+// ========== 时间选择器（合并） ==========
+function TimePickerModal({ hour, minute, onChange, onClose }: {
+  hour: string; minute: string; onChange: (h: string, m: string) => void; onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
+          <span className="text-xs text-dai-qing/50 tracking-[2px]">请选择</span>
+          <span className="text-dai-qing text-sm tracking-[2px]">选择时间</span>
+          <button onClick={onClose} className="text-dai-qing/70 text-sm px-2 hover:text-hu-po-jin">完成</button>
+        </div>
+        {/* Hour row */}
+        <div className="px-4 py-3">
+          <p className="text-[10px] text-dai-qing/40 tracking-[2px] mb-2">小时</p>
+          <div className="grid grid-cols-8 gap-1.5 max-h-24 overflow-y-auto">
+            {hours24.map(h => (
+              <button key={h.value} onClick={() => onChange(h.value, minute)}
+                className={`py-2 text-xs rounded-lg border transition-all ${
+                  h.value === hour ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
+                }`}>{h.label}</button>
+            ))}
+          </div>
+        </div>
+        {/* Minute quick select */}
+        <div className="px-4 py-3 border-t border-dai-qing/8">
+          <p className="text-[10px] text-dai-qing/40 tracking-[2px] mb-2">分钟</p>
+          <div className="grid grid-cols-6 gap-1.5 max-h-36 overflow-y-auto">
+            {['00','05','10','15','20','25','30','35','40','45','50','55'].map(m => (
+              <button key={m} onClick={() => onChange(hour, m)}
+                className={`py-2 text-xs rounded-lg border transition-all ${
+                  m === minute ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
+                }`}>{m}分</button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ========== 地区选择器 ==========
 function RegionPicker({ value, onChange, onClose }: {
   value: { province: string; city: string; district: string };
@@ -260,12 +303,13 @@ export default function CreatePage() {
   );
 
   const renderDateGroup = (prefix: string) => {
-    const y = form[prefix + 'Year' as keyof typeof form] as string;
-    const m = form[prefix + 'Month' as keyof typeof form] as string;
-    const d = form[prefix + 'Day' as keyof typeof form] as string;
-    const h = form[prefix + 'Hour' as keyof typeof form] as string;
-    const min = form[prefix + 'Minute' as keyof typeof form] as string;
-    const days = prefix === 'partner' ? partnerDayOptions : dayOptions;
+    const isPartner = prefix === 'partner';
+    const y = isPartner ? (form.partnerYear as string) : (form.year as string);
+    const m = isPartner ? (form.partnerMonth as string) : (form.month as string);
+    const d = isPartner ? (form.partnerDay as string) : (form.day as string);
+    const h = isPartner ? (form.partnerHour as string) : (form.hour as string);
+    const min = isPartner ? (form.partnerMinute as string) : (form.minute as string);
+    const days = isPartner ? partnerDayOptions : dayOptions;
 
     return (
       <div className="space-y-3">
@@ -282,26 +326,26 @@ export default function CreatePage() {
         )}
         {/* Year/Month/Day */}
         <div className="grid grid-cols-3 gap-3">
-          <button onClick={() => setActivePicker(prefix + 'Year')}
+          <button onClick={() => setActivePicker(isPartner ? 'partnerYear' : 'year')}
             className={`${selectBtnClass} ${y ? selectBtnActiveClass : selectBtnEmptyClass}`}>
             {y || '年'}
           </button>
-          <button onClick={() => setActivePicker(prefix + 'Month')}
+          <button onClick={() => setActivePicker(isPartner ? 'partnerMonth' : 'month')}
             className={`${selectBtnClass} ${m ? selectBtnActiveClass : selectBtnEmptyClass}`}>
             {m ? m + '月' : '月'}
           </button>
-          <button onClick={() => { if (y && m) setActivePicker(prefix + 'Day'); }}
+          <button onClick={() => { if (y && m) setActivePicker(isPartner ? 'partnerDay' : 'day'); }}
             className={`${selectBtnClass} ${d ? selectBtnActiveClass : selectBtnEmptyClass} ${!y || !m ? 'opacity-40 cursor-not-allowed' : ''}`}>
             {d ? d + '日' : '日'}
           </button>
         </div>
         {/* Time */}
         <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => setActivePicker(prefix + 'Hour')}
+          <button onClick={() => setActivePicker(isPartner ? 'partnerHour' : 'hour')}
             className={`${selectBtnClass} ${h ? selectBtnActiveClass : selectBtnEmptyClass}`}>
             {h ? h.padStart(2, '0') + ':00' : '时'}
           </button>
-          <button onClick={() => setActivePicker(prefix + 'Minute')}
+          <button onClick={() => setActivePicker(isPartner ? 'partnerMinute' : 'minute')}
             className={`${selectBtnClass} ${min ? selectBtnActiveClass : selectBtnEmptyClass}`}>
             {min ? min.padStart(2, '0') + '分' : '分'}
           </button>
@@ -389,7 +433,7 @@ export default function CreatePage() {
 
             {/* Birth date */}
             <div>
-              <p className={fieldLabelClass}>诞辰之候 {shichen && <span className="text-hu-po-jin">· {shichen}</span>}</p>
+              <p className={fieldLabelClass}>诞辰之候 </p>
               {renderDateGroup('')}
             </div>
           </div>
@@ -491,14 +535,30 @@ export default function CreatePage() {
       </main>
 
       {/* ===== Pickers ===== */}
-      {activePicker && (
+      {activePicker && (activePicker === 'time' || activePicker === 'partnerTime') && (
+        <TimePickerModal
+          hour={(activePicker === 'partnerTime' ? form.partnerHour : form.hour) as string || '12'}
+          minute={(activePicker === 'partnerTime' ? form.partnerMinute : form.minute) as string || '00'}
+          onChange={(h, m) => {
+            if (activePicker === 'partnerTime') {
+              setField('partnerHour', h);
+              setField('partnerMinute', m);
+            } else {
+              setField('hour', h);
+              setField('minute', m);
+            }
+          }}
+          onClose={() => setActivePicker(null)}
+        />
+      )}
+      {activePicker && activePicker !== 'time' && activePicker !== 'partnerTime' && (
         <PickerModal
-          title={activePicker.includes('Year') ? '选择年份' : activePicker.includes('Month') ? '选择月份' : activePicker.includes('Day') ? '选择日期' : activePicker.includes('Hour') ? '选择小时' : '选择分钟'}
+          title={activePicker?.toLowerCase().includes('year') ? '选择年份' : activePicker?.toLowerCase().includes('month') ? '选择月份' : activePicker?.toLowerCase().includes('day') ? '选择日期' : activePicker?.toLowerCase().includes('hour') ? '选择小时' : '选择分钟'}
           options={
-            activePicker.includes('Year') ? years.map(v => ({ value: v, label: v + '年' })) :
-            activePicker.includes('Month') ? monthsList :
-            activePicker.includes('Day') ? (activePicker.startsWith('partner') ? partnerDayOptions : dayOptions) :
-            activePicker.includes('Hour') ? hours24 :
+            activePicker?.toLowerCase().includes('year') ? years.map(v => ({ value: v, label: v + '年' })) :
+            activePicker?.toLowerCase().includes('month') ? monthsList :
+            activePicker?.toLowerCase().includes('day') ? (activePicker?.startsWith('partner') ? partnerDayOptions : dayOptions) :
+            activePicker?.toLowerCase().includes('hour') ? hours24 :
             minutes60
           }
           value={form[activePicker as keyof typeof form] as string || ''}
