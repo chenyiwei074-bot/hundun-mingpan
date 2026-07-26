@@ -98,7 +98,7 @@ export default function LiuYaoPage() {
   var reset = function() {
     setStep('input'); setResult(null); setQuestion('');
     setManualNums(['','','','','','']); setError('');
-    setShangGua('乾'); setXiaGua('乾'); setDongYao(1);
+    setDirectYaos([7,7,7,7,7,7]);
   };
 
   var yaoLabel = function(val: number) {
