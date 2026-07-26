@@ -1,39 +1,39 @@
-ï»¿'use client';
+'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
 
-// â”€â”€ Types â”€â”€
+// ©¤©¤ Types ©¤©¤
 type YaoInfo = { position:number; value:number; yinYang:string; isDong:boolean; naGan:string; naZhi:string; liuQin:string; liuShen:string; shiYing:string|null; xunKong:boolean };
 type GuaInfo = { name:string; shangGua:string; xiaGua:string; gongWei:string; gongWuXing:string; guaType:string };
 type FullResult = { question:string; qiGua:{method:string; dongYaoPositions:number[]}; pan:{benGua:GuaInfo; bianGua:GuaInfo|null; yaoList:YaoInfo[]; riChen:{gan:string;zhi:string}; yueJian:string; xunKongZhi:string[]}; analysis:string; tianPan:any; diPan:any };
 
-var GUA_EMOJI: Record<string,string> = { 'ä¹¾':'â˜°','å…‘':'â˜±','ç¦»':'â˜²','éœ‡':'â˜³','å·½':'â˜´','å':'â˜µ','è‰®':'â˜¶','å¤':'â˜·' };
-var POS_NAMES = ['','åˆ','äºŒ','ä¸‰','å››','äº”','ä¸Š'];
-var GUA_NAMES = ['ä¹¾','å…‘','ç¦»','éœ‡','å·½','å','è‰®','å¤'];
+var GUA_EMOJI: Record<string,string> = { 'Ç¬':'?','¶Ò':'?','Àë':'?','Õğ':'?','Ùã':'?','¿²':'?','ôŞ':'?','À¤':'?' };
+var POS_NAMES = ['','³õ','¶ş','Èı','ËÄ','Îå','ÉÏ'];
+var GUA_NAMES = ['Ç¬','¶Ò','Àë','Õğ','Ùã','¿²','ôŞ','À¤'];
 
-// â”€â”€ Yao line values for each gua (from bottom up) â”€â”€
+// ©¤©¤ Yao line values for each gua (from bottom up) ©¤©¤
 var API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'https://hundunmp.vip/api' : '/api';
 var GUA_YAO: Record<string,number[]> = {
-  'ä¹¾':[7,7,7], 'å…‘':[8,7,7], 'ç¦»':[7,8,7], 'éœ‡':[8,8,7],
-  'å·½':[7,7,8], 'å':[8,7,8], 'è‰®':[7,8,8], 'å¤':[8,8,8]
+  'Ç¬':[7,7,7], '¶Ò':[8,7,7], 'Àë':[7,8,7], 'Õğ':[8,8,7],
+  'Ùã':[7,7,8], '¿²':[8,7,8], 'ôŞ':[7,8,8], 'À¤':[8,8,8]
 };
 
-// â”€â”€ Loading â”€â”€
+// ©¤©¤ Loading ©¤©¤
 function Spinner({ text }: { text: string }) {
   return (
     <div className="flex flex-col items-center py-20">
       <div className="relative" style={{ width:100, height:100 }}>
         <div className="absolute inset-0 rounded-full border border-hu-po-jin/20 animate-spin" style={{ animationDuration:'3s' }} />
         <div className="absolute inset-[12px] rounded-full border border-hu-po-jin/10 animate-spin" style={{ animationDuration:'2s', animationDirection:'reverse', borderStyle:'dashed' }} />
-        <div className="absolute inset-0 flex items-center justify-center text-2xl text-hu-po-jin/60">â˜¯</div>
+        <div className="absolute inset-0 flex items-center justify-center text-2xl text-hu-po-jin/60">?</div>
       </div>
       <p className="text-dai-qing/40 text-xs tracking-[2px] mt-6">{text}</p>
     </div>
   );
 }
 
-// â”€â”€ Main â”€â”€
+// ©¤©¤ Main ©¤©¤
 export default function LiuYaoPage() {
   var [step, setStep] = useState<'input'|'animating'|'loading'|'result'>('input');
   var [method, setMethod] = useState<'random'|'manual'|'direct'>('random');
@@ -44,14 +44,14 @@ export default function LiuYaoPage() {
   // Manual input state
   var [manualNums, setManualNums] = useState<string[]>(['','','','','','']);
   // Direct pai gua state
-  var [shangGua, setShangGua] = useState('ä¹¾');
-  var [xiaGua, setXiaGua] = useState('ä¹¾');
+  var [shangGua, setShangGua] = useState('Ç¬');
+  var [xiaGua, setXiaGua] = useState('Ç¬');
   var [dongYao, setDongYao] = useState(1);
   // Coin animation state
   var [animYao, setAnimYao] = useState<{round:number; coins:number[]; results:number[]}>({round:0, coins:[0,0,0], results:[]});
   var animTimer = useRef<any>(null);
 
-  // â”€â”€ Submit helpers â”€â”€
+  // ©¤©¤ Submit helpers ©¤©¤
   var submitAPI = async function(yaoData: number[], method: string) {
     setStep('loading'); setError('');
     try {
@@ -61,13 +61,13 @@ export default function LiuYaoPage() {
       });
       var json = await res.json();
       if (json.success) { setResult(json.data); setStep('result'); }
-      else { setError(json.error||'èµ·å¦å¤±è´¥'); setStep('input'); }
-    } catch { setError('ç½‘ç»œé”™è¯¯'); setStep('input'); }
+      else { setError(json.error||'ÆğØÔÊ§°Ü'); setStep('input'); }
+    } catch { setError('ÍøÂç´íÎó'); setStep('input'); }
   };
 
-  // â”€â”€ Random coin â”€â”€
+  // ©¤©¤ Random coin ©¤©¤
   var startCoinAnim = function() {
-    if (!question.trim()) { setError('è¯·å¡«å†™æ‰€é—®ä¹‹äº‹'); return; }
+    if (!question.trim()) { setError('ÇëÌîĞ´ËùÎÊÖ®ÊÂ'); return; }
     setStep('animating'); setAnimYao({round:0, coins:[0,0,0], results:[]});
   };
 
@@ -86,17 +86,17 @@ export default function LiuYaoPage() {
     return function() { clearTimeout(t1); if (animTimer.current) clearTimeout(animTimer.current); };
   }, [step, animYao.round]);
 
-  // â”€â”€ Manual submit â”€â”€
+  // ©¤©¤ Manual submit ©¤©¤
   var handleManual = function() {
-    if (!question.trim()) { setError('è¯·å¡«å†™æ‰€é—®ä¹‹äº‹'); return; }
+    if (!question.trim()) { setError('ÇëÌîĞ´ËùÎÊÖ®ÊÂ'); return; }
     var nums = manualNums.map(function(n){ return parseInt(n); });
-    if (nums.some(function(n){ return isNaN(n) || ![6,7,8,9].includes(n); })) { setError('è¯·è¾“å…¥æœ‰æ•ˆçˆ»å€¼ï¼ˆ6/7/8/9ï¼‰'); return; }
+    if (nums.some(function(n){ return isNaN(n) || ![6,7,8,9].includes(n); })) { setError('ÇëÊäÈëÓĞĞ§Ø³Öµ£¨6/7/8/9£©'); return; }
     submitAPI(nums, 'manual');
   };
 
-  // â”€â”€ Direct pai gua â”€â”€
+  // ©¤©¤ Direct pai gua ©¤©¤
   var handleDirect = function() {
-    if (!question.trim()) { setError('è¯·å¡«å†™æ‰€é—®ä¹‹äº‹'); return; }
+    if (!question.trim()) { setError('ÇëÌîĞ´ËùÎÊÖ®ÊÂ'); return; }
     var shangYao = GUA_YAO[shangGua].slice();
     var xiaYao = GUA_YAO[xiaGua].slice();
     var allYao = [...xiaYao, ...shangYao];
@@ -107,25 +107,25 @@ export default function LiuYaoPage() {
   var reset = function() {
     setStep('input'); setResult(null); setQuestion('');
     setManualNums(['','','','','','']); setError('');
-    setShangGua('ä¹¾'); setXiaGua('ä¹¾'); setDongYao(1);
+    setShangGua('Ç¬'); setXiaGua('Ç¬'); setDongYao(1);
   };
 
   var yaoLabel = function(val: number) {
     switch(val) {
-      case 6: return { label:'è€é˜´', sym:'âš‹âš‹', c:'text-hu-po-jin' };
-      case 7: return { label:'å°‘é˜³', sym:'âšŠ', c:'text-dai-qing/70' };
-      case 8: return { label:'å°‘é˜´', sym:'âš‹', c:'text-dai-qing/50' };
-      case 9: return { label:'è€é˜³', sym:'âšŠ', c:'text-hu-po-jin' };
+      case 6: return { label:'ÀÏÒõ', sym:'??', c:'text-hu-po-jin' };
+      case 7: return { label:'ÉÙÑô', sym:'?', c:'text-dai-qing/70' };
+      case 8: return { label:'ÉÙÒõ', sym:'?', c:'text-dai-qing/50' };
+      case 9: return { label:'ÀÏÑô', sym:'?', c:'text-hu-po-jin' };
       default: return { label:'', sym:'', c:'' };
     }
   };
 
-  // â”€â”€ Render â”€â”€
+  // ©¤©¤ Render ©¤©¤
   return (
     <div className="min-h-screen bg-xuan-zhi text-dai-qing">
       <nav className="border-b border-dai-qing/8 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
-        <Link href="/" className="text-hu-po-jin text-sm tracking-[4px] no-underline">æ··æ²Œ</Link>
-        <Link href="/create" className="text-xs text-dai-qing/40 tracking-[2px] hover:text-hu-po-jin no-underline transition-colors">å‘½ç›˜æ’ç›˜ â†’</Link>
+        <Link href="/" className="text-hu-po-jin text-sm tracking-[4px] no-underline">»ìãç</Link>
+        <Link href="/create" className="text-xs text-dai-qing/40 tracking-[2px] hover:text-hu-po-jin no-underline transition-colors">ÃüÅÌÅÅÅÌ ¡ú</Link>
       </nav>
 
       <main className="max-w-xl mx-auto px-4 py-8">
@@ -133,17 +133,17 @@ export default function LiuYaoPage() {
           <div className="space-y-5">
             {/* Title */}
             <div className="text-center py-4">
-              <div className="inline-flex items-center gap-2 text-hu-po-jin/50 text-xl mb-2"><span>â˜°</span><span>â˜µ</span><span>â˜¶</span></div>
-              <h1 className="text-lg text-dai-qing tracking-[6px] font-normal">æ··æ²Œé—®å¦</h1>
-              <p className="text-xs text-dai-qing/30 tracking-[2px] mt-2">ä¸€äº‹ä¸€å  Â· ä¸‰ç›˜åˆæ–­</p>
+              <div className="inline-flex items-center gap-2 text-hu-po-jin/50 text-xl mb-2"><span>?</span><span>?</span><span>?</span></div>
+              <h1 className="text-lg text-dai-qing tracking-[6px] font-normal">»ìãçÎÊØÔ</h1>
+              <p className="text-xs text-dai-qing/30 tracking-[2px] mt-2">Ò»ÊÂÒ»Õ¼ ¡¤ ÈıÅÌºÏ¶Ï</p>
             </div>
 
             {/* Question */}
             <div className="qn-card">
-              <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-3 text-center">æ‰€ é—® ä¹‹ äº‹</p>
+              <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-3 text-center">Ëù ÎÊ Ö® ÊÂ</p>
               <textarea
                 value={question} onChange={function(e){ setQuestion(e.target.value); }}
-                placeholder="ä¾‹å¦‚ï¼šè¿™æ¬¡è·³æ§½å»æ–°å…¬å¸å‘å±•å¥½å—ï¼Ÿ"
+                placeholder="ÀıÈç£ºÕâ´ÎÌø²ÛÈ¥ĞÂ¹«Ë¾·¢Õ¹ºÃÂğ£¿"
                 rows={3} maxLength={200}
                 className="w-full bg-transparent border border-dai-qing/10 rounded-xl p-4 text-sm text-dai-qing placeholder-dai-qing/20 resize-none outline-none focus:border-hu-po-jin/30 transition-colors"
               />
@@ -152,12 +152,12 @@ export default function LiuYaoPage() {
 
             {error && <div className="rounded-xl border border-red-500/15 bg-red-500/5 p-4 text-center text-sm text-red-400/80">{error}</div>}
 
-            {/* â”€â”€ èµ·å¦æ–¹å¼ Tabs â”€â”€ */}
+            {/* ©¤©¤ ÆğØÔ·½Ê½ Tabs ©¤©¤ */}
             <div className="flex bg-xuan-zhi-dark rounded-2xl p-1 border border-dai-qing/10">
               {[
-                { id:'random' as const, icon:'ğŸ²', label:'éšæœºèµ·å¦', desc:'æ¨¡æ‹Ÿé“œé’±' },
-                { id:'manual' as const, icon:'ğŸ”¢', label:'æŠ¥æ•°èµ·å¦', desc:'æ‰‹åŠ¨è¾“çˆ»' },
-                { id:'direct' as const, icon:'â˜¯', label:'ç›´æ¥æ’å¦', desc:'è‡ªé€‰å¦çˆ»' },
+                { id:'random' as const, icon:'??', label:'Ëæ»úÆğØÔ', desc:'Ä£ÄâÍ­Ç®' },
+                { id:'manual' as const, icon:'??', label:'±¨ÊıÆğØÔ', desc:'ÊÖ¶¯ÊäØ³' },
+                { id:'direct' as const, icon:'?', label:'Ö±½ÓÅÅØÔ', desc:'×ÔÑ¡ØÔØ³' },
               ].map(function(tab) {
                 return (
                   <button key={tab.id} onClick={function(){ setMethod(tab.id); }}
@@ -167,28 +167,28 @@ export default function LiuYaoPage() {
               })}
             </div>
 
-            {/* â”€â”€ éšæœºèµ·å¦ â”€â”€ */}
+            {/* ©¤©¤ Ëæ»úÆğØÔ ©¤©¤ */}
             {method === 'random' && (
               <div className="qn-card text-center">
                 <div className="py-4">
                   <div className="flex justify-center gap-3 mb-3">
-                    {[0,1,2].map(function(i){ return <div key={i} className="w-9 h-9 rounded-full border border-hu-po-jin/20 bg-hu-po-jin/5 flex items-center justify-center text-sm text-hu-po-jin/50">â—</div>; })}
+                    {[0,1,2].map(function(i){ return <div key={i} className="w-9 h-9 rounded-full border border-hu-po-jin/20 bg-hu-po-jin/5 flex items-center justify-center text-sm text-hu-po-jin/50">¡ò</div>; })}
                   </div>
-                  <p className="text-xs text-dai-qing/30">ç³»ç»Ÿæ¨¡æ‹Ÿé“œé’±æ‘‡å¦ï¼Œå…±æ· 6 æ¬¡ï¼Œæ¯æ¬¡ 3 æšé“œé’±</p>
+                  <p className="text-xs text-dai-qing/30">ÏµÍ³Ä£ÄâÍ­Ç®Ò¡ØÔ£¬¹²ÖÀ 6 ´Î£¬Ã¿´Î 3 Ã¶Í­Ç®</p>
                 </div>
-                <button onClick={startCoinAnim} className="qn-btn qn-btn--amber qn-btn--md mt-2" style={{borderRadius:'999px',letterSpacing:'.15em'}}>å¼€ å§‹ æ‘‡ å¦</button>
+                <button onClick={startCoinAnim} className="qn-btn qn-btn--amber qn-btn--md mt-2" style={{borderRadius:'999px',letterSpacing:'.15em'}}>¿ª Ê¼ Ò¡ ØÔ</button>
               </div>
             )}
 
-            {/* â”€â”€ æŠ¥æ•°èµ·å¦ â”€â”€ */}
+            {/* ©¤©¤ ±¨ÊıÆğØÔ ©¤©¤ */}
             {method === 'manual' && (
               <div className="qn-card">
-                <p className="text-[10px] text-dai-qing/30 mb-3">ä»åˆçˆ»åˆ°ä¸Šçˆ»ï¼Œä¾æ¬¡è¾“å…¥ 6 ä¸ªæ•°å€¼ï¼š6=è€é˜´(åŠ¨) 7=å°‘é˜³ 8=å°‘é˜´ 9=è€é˜³(åŠ¨)</p>
+                <p className="text-[10px] text-dai-qing/30 mb-3">´Ó³õØ³µ½ÉÏØ³£¬ÒÀ´ÎÊäÈë 6 ¸öÊıÖµ£º6=ÀÏÒõ(¶¯) 7=ÉÙÑô 8=ÉÙÒõ 9=ÀÏÑô(¶¯)</p>
                 <div className="grid grid-cols-6 gap-2 mb-4">
                   {manualNums.map(function(n, i) {
                     return (
                       <div key={i} className="text-center">
-                        <p className="text-[10px] text-dai-qing/25 mb-1">{['åˆ','äºŒ','ä¸‰','å››','äº”','ä¸Š'][i]}</p>
+                        <p className="text-[10px] text-dai-qing/25 mb-1">{['³õ','¶ş','Èı','ËÄ','Îå','ÉÏ'][i]}</p>
                         <input type="number" min={6} max={9} value={n}
                           onChange={function(e) { var v = e.target.value.slice(-1); setManualNums(function(p) { var a = [...p]; a[i] = v; return a; }); }}
                           className="w-full text-center bg-xuan-zhi border border-dai-qing/10 rounded-lg py-2.5 text-sm text-dai-qing outline-none focus:border-hu-po-jin/30"
@@ -197,16 +197,16 @@ export default function LiuYaoPage() {
                     );
                   })}
                 </div>
-                <button onClick={handleManual} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>æ äº¤ å¦ è±¡</button>
+                <button onClick={handleManual} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>Ìá ½» ØÔ Ïó</button>
               </div>
             )}
 
-            {/* â”€â”€ ç›´æ¥æ’å¦ â”€â”€ */}
+            {/* ©¤©¤ Ö±½ÓÅÅØÔ ©¤©¤ */}
             {method === 'direct' && (
               <div className="qn-card">
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   <div>
-                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">ä¸Šå¦</p>
+                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">ÉÏØÔ</p>
                     <div className="grid grid-cols-4 gap-1">
                       {GUA_NAMES.map(function(g) {
                         return <button key={g} onClick={function(){ setShangGua(g); }}
@@ -216,7 +216,7 @@ export default function LiuYaoPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">ä¸‹å¦</p>
+                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">ÏÂØÔ</p>
                     <div className="grid grid-cols-4 gap-1">
                       {GUA_NAMES.map(function(g) {
                         return <button key={g} onClick={function(){ setXiaGua(g); }}
@@ -226,12 +226,12 @@ export default function LiuYaoPage() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">åŠ¨çˆ»</p>
+                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">¶¯Ø³</p>
                     <div className="grid grid-cols-3 gap-1">
                       {[1,2,3,4,5,6].map(function(n) {
                         return <button key={n} onClick={function(){ setDongYao(n); }}
                           className={"py-1.5 text-xs rounded border transition-all " + (dongYao===n ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
-                        >{['åˆ','äºŒ','ä¸‰','å››','äº”','ä¸Š'][n-1]}</button>;
+                        >{['³õ','¶ş','Èı','ËÄ','Îå','ÉÏ'][n-1]}</button>;
                       })}
                     </div>
                   </div>
@@ -240,27 +240,27 @@ export default function LiuYaoPage() {
                   <span className="text-2xl">{GUA_EMOJI[shangGua]}</span>
                   <span className="text-dai-qing/20 mx-2">+</span>
                   <span className="text-2xl">{GUA_EMOJI[xiaGua]}</span>
-                  <span className="text-[10px] text-dai-qing/30 ml-3">åŠ¨ {['åˆ','äºŒ','ä¸‰','å››','äº”','ä¸Š'][dongYao-1]}çˆ»</span>
+                  <span className="text-[10px] text-dai-qing/30 ml-3">¶¯ {['³õ','¶ş','Èı','ËÄ','Îå','ÉÏ'][dongYao-1]}Ø³</span>
                 </div>
-                <button onClick={handleDirect} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>å¼€ å§‹ æ’ å¦</button>
+                <button onClick={handleDirect} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>¿ª Ê¼ ÅÅ ØÔ</button>
               </div>
             )}
-<p className="text-center text-[10px] text-dai-qing/20 tracking-[2px] pb-4">å¿ƒè¯šåˆ™çµ Â· å…è´¹ä½“éªŒ</p>
+<p className="text-center text-[10px] text-dai-qing/20 tracking-[2px] pb-4">ĞÄ³ÏÔòÁé ¡¤ Ãâ·ÑÌåÑé</p>
           </div>
         )}
 
-        {/* â”€â”€ Coin Animation â”€â”€ */}
+        {/* ©¤©¤ Coin Animation ©¤©¤ */}
         {step === 'animating' && <CoinAnimation animYao={animYao} yaoLabel={yaoLabel} />}
-        {/* â”€â”€ Loading â”€â”€ */}
-        {step === 'loading' && <Spinner text="æ¨æ¼”å¦è±¡ä¸­..." />}
-        {/* â”€â”€ Result â”€â”€ */}
+        {/* ©¤©¤ Loading ©¤©¤ */}
+        {step === 'loading' && <Spinner text="ÍÆÑİØÔÏóÖĞ..." />}
+        {/* ©¤©¤ Result ©¤©¤ */}
         {step === 'result' && result && <ResultView result={result} onBack={reset} />}
       </main>
     </div>
   );
 }
 
-// â”€â”€ Coin Animation (3D flip + ring + particles) â”€â”€
+// ©¤©¤ Coin Animation (3D flip + ring + particles) ©¤©¤
 function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
   var spinning = animYao.results.length === animYao.round && animYao.coins[0] === 0;
   var done = animYao.round >= 6;
@@ -270,7 +270,7 @@ function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
         <div className="absolute rounded-full border border-hu-po-jin/15 animate-spin" style={{width:120,height:120,animationDuration:'4s'}} />
         <div className="absolute rounded-full border border-hu-po-jin/10 animate-spin" style={{width:96,height:96,animationDuration:'3s',animationDirection:'reverse',borderStyle:'dashed'}} />
         <div className="absolute rounded-full border border-hu-po-jin/5" style={{width:64,height:64}} />
-        <p className="relative text-hu-po-jin text-xs tracking-[6px] animate-pulse">{done ? 'èµ· å¦ å®Œ æˆ' : 'æ‘‡ å¦ ä¸­'}</p>
+        <p className="relative text-hu-po-jin text-xs tracking-[6px] animate-pulse">{done ? 'Æğ ØÔ Íê ³É' : 'Ò¡ ØÔ ÖĞ'}</p>
       </div>
       <div className="flex justify-center gap-5 mb-6">
         {animYao.coins.map(function(v:number, i:number) {
@@ -279,7 +279,7 @@ function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
             <div key={i} className="relative" style={{perspective:'200px'}}>
               <div className={"w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-all " + (isSpinning ? 'animate-coin-flip' : '')}
                 style={isSpinning ? {animation:'coinFlip 0.6s ease-in-out infinite',backgroundColor:'#c9a14a',color:'#0b1414',border:'2px solid #c9a14a',boxShadow:'0 2px 8px rgba(201,161,74,0.4)'} : v===1 ? {backgroundColor:'#c9a14a',color:'#0b1414',border:'2px solid #c9a14a',boxShadow:'0 2px 6px rgba(201,161,74,0.3)'} : {backgroundColor:'transparent',border:'2px solid var(--color-dai-qing)',opacity:'0.5'}}
-              >{isSpinning ? 'â—' : v===1 ? 'èŠ±' : 'å­—'}</div>
+              >{isSpinning ? '¡ò' : v===1 ? '»¨' : '×Ö'}</div>
               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-8 h-1 bg-black/10 rounded-full blur-sm" />
             </div>
           );
@@ -295,7 +295,7 @@ function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
               <span className="text-dai-qing/25 text-xs w-6">{POS_NAMES[i+1]}</span>
               <span className={y.c + " text-base"}>{y.sym}</span>
               <span className="text-dai-qing/35 text-xs w-10 text-right">{y.label}</span>
-              {y.label.includes('åŠ¨') && <span className="text-[9px] text-hu-po-jin border border-hu-po-jin/30 rounded-full px-1.5 py-0.5">åŠ¨</span>}
+              {y.label.includes('¶¯') && <span className="text-[9px] text-hu-po-jin border border-hu-po-jin/30 rounded-full px-1.5 py-0.5">¶¯</span>}
             </div>
           );
         })}
@@ -304,13 +304,13 @@ function CoinAnimation({ animYao, yaoLabel }: { animYao:any; yaoLabel:any }) {
         <div className="h-1 bg-dai-qing/10 rounded-full overflow-hidden">
           <div className="h-full bg-hu-po-jin/40 rounded-full transition-all duration-500" style={{width:(animYao.round/6*100)+'%'}} />
         </div>
-        <p className="text-center text-[10px] text-dai-qing/20 mt-2">ç¬¬ {Math.min(animYao.round+1,6)} / 6 çˆ»</p>
+        <p className="text-center text-[10px] text-dai-qing/20 mt-2">µÚ {Math.min(animYao.round+1,6)} / 6 Ø³</p>
       </div>
     </div>
   );
 }
 
-// â”€â”€ Result View â”€â”€
+// ©¤©¤ Result View ©¤©¤
 function ResultView({ result, onBack }: { result:FullResult; onBack:()=>void }) {
   var { question, analysis, pan, tianPan, diPan } = result;
   var benGua = pan.benGua, yaoList = pan.yaoList;
@@ -319,18 +319,18 @@ function ResultView({ result, onBack }: { result:FullResult; onBack:()=>void }) 
       <div className="qn-card text-center">
         <div className="text-5xl mb-4 opacity-80">{GUA_EMOJI[benGua.shangGua]}{GUA_EMOJI[benGua.xiaGua]}</div>
         <h2 className="text-xl text-dai-qing tracking-[0.1em] font-normal">{benGua.name}<span className="text-hu-po-jin/50 text-sm ml-2">{benGua.guaType}</span></h2>
-        <p className="text-xs text-dai-qing/35 mt-2">{benGua.shangGua}ä¸Š Â· {benGua.xiaGua}ä¸‹ Â· {benGua.gongWei}å®«{benGua.gongWuXing}</p>
-        {pan.bianGua && <div className="mt-4 pt-4 border-t border-dai-qing/8"><p className="text-[10px] text-dai-qing/25 tracking-[0.3em] mb-2">å˜ å¦</p><div className="text-3xl opacity-70">{GUA_EMOJI[pan.bianGua.shangGua]}{GUA_EMOJI[pan.bianGua.xiaGua]}</div><p className="text-sm text-dai-qing/50 mt-1">{pan.bianGua.name}</p></div>}
+        <p className="text-xs text-dai-qing/35 mt-2">{benGua.shangGua}ÉÏ ¡¤ {benGua.xiaGua}ÏÂ ¡¤ {benGua.gongWei}¹¬{benGua.gongWuXing}</p>
+        {pan.bianGua && <div className="mt-4 pt-4 border-t border-dai-qing/8"><p className="text-[10px] text-dai-qing/25 tracking-[0.3em] mb-2">±ä ØÔ</p><div className="text-3xl opacity-70">{GUA_EMOJI[pan.bianGua.shangGua]}{GUA_EMOJI[pan.bianGua.xiaGua]}</div><p className="text-sm text-dai-qing/50 mt-1">{pan.bianGua.name}</p></div>}
       </div>
-      {analysis && <div className="qn-card"><p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-3 text-center">å¦ è±¡ è§£ è¯»</p><p className="text-sm text-dai-qing/75 leading-relaxed whitespace-pre-wrap text-center">{analysis}</p></div>}
+      {analysis && <div className="qn-card"><p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-3 text-center">ØÔ Ïó ½â ¶Á</p><p className="text-sm text-dai-qing/75 leading-relaxed whitespace-pre-wrap text-center">{analysis}</p></div>}
       <div className="qn-card">
-        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4 text-center">å…­ çˆ» çº³ ç”²</p>
-        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-y border-dai-qing/8 text-dai-qing/35"><th className="py-2 px-1 font-normal">çˆ»</th><th className="py-2 px-1 font-normal">å¹²æ”¯</th><th className="py-2 px-1 font-normal">å…­äº²</th><th className="py-2 px-1 font-normal">å…­ç¥</th><th className="py-2 px-1 font-normal">ä¸–åº”</th><th className="py-2 px-1 font-normal">ç©ºäº¡</th></tr></thead>
-        <tbody>{[...yaoList].reverse().map(function(yao){ return <tr key={yao.position} className="border-b border-dai-qing/5 text-center"><td className="py-2 px-1"><span className="text-dai-qing/35">{POS_NAMES[yao.position]}</span><span className={yao.yinYang==='é˜³'?'ml-1 text-hu-po-jin':'ml-1 text-dai-qing/25'}>{yao.yinYang==='é˜³'?'âšŠ':'âš‹'}</span>{yao.isDong&&<span className="text-[10px] text-hu-po-jin ml-0.5">â—‹</span>}</td><td className="py-2 px-1 text-dai-qing/55">{yao.naGan}{yao.naZhi}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuQin}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuShen}</td><td className="py-2 px-1">{yao.shiYing&&<span className="text-hu-po-jin text-[10px]">{yao.shiYing}</span>}</td><td className="py-2 px-1">{yao.xunKong&&<span className="text-hu-po-jin-dark text-[10px]">ç©º</span>}</td></tr>; })}</tbody></table></div>
-        <p className="text-[10px] text-dai-qing/25 mt-3 text-right">æ—¥è¾° {pan.riChen.gan}{pan.riChen.zhi} Â· æœˆå»º {pan.yueJian}</p>
+        <p className="text-[10.5px] tracking-[0.4em] text-hu-po-jin-dark mb-4 text-center">Áù Ø³ ÄÉ ¼×</p>
+        <div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-y border-dai-qing/8 text-dai-qing/35"><th className="py-2 px-1 font-normal">Ø³</th><th className="py-2 px-1 font-normal">¸ÉÖ§</th><th className="py-2 px-1 font-normal">ÁùÇ×</th><th className="py-2 px-1 font-normal">ÁùÉñ</th><th className="py-2 px-1 font-normal">ÊÀÓ¦</th><th className="py-2 px-1 font-normal">¿ÕÍö</th></tr></thead>
+        <tbody>{[...yaoList].reverse().map(function(yao){ return <tr key={yao.position} className="border-b border-dai-qing/5 text-center"><td className="py-2 px-1"><span className="text-dai-qing/35">{POS_NAMES[yao.position]}</span><span className={yao.yinYang==='Ñô'?'ml-1 text-hu-po-jin':'ml-1 text-dai-qing/25'}>{yao.yinYang==='Ñô'?'?':'?'}</span>{yao.isDong&&<span className="text-[10px] text-hu-po-jin ml-0.5">¡ğ</span>}</td><td className="py-2 px-1 text-dai-qing/55">{yao.naGan}{yao.naZhi}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuQin}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuShen}</td><td className="py-2 px-1">{yao.shiYing&&<span className="text-hu-po-jin text-[10px]">{yao.shiYing}</span>}</td><td className="py-2 px-1">{yao.xunKong&&<span className="text-hu-po-jin-dark text-[10px]">¿Õ</span>}</td></tr>; })}</tbody></table></div>
+        <p className="text-[10px] text-dai-qing/25 mt-3 text-right">ÈÕ³½ {pan.riChen.gan}{pan.riChen.zhi} ¡¤ ÔÂ½¨ {pan.yueJian}</p>
       </div>
-      <div className="flex justify-center pt-2 pb-8"><button onClick={onBack} className="qn-btn qn-btn--amber qn-btn--md" style={{borderRadius:"999px",letterSpacing:".15em"}}>é‡ æ–° æ‘‡ å¦</button></div>
-      <p className="text-center text-[10px] text-dai-qing/15 tracking-[2px] pb-8">ä»…ä¾›å‚è€ƒ Â· ä¸æ„æˆå†³ç­–å»ºè®®</p>
+      <div className="flex justify-center pt-2 pb-8"><button onClick={onBack} className="qn-btn qn-btn--amber qn-btn--md" style={{borderRadius:"999px",letterSpacing:".15em",border:"1px solid rgba(180,140,80,0.4)"}}>ÖØ ĞÂ Ò¡ ØÔ</button></div>
+      <p className="text-center text-[10px] text-dai-qing/15 tracking-[2px] pb-8">½ö¹©²Î¿¼ ¡¤ ²»¹¹³É¾ö²ß½¨Òé</p>
     </div>
   );
 }
