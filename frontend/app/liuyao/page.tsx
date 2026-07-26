@@ -290,9 +290,25 @@ export default function LiuYaoPage() {
         )}
 
         {loading && (
-          <div className="text-center py-20">
-            <div className="inline-block w-10 h-10 border-2 border-hu-po-jin/30 border-t-hu-po-jin rounded-full animate-spin mb-4" />
-            <p className="text-sm text-dai-qing/60 tracking-[2px]">起卦中...</p>
+          <div className="text-center py-12">
+            {/* Ring animation — qingnang style */}
+            <div className="relative inline-flex items-center justify-center" style={{width:200,height:200}}>
+              <div className="anchor-ring absolute inset-0 rounded-full border border-hu-po-jin/15" />
+              <div className="anchor-ring-rev absolute inset-[12px] rounded-full border border-hu-po-jin/10" style={{borderStyle:'dashed'}} />
+              <div className="absolute inset-[50px] rounded-full border border-hu-po-jin/5" />
+              <div className="text-3xl text-hu-po-jin animate-pulse">☯</div>
+            </div>
+            {/* Floating particles */}
+            <div className="relative mx-auto" style={{width:200,height:40}}>
+              {Array.from({length:6}).map((_,i) => (
+                <span key={i} className={i%2===0?'hex-particle':'hex-particle-alt'} style={{
+                  position:'absolute',left:(i*32+10)+'px',top:'10px',
+                  animationDelay:(-i*1.2)+'s',fontSize:'10px',color:'var(--color-hu-po-jin)',opacity:0.4
+                }}>{['⚊','⚋','⚊','⚋','⚊','⚋'][i]}</span>
+              ))}
+            </div>
+            <p className="text-[13px] text-dai-qing/60 tracking-[2px] mt-4 animate-pulse">起卦中...</p>
+            <p className="text-[10px] text-dai-qing/40 mt-2">三盘合断 · 稍等片刻</p>
           </div>
         )}
 

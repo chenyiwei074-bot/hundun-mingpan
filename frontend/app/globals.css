@@ -79,3 +79,20 @@ body {
 .qn-input::placeholder{color:rgba(0,77,77,0.25)}
 .qn-select{width:100%;background:var(--color-xuan-zhi);border:1px solid rgba(0,77,77,0.1);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-dai-qing);outline:none;cursor:pointer;font-family:inherit;appearance:none}
 .qn-label{font-size:11px;letter-spacing:.28px;color:rgba(0,77,77,0.5);margin-bottom:6px;display:block}
+
+/* ===== Additional Qingnang animations ===== */
+@keyframes ink-spread{0%{opacity:.8;filter:blur(0);transform:scale(0)}to{opacity:0;filter:blur(12px);transform:scale(1)}}
+@keyframes ink-spread-delayed{0%,30%{opacity:0;transform:scale(0)}45%{opacity:.7}to{opacity:0;filter:blur(16px);transform:scale(1.1)}}
+@keyframes coin-bounce{0%,to{transform:translateY(0)}30%{transform:translateY(-18px)}50%{transform:translateY(0)}70%{transform:translateY(-8px)}}
+@keyframes float-particle{0%,to{opacity:0;transform:translateY(0) translateX(0)}20%{opacity:.8}80%{opacity:.3}to{opacity:0;transform:translateY(-80px) translateX(20px)}}
+@keyframes float-particle-alt{0%,to{opacity:0;transform:translateY(0) translateX(0)}20%{opacity:.6}80%{opacity:.2}to{opacity:0;transform:translateY(-60px) translateX(-16px)}}
+@keyframes ring-rotate-rev{to{transform:rotate(-360deg)}}
+@keyframes lamp-pulse{0%,to{box-shadow:0 0 0 0 rgba(212,175,55,0.45)}50%{box-shadow:0 0 0 8px rgba(212,175,55,0)}}
+@keyframes foil-sheen{0%{background-position:var(--foil-offset,0px) 0,0 0,0 0,0 0}to{background-position:calc(var(--foil-offset,0px) + 800px) 0,0 0,0 0,0 0}}
+
+/* Ring animations for hexagram display */
+.anchor-ring{animation:ring-rotate 20s linear infinite}
+.anchor-ring-rev{animation:ring-rotate-rev 25s linear infinite}
+.anchor-radiate{animation:anchor-radiate 3s ease-out infinite}
+.hex-particle{animation:float-particle 6s ease-in-out infinite}
+.hex-particle-alt{animation:float-particle-alt 5s ease-in-out infinite}
