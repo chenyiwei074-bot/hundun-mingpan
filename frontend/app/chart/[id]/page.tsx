@@ -158,7 +158,7 @@ export default function ChartPage() {
         {posterHtml ? (
           <div className="rounded-2xl border border-hu-po-jin/20 overflow-hidden">
             <p className="bg-dai-qing text-xuan-zhi text-xs text-center py-2.5 tracking-[0.3em]">命 · 盘 · 海 · 报</p>
-            <div ref={posterRef} className="poster-wrapper w-full overflow-hidden relative" style={{ transition: 'height 0.2s' }}>
+            <div className="w-full overflow-x-auto">
               <div
                 className="poster-content w-[750px] origin-top-left"
                 ref={el => {
