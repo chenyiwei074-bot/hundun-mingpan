@@ -22,166 +22,60 @@ body {
 }
 .font-serif, h1, h2, h3, h4 { font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; }
 
-/* ===== Animations 1:1 from Qingnang ===== */
+/* ===== Animations — exact from Qingnang ===== */
 @keyframes glow-breathe {
-  0%,100% { filter: drop-shadow(rgba(212,175,55,0.3) 0 0 8px); }
-  50% { filter: drop-shadow(rgba(212,175,55,0.6) 0 0 24px); }
+  0%,to{filter:drop-shadow(0 0 8px #d4af374d);text-shadow:0 0 10px #d4af3726}
+  50%{filter:drop-shadow(0 0 24px #d4af3799);text-shadow:0 0 28px #d4af37}
 }
-.glow-breathe { animation: glow-breathe 3s ease-in-out infinite; }
+.glow-breathe{animation:glow-breathe 3s ease-in-out infinite}
 
 @keyframes glyph-float {
-  0% { opacity: 0; transform: translateY(16px) scale(0.92); }
-  18% { opacity: var(--glyph-peak, 0.2); }
-  60% { opacity: calc(var(--glyph-peak, 0.2) * 0.7); }
-  85% { opacity: 0; }
-  100% { opacity: 0; transform: translateY(-30px) scale(1.05); }
+  0%{opacity:0;transform:translateY(16px) scale(.92)}
+  18%{opacity:var(--glyph-peak,.2)}
+  60%{opacity:calc(var(--glyph-peak,.2)*.7)}
+  85%{opacity:0}
+  to{opacity:0;transform:translateY(-30px) scale(1.05)}
 }
-.qn-glyph {
-  position: absolute; color: currentColor; letter-spacing: 0.12em;
-  will-change: opacity, transform; user-select: none; line-height: 1;
-  animation: glyph-float 10s ease-in-out infinite;
-}
+.qn-glyph{color:currentColor;letter-spacing:.12em;will-change:opacity,transform;user-select:none;line-height:1;animation:glyph-float 10s ease-in-out infinite;position:absolute}
 
-@keyframes ink-wave-bob {
-  0%,100% { transform: translateY(0px) scaleY(1); }
-  50% { transform: translateY(var(--bob-amp, 8px)) scaleY(1.03); }
-}
-.ink-sea__layer {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  transform-origin: 50% 100%; will-change: transform;
-  animation: ink-wave-bob 12s ease-in-out infinite;
-}
+@keyframes ink-wave-bob{0%,to{transform:translateY(0) scaleY(1)}50%{transform:translateY(var(--bob-amp,8px)) scaleY(1.03)}}
+.ink-sea__layer{transform-origin:50% 100%;will-change:transform;animation:ink-wave-bob 12s ease-in-out infinite;position:absolute;bottom:0;left:0;right:0}
 
-@keyframes marquee-scroll { 100% { transform: translateX(-50%); } }
-.ink-sea__track {
-  will-change: transform; width: max-content; height: 100%;
-  animation: marquee-scroll 75s linear infinite; display: flex;
-}
+@keyframes marquee-scroll{to{transform:translateX(-50%)}}
+.ink-sea__track{will-change:transform;width:max-content;height:100%;animation:marquee-scroll 75s linear infinite;display:flex}
 
-@keyframes md-ink-in {
-  0% { opacity: 0.12; filter: blur(3px); transform: translateY(4px); }
-  100% { opacity: 1; filter: blur(0); transform: none; }
-}
-.animate-ink-in { animation: md-ink-in 0.6s ease-out forwards; }
+@keyframes btn-sheen-sweep{0%,55%{transform:translateX(-180%) skewX(-18deg)}to{transform:translateX(340%) skewX(-18deg)}}
+@keyframes md-ink-in{0%{opacity:.12;filter:blur(3px);transform:translateY(4px)}to{opacity:1;filter:blur(0);transform:none}}
+.animate-ink-in{animation:md-ink-in .6s ease-out forwards}
 
-@keyframes btn-sheen-sweep {
-  0%,55% { transform: translateX(-180%) skewX(-18deg); }
-  100% { transform: translateX(340%) skewX(-18deg); }
-}
+/* ===== Buttons — exact from Qingnang ===== */
+.qn-btn{cursor:pointer;white-space:nowrap;user-select:none;letter-spacing:.05em;border:1px solid transparent;justify-content:center;align-items:center;font-family:inherit;font-weight:500;display:inline-flex;position:relative;overflow:hidden;text-decoration:none;transition:all .2s}
+.qn-btn--primary{background:var(--color-dai-qing);color:var(--color-xuan-zhi);box-shadow:0 4px 14px rgba(0,77,77,0.18)}
+.qn-btn--primary:hover{background:var(--color-dai-qing-light)}
+.qn-btn--sm{border-radius:10px;height:36px;padding:0 16px;font-size:13px}
 
-/* ===== Buttons 1:1 from Qingnang ===== */
-.qn-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 10px; font-size: 13px; letter-spacing: 0.65px;
-  font-weight: 500; cursor: pointer; transition: all 0.2s;
-  border: none; text-decoration: none; position: relative; overflow: hidden;
-}
-.qn-btn--primary {
-  background: var(--color-dai-qing); color: var(--color-xuan-zhi);
-  padding: 0 16px; height: 36px;
-}
-.qn-btn--primary::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.3) 50%, transparent 55%);
-  animation: btn-sheen-sweep 5s ease-in-out infinite;
-}
-.qn-btn--primary:hover { background: var(--color-dai-qing-light); }
-.qn-btn--sm { padding: 0 16px; height: 34px; font-size: 12px; }
+.btn-glow{position:relative;overflow:hidden}
+.btn-glow:hover{box-shadow:0 8px 30px rgba(212,175,55,0.25)}
 
-/* Gold CTA button */
-.qn-btn--gold {
-  background: var(--color-hu-po-jin); color: var(--color-dai-qing-dark);
-  padding: 14px 36px; font-size: 16px; border-radius: 12px;
-  letter-spacing: normal;
-}
-.qn-btn--gold::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.25) 45%, rgba(255,255,255,0.35) 50%, transparent 55%);
-  animation: btn-sheen-sweep 5s ease-in-out infinite;
-}
-.qn-btn--gold:hover { background: var(--color-hu-po-jin-light); }
+.gold-foil-text{background:linear-gradient(135deg,#d4af37 0%,#f0d060 25%,#d4af37 50%,#b8960f 75%,#d4af37 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 
-/* Outline button for dark bg */
-.qn-btn--outline {
-  border: 1px solid rgba(245,245,220,0.3); color: rgba(245,245,220,0.9);
-  padding: 14px 36px; font-size: 16px; border-radius: 12px;
-  background: transparent; letter-spacing: normal;
-}
-.qn-btn--outline:hover {
-  border-color: rgba(212,175,55,0.5); background: rgba(212,175,55,0.1); color: var(--color-xuan-zhi);
-}
+.divider-ink{height:1px;background:linear-gradient(90deg,transparent,var(--color-hu-po-jin),transparent)}
 
-/* ===== Button glow effect ===== */
-.btn-glow {
-  transition: all 0.2s;
-}
-.btn-glow:hover {
-  box-shadow: 0 8px 30px rgba(212,175,55,0.25);
-}
+.card-float{transition:transform .3s,box-shadow .3s}
+.card-float:hover{transform:translateY(-2px)}
 
-/* ===== Gold foil text effect ===== */
-.gold-foil-text {
-  background: linear-gradient(135deg, #d4af37 0%, #f0d060 25%, #d4af37 50%, #b8960f 75%, #d4af37 100%);
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+.qn-marquee{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 12% 88%,transparent);mask-image:linear-gradient(90deg,transparent,#000 12% 88%,transparent)}
+.qn-marquee__track{width:max-content;animation:marquee-scroll 64s linear infinite;display:flex}
+.qn-marquee:hover .qn-marquee__track{animation-play-state:paused}
 
-/* ===== Divider ===== */
-.divider-ink {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--color-hu-po-jin), transparent);
-}
+/* ===== Hexagram display ===== */
+@keyframes coin-flip{0%{transform:rotateY(0) rotateX(0)}25%{transform:rotateY(180deg) rotateX(15deg)}75%{transform:rotateY(180deg) rotateX(-15deg)}to{transform:rotateY(360deg) rotateX(0)}}
+@keyframes anchor-radiate{0%{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(3.5)}}
+@keyframes ring-rotate{to{transform:rotate(360deg)}}
 
-/* ===== Card float for dark sections ===== */
-.card-float {
-  transition: all 0.3s ease;
-}
-.card-float:hover {
-  transform: translateY(-2px);
-}
-
-/* ===== Marquee ===== */
-.qn-marquee {
-  overflow: hidden; width: 100%;
-}
-.qn-marquee__track {
-  display: flex; width: max-content; animation: marquee-scroll 40s linear infinite;
-}
-.qn-marquee__item {
-  display: flex; align-items: center; white-space: nowrap; padding: 0 16px;
-}
-.qn-marquee__dot {
-  margin-left: 16px; opacity: 0.4;
-}
-
-/* ===== Demo CTA link ===== */
-.qn-demo__cta {
-  display: inline-block; color: var(--color-hu-po-jin-dark);
-  font-size: 13px; letter-spacing: 0.65px; padding-bottom: 2px;
-  border-bottom: 1px solid rgba(184,150,15,0.3); transition: all 0.2s;
-}
-.qn-demo__cta:hover { color: var(--color-hu-po-jin); border-color: var(--color-hu-po-jin); }
-
-/* ===== Form elements ===== */
-.qn-input {
-  width: 100%; background: var(--color-xuan-zhi);
-  border: 1px solid rgba(0,77,77,0.1); border-radius: 8px;
-  padding: 10px 14px; font-size: 14px; color: var(--color-dai-qing);
-  outline: none; font-family: inherit; transition: border-color 0.2s;
-}
-.qn-input:focus { border-color: rgba(212,175,55,0.4); }
-.qn-input::placeholder { color: rgba(0,77,77,0.25); }
-
-.qn-select {
-  width: 100%; background: var(--color-xuan-zhi);
-  border: 1px solid rgba(0,77,77,0.1); border-radius: 8px;
-  padding: 10px 14px; font-size: 14px; color: var(--color-dai-qing);
-  outline: none; cursor: pointer; font-family: inherit; appearance: none;
-}
-
-.qn-label {
-  font-size: 11px; letter-spacing: 0.28px; color: rgba(0,77,77,0.5);
-  margin-bottom: 6px; display: block;
-}
+/* ===== Form ===== */
+.qn-input{width:100%;background:var(--color-xuan-zhi);border:1px solid rgba(0,77,77,0.1);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-dai-qing);outline:none;font-family:inherit;transition:border-color .2s}
+.qn-input:focus{border-color:rgba(212,175,55,0.4)}
+.qn-input::placeholder{color:rgba(0,77,77,0.25)}
+.qn-select{width:100%;background:var(--color-xuan-zhi);border:1px solid rgba(0,77,77,0.1);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-dai-qing);outline:none;cursor:pointer;font-family:inherit;appearance:none}
+.qn-label{font-size:11px;letter-spacing:.28px;color:rgba(0,77,77,0.5);margin-bottom:6px;display:block}
