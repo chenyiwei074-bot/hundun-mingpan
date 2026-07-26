@@ -23,7 +23,7 @@ export default function HomePage() {
           </Link>
           <div className="hidden items-center gap-5 md:flex lg:gap-6">
             <Link href="/create" className="relative py-1.5 text-[13px] tracking-[0.02em] transition-colors lg:text-sm text-dai-qing/65 hover:text-dai-qing no-underline">
-              <span className="mr-1 text-[10px] text-hu-po-jin">✦</span>命盘排盘
+              <span className="mr-1 text-[10px] text-hu-po-jin">✦</span>八字+紫微命盘
             </Link>
             <Link href="/liuyao" className="relative py-1.5 text-[13px] tracking-[0.02em] transition-colors lg:text-sm text-dai-qing/65 hover:text-dai-qing no-underline">混沌问卦</Link>
           </div>
@@ -172,28 +172,18 @@ export default function HomePage() {
             </div>
 
             {/* Feature cards grid */}
-            <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-5 px-6 sm:grid-cols-2 lg:grid-cols-4">
-              {/* 八字排盘 */}
-              <div className="spotlight-card h-full rounded-2xl">
+            <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-5 px-6 sm:grid-cols-2 lg:grid-cols-3">
+              {/* 八字+紫微命盘 */}
+              <div className="spotlight-card h-full rounded-2xl sm:col-span-2">
                 <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
                   <span className="absolute right-4 top-4 rounded-full bg-hu-po-jin/15 px-3 py-0.5 text-xs text-hu-po-jin">免费</span>
-                  <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">命</span>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi">八字排盘</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60">录入生辰，按古法自动起盘排柱</p>
-                  <div className="mt-5 flex items-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
-                    <span>了解更多</span>
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
+                  <div className="flex items-center gap-3">
+                    <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">命</span>
+                    <span className="text-hu-po-jin/40 text-2xl">·</span>
+                    <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">紫</span>
                   </div>
-                </Link>
-              </div>
-
-              {/* 紫微斗数 */}
-              <div className="spotlight-card h-full rounded-2xl">
-                <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
-                  <span className="absolute right-4 top-4 rounded-full bg-hu-po-jin/15 px-3 py-0.5 text-xs text-hu-po-jin">免费</span>
-                  <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">紫</span>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi">紫微斗数</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60">十二宫排盘，看主星四化与大限流年</p>
+                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi">八字+紫微命盘</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60">双体系合参 — 八字看五行格局，紫微排十二宫星曜，AI 逐句参详</p>
                   <div className="mt-5 flex items-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
                     <span>了解更多</span>
                     <span className="transition-transform group-hover:translate-x-1">→</span>
