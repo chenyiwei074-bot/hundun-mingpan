@@ -29,7 +29,7 @@ export async function runPipeline(input: CreateChartInput, chartId: string): Pro
     // === Phase 2: AI 分析（异步，10-30秒） ===
     let aiAnalysis: Record<string, unknown> = {};
     try {
-      aiAnalysis = await generateAIAnalysis(chart, input.name);
+      aiAnalysis = await generateAIAnalysis(chart, input.name, input.persona, input.depth);
       console.log('AI analysis generated for chart ' + chartId);
     } catch (aiError) {
       console.error('AI analysis failed, using defaults:', (aiError as Error).message);

@@ -8,6 +8,8 @@ export const CreateChartSchema = z.object({
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
   birthPlace: z.string().optional().default(''),
   currentPlace: z.string().optional().default(''),
+  persona: z.enum(['standard', 'casual']).optional().default('standard'),
+  depth: z.enum(['brief', 'detail']).optional().default('brief'),
 });
 
 export type CreateChartInput = z.infer<typeof CreateChartSchema>;

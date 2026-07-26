@@ -19,8 +19,10 @@ export default function ChartPage() {
 
   useEffect(() => {
     if (!id) return;
-    
-    // 1. Try sessionStorage first (instant)
+    let cancelled = false;
+    let pollCount = 0;
+    const maxPolls = 30; // 60 seconds max
+
     const cached = sessionStorage.getItem('chart_free_' + id);
     const cachedName = sessionStorage.getItem('chart_name_' + id);
     if (cached) {
@@ -33,15 +35,40 @@ export default function ChartPage() {
       } catch {}
     }
 
-    // 2. Fallback to API
-    getChartResult(id).then((res: any) => {
-      if (res.success && res.data?.freeContent) {
-        setData(res.data.freeContent);
-        setName(res.data.name || '');
-      } else {
-        setError('命盘数据获取失败');
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const res: any = await getChartResult(id);
+        if (cancelled) return;
+        pollCount++;
+        
+        if (res.httpStatus === 202 || res.data?.status === 'processing') {
+          // Still processing, poll again
+          if (pollCount < maxPolls) {
+            setTimeout(poll, 2000);
+          } else {
+            setError('生成时间较长，请稍后刷新查看');
+            setLoading(false);
+          }
+        } else if (res.success && res.data?.freeContent) {
+          setData(res.data.freeContent);
+          setName(res.data.name || '');
+          setLoading(false);
+          trackEvent('chart_complete', getVid(), id);
+        } else {
+          setError('命盘数据获取失败');
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setError('网络错误');
+          setLoading(false);
+        }
       }
-    }).catch(() => setError('网络错误')).finally(() => setLoading(false));
+    };
+
+    poll();
+    return () => { cancelled = true; };
   }, [id]);
 
   if (loading) {

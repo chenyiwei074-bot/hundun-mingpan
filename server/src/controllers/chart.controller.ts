@@ -56,6 +56,7 @@ export async function createChart(req: Request, res: Response) {
 
     // 异步流水线
     runPipeline(input, chart.id).catch(err => console.error('Pipeline error:', err));
+    // Note: persona and depth are passed via input to the pipeline
 
     return res.json({
       success: true,

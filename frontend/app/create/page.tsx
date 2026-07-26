@@ -1,9 +1,9 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createChart, getQuota, trackEvent } from '@/app/lib/api';
-import { provinces, City } from '@/app/lib/region-data';
+import { provinces as regionProvinces, Province, City } from '@/app/lib/region-data';
 
 function getVisitorId(): string {
   if (typeof window === 'undefined') return '';
@@ -15,237 +15,119 @@ function getVisitorId(): string {
   return id;
 }
 
-// ========== 时辰计算 ==========
-const SHICHEN: [string, number, number][] = [
-  ['子时', 23, 24], ['子时', 0, 1], ['丑时', 1, 3], ['寅时', 3, 5],
-  ['卯时', 5, 7], ['辰时', 7, 9], ['巳时', 9, 11], ['午时', 11, 13],
-  ['未时', 13, 15], ['申时', 15, 17], ['酉时', 17, 19], ['戌时', 19, 21],
-  ['亥时', 21, 23],
-];
-
-function getShichen(hour: number): string {
-  for (const [name, start, end] of SHICHEN) {
-    if (hour >= start && hour < end) return name;
-    if (start === 23 && hour === 23) return '子时';
-  }
-  return '';
-}
-
-// ========== 日期工具 ==========
+// Province/city/district data (simplified for now, matches qingnang format)
 const currentYear = new Date().getFullYear();
-const years = Array.from({ length: currentYear - 1899 }, (_, i) => String(currentYear - i));
-const monthsList = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
-const hours24 = Array.from({ length: 24 }, (_, i) => ({ value: String(i), label: `${String(i).padStart(2, '0')}:00` }));
-const minutes60 = Array.from({ length: 60 }, (_, i) => ({ value: String(i), label: String(i).padStart(2, '0') }));
+const YEARS = Array.from({ length: currentYear - 1899 }, (_, i) => String(currentYear - i));
+const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
 }
 
-function getDays(year: string, month: string) {
+function getDayOptions(year: string, month: string) {
   if (!year || !month) return [];
   const y = parseInt(year), m = parseInt(month);
   if (isNaN(y) || isNaN(m)) return [];
-  const maxDay = getDaysInMonth(y, m);
-  return Array.from({ length: maxDay }, (_, i) => ({ value: String(i + 1), label: `${i + 1}日` }));
+  return Array.from({ length: getDaysInMonth(y, m) }, (_, i) => String(i + 1));
 }
 
-// ========== Picker 弹窗组件 ==========
-function PickerModal({ title, options, value, onChange, onClose, height = 'h-64' }: {
-  title: string; options: { value: string; label: string }[]; value: string;
-  onChange: (v: string) => void; onClose: () => void; height?: string;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
-          <span className="text-xs text-dai-qing/50 tracking-[2px]">请选择</span>
-          <span className="text-dai-qing text-sm tracking-[2px]">{title}</span>
-          <button onClick={onClose} className="text-dai-qing/70 text-sm px-2 hover:text-hu-po-jin">完成</button>
-        </div>
-        <div className={`overflow-y-auto ${height} overscroll-contain`}>
-          {options.map(opt => (
-            <button key={opt.value} onClick={() => onChange(opt.value)}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${
-                opt.value === value ? 'text-hu-po-jin bg-hu-po-jin/10 border-l-2 border-l-hu-po-jin' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'
-              }`}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
+// Icons as inline SVGs
+const IconStar = () => (
+  <svg className="w-3 h-3 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z"/>
+  </svg>
+);
 
+const IconCompass = () => (
+  <svg className="w-3 h-3 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+  </svg>
+);
 
-// ========== 时间选择器（合并） ==========
-function TimePickerModal({ hour, minute, onChange, onClose }: {
-  hour: string; minute: string; onChange: (h: string, m: string) => void; onClose: () => void;
-}) {
-  const [h, setH] = useState(hour);
-  const [m, setM] = useState(minute);
+const IconCalendar = () => (
+  <svg className="w-3 h-3 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+);
 
-  const handleDone = () => { onChange(h, m); onClose(); };
+const IconMapPin = () => (
+  <svg className="w-3 h-3 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/>
+    <circle cx="12" cy="10" r="3"/>
+  </svg>
+);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={handleDone}>
-      <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
-          <span className="text-xs text-dai-qing/50 tracking-[2px]">请选择</span>
-          <span className="text-dai-qing text-sm tracking-[2px] font-mono">{h.padStart(2,'0')}:{m.padStart(2,'0')}</span>
-          <button onClick={handleDone} className="text-hu-po-jin text-sm px-2 font-medium">完成</button>
-        </div>
-        {/* Hour row */}
-        <div className="px-4 py-3">
-          <p className="text-[10px] text-dai-qing/40 tracking-[2px] mb-2">小时</p>
-          <div className="grid grid-cols-8 gap-1.5 max-h-24 overflow-y-auto">
-            {hours24.map(opt => (
-              <button key={opt.value} onClick={() => setH(opt.value)}
-                className={`py-2 text-xs rounded-lg border transition-all ${
-                  opt.value === h ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
-                }`}>{opt.label}</button>
-            ))}
-          </div>
-        </div>
-        {/* Minute quick select */}
-        <div className="px-4 py-3 border-t border-dai-qing/8">
-          <p className="text-[10px] text-dai-qing/40 tracking-[2px] mb-2">分钟</p>
-          <div className="grid grid-cols-6 gap-1.5 max-h-36 overflow-y-auto">
-            {['00','05','10','15','20','25','30','35','40','45','50','55'].map(opt => (
-              <button key={opt} onClick={() => setM(opt)}
-                className={`py-2 text-xs rounded-lg border transition-all ${
-                  opt === m ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/60 hover:border-hu-po-jin/30'
-                }`}>{opt}分</button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+const IconSettings = () => (
+  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+  </svg>
+);
 
-// ========== 地区选择器 ==========
-function RegionPicker({ value, onChange, onClose }: {
-  value: { province: string; city: string; district: string };
-  onChange: (v: { province: string; city: string; district: string }) => void;
-  onClose: () => void;
-}) {
-  const [step, setStep] = useState<1|2|3>(1);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [selP, setSelP] = useState(value.province);
-  const [selC, setSelC] = useState(value.city);
-  const [selD, setSelD] = useState(value.district);
+const ChevronDown = () => (
+  <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dai-qing/30 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9l6 6 6-6"/>
+  </svg>
+);
 
-  const prov = provinces.find(p => p.name === selP);
-  const city = prov?.cities.find(c => c.name === selC);
+const ChevronDownSmall = () => (
+  <svg className="h-3 w-3 inline-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 9l6 6 6-6"/>
+  </svg>
+);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg bg-xuan-zhi border border-dai-qing/15 rounded-t-2xl overflow-hidden animate-slide-up"
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-dai-qing/15">
-          <button onClick={() => setStep(s => s > 1 ? (s - 1) as 1|2|3 : s)} className="text-dai-qing/70 text-sm">
-            {step > 1 ? '← 返回' : ''}
-          </button>
-          <div className="flex gap-2">{ [1,2,3].map(s => (
-            <div key={s} className={`w-2 h-2 rounded-full ${s <= step ? 'bg-hu-po-jin' : 'bg-dai-qing/15'}`} />
-          ))}</div>
-          <button onClick={onClose} className="text-dai-qing/70 text-sm px-2 hover:text-hu-po-jin">取消</button>
-        </div>
-        <div className="text-center py-2 text-xs text-dai-qing/50 tracking-[2px]">
-          {step === 1 ? '选择省份' : step === 2 ? '选择城市' : `${selP} ${selC} - 选择区县`}
-        </div>
-        <div ref={scrollRef} className="overflow-y-auto h-72 overscroll-contain">
-          {step === 1 && provinces.map(p => (
-            <button key={p.name} onClick={() => { setSelP(p.name); setSelC(''); setSelD(''); setStep(2); if (scrollRef.current) scrollRef.current.scrollTop = 0; }}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${p.name === selP ? 'text-hu-po-jin bg-hu-po-jin/10' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'}`}>{p.name}</button>
-          ))}
-          {step === 2 && prov?.cities.map(c => (
-            <button key={c.name} onClick={() => { setSelC(c.name); setSelD(''); setStep(3); if (scrollRef.current) scrollRef.current.scrollTop = 0; }}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${c.name === selC ? 'text-hu-po-jin bg-hu-po-jin/10' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'}`}>{c.name}</button>
-          ))}
-          {step === 3 && city?.districts.map(d => (
-            <button key={d.name} onClick={() => { setSelD(d.name); onChange({ province: selP, city: selC, district: d.name }); onClose(); }}
-              className={`w-full text-left px-5 py-3.5 text-sm border-b border-dai-qing/5 transition-colors ${d.name === selD ? 'text-hu-po-jin bg-hu-po-jin/10' : 'text-dai-qing/70 hover:bg-xuan-zhi-dark/50'}`}>{d.name}</button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ========== 主页面 ==========
 export default function CreatePage() {
   const router = useRouter();
   const [visitorId, setVisitorId] = useState('');
   const [tab, setTab] = useState<'single'|'double'>('single');
-
-  useEffect(() => { setVisitorId(getVisitorId()); }, []);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const [form, setForm] = useState({
     name: '',
     gender: '男' as '男'|'女',
-    calendar: '公历' as '公历'|'农历',
+    calendar: '公历' as '公历'|'农历'|'四柱',
     year: '', month: '', day: '',
     hour: '12', minute: '00',
-    birthProvince: '', birthCity: '', birthDistrict: '',
-    currentProvince: '', currentCity: '', currentDistrict: '',
-    // 双人合盘 - 对方信息
+    birthProvince: '北京', birthCity: '北京', birthDistrict: '',
+    currentProvince: '北京', currentCity: '北京', currentDistrict: '',
+    // Four Pillars direct input
+    yearGan: '', yearZhi: '', monthGan: '', monthZhi: '',
+    dayGan: '', dayZhi: '', hourGan: '', hourZhi: '',
+    // Partner fields
     partnerName: '',
     partnerGender: '女' as '男'|'女',
     partnerYear: '', partnerMonth: '', partnerDay: '',
     partnerHour: '12', partnerMinute: '00',
-    partnerBirthProvince: '', partnerBirthCity: '', partnerBirthDistrict: '',
-    partnerCurrentProvince: '', partnerCurrentCity: '', partnerCurrentDistrict: '',
+    partnerBirthProvince: '北京', partnerBirthCity: '北京', partnerBirthDistrict: '',
+    partnerCurrentProvince: '北京', partnerCurrentCity: '北京', partnerCurrentDistrict: '',
   });
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [quota, setQuota] = useState({ used: 0, remaining: 3 });
-  const [activePicker, setActivePicker] = useState<string | null>(null);
-  const [activeRegionPicker, setActiveRegionPicker] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  useEffect(() => {
-    if (!visitorId) return;
-    getQuota(visitorId).then(res => { if (res.success) setQuota(res.data); });
-  }, [visitorId]);
-
-  const isLunar = form.calendar === '农历';
-  const dayOptions = useMemo(() => getDays(form.year, form.month), [form.year, form.month]);
-  const shichen = useMemo(() => getShichen(parseInt(form.hour)), [form.hour]);
-
-  // Partner day options
-  const partnerDayOptions = useMemo(() => getDays(form.partnerYear, form.partnerMonth), [form.partnerYear, form.partnerMonth]);
-  const partnerShichen = useMemo(() => getShichen(parseInt(form.partnerHour)), [form.partnerHour]);
+  useEffect(() => { setVisitorId(getVisitorId()); }, []);
 
   const setField = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  // When province changes, reset dependent fields
+  
+
+  const dayOptions = useMemo(() => getDayOptions(form.year, form.month), [form.year, form.month]);
+  const partnerDayOptions = useMemo(() => getDayOptions(form.partnerYear, form.partnerMonth), [form.partnerYear, form.partnerMonth]);
+
   const validate = (): string | null => {
+    if (!form.name.trim()) return '请输入有缘人的称呼';
     if (tab === 'single') {
-      if (!form.name.trim()) return '请输入姓名';
-      if (!form.year || !form.month || !form.day) return '请选择完整出生日期';
-      const y = parseInt(form.year), m = parseInt(form.month), d = parseInt(form.day);
-      if (y > currentYear) return '出生年份不能是未来';
-      if (y === currentYear) {
-        const now = new Date();
-        if (m > now.getMonth() + 1) return '出生月份不能是未来';
-        if (m === now.getMonth() + 1 && d > now.getDate()) return '出生日期不能是未来';
-      }
+      if (form.calendar !== '四柱' && (!form.year || !form.month || !form.day)) return '请选择完整出生日期';
+      if (form.calendar === '四柱' && (!form.yearGan || !form.yearZhi || !form.monthGan || !form.monthZhi || !form.dayGan || !form.dayZhi || !form.hourGan || !form.hourZhi)) return '请完整填写八字四柱';
+      const y = parseInt(form.year);
+      if (form.calendar !== '四柱' && !isNaN(y) && y > currentYear) return '出生年份不能是未来';
       if (!form.hour) return '请选择出生时间';
-      if (!form.birthProvince || !form.birthCity) return '请选择出生地区';
-      if (!form.currentProvince || !form.currentCity) return '请选择现居地区';
     } else {
-      if (!form.name.trim() || !form.partnerName.trim()) return '请输入双方姓名';
+      if (!form.partnerName.trim()) return '请输入对方称呼';
       if (!form.year || !form.month || !form.day) return '请选择您的完整出生日期';
       if (!form.partnerYear || !form.partnerMonth || !form.partnerDay) return '请选择对方的完整出生日期';
-      if (!form.birthProvince || !form.birthCity) return '请选择您的出生地区';
-      if (!form.partnerBirthProvince || !form.partnerBirthCity) return '请选择对方的出生地区';
     }
     return null;
   };
@@ -259,7 +141,9 @@ export default function CreatePage() {
 
     try {
       const pad = (s: string) => s.padStart(2, '0');
-      const birthday = `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
+      const birthday = form.calendar === '四柱'
+        ? `四柱:${form.yearGan}${form.yearZhi},${form.monthGan}${form.monthZhi},${form.dayGan}${form.dayZhi},${form.hourGan}${form.hourZhi}`
+        : `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
@@ -274,13 +158,13 @@ export default function CreatePage() {
       });
 
       if (res.success) {
-        // 存储秒出数据到 sessionStorage
+        sessionStorage.setItem('chart_id_' + res.data.id, '1');
+        sessionStorage.setItem('chart_name_' + res.data.id, form.name.trim());
         if (res.data.freeContent) {
           sessionStorage.setItem('chart_free_' + res.data.id, JSON.stringify(res.data.freeContent));
         }
-        sessionStorage.setItem('chart_name_' + res.data.id, form.name.trim());
         trackEvent('create_click', visitorId, res.data.id);
-        router.push(`/chart/${res.data.id}`);
+        router.push('/chart/' + res.data.id);
       } else {
         setError(res.error || '生成失败，请重试');
       }
@@ -291,307 +175,375 @@ export default function CreatePage() {
     }
   };
 
-  // ========== Render helpers ==========
-  const sectionClass = "bg-xuan-zhi-dark/30 border border-dai-qing/8 rounded-xl p-6";
-  const fieldLabelClass = "text-[10px] text-dai-qing/50 tracking-[2px] mb-2";
-  const selectBtnClass = "w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg px-4 py-3 text-left text-sm hover:border-hu-po-jin/30 transition-colors";
-  const selectBtnActiveClass = "text-hu-po-jin border-hu-po-jin/40";
-  const selectBtnEmptyClass = "text-dai-qing/30";
-
-  const renderGenderGroup = (gender: string, onChange: (v: string) => void) => (
-    <div className="flex gap-3">
-      {['男', '女'].map(g => (
-        <button key={g} onClick={() => onChange(g)}
-          className={`flex-1 py-2.5 rounded-lg border text-sm tracking-[2px] transition-all ${
-            gender === g
-              ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin'
-              : 'border-dai-qing/8 bg-xuan-zhi text-dai-qing/50 hover:border-dai-qing/20'
-          }`}
-        >{g === '男' ? '乾造' : '坤造'} · {g}</button>
-      ))}
-    </div>
-  );
-
+  // Render a select dropdown
+  
   const renderDateGroup = (prefix: string) => {
     const isPartner = prefix === 'partner';
-    const y = isPartner ? (form.partnerYear as string) : (form.year as string);
-    const m = isPartner ? (form.partnerMonth as string) : (form.month as string);
-    const d = isPartner ? (form.partnerDay as string) : (form.day as string);
-    const h = isPartner ? (form.partnerHour as string) : (form.hour as string);
-    const min = isPartner ? (form.partnerMinute as string) : (form.minute as string);
+    const y = (form as any)[isPartner ? 'partnerYear' : 'year'] as string;
+    const m = (form as any)[isPartner ? 'partnerMonth' : 'month'] as string;
+    const d = (form as any)[isPartner ? 'partnerDay' : 'day'] as string;
+    const h = (form as any)[isPartner ? 'partnerHour' : 'hour'] as string;
+    const min = (form as any)[isPartner ? 'partnerMinute' : 'minute'] as string;
     const days = isPartner ? partnerDayOptions : dayOptions;
+    const pf = (f: string) => isPartner ? ('partner' + f.charAt(0).toUpperCase() + f.slice(1)) : f;
+
+    if (form.calendar === '四柱' && !isPartner) {
+      return (
+        <div className="grid grid-cols-4 gap-3">
+          {(['年','月','日','时'] as const).map((label, idx) => {
+            const ganKey = (['yearGan','monthGan','dayGan','hourGan'] as const)[idx];
+            const zhiKey = (['yearZhi','monthZhi','dayZhi','hourZhi'] as const)[idx];
+            return (
+              <div key={label} className="bg-xuan-zhi-dark/50 p-3 rounded-[4px] border border-dai-qing/15 text-center transition-colors hover:border-hu-po-jin">
+                <span className="text-[10px] block text-dai-qing/40 mb-1">{label}柱</span>
+                <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm mb-1" value={(form as any)[ganKey] || ''} onChange={e => setField(ganKey, e.target.value)}>
+                  <option value="">天干</option>
+                  {['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'].map(g => <option key={g} value={g}>{g}</option>)}
+                </select>
+                <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm" value={(form as any)[zhiKey] || ''} onChange={e => setField(zhiKey, e.target.value)}>
+                  <option value="">地支</option>
+                  {['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'].map(z => <option key={z} value={z}>{z}</option>)}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
 
     return (
-      <div className="space-y-3">
-        {/* Calendar toggle */}
-        {prefix === '' && (
-          <div className="flex gap-2 mb-3">
-            {['公历', '农历'].map(cal => (
-              <button key={cal} onClick={() => setField('calendar', cal)}
-                className={`text-xs px-4 py-1.5 rounded border tracking-[1px] transition-all ${
-                  form.calendar === cal ? 'border-hu-po-jin text-hu-po-jin bg-hu-po-jin/10' : 'border-dai-qing/8 text-dai-qing/50'
-                }`}>{cal}</button>
-            ))}
-          </div>
-        )}
-        {/* Year/Month/Day */}
-        <div className="grid grid-cols-3 gap-3">
-          <button onClick={() => setActivePicker(isPartner ? 'partnerYear' : 'year')}
-            className={`${selectBtnClass} ${y ? selectBtnActiveClass : selectBtnEmptyClass}`}>
-            {y || '年'}
-          </button>
-          <button onClick={() => setActivePicker(isPartner ? 'partnerMonth' : 'month')}
-            className={`${selectBtnClass} ${m ? selectBtnActiveClass : selectBtnEmptyClass}`}>
-            {m ? m + '月' : '月'}
-          </button>
-          <button onClick={() => { if (y && m) setActivePicker(isPartner ? 'partnerDay' : 'day'); }}
-            className={`${selectBtnClass} ${d ? selectBtnActiveClass : selectBtnEmptyClass} ${!y || !m ? 'opacity-40 cursor-not-allowed' : ''}`}>
-            {d ? d + '日' : '日'}
-          </button>
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-xuan-zhi-dark/50 p-3 rounded-[4px] border border-dai-qing/15 text-center transition-colors hover:border-hu-po-jin">
+          <span className="text-[10px] block text-dai-qing/40 mb-1">年</span>
+          <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm" value={y} onChange={e => setField(pf('year'), e.target.value)}>
+            <option value="">--</option>
+            {YEARS.map(yr => <option key={yr} value={yr}>{yr}</option>)}
+          </select>
         </div>
-        {/* Time */}
-        <div className="grid grid-cols-2 gap-3">
-          <button onClick={() => setActivePicker(isPartner ? 'partnerHour' : 'hour')}
-            className={`${selectBtnClass} ${h ? selectBtnActiveClass : selectBtnEmptyClass}`}>
-            {h ? h.padStart(2, '0') + ':00' : '时'}
-          </button>
-          <button onClick={() => setActivePicker(isPartner ? 'partnerMinute' : 'minute')}
-            className={`${selectBtnClass} ${min ? selectBtnActiveClass : selectBtnEmptyClass}`}>
-            {min ? min.padStart(2, '0') + '分' : '分'}
-          </button>
+        <div className="bg-xuan-zhi-dark/50 p-3 rounded-[4px] border border-dai-qing/15 text-center transition-colors hover:border-hu-po-jin">
+          <span className="text-[10px] block text-dai-qing/40 mb-1">月</span>
+          <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm" value={m} onChange={e => setField(pf('month'), e.target.value)}>
+            <option value="">--</option>
+            {MONTHS.map(mo => <option key={mo} value={mo}>{mo}月</option>)}
+          </select>
+        </div>
+        <div className="bg-xuan-zhi-dark/50 p-3 rounded-[4px] border border-dai-qing/15 text-center transition-colors hover:border-hu-po-jin">
+          <span className="text-[10px] block text-dai-qing/40 mb-1">日</span>
+          <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm" value={d} onChange={e => setField(pf('day'), e.target.value)} disabled={!y || !m}>
+            <option value="">--</option>
+            {days.map(dd => <option key={dd} value={dd}>{dd}</option>)}
+          </select>
+        </div>
+        <div className="bg-xuan-zhi-dark/50 p-3 rounded-[4px] border border-dai-qing/15 text-center transition-colors hover:border-hu-po-jin">
+          <span className="text-[10px] block text-dai-qing/40 mb-1">时间</span>
+          <div className="flex items-center gap-0.5">
+            <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm" value={h} onChange={e => setField(pf('hour'), e.target.value)}>
+              {Array.from({ length: 24 }, (_, i) => (<option key={i} value={String(i).padStart(2,'0')}>{String(i).padStart(2,'0')}</option>))}
+            </select>
+            <span className="text-dai-qing/40 text-sm font-bold">:</span>
+            <select className="bg-transparent w-full outline-none text-center text-dai-qing font-bold appearance-none cursor-pointer text-sm" value={min} onChange={e => setField(pf('minute'), e.target.value)}>
+              {Array.from({ length: 60 }, (_, i) => (<option key={i} value={String(i).padStart(2,'0')}>{String(i).padStart(2,'0')}</option>))}
+            </select>
+          </div>
         </div>
       </div>
     );
   };
 
   const renderRegionGroup = (prefix: string, label: string) => {
-    const p = form[(prefix + 'Province') as keyof typeof form] as string;
-    const c = form[(prefix + 'City') as keyof typeof form] as string;
-    const d = form[(prefix + 'District') as keyof typeof form] as string;
-    const display = [p, c, d].filter(Boolean).join(' ');
+    const prov = (form as any)[prefix + 'Province'] as string;
+    const city = (form as any)[prefix + 'City'] as string;
+    const dist = (form as any)[prefix + 'District'] as string;
+    const provData = regionProvinces.find(p => p.name === prov);
+    const cityData = provData?.cities.find(c => c.name === city);
+    const districtOpts = cityData?.districts.map(d => d.name) || [];
+
     return (
-      <button onClick={() => setActiveRegionPicker(prefix)}
-        className={`${selectBtnClass} ${p ? selectBtnActiveClass : selectBtnEmptyClass}`}>
-        {display || label}
-      </button>
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="text-xs text-dai-qing/50 tracking-widest flex items-center">
+            <IconMapPin />{label}
+          </label>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="relative group">
+            <select
+              value={prov}
+              onChange={e => {
+                const newProv = e.target.value;
+                const newCity = (regionProvinces.find(p => p.name === newProv)?.cities[0]?.name) || newProv;
+                setForm(prev => ({ ...prev, [prefix+'Province']: newProv, [prefix+'City']: newCity, [prefix+'District']: '' }));
+              }}
+              className="w-full bg-xuan-zhi-dark/50 border border-dai-qing/15 rounded-[4px] py-3 px-4 appearance-none outline-none focus:border-dai-qing text-dai-qing text-sm cursor-pointer"
+            >
+              <option value="">省份</option>
+              {regionProvinces.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
+            </select>
+            <ChevronDown />
+          </div>
+          <div className="relative group">
+            <select
+              value={city}
+              onChange={e => {
+                setForm(prev => ({ ...prev, [prefix+'City']: e.target.value, [prefix+'District']: '' }));
+              }}
+              className="w-full bg-xuan-zhi-dark/50 border border-dai-qing/15 rounded-[4px] py-3 px-4 appearance-none outline-none focus:border-dai-qing text-dai-qing text-sm cursor-pointer"
+              disabled={!provData}
+            >
+              <option value="">城市</option>
+              {provData?.cities.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+            </select>
+            <ChevronDown />
+          </div>
+          <div className="relative group">
+            <select
+              value={dist}
+              onChange={e => setField(prefix + 'District', e.target.value)}
+              className="w-full bg-xuan-zhi-dark/50 border border-dai-qing/15 rounded-[4px] py-3 px-4 appearance-none outline-none focus:border-dai-qing text-dai-qing text-sm cursor-pointer"
+              disabled={districtOpts.length === 0}
+            >
+              <option value="">区/县</option>
+              {districtOpts.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <ChevronDown />
+          </div>
+        </div>
+      </div>
     );
   };
 
   return (
     <div className="min-h-screen bg-xuan-zhi text-dai-qing font-sans">
-      {/* Nav */}
-      <nav className="border-b border-dai-qing/8 px-4 py-3 flex items-center justify-between max-w-2xl mx-auto">
-        <div className="flex items-center gap-3">
-          <a href="/" className="text-hu-po-jin text-lg font-bold tracking-[3px] no-underline">混沌</a>
-          <span className="text-dai-qing/20">/</span>
-          <span className="text-dai-qing/60 text-sm tracking-[2px]">命盘排盘</span>
+      {/* Header nav */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-xuan-zhi/90 backdrop-blur-md border-b border-dai-qing/8">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+          <a href="/" className="text-lg font-bold tracking-[3px] text-hu-po-jin no-underline font-serif">混沌</a>
+          <div className="flex items-center gap-3">
+            <a href="/liuyao" className="text-xs text-dai-qing/50 hover:text-dai-qing tracking-[2px] no-underline transition-colors">六爻</a>
+          </div>
         </div>
-        
-      </nav>
+      </header>
 
-      <main className="max-w-xl mx-auto px-4 py-6 space-y-6">
-        {/* Header */}
-        <div className="text-center py-4">
-          <div className="inline-flex items-center gap-2 text-hu-po-jin text-2xl mb-2">
-            <span>☰</span><span>☷</span>
+      <main className="pt-[calc(4rem+env(safe-area-inset-top,0px))]">
+        {/* Breadcrumb schema */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            { '@type': 'ListItem', position: 1, name: '首页', item: 'https://hundunmp.vip' },
+            { '@type': 'ListItem', position: 2, name: '命盘排盘', item: 'https://hundunmp.vip/create' },
+          ]
+        })}} />
+
+        {/* Decorative background */}
+        <div className="relative flex flex-col items-center justify-center p-6 font-serif select-none">
+          <div className="pointer-events-none absolute inset-0 text-dai-qing">
+            <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true" />
           </div>
-          <p className="text-xs text-dai-qing/60 tracking-[3px]">八字排盘 · 紫微斗数</p>
-          <p className="text-xs text-dai-qing/50 mt-1">录入生辰，按古法自动起盘排柱</p>
+          <div aria-hidden="true" className="pointer-events-none absolute left-[8%] top-[10%] h-64 w-64 rounded-full bg-hu-po-jin/5 blur-[90px]" />
+
+          <div className="relative z-[1] flex w-full flex-col items-center">
+            {/* Tab pills */}
+            <div className="mx-auto mb-6 flex w-fit items-center gap-1 rounded-full border border-dai-qing/15 bg-xuan-zhi/60 p-1 backdrop-blur-sm">
+              <button
+                onClick={() => setTab('single')}
+                className={`rounded-full px-5 py-1.5 text-xs tracking-widest transition-all ${
+                  tab === 'single' ? 'bg-dai-qing text-xuan-zhi shadow-sm' : 'text-dai-qing/55 hover:text-dai-qing'
+                }`}
+              >单人排盘</button>
+              <button
+                onClick={() => setTab('double')}
+                className={`rounded-full px-5 py-1.5 text-xs tracking-widest transition-all ${
+                  tab === 'double' ? 'bg-dai-qing text-xuan-zhi shadow-sm' : 'text-dai-qing/55 hover:text-dai-qing'
+                }`}
+              >双人合盘</button>
+            </div>
+
+            {/* Title card */}
+            <div className="relative mt-2 max-w-2xl w-full">
+              <div className="relative w-full rounded-md shadow-[0_24px_60px_-20px_rgba(0,51,51,0.28)] border border-dai-qing/15 overflow-hidden">
+                <div aria-hidden="true" className="pointer-events-none absolute inset-[7px] z-20 rounded-[4px] border border-hu-po-jin/25" />
+                <div className="relative overflow-hidden bg-gradient-to-b from-dai-qing-dark to-dai-qing px-8 pt-9 pb-7 text-center">
+                  <div className="flex items-center justify-center gap-3 text-[10px] tracking-[0.4em] text-hu-po-jin/60">
+                    <span className="h-px w-8 bg-gradient-to-r from-transparent to-hu-po-jin/45" />
+                    <span>混 沌 · 庚 帖</span>
+                    <span className="h-px w-8 bg-gradient-to-l from-transparent to-hu-po-jin/45" />
+                  </div>
+                  <h1 className="mt-4 flex justify-center font-serif font-bold gold-foil-text" style={{ fontSize: 'clamp(34px, 5vw, 46px)' }}>
+                    八字+紫微命盘
+                  </h1>
+                  <p className="mt-3 text-sm text-xuan-zhi/55">天道有常，缘者自寻。录入诞辰，共振星寰。</p>
+                </div>
+
+                {/* Form */}
+                <div className="relative bg-xuan-zhi/95 backdrop-blur-sm">
+                  <form className="p-5 sm:p-10 space-y-6 sm:space-y-8" onSubmit={handleSubmit}>
+                    {/* Name */}
+                    <div className="space-y-3">
+                      <label className="text-xs text-dai-qing/50 tracking-widest flex items-center justify-between">
+                        <span className="flex items-center">
+                          <IconStar />有缘人之称谓
+                        </span>
+                      </label>
+                      <span className="qn-inkline block">
+                        <input
+                          type="text"
+                          placeholder="请输入有缘人的称呼（如：某居士、己身）"
+                          className="w-full bg-transparent border-0 border-b border-dai-qing/20 outline-none py-3 px-1 text-dai-qing transition-colors placeholder:text-dai-qing/25 text-lg"
+                          value={form.name}
+                          onChange={e => setField('name', e.target.value)}
+                        />
+                        <span aria-hidden="true" className="qn-inkline__ink" />
+                      </span>
+                    </div>
+
+                    {/* Partner name for double mode */}
+                    {tab === 'double' && (
+                      <div className="space-y-3">
+                        <label className="text-xs text-dai-qing/50 tracking-widest flex items-center">
+                          <IconStar />对方称谓
+                        </label>
+                        <span className="qn-inkline block">
+                          <input
+                            type="text"
+                            placeholder="请输入对方称呼"
+                            className="w-full bg-transparent border-0 border-b border-dai-qing/20 outline-none py-3 px-1 text-dai-qing transition-colors placeholder:text-dai-qing/25 text-lg"
+                            value={form.partnerName}
+                            onChange={e => setField('partnerName', e.target.value)}
+                          />
+                          <span aria-hidden="true" className="qn-inkline__ink" />
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Gender */}
+                    <div className="space-y-3">
+                      <label className="text-xs text-dai-qing/50 tracking-widest flex items-center">
+                        <IconCompass />乾坤定性
+                      </label>
+                      <div className="relative w-full h-14 bg-xuan-zhi-dark rounded-md p-1 flex items-center border border-dai-qing/15">
+                        <div
+                          className="absolute h-12 bg-dai-qing rounded-[4px] shadow-lg transition-transform duration-300"
+                          style={{ width: 'calc(50% - 6px)', transform: form.gender === '男' ? 'translateX(4px)' : 'translateX(calc(100% + 2px))' }}
+                        />
+                        <div className="relative flex w-full z-10 text-sm tracking-widest">
+                          <button type="button" onClick={() => setField('gender', '男')}
+                            className={`flex-1 text-center py-2 transition-colors duration-300 cursor-pointer outline-none rounded-[3px] ${
+                              form.gender === '男' ? 'text-hu-po-jin font-bold' : 'text-dai-qing/50'
+                            }`}
+                          >男（乾造）</button>
+                          <button type="button" onClick={() => setField('gender', '女')}
+                            className={`flex-1 text-center py-2 transition-colors duration-300 cursor-pointer outline-none rounded-[3px] ${
+                              form.gender === '女' ? 'text-hu-po-jin font-bold' : 'text-dai-qing/50'
+                            }`}
+                          >女（坤造）</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ===== Date: Single person ===== */}
+                    {tab === 'single' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-dai-qing/50 tracking-widest flex items-center">
+                            <IconCalendar />诞辰之候
+                          </label>
+                          <div className="flex bg-xuan-zhi-dark/80 rounded-[4px] p-0.5 border border-dai-qing/20 shadow-sm">
+                            {['公历','农历','四柱'].map(cal => (
+                              <button key={cal} type="button" onClick={() => setField('calendar', cal)}
+                                className={`px-3.5 py-1.5 text-[10px] tracking-widest rounded-[3px] transition-colors ${
+                                  form.calendar === cal
+                                    ? 'bg-dai-qing text-xuan-zhi font-bold shadow'
+                                    : 'text-dai-qing/50 hover:text-dai-qing'
+                                }`}
+                              >{cal}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {renderDateGroup('')}
+                      </div>
+                    )}
+
+                    {/* ===== Date: Double mode ===== */}
+                    {tab === 'double' && (
+                      <>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs text-dai-qing/50 tracking-widest flex items-center">
+                              <IconCalendar />您的诞辰
+                            </label>
+                            <div className="flex bg-xuan-zhi-dark/80 rounded-[4px] p-0.5 border border-dai-qing/20 shadow-sm">
+                              {['公历','农历'].map(cal => (
+                                <button key={cal} type="button" onClick={() => setField('calendar', cal as '公历'|'农历')}
+                                  className={`px-3.5 py-1.5 text-[10px] tracking-widest rounded-[3px] transition-colors ${
+                                    form.calendar === cal
+                                      ? 'bg-dai-qing text-xuan-zhi font-bold shadow'
+                                      : 'text-dai-qing/50 hover:text-dai-qing'
+                                  }`}
+                                >{cal}</button>
+                              ))}
+                            </div>
+                          </div>
+                          {renderDateGroup('')}
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs text-dai-qing/50 tracking-widest flex items-center">
+                              <IconCalendar />对方诞辰
+                            </label>
+                          </div>
+                          {renderDateGroup('partner')}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Birth place - hidden for 四柱 mode */}
+                    {form.calendar !== '四柱' && (
+                      <div className="space-y-4">
+                        {renderRegionGroup('birth', '诞生之地')}
+                      </div>
+                    )}
+
+                    {/* Current place - only for single mode and non-四柱 */}
+                    {tab === 'single' && form.calendar !== '四柱' && (
+                      <div className="space-y-4">
+                        {renderRegionGroup('current', '现居之地')}
+                      </div>
+                    )}
+
+                    {/* Partner regions for double mode */}
+                    {tab === 'double' && (
+                      <>
+                        <div className="space-y-4">
+                          {renderRegionGroup('partnerBirth', '对方诞生之地')}
+                        </div>
+                        <div className="space-y-4">
+                          {renderRegionGroup('partnerCurrent', '对方现居之地')}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Error */}
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 rounded-md p-3 text-center text-sm text-red-600">
+                        {error}
+                      </div>
+                    )}
+
+                    {/* Submit */}
+                    <button type="submit" disabled={loading}
+                      className="w-full bg-hu-po-jin hover:bg-hu-po-jin-light text-dai-qing-dark py-5 rounded-md font-bold tracking-[0.6em] shadow-[0_10px_30px_rgba(212,175,55,0.3)] transition-all flex items-center justify-center relative overflow-hidden group disabled:opacity-60 disabled:cursor-wait"
+                    >
+                      {loading ? '推演中...' : '开启推演（免费）'}
+                      <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12" />
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-dai-qing/8">
-          {[
-            { key: 'single', label: '单人排盘', desc: '个人命盘推演' },
-            { key: 'double', label: '双人合盘', desc: '缘分契合度分析' },
-          ].map(t => (
-            <button key={t.key} onClick={() => setTab(t.key as 'single'|'double')}
-              className={`flex-1 py-3 text-center border-b-2 transition-all ${
-                tab === t.key ? 'border-hu-po-jin text-hu-po-jin' : 'border-transparent text-dai-qing/50 hover:text-dai-qing/70'
-              }`}
-            >
-              <div className="text-sm tracking-[2px]">{t.label}</div>
-              <div className="text-[10px] opacity-60 mt-0.5">{t.desc}</div>
-            </button>
-          ))}
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* ===== 主位 ===== */}
-          <div className={sectionClass}>
-            <p className="text-[10px] text-dai-qing/50 tracking-[2px] mb-4">
-              {tab === 'single' ? '命主信息' : '主位 · 您'}
-            </p>
-
-            {/* Name */}
-            <div className="mb-4">
-              <p className={fieldLabelClass}>称谓</p>
-              <input
-                value={form.name}
-                onChange={e => setField('name', e.target.value)}
-                placeholder="请输入姓名"
-                className="w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg px-4 py-3 text-sm text-dai-qing placeholder-dai-qing/30 outline-none focus:border-hu-po-jin/40 transition-colors"
-              />
-            </div>
-
-            {/* Gender */}
-            <div className="mb-4">
-              <p className={fieldLabelClass}>乾坤定性</p>
-              {renderGenderGroup(form.gender, v => setField('gender', v))}
-            </div>
-
-            {/* Birth date */}
-            <div>
-              <p className={fieldLabelClass}>诞辰之候 </p>
-              {renderDateGroup('')}
-            </div>
-          </div>
-
-          {/* ===== Birth Place ===== */}
-          <div className={sectionClass}>
-            <p className={fieldLabelClass}>诞生之地</p>
-            {renderRegionGroup('birth', '请选择出生地')}
-          </div>
-
-          {/* ===== Current Place ===== */}
-          <div className={sectionClass}>
-            <p className={fieldLabelClass}>现居之地</p>
-            {renderRegionGroup('current', '请选择现居地')}
-          </div>
-
-          {/* ===== 双人合盘 - 对方信息 ===== */}
-          {tab === 'double' && (
-            <div className={sectionClass}>
-              <div className="border-l-2 border-hu-po-jin-dark pl-4 mb-4">
-                <p className="text-[10px] text-hu-po-jin-dark tracking-[2px]">客位 · 对方</p>
-              </div>
-
-              <div className="mb-4">
-                <p className={fieldLabelClass}>称谓</p>
-                <input
-                  value={form.partnerName}
-                  onChange={e => setField('partnerName', e.target.value)}
-                  placeholder="请输入对方姓名"
-                  className="w-full bg-xuan-zhi border border-dai-qing/15 rounded-lg px-4 py-3 text-sm text-dai-qing placeholder-dai-qing/30 outline-none focus:border-hu-po-jin/40 transition-colors"
-                />
-              </div>
-
-              <div className="mb-4">
-                <p className={fieldLabelClass}>乾坤定性</p>
-                {renderGenderGroup(form.partnerGender, v => setField('partnerGender', v))}
-              </div>
-
-              <div>
-                <p className={fieldLabelClass}>诞辰之候 {partnerShichen && <span className="text-hu-po-jin">· {partnerShichen}</span>}</p>
-                {renderDateGroup('partner')}
-              </div>
-            </div>
-          )}
-
-          {tab === 'double' && (
-            <>
-              <div className={sectionClass}>
-                <p className={fieldLabelClass}>对方 · 诞生之地</p>
-                {renderRegionGroup('partnerBirth', '请选择对方出生地')}
-              </div>
-              <div className={sectionClass}>
-                <p className={fieldLabelClass}>对方 · 现居之地</p>
-                {renderRegionGroup('partnerCurrent', '请选择对方现居地')}
-              </div>
-            </>
-          )}
-
-          {/* ===== Advanced ===== */}
-          <div className={sectionClass}>
-            <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-              className="w-full flex items-center justify-between text-sm tracking-[2px] text-dai-qing/60 hover:text-hu-po-jin transition-colors">
-              <span>高级排盘选项</span>
-              <span className={`transition-transform ${showAdvanced ? 'rotate-180' : ''}`}>▾</span>
-            </button>
-            {showAdvanced && (
-              <div className="mt-4 space-y-3 pt-4 border-t border-dai-qing/8">
-                <label className="flex items-center justify-between py-2">
-                  <span className="text-xs text-dai-qing/60 tracking-[1px]">真太阳时校准</span>
-                  <span className="text-[10px] text-dai-qing/50">根据出生地经纬度修正平太阳时偏差（默认开启）</span>
-                </label>
-                <label className="flex items-center justify-between py-2">
-                  <span className="text-xs text-dai-qing/60 tracking-[1px]">夜子时换日柱</span>
-                  <span className="text-[10px] text-dai-qing/50">23时起按次日日柱排盘（默认开启）</span>
-                </label>
-              </div>
-            )}
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="bg-dai-qing-dark/20/30 border border-dai-qing-dark/30 rounded-lg p-3 text-center text-sm text-hu-po-jin-dark">
-              {error}
-            </div>
-          )}
-
-          {/* CTA */}
-          <div className="text-center pb-8">
-            <button type="submit" disabled={loading}
-              className="w-full bg-hu-po-jin text-xuan-zhi text-base py-4 rounded-lg tracking-[4px] font-medium hover:bg-hu-po-jin disabled:opacity-50 disabled:cursor-wait transition-all"
-            >
-              {loading ? '排盘中...' : tab === 'single' ? '开 启 推 演' : '开 启 合 盘'}
-            </button>
-            <p className="mt-3 text-[10px] text-dai-qing/50 tracking-[2px]">
-              免费体验
-            </p>
-          </div>
-        </form>
       </main>
-
-      {/* ===== Pickers ===== */}
-      {activePicker && (activePicker === 'time' || activePicker === 'partnerTime') && (
-        <TimePickerModal
-          hour={(activePicker === 'partnerTime' ? form.partnerHour : form.hour) as string || '12'}
-          minute={(activePicker === 'partnerTime' ? form.partnerMinute : form.minute) as string || '00'}
-          onChange={(h, m) => {
-            if (activePicker === 'partnerTime') {
-              setField('partnerHour', h);
-              setField('partnerMinute', m);
-            } else {
-              setField('hour', h);
-              setField('minute', m);
-            }
-          }}
-          onClose={() => setActivePicker(null)}
-        />
-      )}
-      {activePicker && activePicker !== 'time' && activePicker !== 'partnerTime' && (
-        <PickerModal
-          title={activePicker?.toLowerCase().includes('year') ? '选择年份' : activePicker?.toLowerCase().includes('month') ? '选择月份' : activePicker?.toLowerCase().includes('day') ? '选择日期' : activePicker?.toLowerCase().includes('hour') ? '选择小时' : '选择分钟'}
-          options={
-            activePicker?.toLowerCase().includes('year') ? years.map(v => ({ value: v, label: v + '年' })) :
-            activePicker?.toLowerCase().includes('month') ? monthsList :
-            activePicker?.toLowerCase().includes('day') ? (activePicker?.startsWith('partner') ? partnerDayOptions : dayOptions) :
-            activePicker?.toLowerCase().includes('hour') ? hours24 :
-            minutes60
-          }
-          value={form[activePicker as keyof typeof form] as string || ''}
-          onChange={v => setField(activePicker, v)}
-          onClose={() => setActivePicker(null)}
-        />
-      )}
-
-      {activeRegionPicker && (
-        <RegionPicker
-          value={{
-            province: form[(activeRegionPicker + 'Province') as keyof typeof form] as string || '',
-            city: form[(activeRegionPicker + 'City') as keyof typeof form] as string || '',
-            district: form[(activeRegionPicker + 'District') as keyof typeof form] as string || '',
-          }}
-          onChange={v => {
-            setField(activeRegionPicker + 'Province', v.province);
-            setField(activeRegionPicker + 'City', v.city);
-            setField(activeRegionPicker + 'District', v.district);
-          }}
-          onClose={() => setActiveRegionPicker(null)}
-        />
-      )}
     </div>
   );
 }

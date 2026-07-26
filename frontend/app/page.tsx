@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { trackEvent } from '@/app/lib/api';
 
@@ -10,7 +10,13 @@ export default function HomePage() {
   useEffect(() => {
     const vid = typeof window !== 'undefined' ? localStorage.getItem('hundun_visitor_id') || 'visitor_anon' : 'visitor_anon';
     trackEvent('page_view', vid);
-  }, []);
+  }, [])
+  const [activePersona, setActivePersona] = useState<'standard' | 'casual'>('standard');
+  const [activeDepth, setActiveDepth] = useState<'brief' | 'detail'>('brief');
+  const demos = {
+    standard: { brief: '此命局日主壬水生于申月，得长生之气，又见庚金发源，水源充沛。以印化杀为用，食神制杀为佐。格局清正，贵气暗藏。', detail: '日主壬水生于申月得长生，庚金发源，水源充沛。然戊土七杀透干，戌土坐支，杀势不弱。身强杀强，以印化杀为用，食神制杀为佐。早年行北方水地，印比帮身。中年入西方金地，事业腾达。晚运火土，财官显露。' },
+    casual: { brief: '你的命盘就像一条大江，水源充足，气势磅礴。但江上有座大坝（七杀），让你不能肆意奔流。不过大坝上有闸门（印星），该放水时就放水，属于"看似被管着，实则有人罩"的类型。', detail: '你这命啊，一条大江，水多得要漫出来。命中带个七杀，就像江上修了座大坝，管着你。好在坝上有闸门，水多开闸，水少蓄水。你这个叫"有管教但有人罩"，命里带贵气。' },
+  };;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -21,14 +27,14 @@ export default function HomePage() {
             <span className="glow-breathe text-2xl font-bold text-hu-po-jin font-serif">混沌</span>
             <span className="hidden text-sm sm:inline text-dai-qing/60">命理研究</span>
           </Link>
-          <div className="hidden items-center gap-5 md:flex lg:gap-6">
+          <div className="hidden items-center gap-5 md:flex lg:gap-6 ml-auto">
             <Link href="/create" className="relative py-1.5 text-[13px] tracking-[0.02em] transition-colors lg:text-sm text-dai-qing/65 hover:text-dai-qing no-underline">
               <span className="mr-1 text-[10px] text-hu-po-jin">✦</span>八字+紫微命盘
             </Link>
             <Link href="/liuyao" className="relative py-1.5 text-[13px] tracking-[0.02em] transition-colors lg:text-sm text-dai-qing/65 hover:text-dai-qing no-underline">混沌问卦</Link>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/create" className="qn-btn qn-btn--primary qn-btn--sm no-underline">免费排盘</Link>
+            
           </div>
         </div>
       </nav>
@@ -91,15 +97,14 @@ export default function HomePage() {
                 <h1 className="flex font-serif text-8xl font-bold text-hu-po-jin md:text-9xl">
                   <span className="gold-foil-text inline-block">混</span>
                   <span className="gold-foil-text inline-block">沌</span>
-                  <span className="gold-foil-text inline-block">阁</span>
-                </h1>
+                  </h1>
                 <p className="mt-4 text-sm text-hu-po-jin/50">HUNDUN PAVILION</p>
               </div>
               <div className="mt-9">
-                <p className="font-serif text-xl text-xuan-zhi/85">古籍为根 · AI 参详</p>
+                <p className="font-serif text-xl text-xuan-zhi/85">AI 推演 · 秒出命盘</p>
                 <div className="divider-ink mx-auto mt-4 w-48" />
                 <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-xuan-zhi/60">
-                  八字 · 紫微 · 六爻<br />三术合参，以古籍为根，AI 逐句参详
+                  八字 · 紫微 · 六爻<br />八字 × 紫微 · 双盘互证，AI 秒出结果
                 </p>
               </div>
               <div className="mt-11 flex flex-col items-center gap-4 sm:flex-row">
@@ -140,51 +145,37 @@ export default function HomePage() {
               ))}
             </div>
 
-            {/* Marquee: classics */}
-            <div className="relative border-b border-xuan-zhi/8 py-7">
-              <p className="mb-3 text-center text-[10px] tracking-[0.4em] text-xuan-zhi/35">古籍为根 · 逐句可溯源</p>
-              <div className="qn-marquee text-[15px] text-hu-po-jin/55">
-                <div className="qn-marquee__track">
-                  <div className="flex shrink-0 items-center">
-                    {['《 周易 》','《 滴天髓 》','《 穷通宝鉴 》','《 三命通会 》','《 渊海子平 》','《 增删卜易 》','《 卜筮正宗 》','《 紫微斗数全书 》'].map((name, i) => (
-                      <span key={i} className="qn-marquee__item">
-                        <span className="font-serif">{name}</span>
-                        <span className="qn-marquee__dot">·</span>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex shrink-0 items-center">
-                    {['《 周易 》','《 滴天髓 》','《 穷通宝鉴 》','《 三命通会 》','《 渊海子平 》','《 增删卜易 》','《 卜筮正宗 》','《 紫微斗数全书 》'].map((name, i) => (
-                      <span key={'b'+i} className="qn-marquee__item">
-                        <span className="font-serif">{name}</span>
-                        <span className="qn-marquee__dot">·</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
+                        {/* Marquee: classics */}
+            <div className="qn-marquee py-7 border-b border-white/5">
+              <div className="qn-marquee__track" style={{ gap: "2.5rem" }}>
+                {["《周易》","《滴天髓》","《穷通宝鉴》","《三命通会》","《渊海子平》","《增删卜易》","《卜筮正宗》","《紫微斗数全书》"].map(function(name, i) { return (
+                  <span key={i} className="qn-marquee__item text-[15px] tracking-[0.15em] text-hu-po-jin/55 font-serif">{name}</span>
+                );})}
+                {["《周易》","《滴天髓》","《穷通宝鉴》","《三命通会》","《渊海子平》","《增删卜易》","《卜筮正宗》","《紫微斗数全书》"].map(function(name, i) { return (
+                  <span key={"d"+i} className="qn-marquee__item text-[15px] tracking-[0.15em] text-hu-po-jin/55 font-serif">{name}</span>
+                );})}
               </div>
             </div>
-
-            {/* Core functions heading */}
+{/* Core functions heading */}
             <div className="px-6 pt-24">
               <h2 className="text-center font-serif text-3xl text-xuan-zhi">核心功能</h2>
               <p className="mt-3 text-center text-[15px] text-xuan-zhi/55">三术合参 — 以古籍为根 · AI 逐句参详</p>
             </div>
 
             {/* Feature cards grid */}
-            <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-5 px-6 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-5 px-6 sm:grid-cols-2 ">
               {/* 八字+紫微命盘 */}
               <div className="spotlight-card h-full rounded-2xl sm:col-span-2">
-                <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
+                <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline items-center text-center">
                   <span className="absolute right-4 top-4 rounded-full bg-hu-po-jin/15 px-3 py-0.5 text-xs text-hu-po-jin">免费</span>
                   <div className="flex items-center gap-3">
-                    <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">命</span>
+                    <span className="inline-block font-serif text-4xl text-hu-po-jin">问</span>
                     <span className="text-hu-po-jin/40 text-2xl">·</span>
-                    <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">紫</span>
+                    <span className="inline-block font-serif text-4xl text-hu-po-jin">天</span>
                   </div>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi">八字+紫微命盘</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60">双体系合参 — 八字看五行格局，紫微排十二宫星曜，AI 逐句参详</p>
-                  <div className="mt-5 flex items-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
+                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi text-center">八字+紫微命盘</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60 text-center">双体系合参 — 八字看五行格局，紫微排十二宫星曜，AI 逐句参详</p>
+                  <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
                     <span>了解更多</span>
                     <span className="transition-transform group-hover:translate-x-1">→</span>
                   </div>
@@ -194,10 +185,10 @@ export default function HomePage() {
               {/* 六爻起卦 */}
               <div className="spotlight-card h-full rounded-2xl">
                 <Link href="/liuyao" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
-                  <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">卦</span>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi">六爻起卦</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60">依《增删卜易》《卜筮正宗》参详卦象</p>
-                  <div className="mt-5 flex items-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
+                  <span className="inline-block font-serif text-4xl text-hu-po-jin mx-auto">卦</span>
+                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi text-center">六爻起卦</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60 text-center">依《增删卜易》《卜筮正宗》参详卦象</p>
+                  <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
                     <span>了解更多</span>
                     <span className="transition-transform group-hover:translate-x-1">→</span>
                   </div>
@@ -208,10 +199,10 @@ export default function HomePage() {
               <div className="spotlight-card h-full rounded-2xl">
                 <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
                   <span className="absolute right-4 top-4 rounded-full bg-hu-po-jin/15 px-3 py-0.5 text-xs text-hu-po-jin">免费</span>
-                  <span className="inline-block self-start font-serif text-4xl text-hu-po-jin">缘</span>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi">八字合盘</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60">两盘对照，参看缘分契合与互补</p>
-                  <div className="mt-5 flex items-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
+                  <span className="inline-block font-serif text-4xl text-hu-po-jin mx-auto">缘</span>
+                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi text-center">八字合盘</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60 text-center">两盘对照，参看缘分契合与互补</p>
+                  <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
                     <span>了解更多</span>
                     <span className="transition-transform group-hover:translate-x-1">→</span>
                   </div>
@@ -220,34 +211,46 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* ===== 命盘海报 demo section ===== */}
+                    {/* ===== 两种人格 × 两种深度 ===== */}
           <section className="w-full px-6 py-28">
-            <div className="mx-auto max-w-4xl text-center">
-              <p className="text-[11px] tracking-[0.4em] text-dai-qing/55">一 页 海 报</p>
-              <h2 className="mt-4 font-serif text-3xl text-dai-qing">你的命盘 · 你的海报</h2>
-              <div className="mx-auto mt-4 w-32 divider-ink" />
-              <p className="mt-4 text-sm text-dai-qing/60">生成专属命盘海报，分享给懂的人看</p>
-
-              <div className="mt-10 flex justify-center">
-                <div className="rounded-2xl border border-dai-qing/10 bg-xuan-zhi p-3 shadow-sm" style={{ width: 280, height: 380 }}>
-                  <div className="flex h-full items-center justify-center rounded-xl bg-xuan-zhi-dark/50">
-                    <span className="font-serif text-sm text-dai-qing/20">命盘海报预览</span>
-                  </div>
-                </div>
+            <div className="mx-auto max-w-3xl">
+              <p className="text-center text-[11px] tracking-[0.4em] text-dai-qing/55">参 详 输 出</p>
+              <h2 className="mt-4 text-center font-serif text-2xl text-dai-qing">两种人格 × 两种深度</h2>
+              <p className="mt-3 text-center text-sm text-dai-qing/50">同一张盘，两种讲法——点下方按钮，现场感受</p>
+              <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button className={"qn-demo__persona" + (activePersona === "standard" ? " is-active" : "")} onClick={() => setActivePersona("standard")}>
+                  <span className="qn-demo__persona-sub">博 导 型</span>
+                  <span className="qn-demo__persona-title font-serif">客观 · 专业 · 克制</span>
+                  <span className="qn-demo__persona-desc">如博导般引经据典、逻辑严密</span>
+                </button>
+                <button className={"qn-demo__persona" + (activePersona === "casual" ? " is-active" : "")} onClick={() => setActivePersona("casual")}>
+                  <span className="qn-demo__persona-sub">老 友 型</span>
+                  <span className="qn-demo__persona-title font-serif">随性 · 风趣 · 一针见血</span>
+                  <span className="qn-demo__persona-desc">如酒后老友般生动比喻</span>
+                </button>
               </div>
-              <div className="mt-5">
-                <Link href="/create" className="qn-demo__cta no-underline">免费排一张自己的盘试试 →</Link>
+              <div className="mt-6 flex justify-center gap-3">
+                <button className={"qn-demo__depth" + (activeDepth === "brief" ? " is-active" : "")} onClick={() => setActiveDepth("brief")}>
+                  <span>简要</span><span className="qn-demo__depth-sub">三五分钟速览</span>
+                </button>
+                <button className={"qn-demo__depth" + (activeDepth === "detail" ? " is-active" : "")} onClick={() => setActiveDepth("detail")}>
+                  <span>详批</span><span className="qn-demo__depth-sub">逐柱逐宫参详</span>
+                </button>
               </div>
+              <div className="mt-8 qn-demo__output">
+                <div className="qn-demo__output-head"><span className="qn-demo__lamp" /><span>参 详 输 出 · 示 例 文 风</span></div>
+                <div className="qn-demo__text font-serif animate-ink-in" key={activePersona + activeDepth}>{demos[activePersona][activeDepth]}</div>
+                <p className="qn-demo__hint">正式详批中可随时切换人格与深度 · 以上仅为文风示例</p>
+              </div>
+              <div className="mt-8 text-center"><Link href="/create" className="qn-demo__cta">免费排一张自己的盘试试 →</Link></div>
             </div>
           </section>
 
-          {/* ===== Bottom CTA ===== */}
+{/* ===== Bottom CTA ===== */}
           <section className="w-full bg-dai-qing-dark px-6 py-20 text-center">
             <h2 className="font-serif text-2xl text-xuan-zhi">随身携带你的混沌</h2>
             <p className="mt-4 text-sm text-xuan-zhi/55">随时随地，排一盘，问一卦</p>
-            <Link href="/create"
-              className="btn-glow relative mt-10 inline-block rounded-xl bg-hu-po-jin px-12 py-4 font-medium text-dai-qing-dark transition-all hover:bg-hu-po-jin-light hover:shadow-xl hover:shadow-hu-po-jin/25 no-underline"
-            >免费注册</Link>
+            
           </section>
 
           {/* ===== Footer ===== */}

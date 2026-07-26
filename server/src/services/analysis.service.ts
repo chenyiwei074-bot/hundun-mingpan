@@ -78,7 +78,7 @@ function buildChartSummary(chart: ChartResult): Record<string, unknown> {
   };
 }
 
-export async function generateAIAnalysis(chart: ChartResult, name: string): Promise<Record<string, unknown>> {
+export async function generateAIAnalysis(chart: ChartResult, name: string, persona?: string, depth?: string): Promise<Record<string, unknown>> {
   const chartSummary = buildChartSummary(chart);
   chartSummary.name = name;
 
@@ -87,7 +87,20 @@ export async function generateAIAnalysis(chart: ChartResult, name: string): Prom
   console.log('Calling DeepSeek for comprehensive analysis...');
   const startTime = Date.now();
 
-  const response = await provider.generateAnalysis({
+    // Inject persona and depth instructions
+  let styleInstruction = '';
+  if (persona === 'casual') {
+    styleInstruction += '\n\n【风格要求：随性风趣】请用口语化、幽默的方式表达，像老朋友聊天一样，可以用比喻、俗语，但专业内容不能出错。避免学术化用语。';
+  } else {
+    styleInstruction += '\n\n【风格要求：客观专业】请用严谨、克制、引经据典的方式表达，像博士生导师一样，逻辑严密。引用古籍原文时注明出处。';
+  }
+  if (depth === 'detail') {
+    styleInstruction += '\n【深度要求：详批】请逐柱逐宫详细分析，每个论断都要有古籍依据。输出3000字以上。';
+  } else {
+    styleInstruction += '\n【深度要求：简要】请提炼核心要点，每个方面用一两句话概括。输出控制在1000字以内。';
+  }
+
+const response = await provider.generateAnalysis({
     chartData: chartSummary,
     type: 'comprehensive',
     name,

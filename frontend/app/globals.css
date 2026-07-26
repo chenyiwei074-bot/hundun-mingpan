@@ -96,3 +96,31 @@ body {
 .anchor-radiate{animation:anchor-radiate 3s ease-out infinite}
 .hex-particle{animation:float-particle 6s ease-in-out infinite}
 .hex-particle-alt{animation:float-particle-alt 5s ease-in-out infinite}
+
+/* ===== Demo / Persona section ===== */
+.qn-demo__persona{text-align:left;cursor:pointer;background:rgba(0,77,77,0.03);border:1px solid rgba(0,77,77,0.18);border-radius:4px;flex-direction:column;gap:6px;padding:20px 22px;transition:border-color .3s,background .3s,transform .3s;display:flex}
+.qn-demo__persona:hover{transform:translateY(-2px)}
+.qn-demo__persona.is-active{background:rgba(212,175,55,0.07);border-color:rgba(212,175,55,0.55);box-shadow:0 6px 22px rgba(0,77,77,0.1)}
+.qn-demo__persona-sub{letter-spacing:.28em;color:var(--color-hu-po-jin);opacity:.75;font-size:10px}
+.qn-demo__persona-title{color:var(--color-dai-qing);font-size:20px}
+.qn-demo__persona-desc{color:var(--color-dai-qing-light);font-size:13px;line-height:1.65}
+.qn-demo__depth{color:var(--color-dai-qing-light);cursor:pointer;background:transparent;border:1px solid rgba(0,77,77,0.18);border-radius:999px;align-items:baseline;gap:8px;padding:9px 16px;font-size:13px;transition:border-color .25s,background .25s,color .25s;display:inline-flex}
+.qn-demo__depth.is-active{border-color:var(--color-dai-qing);background:var(--color-dai-qing);color:var(--color-xuan-zhi)}
+.qn-demo__depth-sub{opacity:.55;font-size:11px}
+.qn-demo__output{background:var(--color-xuan-zhi);text-align:left;border:1px solid rgba(0,77,77,0.14);border-radius:6px;padding:22px 26px 26px;position:relative;box-shadow:none}
+.qn-demo__output-head{letter-spacing:.3em;color:rgba(0,77,77,0.45);align-items:center;gap:8px;font-size:10px;display:flex}
+.qn-demo__lamp{background:var(--color-hu-po-jin);border-radius:999px;width:6px;height:6px;animation:lamp-pulse 2.4s ease-in-out infinite}
+.qn-demo__text{letter-spacing:.02em;color:var(--color-dai-qing);min-height:6.5em;margin-top:14px;font-size:15px;line-height:2.05}
+.qn-demo__hint{text-align:center;color:rgba(0,77,77,0.45);margin-top:14px;font-size:12px}
+.qn-demo__cta{letter-spacing:.05em;color:var(--color-dai-qing);border-bottom:1px solid rgba(0,77,77,0.3);padding-bottom:2px;font-size:13px;transition:color .25s,border-color .25s;text-decoration:none}
+.qn-demo__cta:hover{color:var(--color-dai-qing);border-color:var(--color-dai-qing)}
+@keyframes lamp-pulse{0%,to{box-shadow:0 0 0 0 rgba(212,175,55,0.45)}50%{box-shadow:0 0 0 8px rgba(212,175,55,0)}}
+@keyframes md-ink-in{0%{opacity:.12;filter:blur(3px);transform:translateY(4px)}to{opacity:1;filter:blur(0);transform:none}}
+.animate-ink-in{animation:md-ink-in .6s ease-out forwards}
+
+/* ===== Qingnang inkline input ===== */
+.qn-inkline{display:block;position:relative}
+.qn-inkline__ink{background:linear-gradient(90deg, var(--color-hu-po-jin) 0%, #d4af374d 100%);height:1.5px;position:absolute;bottom:0;left:0;right:0}
+@supports (color:color-mix(in lab, red, red)){
+  .qn-inkline__ink{background:linear-gradient(90deg, var(--color-hu-po-jin) 0%, color-mix(in srgb, var(--color-hu-po-jin) 30%, transparent) 100%)}
+}
