@@ -219,7 +219,7 @@ export default function LiuYaoPage() {
                           return a;
                         });
                       }}
-                        className={"w-full flex items-center gap-4 px-4 py-2.5 rounded-lg border transition-all " + (isDong ? "border-hu-po-jin/40 bg-hu-po-jin/5" : "border-dai-qing/8 hover:border-dai-qing/20")}
+                        className={"w-full flex items-center gap-3 px-3 py-2 rounded-lg border transition-all " + (isDong ? "border-hu-po-jin/40 bg-hu-po-jin/5" : "border-dai-qing/8 hover:border-dai-qing/20")}
                       >
                         <span className="text-[10px] text-dai-qing/30 w-6 text-left">{YAO_LABELS[yaoIdx]}</span>
                         {isDong
