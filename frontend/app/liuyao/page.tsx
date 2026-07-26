@@ -44,10 +44,8 @@ export default function LiuYaoPage() {
   // Manual input state
   var [manualNums, setManualNums] = useState<string[]>(['','','','','','']);
   // Direct pai gua state
-  var [shangGua, setShangGua] = useState('乾');
-  var [xiaGua, setXiaGua] = useState('乾');
-  var [dongYao, setDongYao] = useState(1);
-  // Coin animation state
+  var [directYaos, setDirectYaos] = useState([7,7,7,7,7,7]); // 6爻 初→上: 7少阳 8少阴 9老阳 6老阴
+    // Coin animation state
   var [animYao, setAnimYao] = useState<{round:number; coins:number[]; results:number[]}>({round:0, coins:[0,0,0], results:[]});
   var animTimer = useRef<any>(null);
 
@@ -95,14 +93,7 @@ export default function LiuYaoPage() {
   };
 
   // ── Direct pai gua ──
-  var handleDirect = function() {
-    if (!question.trim()) { setError('请填写所问之事'); return; }
-    var shangYao = GUA_YAO[shangGua].slice();
-    var xiaYao = GUA_YAO[xiaGua].slice();
-    var allYao = [...xiaYao, ...shangYao];
-    allYao[dongYao-1] = allYao[dongYao-1] % 2 === 1 ? 9 : 6;
-    submitAPI(allYao, 'direct');
-  };
+  var handleDirect = function() { if (!question.trim()) { setError('请填写所问之事'); return; } submitAPI(directYaos, 'direct'); };
 
   var reset = function() {
     setStep('input'); setResult(null); setQuestion('');
@@ -201,50 +192,52 @@ export default function LiuYaoPage() {
             )}
 
             {/* ── 直接排卦 ── */}
-            {method === 'direct' && (
+            {method === 'direct' && (function() {
+              var YAO_LABELS = ['初','二','三','四','五','上'];
+              var getTrigram = function(a,b,c) {
+                var isYang = function(v){return v===7||v===9;};
+                var bits = (isYang(a)?4:0)+(isYang(b)?2:0)+(isYang(c)?1:0);
+                return ['坤','艮','坎','巽','震','离','兑','乾'][bits];
+              };
+              var shang = getTrigram(directYaos[3],directYaos[4],directYaos[5]);
+              var xia = getTrigram(directYaos[0],directYaos[1],directYaos[2]);
+              var hasDong = directYaos.some(function(v){return v===6||v===9;});
+              return (
               <div className="qn-card">
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  <div>
-                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">上卦</p>
-                    <div className="grid grid-cols-4 gap-1">
-                      {GUA_NAMES.map(function(g) {
-                        return <button key={g} onClick={function(){ setShangGua(g); }}
-                          className={"py-1.5 text-xs rounded border transition-all " + (shangGua===g ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
-                        >{g}</button>;
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">下卦</p>
-                    <div className="grid grid-cols-4 gap-1">
-                      {GUA_NAMES.map(function(g) {
-                        return <button key={g} onClick={function(){ setXiaGua(g); }}
-                          className={"py-1.5 text-xs rounded border transition-all " + (xiaGua===g ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
-                        >{g}</button>;
-                      })}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-dai-qing/30 mb-2 text-center">动爻</p>
-                    <div className="grid grid-cols-3 gap-1">
-                      {[1,2,3,4,5,6].map(function(n) {
-                        return <button key={n} onClick={function(){ setDongYao(n); }}
-                          className={"py-1.5 text-xs rounded border transition-all " + (dongYao===n ? 'border-hu-po-jin bg-hu-po-jin/10 text-hu-po-jin' : 'border-dai-qing/8 text-dai-qing/35 hover:border-dai-qing/20')}
-                        >{['初','二','三','四','五','上'][n-1]}</button>;
-                      })}
-                    </div>
-                  </div>
+                <p className="text-[10px] text-dai-qing/30 mb-4 text-center tracking-[2px]">点击爻象切换 少阳→少阴→老阳→老阴</p>
+                <div className="space-y-1.5 mb-4">
+                  {[5,4,3,2,1,0].map(function(yaoIdx) {
+                    var v = directYaos[yaoIdx];
+                    var isYang = v === 7 || v === 9;
+                    var isDong = v === 6 || v === 9;
+                    var label = v===7?'少阳':v===8?'少阴':v===9?'老阳':'老阴';
+                    return (
+                      <button key={yaoIdx} onClick={function(){
+                        setDirectYaos(function(p) {
+                          var a = [...p];
+                          a[yaoIdx] = a[yaoIdx]===7?8 : a[yaoIdx]===8?9 : a[yaoIdx]===9?6 : 7;
+                          return a;
+                        });
+                      }}
+                        className={"w-full flex items-center gap-4 px-4 py-2.5 rounded-lg border transition-all " + (isDong ? "border-hu-po-jin/40 bg-hu-po-jin/5" : "border-dai-qing/8 hover:border-dai-qing/20")}
+                      >
+                        <span className="text-[10px] text-dai-qing/30 w-6 text-left">{YAO_LABELS[yaoIdx]}</span>
+                        <span className={"text-xl flex-1 text-center " + (isYang?"":"text-dai-qing/30")}>{isYang ? (isDong?"○":"⚊") : (isDong?"×":"⚋")}</span>
+                        <span className={"text-[10px] w-12 text-right " + (isDong?"text-hu-po-jin":"text-dai-qing/30")}>{label}{isDong?"动":""}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="text-center py-3 border border-dai-qing/8 rounded-xl bg-xuan-zhi/50 mb-4">
-                  <span className="text-2xl">{GUA_EMOJI[shangGua]}</span>
-                  <span className="text-dai-qing/20 mx-2">+</span>
-                  <span className="text-2xl">{GUA_EMOJI[xiaGua]}</span>
-                  <span className="text-[10px] text-dai-qing/30 ml-3">动 {['初','二','三','四','五','上'][dongYao-1]}爻</span>
+                  <span className="text-2xl opacity-80">{GUA_EMOJI[shang]}</span>
+                  <span className="text-2xl opacity-80 ml-2">{GUA_EMOJI[xia]}</span>
+                  <span className="text-[10px] text-dai-qing/30 ml-3">{shang}上{xia}下{hasDong?" · 有动爻":""}</span>
                 </div>
                 <button onClick={handleDirect} className="w-full qn-btn qn-btn--primary qn-btn--md" style={{borderRadius:'999px',letterSpacing:'.15em'}}>开 始 排 卦</button>
               </div>
-            )}
-<p className="text-center text-[10px] text-dai-qing/20 tracking-[2px] pb-4">心诚则灵 · 免费体验</p>
+              );
+            })()}
+            <p className="text-center text-[10px] text-dai-qing/20 tracking-[2px] pb-4">心诚则灵 · 免费体验</p>
           </div>
         )}
 
