@@ -329,7 +329,7 @@ function ResultView({ result, onBack }: { result:FullResult; onBack:()=>void }) 
         <tbody>{[...yaoList].reverse().map(function(yao){ return <tr key={yao.position} className="border-b border-dai-qing/5 text-center"><td className="py-2 px-1"><span className="text-dai-qing/35">{POS_NAMES[yao.position]}</span><span className={yao.yinYang==='阳'?'ml-1 text-hu-po-jin':'ml-1 text-dai-qing/25'}>{yao.yinYang==='阳'?'⚊':'⚋'}</span>{yao.isDong&&<span className="text-[10px] text-hu-po-jin ml-0.5">○</span>}</td><td className="py-2 px-1 text-dai-qing/55">{yao.naGan}{yao.naZhi}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuQin}</td><td className="py-2 px-1 text-dai-qing/55">{yao.liuShen}</td><td className="py-2 px-1">{yao.shiYing&&<span className="text-hu-po-jin text-[10px]">{yao.shiYing}</span>}</td><td className="py-2 px-1">{yao.xunKong&&<span className="text-hu-po-jin-dark text-[10px]">空</span>}</td></tr>; })}</tbody></table></div>
         <p className="text-[10px] text-dai-qing/25 mt-3 text-right">日辰 {pan.riChen.gan}{pan.riChen.zhi} · 月建 {pan.yueJian}</p>
       </div>
-      <div className="flex justify-center pt-2 pb-8"><button onClick={onBack} className="qn-btn" style={{borderRadius:"999px",letterSpacing:".15em",border:"1px solid #00bb7f",color:"#00bb7f",background:"transparent"}}>重 新 摇 卦</button></div>
+      <div className="flex justify-center pt-2 pb-8"><button onClick={onBack} className="qn-btn" style={{borderRadius:"999px",letterSpacing:".15em",background:"#00bb7f",color:"#fff",border:"1px solid #00bb7f"}}>重 新 摇 卦</button></div>
       <p className="text-center text-[10px] text-dai-qing/15 tracking-[2px] pb-8">仅供参考 · 不构成决策建议</p>
     </div>
   );
