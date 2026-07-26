@@ -274,6 +274,11 @@ export default function CreatePage() {
       });
 
       if (res.success) {
+        // 存储秒出数据到 sessionStorage
+        if (res.data.freeContent) {
+          sessionStorage.setItem('chart_free_' + res.data.id, JSON.stringify(res.data.freeContent));
+        }
+        sessionStorage.setItem('chart_name_' + res.data.id, form.name.trim());
         trackEvent('create_click', visitorId, res.data.id);
         router.push(`/chart/${res.data.id}`);
       } else {

@@ -90,60 +90,35 @@ export async function getChartStatus(req: Request, res: Response) {
 // GET /api/chart/result/:id
 export async function getChartResult(req: Request, res: Response) {
   try {
-    const chart = await prisma.chart.findUnique({ where: { id: req.params.id as string } });
-    if (!chart) return res.status(404).json({ success: false, error: '命盘不存在' });
-    if (chart.status !== 'completed') {
-      return res.status(202).json({ success: false, data: { status: chart.status } });
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const chart = await prisma.chart.findUnique({ where: { id } });
+
+    if (!chart) {
+      return res.status(404).json({ success: false, error: '命盘不存在' });
     }
 
-    // 增加免费查看计数
-    await prisma.chart.update({
-      where: { id: chart.id },
-      data: { freeViews: { increment: 1 } },
-    });
-
-    // 提取免费内容
-    const chartData = JSON.parse(chart.chartJson || '{}');
-    let analysisData = null;
-    if (chart.analysisJson) {
-      try { analysisData = JSON.parse(chart.analysisJson); } catch {}
-    }
-    const { bazi, ziwei, keywords } = extractFreeSummary(chartData, analysisData);
-
-    // 提取 marketing 文案
-    let unlockDescription = [
-      { title: '整体命格解析', desc: '八字格局 + 紫微星曜，全面剖析你的天赋特质' },
-      { title: '财富节奏分析', desc: '大运财气走势，精准标注积累期与扩张期' },
-      { title: '事业突破方向', desc: '六维度交叉印证，锁定你的职场优势窗口' },
-      { title: '感情正缘画像', desc: '八字合盘 + 紫微夫妻宫，解读缘分图谱' },
-      { title: '未来五年趋势', desc: '逐年分析关键转折节点与高风险窗口' },
-      { title: '风险提醒与趋吉建议', desc: '基于命盘冲突分析，给出可落地的趋吉避凶方案' },
-    ];
-
-    if (chart.analysisJson) {
-      try {
-        const analysis = JSON.parse(chart.analysisJson);
-        if (analysis.marketing?.paywall_text) {
-          const raw = analysis.marketing.paywall_text;
-          unlockDescription = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        }
-      } catch {}
+    if (chart.status === 'failed') {
+      return res.json({ success: false, data: { status: 'failed' } });
     }
 
+    if (chart.status === 'processing' || chart.status === 'pending') {
+      return res.status(202).json({ success: true, data: { status: 'processing' } });
+    }
+
+    // 返回完整数据
     return res.json({
       success: true,
       data: {
         id: chart.id,
         name: chart.name,
-        posterHtml: chart.posterHtml,
-        posterUrl: chart.posterUrl || '/api/chart/poster/' + chart.id,
-        freeContent: { bazi, ziwei, keywords },
-        unlockDescription,
-        freeViews: chart.freeViews,
+        status: 'complete',
+        freeContent: chart.analysisJson ? JSON.parse(chart.analysisJson) : null,
+        posterHtml: chart.posterHtml || null,
       },
     });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
+  } catch (error) {
+    console.error('Get chart result error:', error);
+    return res.status(500).json({ success: false, error: '服务器错误' });
   }
 }
 

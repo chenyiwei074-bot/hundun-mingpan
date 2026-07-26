@@ -11,6 +11,13 @@ export interface UnlockItem {
   desc: string;
 }
 
+
+export interface ChartCreateResponse {
+  id: string;
+  status: string;
+  freeContent?: FreeContent;
+  quota?: { used: number; remaining: number; limit: number };
+}
 export interface ChartResultData {
   id: string;
   name: string;
