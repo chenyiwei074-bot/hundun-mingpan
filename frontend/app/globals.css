@@ -1,31 +1,48 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @theme {
-  --color-xuan-zhi: #f5f5dc;
-  --color-xuan-zhi-dark: #e8e4c9;
-  --color-dai-qing: #004d4d;
-  --color-dai-qing-dark: #003333;
-  --color-dai-qing-light: #006666;
-  --color-hu-po-jin: #d4af37;
-  --color-hu-po-jin-light: #e8c84a;
-  --color-hu-po-jin-dark: #b8960f;
+  /* ===== 浅色主题 · 参考问真八字 ===== */
+  --color-bg-primary: #f5f5f7;
+  --color-bg-card: #ffffff;
+  --color-bg-card-hover: #fafafa;
+  --color-text-primary: #101010;
+  --color-text-secondary: #666666;
+  --color-text-muted: #999999;
+  --color-accent-gold: #b2955d;
+  --color-accent-gold-light: #d4b87a;
+  --color-accent-gold-dark: #8b6d3b;
+
+  /* 五行配色 */
+  --color-wx-gold: #ef9104;
+  --color-wx-wood: #07a830;
+  --color-wx-water: #2e83f6;
+  --color-wx-fire: #d30505;
+  --color-wx-earth: #8b6d03;
+
+  /* 兼容旧别名 */
+  --color-xuan-zhi: #f5f5f7;
+  --color-dai-qing: #101010;
+  --color-dai-qing-dark: #000000;
+  --color-dai-qing-light: #333333;
+  --color-hu-po-jin: #b2955d;
+  --color-hu-po-jin-light: #d4b87a;
+  --color-hu-po-jin-dark: #8b6d3b;
 }
 
 * { box-sizing: border-box; }
 
 body {
-  background: var(--color-xuan-zhi);
-  color: var(--color-dai-qing);
-  font-family: system-ui, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
 .font-serif, h1, h2, h3, h4 { font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; }
-
-/* ===== Animations — exact from Qingnang ===== */
+/* ===== Animations ===== */
 @keyframes glow-breathe {
-  0%,to{filter:drop-shadow(0 0 8px #d4af374d);text-shadow:0 0 10px #d4af3726}
-  50%{filter:drop-shadow(0 0 24px #d4af3799);text-shadow:0 0 28px #d4af37}
+  0%,to{filter:drop-shadow(0 0 8px #b2955d4d);text-shadow:0 0 10px #b2955d26}
+  50%{filter:drop-shadow(0 0 24px #b2955d99);text-shadow:0 0 28px #b2955d}
 }
 .glow-breathe{animation:glow-breathe 3s ease-in-out infinite}
 
@@ -48,18 +65,18 @@ body {
 @keyframes md-ink-in{0%{opacity:.12;filter:blur(3px);transform:translateY(4px)}to{opacity:1;filter:blur(0);transform:none}}
 .animate-ink-in{animation:md-ink-in .6s ease-out forwards}
 
-/* ===== Buttons — exact from Qingnang ===== */
+/* ===== Buttons ===== */
 .qn-btn{cursor:pointer;white-space:nowrap;user-select:none;letter-spacing:.05em;border:1px solid transparent;justify-content:center;align-items:center;font-family:inherit;font-weight:500;display:inline-flex;position:relative;overflow:hidden;text-decoration:none;transition:all .2s}
-.qn-btn--primary{background:var(--color-dai-qing);color:var(--color-xuan-zhi);box-shadow:0 4px 14px rgba(0,77,77,0.18)}
-.qn-btn--primary:hover{background:var(--color-dai-qing-light)}
+.qn-btn--primary{background:var(--color-accent-gold);color:#fff;box-shadow:0 4px 14px rgba(178,149,93,0.18)}
+.qn-btn--primary:hover{background:var(--color-accent-gold-light)}
 .qn-btn--sm{border-radius:10px;height:36px;padding:0 16px;font-size:13px}
 
 .btn-glow{position:relative;overflow:hidden}
-.btn-glow:hover{box-shadow:0 8px 30px rgba(212,175,55,0.25)}
+.btn-glow:hover{box-shadow:0 8px 30px rgba(178,149,93,0.25)}
 
-.gold-foil-text{background:linear-gradient(135deg,#d4af37 0%,#f0d060 25%,#d4af37 50%,#b8960f 75%,#d4af37 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.gold-foil-text{background:linear-gradient(135deg,#b2955d 0%,#d4b87a 25%,#b2955d 50%,#8b6d3b 75%,#b2955d 100%);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 
-.divider-ink{height:1px;background:linear-gradient(90deg,transparent,var(--color-hu-po-jin),transparent)}
+.divider-ink{height:1px;background:linear-gradient(90deg,transparent,var(--color-accent-gold),transparent)}
 
 .card-float{transition:transform .3s,box-shadow .3s}
 .card-float:hover{transform:translateY(-2px)}
@@ -74,53 +91,24 @@ body {
 @keyframes ring-rotate{to{transform:rotate(360deg)}}
 
 /* ===== Form ===== */
-.qn-input{width:100%;background:var(--color-xuan-zhi);border:1px solid rgba(0,77,77,0.1);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-dai-qing);outline:none;font-family:inherit;transition:border-color .2s}
-.qn-input:focus{border-color:rgba(212,175,55,0.4)}
-.qn-input::placeholder{color:rgba(0,77,77,0.25)}
-.qn-select{width:100%;background:var(--color-xuan-zhi);border:1px solid rgba(0,77,77,0.1);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-dai-qing);outline:none;cursor:pointer;font-family:inherit;appearance:none}
-.qn-label{font-size:11px;letter-spacing:.28px;color:rgba(0,77,77,0.5);margin-bottom:6px;display:block}
+.qn-input{width:100%;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-text-primary);outline:none;font-family:inherit;transition:border-color .2s}
+.qn-input:focus{border-color:rgba(178,149,93,0.4)}
+.qn-input::placeholder{color:rgba(0,0,0,0.25)}
+.qn-select{width:100%;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-text-primary);outline:none;cursor:pointer;font-family:inherit;text-align:center;appearance:none}
+.qn-label{font-size:11px;letter-spacing:.28px;color:rgba(0,0,0,0.45);margin-bottom:6px;display:block}
 
-/* ===== Additional Qingnang animations ===== */
+/* ===== Additional animations ===== */
 @keyframes ink-spread{0%{opacity:.8;filter:blur(0);transform:scale(0)}to{opacity:0;filter:blur(12px);transform:scale(1)}}
 @keyframes ink-spread-delayed{0%,30%{opacity:0;transform:scale(0)}45%{opacity:.7}to{opacity:0;filter:blur(16px);transform:scale(1.1)}}
 @keyframes coin-bounce{0%,to{transform:translateY(0)}30%{transform:translateY(-18px)}50%{transform:translateY(0)}70%{transform:translateY(-8px)}}
 @keyframes float-particle{0%,to{opacity:0;transform:translateY(0) translateX(0)}20%{opacity:.8}80%{opacity:.3}to{opacity:0;transform:translateY(-80px) translateX(20px)}}
 @keyframes float-particle-alt{0%,to{opacity:0;transform:translateY(0) translateX(0)}20%{opacity:.6}80%{opacity:.2}to{opacity:0;transform:translateY(-60px) translateX(-16px)}}
 @keyframes ring-rotate-rev{to{transform:rotate(-360deg)}}
-@keyframes lamp-pulse{0%,to{box-shadow:0 0 0 0 rgba(212,175,55,0.45)}50%{box-shadow:0 0 0 8px rgba(212,175,55,0)}}
+@keyframes lamp-pulse{0%,to{box-shadow:0 0 0 0 rgba(178,149,93,0.45)}50%{box-shadow:0 0 0 8px rgba(178,149,93,0)}}
 @keyframes foil-sheen{0%{background-position:var(--foil-offset,0px) 0,0 0,0 0,0 0}to{background-position:calc(var(--foil-offset,0px) + 800px) 0,0 0,0 0,0 0}}
 
-/* Ring animations for hexagram display */
 .anchor-ring{animation:ring-rotate 20s linear infinite}
 .anchor-ring-rev{animation:ring-rotate-rev 25s linear infinite}
 .anchor-radiate{animation:anchor-radiate 3s ease-out infinite}
 .hex-particle{animation:float-particle 6s ease-in-out infinite}
 .hex-particle-alt{animation:float-particle-alt 5s ease-in-out infinite}
-
-/* ===== Demo / Persona section ===== */
-.qn-demo__persona{text-align:left;cursor:pointer;background:rgba(0,77,77,0.03);border:1px solid rgba(0,77,77,0.18);border-radius:4px;flex-direction:column;gap:6px;padding:20px 22px;transition:border-color .3s,background .3s,transform .3s;display:flex}
-.qn-demo__persona:hover{transform:translateY(-2px)}
-.qn-demo__persona.is-active{background:rgba(212,175,55,0.07);border-color:rgba(212,175,55,0.55);box-shadow:0 6px 22px rgba(0,77,77,0.1)}
-.qn-demo__persona-sub{letter-spacing:.28em;color:var(--color-hu-po-jin);opacity:.75;font-size:10px}
-.qn-demo__persona-title{color:var(--color-dai-qing);font-size:20px}
-.qn-demo__persona-desc{color:var(--color-dai-qing-light);font-size:13px;line-height:1.65}
-.qn-demo__depth{color:var(--color-dai-qing-light);cursor:pointer;background:transparent;border:1px solid rgba(0,77,77,0.18);border-radius:999px;align-items:baseline;gap:8px;padding:9px 16px;font-size:13px;transition:border-color .25s,background .25s,color .25s;display:inline-flex}
-.qn-demo__depth.is-active{border-color:var(--color-dai-qing);background:var(--color-dai-qing);color:var(--color-xuan-zhi)}
-.qn-demo__depth-sub{opacity:.55;font-size:11px}
-.qn-demo__output{background:var(--color-xuan-zhi);text-align:left;border:1px solid rgba(0,77,77,0.14);border-radius:6px;padding:22px 26px 26px;position:relative;box-shadow:none}
-.qn-demo__output-head{letter-spacing:.3em;color:rgba(0,77,77,0.45);align-items:center;gap:8px;font-size:10px;display:flex}
-.qn-demo__lamp{background:var(--color-hu-po-jin);border-radius:999px;width:6px;height:6px;animation:lamp-pulse 2.4s ease-in-out infinite}
-.qn-demo__text{letter-spacing:.02em;color:var(--color-dai-qing);min-height:6.5em;margin-top:14px;font-size:15px;line-height:2.05}
-.qn-demo__hint{text-align:center;color:rgba(0,77,77,0.45);margin-top:14px;font-size:12px}
-.qn-demo__cta{letter-spacing:.05em;color:var(--color-dai-qing);border-bottom:1px solid rgba(0,77,77,0.3);padding-bottom:2px;font-size:13px;transition:color .25s,border-color .25s;text-decoration:none}
-.qn-demo__cta:hover{color:var(--color-dai-qing);border-color:var(--color-dai-qing)}
-@keyframes lamp-pulse{0%,to{box-shadow:0 0 0 0 rgba(212,175,55,0.45)}50%{box-shadow:0 0 0 8px rgba(212,175,55,0)}}
-@keyframes md-ink-in{0%{opacity:.12;filter:blur(3px);transform:translateY(4px)}to{opacity:1;filter:blur(0);transform:none}}
-.animate-ink-in{animation:md-ink-in .6s ease-out forwards}
-
-/* ===== Qingnang inkline input ===== */
-.qn-inkline{display:block;position:relative}
-.qn-inkline__ink{background:linear-gradient(90deg, var(--color-hu-po-jin) 0%, #d4af374d 100%);height:1.5px;position:absolute;bottom:0;left:0;right:0}
-@supports (color:color-mix(in lab, red, red)){
-  .qn-inkline__ink{background:linear-gradient(90deg, var(--color-hu-po-jin) 0%, color-mix(in srgb, var(--color-hu-po-jin) 30%, transparent) 100%)}
-}

@@ -56,7 +56,6 @@ export async function createChart(req: Request, res: Response) {
 
     // 异步流水线
     runPipeline(input, chart.id).catch(err => console.error('Pipeline error:', err));
-    // Note: persona and depth are passed via input to the pipeline
 
     return res.json({
       success: true,
@@ -101,20 +100,35 @@ export async function getChartResult(req: Request, res: Response) {
     if (chart.status === 'failed') {
       return res.json({ success: false, data: { status: 'failed' } });
     }
-
     if (chart.status === 'processing' || chart.status === 'pending') {
+      // 排盘数据已就绪：即使 AI 还在跑，也先返回排盘
+      if (chart.chartJson) {
+        const chartData = JSON.parse(chart.chartJson);
+        return res.json({
+          success: true,
+          data: {
+            id: chart.id,
+            name: chart.name,
+            status: 'processing',
+            chartData,
+            analysisData: null,
+          },
+        });
+      }
       return res.status(202).json({ success: true, data: { status: 'processing' } });
     }
+    // 返回模块化数据
+    const chartData = chart.chartJson ? JSON.parse(chart.chartJson) : null;
+    const analysisData = chart.analysisJson ? JSON.parse(chart.analysisJson) : null;
 
-    // 返回完整数据
     return res.json({
       success: true,
       data: {
         id: chart.id,
         name: chart.name,
         status: 'complete',
-        freeContent: chart.analysisJson ? JSON.parse(chart.analysisJson) : null,
-        posterHtml: chart.posterHtml || null,
+        chartData,
+        analysisData,
       },
     });
   } catch (error) {
@@ -201,10 +215,107 @@ export async function getQuota(req: Request, res: Response) {
     const vid = req.query.visitor_id as string;
     if (!vid) return res.status(400).json({ success: false, error: '缺少 visitor_id' });
     return res.json({
-    success: true,
-    data: { used: 0, remaining: 999, limit: 999 },
-  });
+      success: true,
+      data: { used: 0, remaining: 999, limit: 999 },
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }
+
+// ===== 报告订单 API =====
+
+// POST /api/report/create
+export async function createReportOrder(req: Request, res: Response) {
+  try {
+    const { chartId, email } = req.body;
+    if (!chartId || !email) {
+      return res.status(400).json({ success: false, error: '缺少参数 chartId 或 email' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, error: '邮箱格式不正确' });
+    }
+    // 检查 chart 是否存在
+    const chart = await prisma.chart.findUnique({ where: { id: chartId } });
+    if (!chart) {
+      return res.status(404).json({ success: false, error: '命盘不存在' });
+    }
+    // 检查是否已有订单
+    const existing = await prisma.reportOrder.findFirst({
+      where: { chartId, paymentStatus: 'paid' }
+    });
+    if (existing) {
+      return res.json({ success: true, data: { id: existing.id, status: 'already_paid', reportUrl: existing.reportUrl } });
+    }
+    // 创建订单
+    const order = await prisma.reportOrder.create({
+      data: { chartId, email, status: 'pending', paymentStatus: 'unpaid' }
+    });
+    return res.json({ success: true, data: { id: order.id, status: 'pending' } });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// POST /api/report/confirm-payment (预留)
+export async function confirmPayment(req: Request, res: Response) {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: '缺少 orderId' });
+    }
+    const order = await prisma.reportOrder.findUnique({ where: { id: orderId } });
+    if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
+    // TODO: 对接真实支付回调
+    // 当前直接标记为已支付
+    await prisma.reportOrder.update({
+      where: { id: orderId },
+      data: { paymentStatus: 'paid', status: 'processing' }
+    });
+    // 异步生成报告
+    generateReport(orderId).catch(err => console.error('Generate report error:', err));
+    return res.json({ success: true, data: { status: 'processing' } });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// GET /api/report/status/:id
+export async function getReportStatus(req: Request, res: Response) {
+  try {
+    const id = req.params.id;
+    const order = await prisma.reportOrder.findUnique({ where: { id } });
+    if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
+    return res.json({
+      success: true,
+      data: {
+        id: order.id,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        reportUrl: order.reportUrl,
+        createdAt: order.createdAt,
+      }
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+// 报告生成任务（预留）
+async function generateReport(orderId: string): Promise<void> {
+  // TODO: 接入 AI 引擎生成完整双盘报告
+  // 1. 获取 chart 数据
+  // 2. 调用 AI 双盘合参分析
+  // 3. 生成 HTML/PDF 报告
+  // 4. 存储到 OSS，更新 reportUrl
+  // 5. 发送邮件通知
+  console.log('[ReportGen] Order:', orderId, '- AI report generation placeholder');
+  // 模拟异步生成
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  await prisma.reportOrder.update({
+    where: { id: orderId },
+    data: { status: 'completed', reportUrl: '/api/report/download/' + orderId }
+  });
+}
+
 }

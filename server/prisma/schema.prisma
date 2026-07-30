@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -28,6 +28,20 @@ model Chart {
   @@map("charts")
 }
 
+model ReportOrder {
+  id            String   @id @default(cuid())
+  chartId       String   @map("chart_id")
+  email         String
+  status        String   @default("pending") // pending | processing | completed | failed
+  paymentStatus String   @default("unpaid") @map("payment_status") // unpaid | paid | refunded
+  reportUrl     String?  @map("report_url")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("report_orders")
+}
+
 model UsageLog {
   id        String   @id @default(cuid())
   visitorId String   @map("visitor_id")
@@ -45,4 +59,52 @@ model Event {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("events")
+}
+model User {
+  id        String    @id @default(cuid())
+  email     String?   @unique
+  phone     String?   @unique
+  nickname  String?
+  avatar    String?
+  visitorId String    @unique @map("visitor_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  reports   Report[]
+
+  @@map("users")
+}
+
+model Report {
+  productId    String?  @map("product_id")
+  product      Product? @relation(fields: [productId], references: [id])
+  visitorId   String   @map("visitor_id")
+  id           String   @id @default(cuid())
+  userId       String?  @map("user_id")
+  user         User?    @relation(fields: [userId], references: [id])
+  type         String   // "bazi" | "ziwei" | "liuyao"
+  title        String
+  inputJson    String   @map("input_json")
+  resultJson   String?  @map("result_json")
+  analysisJson String?  @map("analysis_json")
+  reportText   String?  @map("report_text")
+  status       String   @default("free") // free | paid | generated
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, type])
+  @@map("reports")
+}
+model Product {
+  id          String   @id @default(cuid())
+  type        String   // "bazi" | "ziwei" | "liuyao"
+  name        String
+  description String?
+  price       Int      @default(0) // 单位：元
+  features    String   @default("[]") // JSON array of feature strings
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  reports     Report[]
+
+  @@map("products")
 }

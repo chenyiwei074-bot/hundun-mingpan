@@ -1,32 +1,4 @@
-﻿const API_BASE = typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'https://hundunmp.vip/api' : (process.env.NEXT_PUBLIC_API_URL || '/api');
-
-export interface FreeContent {
-  bazi: Record<string, unknown>;
-  ziwei: Record<string, unknown>;
-  keywords: string[];
-}
-
-export interface UnlockItem {
-  title: string;
-  desc: string;
-}
-
-
-export interface ChartCreateResponse {
-  id: string;
-  status: string;
-  freeContent?: FreeContent;
-  quota?: { used: number; remaining: number; limit: number };
-}
-export interface ChartResultData {
-  id: string;
-  name: string;
-  posterHtml: string;
-  posterUrl: string;
-  freeContent: FreeContent;
-  unlockDescription: UnlockItem[];
-  freeViews: number;
-}
+const API_BASE = "http://localhost:3000/api";
 
 export async function createChart(data: {
   visitor_id: string;
@@ -37,40 +9,63 @@ export async function createChart(data: {
   birthPlace: string;
   currentPlace: string;
 }) {
-  const res = await fetch(API_BASE + '/chart/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const res = await fetch(API_BASE + "/chart/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
 export async function getChartStatus(id: string) {
-  const res = await fetch(API_BASE + '/chart/status/' + id);
+  const res = await fetch(API_BASE + "/chart/status/" + id);
   return res.json();
 }
 
 export async function getChartResult(id: string) {
-  const url = API_BASE + '/chart/result/' + id;
-  console.log('[DEBUG getChartResult] Fetching:', url);
+  const url = API_BASE + "/chart/result/" + id;
+  console.log("[DEBUG getChartResult] Fetching:", url);
   const res = await fetch(url);
   const json = await res.json();
-  const result = { ...json, httpStatus: res.status };
-  console.log('[DEBUG getChartResult] Response:', { httpStatus: res.status, success: json.success, hasData: !!json.data, keys: json.data ? Object.keys(json.data) : [] });
-  return result;
+  return { ...json, httpStatus: res.status };
 }
 
 export async function getQuota(visitorId: string) {
-  const res = await fetch(API_BASE + '/chart/quota?visitor_id=' + visitorId);
+  const res = await fetch(API_BASE + "/chart/quota?visitor_id=" + visitorId);
   return res.json();
 }
 
 export async function trackEvent(event_name: string, visitor_id: string, chart_id?: string) {
   try {
-    await fetch(API_BASE + '/event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch(API_BASE + "/event", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event_name, visitor_id, chart_id }),
     });
   } catch {}
+}
+
+// ===== 报告订单 API =====
+
+export async function createReportOrder(chartId: string, email: string) {
+  const res = await fetch(API_BASE + "/report/create", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chartId, email }),
+  });
+  return res.json();
+}
+
+export async function getReportStatus(orderId: string) {
+  const res = await fetch(API_BASE + "/report/status/" + orderId);
+  return res.json();
+}
+
+export async function confirmReportPayment(orderId: string) {
+  const res = await fetch(API_BASE + "/report/confirm-payment", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orderId }),
+  });
+  return res.json();
 }

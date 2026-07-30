@@ -1,0 +1,367 @@
+// ═══════════════════════════════════════════
+// 神煞计算 — 前端自动推导
+// ═══════════════════════════════════════════
+
+const DIZHI = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const TG = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+
+/** 天乙贵人 */
+const TIAN_YI: Record<string, [string,string]> = {
+  "甲":["丑","未"],"戊":["丑","未"],"庚":["丑","未"],
+  "乙":["子","申"],"己":["子","申"],
+  "丙":["亥","酉"],"丁":["亥","酉"],
+  "辛":["午","寅"],"壬":["卯","巳"],"癸":["卯","巳"],
+};
+
+/** 文昌 */
+const WEN_CHANG: Record<string, string> = {
+  "甲":"巳","乙":"午","丙":"申","丁":"酉","戊":"申",
+  "己":"酉","庚":"亥","辛":"子","壬":"寅","癸":"卯",
+};
+
+/** 驿马 (以年/日支查) */
+const YI_MA: Record<string, string> = {
+  "申":"寅","子":"寅","辰":"寅",
+  "寅":"申","午":"申","戌":"申",
+  "巳":"亥","酉":"亥","丑":"亥",
+  "亥":"巳","卯":"巳","未":"巳",
+};
+
+/** 桃花 */
+const TAO_HUA: Record<string, string> = {
+  "申":"酉","子":"酉","辰":"酉",
+  "寅":"卯","午":"卯","戌":"卯",
+  "巳":"午","酉":"午","丑":"午",
+  "亥":"子","卯":"子","未":"子",
+};
+
+/** 华盖 */
+const HUA_GAI: Record<string, string> = {
+  "申":"辰","子":"辰","辰":"辰",
+  "寅":"戌","午":"戌","戌":"戌",
+  "巳":"丑","酉":"丑","丑":"丑",
+  "亥":"未","卯":"未","未":"未",
+};
+
+/** 羊刃 (阳干帝旺位) */
+const YANG_REN: Record<string, string> = {
+  "甲":"卯","丙":"午","戊":"午","庚":"酉","壬":"子",
+};
+
+/** 禄神 — 日干临官位 */
+const LU_SHEN: Record<string, string> = {
+  "甲":"寅","乙":"卯","丙":"巳","丁":"午","戊":"巳","己":"午","庚":"申","辛":"酉","壬":"亥","癸":"子",
+};
+
+/** 金舆 */
+const JIN_YU: Record<string, string> = {
+  "甲":"辰","乙":"巳","丙":"未","丁":"申","戊":"未","己":"申","庚":"戌","辛":"亥","壬":"丑","癸":"寅",
+};
+
+/** 学堂 */
+const XUE_TANG: Record<string, string> = {
+  "甲":"亥","乙":"午","丙":"寅","丁":"酉","戊":"寅","己":"酉","庚":"巳","辛":"子","壬":"申","癸":"卯",
+};
+
+/** 劫煞 */
+const JIE_SHA: Record<string, string> = {
+  "申":"巳","子":"巳","辰":"巳",
+  "寅":"亥","午":"亥","戌":"亥",
+  "巳":"申","酉":"申","丑":"申",
+  "亥":"寅","卯":"寅","未":"寅",
+};
+
+/** 亡神 */
+const WANG_SHEN: Record<string, string> = {
+  "申":"亥","子":"亥","辰":"亥",
+  "寅":"巳","午":"巳","戌":"巳",
+  "巳":"申","酉":"申","丑":"申",
+  "亥":"寅","卯":"寅","未":"寅",
+};
+
+/** 灾煞 */
+const ZAI_SHA: Record<string, string> = {
+  "申":"午","子":"午","辰":"午",
+  "寅":"子","午":"子","戌":"子",
+  "巳":"卯","酉":"卯","丑":"卯",
+  "亥":"酉","卯":"酉","未":"酉",
+};
+
+/** 红鸾 */
+const HONG_LUAN: Record<string, string> = {
+  "子":"卯","丑":"寅","寅":"丑","卯":"子","辰":"亥","巳":"戌",
+  "午":"酉","未":"申","申":"未","酉":"午","戌":"巳","亥":"辰",
+};
+
+/** 天喜 */
+const TIAN_XI: Record<string, string> = {
+  "子":"酉","丑":"申","寅":"未","卯":"午","辰":"巳","巳":"辰",
+  "午":"卯","未":"寅","申":"丑","酉":"子","戌":"亥","亥":"戌",
+};
+
+/** 孤辰 */
+const GU_CHEN: Record<string, string> = {
+  "寅":"巳","卯":"巳","辰":"巳",
+  "巳":"申","午":"申","未":"申",
+  "申":"亥","酉":"亥","戌":"亥",
+  "亥":"寅","子":"寅","丑":"寅",
+};
+
+/** 寡宿 */
+const GUA_SU: Record<string, string> = {
+  "寅":"丑","卯":"丑","辰":"丑",
+  "巳":"辰","午":"辰","未":"辰",
+  "申":"未","酉":"未","戌":"未",
+  "亥":"戌","子":"戌","丑":"戌",
+};
+
+/** 天德贵人 — 月支定天德，查柱天干 */
+const TIAN_DE: Record<string, string> = {
+  "寅":"丁","卯":"申","辰":"壬","巳":"辛","午":"亥","未":"甲",
+  "申":"癸","酉":"寅","戌":"丙","亥":"乙","子":"巳","丑":"庚",
+};
+
+/** 月德贵人 — 月支三合定月德，查柱天干 */
+const YUE_DE_GROUPS: Record<string, string[]> = {
+  "寅":["丙"],"午":["丙"],"戌":["丙"],
+  "亥":["甲"],"卯":["甲"],"未":["甲"],
+  "申":["壬"],"子":["壬"],"辰":["壬"],
+  "巳":["庚"],"酉":["庚"],"丑":["庚"],
+};
+
+/** 将星 */
+const JIANG_XING: Record<string, string> = {
+  "申":"子","子":"子","辰":"子",
+  "寅":"午","午":"午","戌":"午",
+  "巳":"酉","酉":"酉","丑":"酉",
+  "亥":"卯","卯":"卯","未":"卯",
+};
+
+/** 太极贵人 */
+const TAI_JI: Record<string, string> = {
+  "甲":"未","乙":"午","丙":"酉","丁":"申","戊":"亥",
+  "己":"子","庚":"丑","辛":"寅","壬":"卯","癸":"巳",
+};
+
+/** 福星贵人 */
+const FU_XING: Record<string, string> = {
+  "甲":"寅","乙":"丑","丙":"子","丁":"酉","戊":"申",
+  "己":"未","庚":"午","辛":"巳","壬":"辰","癸":"卯",
+};
+
+/** 天厨贵人 */
+const TIAN_CHU: Record<string, string> = {
+  "甲":"巳","乙":"午","丙":"子","丁":"巳","戊":"午",
+  "己":"申","庚":"寅","辛":"午","壬":"酉","癸":"亥",
+};
+
+/** 飞刃 — 羊刃对冲位 */
+const FEI_REN: Record<string, string> = {
+  "甲":"酉","丙":"子","戊":"子","庚":"卯","壬":"午",
+};
+
+/** 天罗地网 */
+const TIAN_LUO_DI_WANG_BRANCHES: Record<string, string[]> = {
+  "戌":["亥"],"亥":["戌"],
+  "辰":["巳"],"巳":["辰"],
+};
+
+// ── 日柱专属 ──
+const KUI_GANG = ["庚戌","庚辰","壬辰","戊戌"];
+
+const SHI_E_DA_BAI: Record<string, string[]> = {
+  "甲":["辰"],"乙":["巳"],"丙":["申"],"丁":["亥"],
+  "戊":["戌"],"己":["丑"],"庚":["辰"],"辛":["巳"],
+  "壬":["申"],"癸":["亥"],
+};
+
+const YIN_YANG_CHA_CUO_LIST = ["丙子","丁丑","戊寅","辛卯","壬辰","癸巳","丙午","丁未","戊申","辛酉","壬戌","癸亥"];
+
+/** 孤鸾 — 仅日柱 */
+const GU_LUAN = ["甲寅","乙卯","丁巳","丁未","戊午","戊申","庚申","辛亥","壬子"];
+
+/** 八专 — 仅日柱 */
+const BA_ZHUAN = ["甲寅","乙卯","丁未","己未","庚申","辛酉","戊戌","癸丑"];
+
+/** 九丑 — 仅日柱 */
+const JIU_CHOU_LIST = ["戊午","壬子","壬午","戊子","己卯","己酉","乙卯","乙酉","辛卯","辛酉"];
+
+// ── 流年十二神（以年支定每个地支对应的神）──
+const LIU_NIAN_SHEN_NAMES = ["太岁","太阳","丧门","太阴","官符","死符","岁破","龙德","白虎","福德","吊客","病符"];
+function getLiuNianShen(yearBranch: string, branch: string): string {
+  const yi = DIZHI.indexOf(yearBranch);
+  const bi = DIZHI.indexOf(branch);
+  if (yi < 0 || bi < 0) return "";
+  const offset = (bi - yi + 12) % 12;
+  return LIU_NIAN_SHEN_NAMES[offset];
+}
+
+// ── 以日干查地支神煞 ──
+/** 金神 */
+const JIN_SHEN: Record<string, string[]> = {
+  "甲":["午","未"],"乙":["辰","巳"],"丙":["寅","卯"],
+  "丁":["戌","亥"],"戊":["申","酉"],"己":["午","未"],
+  "庚":["辰","巳"],"辛":["寅","卯"],"壬":["戌","亥"],
+  "癸":["申","酉"],
+};
+
+/** 天赦日 (仅日柱) */
+const TIAN_SHE: Record<string, string> = {
+  "寅":"甲","卯":"戊","辰":"甲","巳":"戊","午":"甲","未":"戊",
+  "申":"甲","酉":"戊","戌":"甲","亥":"戊","子":"甲","丑":"戊",
+};
+
+/** 进神 */
+const JIN_SHEN_LIST = ["甲子","甲午","己卯","己酉"];
+
+/** 退神 */
+const TUI_SHEN_LIST = ["壬子","壬午","辛卯","辛酉"];
+
+/** 截路空亡 (以日干查) */
+const JIE_LU_KONG: Record<string, string> = {
+  "甲":"申","乙":"午","丙":"辰","丁":"寅","戊":"子",
+  "己":"戌","庚":"申","辛":"午","壬":"辰","癸":"寅",
+};
+
+// ============================================================
+export function calcShenSha(dayStem: string, yearBranch: string, monthBranch: string, branch: string, gan?: string, pillarKey?: string): string[] {
+  const result: string[] = [];
+
+  // 天乙贵人
+  const ty = TIAN_YI[dayStem];
+  if (ty && ty.includes(branch)) result.push("天乙贵人");
+
+  // 文昌
+  if (WEN_CHANG[dayStem] === branch) result.push("文昌");
+
+  // 驿马
+  if (YI_MA[yearBranch] === branch) result.push("驿马");
+  if (YI_MA[branch] === yearBranch) result.push("驿马");
+
+  // 桃花
+  if (TAO_HUA[yearBranch] === branch) result.push("桃花");
+
+  // 华盖
+  if (HUA_GAI[yearBranch] === branch) result.push("华盖");
+
+  // 羊刃
+  if (YANG_REN[dayStem] === branch) result.push("羊刃");
+
+  // 将星
+  if (JIANG_XING[yearBranch] === branch) result.push("将星");
+
+  // 禄神
+  if (LU_SHEN[dayStem] === branch) result.push("禄神");
+
+  // 金舆
+  if (JIN_YU[dayStem] === branch) result.push("金舆");
+
+  // 学堂
+  if (XUE_TANG[dayStem] === branch) result.push("学堂");
+
+  // 劫煞
+  if (JIE_SHA[yearBranch] === branch) result.push("劫煞");
+
+  // 亡神
+  if (WANG_SHEN[yearBranch] === branch) result.push("亡神");
+
+  // 灾煞
+  if (ZAI_SHA[yearBranch] === branch) result.push("灾煞");
+
+  // 红鸾
+  if (HONG_LUAN[yearBranch] === branch) result.push("红鸾");
+
+  // 天喜
+  if (TIAN_XI[yearBranch] === branch) result.push("天喜");
+
+  // 孤辰
+  if (GU_CHEN[yearBranch] === branch) result.push("孤辰");
+
+  // 寡宿
+  if (GUA_SU[yearBranch] === branch) result.push("寡宿");
+
+  // 天德贵人
+  if (gan && TIAN_DE[monthBranch] === gan) result.push("天德贵人");
+
+  // 月德贵人
+  if (gan) {
+    const yueDe = YUE_DE_GROUPS[monthBranch];
+    if (yueDe && yueDe.includes(gan)) result.push("月德贵人");
+  }
+
+  // 太极贵人
+  if (TAI_JI[dayStem] === branch) result.push("太极贵人");
+
+  // 福星贵人
+  if (FU_XING[dayStem] === branch) result.push("福星贵人");
+
+  // 天厨贵人
+  if (TIAN_CHU[dayStem] === branch) result.push("天厨贵人");
+
+  // 飞刃
+  if (FEI_REN[dayStem] === branch) result.push("飞刃");
+
+  // 天罗地网
+  if (TIAN_LUO_DI_WANG_BRANCHES[yearBranch]?.includes(branch)) result.push("天罗地网");
+
+  // ── 流年十二神 (基于年支) ──
+  const lns = getLiuNianShen(yearBranch, branch);
+  if (lns && lns !== "太岁" && lns !== "岁破") result.push(lns);
+
+  // ── 金神 (日干查) ──
+  if (JIN_SHEN[dayStem]?.includes(branch)) result.push("金神");
+
+  // ── 截路空亡 ──
+  if (JIE_LU_KONG[dayStem] === branch) result.push("截空");
+
+  // ── 进神/退神 (日柱) ──
+  if (pillarKey === "day" && gan) {
+    const gz = gan + branch;
+    if (JIN_SHEN_LIST.includes(gz)) result.push("进神");
+    if (TUI_SHEN_LIST.includes(gz)) result.push("退神");
+  }
+
+  // ── 天赦日 (仅日柱) ──
+  if (pillarKey === "day" && gan && TIAN_SHE[monthBranch] === gan) result.push("天赦");
+
+  // ── 以下仅日柱生效 ──
+  if (pillarKey === "day" && gan) {
+    const gz = gan + branch;
+
+    // 魁罡
+    if (KUI_GANG.includes(gz)) result.push("魁罡");
+
+    // 十恶大败
+    if (SHI_E_DA_BAI[gan]?.includes(branch)) result.push("十恶大败");
+
+    // 阴阳差错
+    if (YIN_YANG_CHA_CUO_LIST.includes(gz)) result.push("阴阳差错");
+
+    // 孤鸾
+    if (GU_LUAN.includes(gz)) result.push("孤鸾");
+
+    // 八专
+    if (BA_ZHUAN.includes(gz)) result.push("八专");
+
+    // 九丑
+    if (JIU_CHOU_LIST.includes(gz)) result.push("九丑");
+  }
+
+  return result;
+}
+
+// 空亡
+export function calcKongWang(stem: string, branch: string): string {
+  const gi = TG.indexOf(stem), zi = DIZHI.indexOf(branch);
+  if (gi<0||zi<0) return "";
+  return DIZHI[(zi-gi-1+12)%12] + DIZHI[(zi-gi-2+12)%12];
+}
+
+// 十二长生
+const ZS_ORDER = ["长生","沐浴","冠带","临官","帝旺","衰","病","死","墓","绝","胎","养"];
+const ZS_START: Record<string,number> = {甲:5,乙:9,丙:5,丁:9,戊:5,己:9,庚:0,辛:4,壬:0,癸:4};
+export function calcZhangSheng(dayStem: string, branch: string): string {
+  const si = ZS_START[dayStem]; if (si===undefined) return "";
+  const bi = DIZHI.indexOf(branch); if (bi<0) return "";
+  return ZS_ORDER[(si+bi)%12];
+}

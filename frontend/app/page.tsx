@@ -1,274 +1,788 @@
-'use client';
+﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { trackEvent } from '@/app/lib/api';
+import { useGSAP } from '@gsap/react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-const GLYPHS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥','乾','坤','震','巽','坎','离','艮','兑','魁','钺','禄','权','科','忌','斗','宿','星'];
+gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-export default function HomePage() {
-  useEffect(() => {
-    const vid = typeof window !== 'undefined' ? localStorage.getItem('hundun_visitor_id') || 'visitor_anon' : 'visitor_anon';
-    trackEvent('page_view', vid);
-  }, [])
-  const [activePersona, setActivePersona] = useState<'standard' | 'casual'>('standard');
-  const [activeDepth, setActiveDepth] = useState<'brief' | 'detail'>('brief');
-  const demos = {
-    standard: { brief: '此命局日主壬水生于申月，得长生之气，又见庚金发源，水源充沛。以印化杀为用，食神制杀为佐。格局清正，贵气暗藏。', detail: '日主壬水生于申月得长生，庚金发源，水源充沛。然戊土七杀透干，戌土坐支，杀势不弱。身强杀强，以印化杀为用，食神制杀为佐。早年行北方水地，印比帮身。中年入西方金地，事业腾达。晚运火土，财官显露。' },
-    casual: { brief: '你的命盘就像一条大江，水源充足，气势磅礴。但江上有座大坝（七杀），让你不能肆意奔流。不过大坝上有闸门（印星），该放水时就放水，属于"看似被管着，实则有人罩"的类型。', detail: '你这命啊，一条大江，水多得要漫出来。命中带个七杀，就像江上修了座大坝，管着你。好在坝上有闸门，水多开闸，水少蓄水。你这个叫"有管教但有人罩"，命里带贵气。' },
-  };;
+const ink   = '#1d1d1f'; const mute  = '#86868b';
+const paper = '#f5f5f7'; const white = '#ffffff';
+const gold  = '#b2955d'; const hair  = 'rgba(0,0,0,0.06)'; const red = '#d4544a';
+
+function Taiji({ size = 240 }: { size?: number }) {
+  const r = size / 2;
+  const s = size;
+  const h = r / 2;
+  // Generate tick marks around the circle
+  const ticks24 = Array.from({ length: 24 }, (_, i) => {
+    const a = (i * 360) / 24 - 90;
+    const rad = (a * Math.PI) / 180;
+    const inner = r + 16;
+    const len = i % 6 === 0 ? 10 : i % 3 === 0 ? 6 : 3;
+    return { x1: r + inner * Math.cos(rad), y1: r + inner * Math.sin(rad),
+             x2: r + (inner + len) * Math.cos(rad), y2: r + (inner + len) * Math.sin(rad),
+             thick: i % 6 === 0 ? 0.6 : 0.3 };
+  });
+  const stems = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+  return (
+    <div className="taiji-glow relative inline-flex items-center justify-center"
+      style={{ width: s + 120, height: s + 120 }}>
+      {/* Pulse aura */}
+      <div className="absolute inset-0 rounded-full" style={{
+        background: "radial-gradient(circle, rgba(178,149,93,0.08) 0%, transparent 60%)",
+        animation: "taijiPulse 4s ease-in-out infinite",
+      }} />
+      {/* Outer decorative rings */}
+      <div className="absolute rounded-full" style={{
+        width: s + 100, height: s + 100,
+        border: "0.5px solid rgba(178,149,93,0.30)",
+        animation: "taijiOrbit 50s linear infinite reverse",
+      }} />
+      <div className="absolute rounded-full" style={{
+        width: s + 70, height: s + 70,
+        border: "0.5px dashed rgba(178,149,93,0.24)",
+        animation: "taijiOrbit 35s linear infinite",
+      }} />
+      {/* Orbiting dots */}
+      {[{ d: r+50, sz:3.5, o:0.45, t:22, rev:true },
+        { d: r+44, sz:2.5, o:0.3, t:28, rev:false },
+        { d: r+56, sz:2, o:0.35, t:19, rev:true },
+        { d: r+38, sz:3, o:0.25, t:33, rev:false },
+        { d: r+62, sz:2, o:0.3, t:26, rev:true }].map((p,i) => (
+        <div key={"p"+i} className="absolute rounded-full" style={{
+          width: p.sz, height: p.sz, background: gold, opacity: p.o,
+          animation: "taijiOrbit " + p.t + "s linear infinite" + (p.rev ? " reverse" : ""),
+          top: "calc(50% - " + (p.sz/2) + "px)",
+          left: "calc(50% + " + p.d + "px)",
+          transformOrigin: "-" + p.d + "px " + (p.sz/2) + "px",
+        }} />
+      ))}
+      {/* Main cosmic diagram SVG */}
+      <svg width={s + 80} height={s + 80} viewBox={"-40 -40 " + (s+80) + " " + (s+80)} className="relative z-10" style={{ overflow: "visible" }}>
+        <defs>
+          <radialGradient id={"yg" + s} cx="60%" cy="35%">
+            <stop offset="0%" stopColor={gold} stopOpacity={0.30} />
+            <stop offset="100%" stopColor={gold} stopOpacity={0.12} />
+          </radialGradient>
+          <radialGradient id={"ig" + s} cx="40%" cy="65%">
+            <stop offset="0%" stopColor={ink} stopOpacity={0.16} />
+            <stop offset="100%" stopColor={ink} stopOpacity={0.06} />
+          </radialGradient>
+        </defs>
+        {/* 24 tick marks ring */}
+        <g opacity={0.20}>
+          {ticks24.map((t, i) => (
+            <line key={"t"+i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+              stroke={gold} strokeWidth={t.thick} strokeLinecap="round" />
+          ))}
+        </g>
+        {/* Subtle trigram ring */}
+        <g opacity={0.15}>
+          {(() => {
+            const gua = ["☰","☱","☲","☳","☴","☵","☶","☷"];
+            return gua.map((g, i) => {
+              const a = (i * 45 - 90) * Math.PI / 180;
+              const dist = r + 32;
+              return (
+                <text key={"g"+i} x={r + dist * Math.cos(a)} y={r + dist * Math.sin(a)}
+                  textAnchor="middle" dominantBaseline="central"
+                  fill={gold} fontSize={12} fontWeight={400} fontFamily="serif">{g}</text>
+              );
+            });
+          })()}
+        </g>
+        {/* Heavenly stems outer ring */}
+        <g opacity={0.18}>
+          {stems.map((st, i) => {
+            const a = (i * 36 - 108) * Math.PI / 180;
+            const dist = r + 56;
+            return (
+              <text key={"s"+i} x={r + dist * Math.cos(a)} y={r + dist * Math.sin(a)}
+                textAnchor="middle" dominantBaseline="central"
+                fill={gold} fontSize={10} fontWeight={400} fontFamily="serif"
+                letterSpacing="0.1em">{st}</text>
+            );
+          })}
+        </g>
+        {/* Main Taiji */}
+        <g transform={"translate(40,40)"}>
+          <circle cx={r} cy={r} r={r - 1.5} fill="none" stroke="rgba(178,149,93,0.32)" strokeWidth={1} />
+          <circle cx={r} cy={r} r={r - 1.5} fill="none" stroke="rgba(178,149,93,0.32)" strokeWidth={1} />
+          <circle cx={r} cy={r} r={r - 5} fill="none" stroke="rgba(178,149,93,0.10)" strokeWidth={0.5} />
+          {/* Yang half */}
+          <path d={"M" + r + "," + 1.5 + " A" + (r-1.5) + "," + (r-1.5) + " 0 0,1 " + r + "," + (s-1.5) + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + r + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,0 " + r + "," + 1.5 + " Z"}
+            fill={"url(#yg" + s + ")"} />
+          {/* Yin half */}
+          <path d={"M" + r + "," + 1.5 + " A" + (r-1.5) + "," + (r-1.5) + " 0 0,0 " + r + "," + (s-1.5) + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,0 " + r + "," + r + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + 1.5 + " Z"}
+            fill={"url(#ig" + s + ")"} />
+          {/* S-curve */}
+          <path d={"M" + r + "," + 1.5 + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + r + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + (s-1.5)}
+            fill="none" stroke="rgba(178,149,93,0.40)" strokeWidth={0.8} />
+          {/* Dots */}
+          <circle cx={r} cy={h + 1} r={h * 0.32} fill={ink} opacity={0.22} />
+          <circle cx={r} cy={h + 1} r={h * 0.46} fill="none" stroke="rgba(178,149,93,0.18)" strokeWidth={0.5} />
+          <circle cx={r} cy={s - h - 1} r={h * 0.32} fill={gold} opacity={0.48} />
+          <circle cx={r} cy={s - h - 1} r={h * 0.46} fill="none" stroke="rgba(178,149,93,0.22)" strokeWidth={0.5} />
+          {/* Center dot */}
+          <circle cx={r} cy={r} r={1.8} fill={gold} opacity={0.35} />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+
+function BaziPreview() {
+  const R = 88;
+  const cx = 100; const cy = 100;
+  const bars = [
+    { h: 46, stem: red, branch: red },
+    { h: 54, stem: "#c8a43e", branch: "#c8a43e" },
+    { h: 42, stem: red, branch: "#5b8db8", dayMaster: true },
+    { h: 58, stem: "#c8b89a", branch: red },
+  ];
+  const spacing = 12;
+  const startX = cx - (bars.length * spacing) / 2 + spacing / 2;
+  const palaceNames = ["命","兄","夫","子","财","疾","迁","友","官","田","福","父"];
+  const mingGong = 5;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {/* ===== Nav — 1:1 qingnang ===== */}
-      <nav className="fixed top-0 z-50 w-full">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2 no-underline">
-            <span className="glow-breathe text-2xl font-bold text-hu-po-jin font-serif">混沌</span>
-            <span className="hidden text-sm sm:inline text-dai-qing/60">命理研究</span>
-          </Link>
-          <div className="hidden items-center gap-5 md:flex lg:gap-6 ml-auto">
-            <Link href="/create" className="relative py-1.5 text-[13px] tracking-[0.02em] transition-colors lg:text-sm text-dai-qing/65 hover:text-dai-qing no-underline">
-              <span className="mr-1 text-[10px] text-hu-po-jin">✦</span>八字+紫微命盘
-            </Link>
-            <Link href="/liuyao" className="relative py-1.5 text-[13px] tracking-[0.02em] transition-colors lg:text-sm text-dai-qing/65 hover:text-dai-qing no-underline">混沌问卦</Link>
-          </div>
-          <div className="flex items-center gap-4">
-            
+    <svg viewBox="0 0 200 200" style={{ width: 200, height: 200, marginLeft: 60 }}>
+      <circle cx={cx} cy={cy} r={R + 6} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.08} />
+      <circle cx={cx} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={0.8} className="bz-outer" opacity={0.25} />
+      <circle cx={cx} cy={cy} r={R - 10} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.10} />
+      {Array.from({length: 12}).map((_, i) => {
+        const a = (i * 30 - 90) * Math.PI / 180;
+        const isMing = i === mingGong;
+        const ca = Math.cos(a); const sa = Math.sin(a);
+        return (
+          <g key={"p"+i}>
+            <line x1={cx + (R-4)*ca} y1={cy + (R-4)*sa} x2={cx + (R+3)*ca} y2={cy + (R+3)*sa}
+              stroke={isMing ? red : gold} strokeWidth={isMing ? 1.4 : 0.6}
+              opacity={isMing ? 0.55 : 0.18} strokeLinecap="round" />
+            <text x={cx + (R+11)*ca} y={cy + (R+11)*sa} textAnchor="middle" dominantBaseline="central"
+              fill={isMing ? red : gold} fontSize={isMing ? 8 : 6.5}
+              fontWeight={isMing ? 600 : 400} fontFamily="serif"
+              opacity={isMing ? 0.50 : 0.20}>{palaceNames[i]}</text>
+          </g>
+        );
+      })}
+      <circle cx={cx} cy={cy} r={R - 7} fill="none" stroke={gold} strokeWidth={0.3} strokeDasharray="1 5" opacity={0.10} />
+      {bars.map((b, i) => {
+        const x = startX + i * spacing;
+        const y1 = cy - b.h / 2;
+        const y2 = cy + b.h / 2;
+        return (
+          <g key={"bar"+i}>
+            <line x1={x} y1={y1} x2={x} y2={y2}
+              stroke={b.dayMaster ? red : gold} strokeWidth={b.dayMaster ? 2.5 : 2}
+              strokeLinecap="round" opacity={b.dayMaster ? 0.70 : 0.30} />
+            <line x1={x-2.5} y1={y1} x2={x+2.5} y2={y1}
+              stroke={b.dayMaster ? red : gold} strokeWidth={0.8} opacity={0.3} strokeLinecap="round" />
+            <line x1={x-2.5} y1={y2} x2={x+2.5} y2={y2}
+              stroke={b.dayMaster ? red : gold} strokeWidth={0.8} opacity={0.3} strokeLinecap="round" />
+          </g>
+        );
+      })}
+      {bars.map((b, i) => {
+        const x = startX + i * spacing;
+        const y = cy - b.h / 2 - 10;
+        return <circle key={"s"+i} cx={x} cy={y} r={b.dayMaster ? 4 : 3}
+          fill={b.dayMaster ? red : b.stem} opacity={b.dayMaster ? 0.85 : 0.60} />;
+      })}
+      {bars.map((b, i) => {
+        const x = startX + i * spacing;
+        const y = cy + b.h / 2 + 10;
+        return <circle key={"b"+i} cx={x} cy={y} r={3} fill={b.branch} opacity={0.40} />;
+      })}
+      <line x1={cx-3} y1={cy} x2={cx+3} y2={cy} stroke={gold} strokeWidth={0.4} opacity={0.15} />
+      <line x1={cx} y1={cy-3} x2={cx} y2={cy+3} stroke={gold} strokeWidth={0.4} opacity={0.15} />
+    </svg>
+  );
+}
+
+function CoinSVG({ size = 40, opacity = 1 }: { size?: number; opacity?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="none" stroke={gold} strokeWidth={1.2} opacity={opacity} />
+      <rect x="14" y="14" width="12" height="12" rx="1.5" fill="none" stroke={gold} strokeWidth={1} opacity={opacity * 0.7} />
+    </svg>
+  );
+}
+
+function LiuYaoPreview() {
+  const lines = [true, false, true, false, true, true];
+  return (
+    <div className="relative" style={{ width: 380, height: 120 }}>
+      <svg viewBox="0 0 280 90" className="absolute right-[-40px] top-[5px] w-[280px] h-full pointer-events-none">
+        {lines.map((solid, i) => {
+          const y = 8 + i * 13;
+          if (solid) {
+            return <line key={i} x1={10} y1={y} x2={270} y2={y} stroke={gold} strokeWidth={1} opacity={0.12} />;
+          } else {
+            return (<g key={i}><line x1={10} y1={y} x2={130} y2={y} stroke={gold} strokeWidth={1} opacity={0.12} /><line x1={150} y1={y} x2={270} y2={y} stroke={gold} strokeWidth={1} opacity={0.12} /></g>);
+          }
+        })}
+      </svg>
+      <div className="absolute right-[-40px] top-1/2 flex gap-2" style={{ transform: "translateY(-50%)" }}>
+        <div className="coin-1"><CoinSVG size={90} opacity={0.50} /></div>
+        <div className="coin-2"><CoinSVG size={90} opacity={0.70} /></div>
+        <div className="coin-3"><CoinSVG size={90} opacity={0.50} /></div>
+      </div>
+    </div>
+  );
+}
+function HePanPreview() {
+  const cx1 = 100; const cx2 = 180; const cy = 96;
+  const R = 72;
+  const wuxing = ["木","火","土","金","水"];
+  const colors = ["#5b9a5a",red,"#c8a43e","#c8b89a","#5b8db8"];
+  const leftAngles = [0, 72, 144, 216, 288];
+  const rightAngles = [36, 108, 180, 252, 324];
+  return (
+    <div className="relative" style={{ width: 300, height: 200 }}>
+      <svg viewBox="0 0 300 200" style={{ width: 300, height: 200, marginLeft: 60 }}>
+        <defs>
+          {/* Glow for left circle */}
+          <radialGradient id="glowL" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={gold} stopOpacity={0.06} />
+            <stop offset="70%" stopColor={gold} stopOpacity={0.02} />
+            <stop offset="100%" stopColor={gold} stopOpacity={0} />
+          </radialGradient>
+          {/* Glow for right circle */}
+          <radialGradient id="glowR" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={ink} stopOpacity={0.04} />
+            <stop offset="70%" stopColor={ink} stopOpacity={0.01} />
+            <stop offset="100%" stopColor={ink} stopOpacity={0} />
+          </radialGradient>
+          {/* Overlap zone gradient */}
+          <radialGradient id="overlap" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={gold} stopOpacity={0.10} />
+            <stop offset="60%" stopColor={gold} stopOpacity={0.03} />
+            <stop offset="100%" stopColor={gold} stopOpacity={0} />
+          </radialGradient>
+        </defs>
+        {/* Glow backgrounds */}
+        <circle cx={cx1} cy={cy} r={R} fill="url(#glowL)" />
+        <circle cx={cx2} cy={cy} r={R} fill="url(#glowR)" />
+        {/* Overlap zone */}
+        <ellipse cx={(cx1+cx2)/2} cy={cy} rx={R*0.62} ry={R*0.9} fill="url(#overlap)" />
+        <circle cx={cx1} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={1.2} className="hp-outer" opacity={0.30} />
+        <circle cx={cx1} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={1.2} opacity={0.30} />
+        <circle cx={cx1} cy={cy} r={R-6} fill="none" stroke={gold} strokeWidth={0.35} opacity={0.12} strokeDasharray="1 5" />
+        <circle cx={cx1} cy={cy} r={R-12} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.14} />
+        <circle cx={cx1} cy={cy} r={R-22} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.08} strokeDasharray="2 4" />
+        {/* Tick marks on outer ring */}
+        {Array.from({length:24}, (_,i) => {
+          const a = (i*15*Math.PI)/180;
+          const inner = R-3; const outer = R+2;
+          return <line key={"lt"+i} x1={cx1+inner*Math.cos(a)} y1={cy+inner*Math.sin(a)} x2={cx1+outer*Math.cos(a)} y2={cy+outer*Math.sin(a)} stroke={gold} strokeWidth={0.4} opacity={0.12} />;
+        })}
+        {/* Left marker */}
+        <circle cx={cx1} cy={cy-14} r={3.5} fill={gold} opacity={0.5} />
+        <circle cx={cx1} cy={cy-14} r={7} fill="none" stroke={gold} strokeWidth={0.7} opacity={0.25} />
+        <circle cx={cx1} cy={cy-14} r={10} fill="none" stroke={gold} strokeWidth={0.3} opacity={0.10} strokeDasharray="1 3" />
+        {/* Right person - dark rings */}
+        <circle cx={cx2} cy={cy} r={R} fill="none" stroke={ink} strokeWidth={1.2} opacity={0.14} />
+        <circle cx={cx2} cy={cy} r={R-6} fill="none" stroke={ink} strokeWidth={0.35} opacity={0.06} strokeDasharray="1 5" />
+        <circle cx={cx2} cy={cy} r={R-12} fill="none" stroke={ink} strokeWidth={0.6} opacity={0.08} />
+        <circle cx={cx2} cy={cy} r={R-22} fill="none" stroke={ink} strokeWidth={0.4} opacity={0.04} strokeDasharray="2 4" />
+        {/* Tick marks right */}
+        {Array.from({length:24}, (_,i) => {
+          const a = (i*15*Math.PI)/180;
+          const inner = R-3; const outer = R+2;
+          return <line key={"rt"+i} x1={cx2+inner*Math.cos(a)} y1={cy+inner*Math.sin(a)} x2={cx2+outer*Math.cos(a)} y2={cy+outer*Math.sin(a)} stroke={ink} strokeWidth={0.4} opacity={0.07} />;
+        })}
+        {/* Right marker */}
+        <circle cx={cx2} cy={cy-14} r={3.5} fill={ink} opacity={0.25} />
+        <circle cx={cx2} cy={cy-14} r={7} fill="none" stroke={ink} strokeWidth={0.7} opacity={0.14} />
+        <circle cx={cx2} cy={cy-14} r={10} fill="none" stroke={ink} strokeWidth={0.3} opacity={0.06} strokeDasharray="1 3" />
+        {/* Intersection lines */}
+        <line x1={cx1+R} y1={cy} x2={cx2-R} y2={cy} stroke={gold} strokeWidth={0.5} opacity={0.15} strokeDasharray="2 3" />
+        <line x1={cx1} y1={cy-R} x2={cx1} y2={cy+R} stroke={gold} strokeWidth={0.35} opacity={0.08} strokeDasharray="1 4" />
+        <line x1={cx2} y1={cy-R} x2={cx2} y2={cy+R} stroke={ink} strokeWidth={0.35} opacity={0.05} strokeDasharray="1 4" />
+        {/* Horizontal align line */}
+        <line x1={cx1-R} y1={cy} x2={cx2+R} y2={cy} stroke={gold} strokeWidth={0.25} opacity={0.06} strokeDasharray="1 6" />
+        {/* Wuxing dots + labels - left */}
+        {leftAngles.map((a, i) => {
+          const rad = (a * Math.PI) / 180;
+          const dx = 50*Math.cos(rad); const dy = 50*Math.sin(rad);
+          const lx = cx1 + 62*Math.cos(rad); const ly = cy + 62*Math.sin(rad);
+          return (
+            <g key={"lw"+i}>
+              <circle cx={cx1+dx} cy={cy+dy} r={4.5} fill={colors[i]} opacity={0.6} />
+              <circle cx={cx1+dx} cy={cy+dy} r={7} fill="none" stroke={colors[i]} strokeWidth={0.4} opacity={0.18} />
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={9} fill={colors[i]} opacity={0.55} fontFamily="serif">{wuxing[i]}</text>
+            </g>
+          );
+        })}
+        {/* Wuxing dots + labels - right */}
+        {rightAngles.map((a, i) => {
+          const rad = (a * Math.PI) / 180;
+          const dx = 50*Math.cos(rad); const dy = 50*Math.sin(rad);
+          const lx = cx2 + 62*Math.cos(rad); const ly = cy + 62*Math.sin(rad);
+          return (
+            <g key={"rw"+i}>
+              <circle cx={cx2+dx} cy={cy+dy} r={4.5} fill={colors[i]} opacity={0.6} />
+              <circle cx={cx2+dx} cy={cy+dy} r={7} fill="none" stroke={colors[i]} strokeWidth={0.4} opacity={0.18} />
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={9} fill={colors[i]} opacity={0.55} fontFamily="serif">{wuxing[i]}</text>
+            </g>
+          );
+        })}
+        {/* Connecting web between matching elements */}
+        {[[0,3],[1,1],[2,4],[3,0],[4,2]].map(([li,ri], i) => {
+          const la = (leftAngles[li] * Math.PI) / 180;
+          const ra = (rightAngles[ri] * Math.PI) / 180;
+          return (
+            <line key={"arc"+i}
+              x1={cx1 + 50*Math.cos(la)} y1={cy + 50*Math.sin(la)}
+              x2={cx2 + 50*Math.cos(ra)} y2={cy + 50*Math.sin(ra)}
+              stroke={gold} strokeWidth={0.4} opacity={0.10} />
+          );
+        })}
+        {/* Center union symbol */}
+        <circle cx={(cx1+cx2)/2} cy={cy} r={10} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.10} />
+        <circle cx={(cx1+cx2)/2} cy={cy} r={15} fill="none" stroke={gold} strokeWidth={0.3} opacity={0.06} strokeDasharray="1 4" />
+        <circle cx={(cx1+cx2)/2} cy={cy} r={7} fill={gold} opacity={0.35} />
+        <circle cx={(cx1+cx2)/2} cy={cy} r={12} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.22} />
+        {/* 合 character */}
+        <text x={(cx1+cx2)/2} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={gold} opacity={0.50} fontFamily="serif" fontWeight="bold">合</text>
+      </svg>
+    </div>
+  );
+}
+function ZeRiPreview() {
+  const cx = 125; const cy = 105;
+  const dR = 65;
+  const diamond = (r: number) => {
+    const pts: Array<{x:number,y:number}> = [];
+    for (let i = 0; i < 4; i++) {
+      const a = (i * 90 - 90) * Math.PI / 180;
+      pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+    }
+    return pts.map(p => p.x + ',' + p.y).join(' ');
+  };
+  return (
+    <div style={{ width: 260, height: 210 }}>
+      <svg viewBox="0 0 260 210" style={{ width: 260, height: 210, marginLeft: 80 }}>
+        <defs>
+          <radialGradient id="zrGlow3" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={gold} stopOpacity={0.06} />
+            <stop offset="80%" stopColor={gold} stopOpacity={0.01} />
+            <stop offset="100%" stopColor={gold} stopOpacity={0} />
+          </radialGradient>
+        </defs>
+        <circle cx={cx} cy={cy} r={dR+36} fill="url(#zrGlow3)" />
+        <polygon points={diamond(dR)} fill="none" stroke={gold} strokeWidth={1.2} className="zr-outer" opacity={0.28} />
+        {[0,1,2,3].map(i => {
+          const a1 = (i*90-90)*Math.PI/180; const a2 = ((i+1)*90-90)*Math.PI/180;
+          const x1 = cx+dR*Math.cos(a1); const y1 = cy+dR*Math.sin(a1);
+          const x2 = cx+dR*Math.cos(a2); const y2 = cy+dR*Math.sin(a2);
+          const mx = (x1+x2)/2; const my = (y1+y2)/2;
+          const dx = x2-x1; const dy = y2-y1; const len = Math.sqrt(dx*dx+dy*dy);
+          const nx = -dy/len; const ny = dx/len;
+          return <line key={"dt"+i} x1={mx+nx*2} y1={my+ny*2} x2={mx+nx*8} y2={my+ny*8} stroke={gold} strokeWidth={0.5} opacity={0.15} />;
+        })}
+        <polygon points={diamond(dR-16)} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.16} />
+        <polygon points={diamond(dR-28)} fill="none" stroke={gold} strokeWidth={0.35} opacity={0.08} strokeDasharray="2 4" />
+        <polygon points={diamond(dR-40)} fill="none" stroke={red} strokeWidth={0.8} opacity={0.35} />
+        {[0,1,2,3].map(i => {
+          const a = (i*90-90)*Math.PI/180;
+          return <circle key={"cd"+i} cx={cx+(dR-16)*Math.cos(a)} cy={cy+(dR-16)*Math.sin(a)} r={3} fill={gold} opacity={0.30} />;
+        })}
+        {[45,135,225,315].map((deg,i) => {
+          const a = deg*Math.PI/180;
+          return <line key={"sp"+i} x1={cx} y1={cy} x2={cx+(dR-3)*Math.cos(a)} y2={cy+(dR-3)*Math.sin(a)} stroke={gold} strokeWidth={0.35} opacity={0.10} />;
+        })}
+        <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="central" fontSize={20} fill={red} opacity={0.55} fontFamily="serif" fontWeight="bold">{'\u5409'}</text>
+        {[[0,-dR-10],[0,dR+10],[-dR-10,0],[dR+10,0]].map(([dx,dy],i) => (
+          <circle key={"card2"+i} cx={cx+dx} cy={cy+dy} r={2} fill={gold} opacity={0.22} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+function Eyebrow({ children, size = "sm" }: { children: React.ReactNode; size?: "sm" | "lg" }) {
+  return <p className={size === "lg" ? "text-[14px] tracking-[0.2em]" : "text-[11px] tracking-[0.25em]"} style={{ fontWeight: 600, marginBottom: size === "lg" ? "0.75rem" : "0.75rem", color: gold }}>{children}</p>;
+}
+function Head2({ children }: { children: React.ReactNode }) {
+  return <h2 className="font-serif font-bold tracking-[-0.02em] leading-[1.12] mb-3"
+    style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', color: ink }}>{children}</h2>;
+}
+function Sub({ children }: { children: React.ReactNode }) {
+  return <p className="text-[15px] leading-relaxed max-w-md" style={{ color: mute }}>{children}</p>;
+}
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="card-shell p-[0.5px] rounded-[20px]"
+      style={{ background: 'linear-gradient(135deg, rgba(178,149,93,0.18), rgba(178,149,93,0.04))' }}>
+      <div className="rounded-[19px] p-6 sm:p-10 h-full" style={{ background: white, boxShadow: "0 1px 2px rgba(0,0,0,0.02), 0 8px 32px rgba(0,0,0,0.03)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export default function HomePage() {
+  const heroRef  = useRef<HTMLDivElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const coreRef  = useRef<HTMLDivElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const ctaRef   = useRef<HTMLDivElement>(null);
+
+  const [showLauncher, setShowLauncher] = useState(false);
+
+  useGSAP(() => {
+    const tl = gsap.timeline({ defaults: { duration: 0.9, ease: 'power3.out' } });
+    tl.fromTo('.taiji-ring', { opacity: 0, scale: 0.7, rotation: -30 }, { opacity: 1, scale: 1, rotation: 0, duration: 1.5 })
+      .fromTo('.hero-brand', { opacity: 0, y: 40 }, { opacity: 1, y: 0 }, '-=0.7')
+      .fromTo('.hero-quote', { opacity: 0, y: 24 }, { opacity: 1, y: 0 }, '-=0.4')
+      .fromTo('.hero-line',  { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.6 }, '-=0.2')
+      .fromTo('.hero-sub',   { opacity: 0, y: 14 }, { opacity: 1, y: 0 }, '-=0.15')
+      .fromTo('.hero-cta',   { opacity: 0, y: 8  }, { opacity: 1, y: 0 }, '-=0.1');
+    gsap.to('.taiji-ring', { rotation: 360, duration: 120, repeat: -1, ease: 'none' });
+    // Idle float: gentle up-down bob
+    gsap.to('.taiji-ring', { y: -8, duration: 3, repeat: -1, yoyo: true, ease: 'sine.inOut' });
+  }, { scope: heroRef });
+  // Mouse-follow parallax (quickTo - always returns to center)
+  useGSAP(() => {
+    const xTo = gsap.quickTo(".taiji-ring", "x", { duration: 0.6, ease: "power3.out" });
+    const xBrand = gsap.quickTo(".hero-brand", "x", { duration: 0.7, ease: "power3.out" });
+    const onMove = (e: MouseEvent) => {
+      const px = (e.clientX - window.innerWidth / 2) / window.innerWidth;
+      xTo(px * 20);
+      xBrand(px * 6);
+    };
+    window.addEventListener("mousemove", onMove);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      xTo(0); xBrand(0);
+    };
+  }, { scope: heroRef });
+
+
+  useGSAP(() => {
+    gsap.fromTo('.brand-quote', { opacity: 0, y: 40 }, {
+      opacity: 1, y: 0, duration: 1, ease: 'power2.out',
+      scrollTrigger: { trigger: brandRef.current, start: 'top 75%' },
+    });
+  }, { scope: brandRef });
+  useGSAP(() => {
+    gsap.fromTo('.core-card', { opacity: 0, y: 48 }, {
+      opacity: 1, y: 0, stagger: 0.15, duration: 0.7, ease: 'power2.out',
+      scrollTrigger: { trigger: coreRef.current, start: 'top 78%' },
+    });
+  }, { scope: coreRef });
+  useGSAP(() => {
+    gsap.fromTo('.tool-card', { opacity: 0, y: 32 }, {
+      opacity: 1, y: 0, stagger: 0.08, duration: 0.6, ease: 'power2.out',
+      scrollTrigger: { trigger: toolsRef.current, start: 'top 82%' },
+    });
+  }, { scope: toolsRef });
+  useGSAP(() => {
+    gsap.fromTo('.cta-block', { opacity: 0, y: 32 }, {
+      opacity: 1, y: 0, duration: 0.7, ease: 'power2.out',
+      scrollTrigger: { trigger: ctaRef.current, start: 'top 85%' },
+    });
+  }, { scope: ctaRef });
+
+  return (
+    <div style={{ background: white, color: ink }}>
+
+      {/* ════════════ NAV ════════════ */}
+
+
+      {/* ════════════ HERO ════════════ */}
+      <section ref={heroRef} className="relative flex min-h-[100dvh] flex-col items-center justify-center px-6 pt-11 text-center overflow-hidden"
+        style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fafaf8 100%)' }}>
+
+        {/* Paper texture */}
+        <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.03,
+          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")',
+        }} />
+
+
+        {/* Taiji */}
+        <div className="taiji-ring mb-8 z-10">
+          <div className="block sm:hidden"><Taiji size={200} /></div>
+          <div className="hidden sm:block"><Taiji size={240} /></div>
+        </div>
+        <h1 className="hero-brand font-serif font-bold tracking-[-0.04em] leading-[1.05] mb-5 relative z-10"
+          style={{ fontSize: 'clamp(3rem, 8vw, 5.5rem)', color: ink }}>混沌</h1>
+        <p className="hero-quote font-serif text-lg sm:text-xl tracking-[0.2em] relative z-10" style={{ color: gold }}>天地未分 · 元气未判</p>
+        <div className="hero-line mt-7 mb-6 w-16 h-px mx-auto relative z-10" style={{ background: 'rgba(178,149,93,0.40)', transformOrigin: 'center' }} />
+        <p className="hero-sub text-[15px] sm:text-[17px] leading-relaxed tracking-[-0.01em] max-w-sm relative z-10" style={{ color: mute }}>Ai+传统命理研究平台</p>
+        <div className="hero-cta mt-9 relative z-10">
+          <button onClick={() => setShowLauncher(true)} className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-[15px] font-medium no-underline transition-all duration-500 hover:scale-105 hover:shadow-lg active:scale-[0.98]"
+            style={{ background: gold, color: white, boxShadow: '0 4px 20px rgba(178,149,93,0.25)' }}>
+            开始使用 <span className="text-lg leading-none">→</span>
+          </button>
+        </div>
+
+        {/* Scroll hint */}
+        <div className="absolute bottom-8 opacity-25 z-10">
+          <div className="w-5 h-8 rounded-full border-2 mx-auto flex justify-center" style={{ borderColor: mute }}>
+            <div className="w-1 h-2 rounded-full mt-1.5" style={{ background: mute, animation: 'scrolldot 2s ease-in-out infinite' }} />
           </div>
         </div>
-      </nav>
+      </section>
 
-      {/* ===== Main ===== */}
-      <main className="flex-1 pt-[calc(4rem+env(safe-area-inset-top,0px))]">
-        <div className="flex flex-col items-center">
+      {/* ════════════ BRAND ════════════ */}
+      <section ref={brandRef} className="py-28 sm:py-36 px-6" style={{ background: paper }}>
+        <div className="brand-quote max-w-2xl mx-auto">
+          <p className="font-serif font-bold text-center leading-[1.6] tracking-[0.05em]" style={{ fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: ink }}>世间万象，看似纷繁无序</p>
+          <p className="font-serif font-bold text-center leading-[1.6] tracking-[0.05em] mt-3" style={{ fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: ink }}>实则暗藏规律</p>
+          <p className="mt-10 text-center text-[14px] leading-relaxed" style={{ color: mute }}>
+            「混沌」之名，取自道家宇宙观。<br />天地未分，元气未判。以 AI 之力，解古籍之密，<br />让传统玄学，触手可及。
+          </p>
+          <div className="flex justify-center mt-8">
+            <svg width="56" height="56" viewBox="0 0 56 56" style={{ opacity: 0.30 }}>
+              <rect x="2" y="2" width="52" height="52" rx="4" fill="none" stroke="#b2955d" strokeWidth="1.5" />
+              <rect x="5" y="5" width="46" height="46" rx="2" fill="none" stroke="#b2955d" strokeWidth="0.5" />
+              <text x="28" y="36" textAnchor="middle" fill="#b2955d" fontSize="18" fontWeight="700" fontFamily="serif">混沌</text>
+            </svg>
+          </div>
+        </div>
+      </section>
 
-          {/* ===== Hero — 1:1 qingnang ===== */}
-          <section className="relative flex min-h-[88vh] w-full flex-col items-center justify-center overflow-hidden px-6 text-center">
-            <div className="absolute inset-0 bg-gradient-to-b from-xuan-zhi via-xuan-zhi to-dai-qing-dark" />
+      {/* ════════════ CORE ════════════ */}
+      <section ref={coreRef} className="py-24 sm:py-32 px-6" style={{ background: white }}>
+        <div className="max-w-[980px] mx-auto flex flex-col gap-6">
+          <div className="text-center mb-6">
+            <Eyebrow size="lg">核心引擎</Eyebrow>
+          </div>
 
-            {/* Ink-sea waves */}
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-0">
-                <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                  <div className="absolute inset-x-0 bottom-0 top-[44%] bg-dai-qing-dark" />
-                  <div className="ink-sea__layer" style={{ top: '24%', animationDuration: '12s', ['--bob-amp' as string]: '10px' }}>
-                    <div className="ink-sea__track" style={{ animationDuration: '120s' }}>
-                      <img src="/home/sea-strip.webp" alt="" className="h-full w-auto max-w-none select-none" draggable={false} />
-                      <img src="/home/sea-strip.webp" alt="" aria-hidden="true" className="h-full w-auto max-w-none select-none" draggable={false} />
-                    </div>
-                  </div>
-                  <div className="ink-sea__layer" style={{ top: '56%', animationDuration: '9s', animationDelay: '-4s', ['--bob-amp' as string]: '7px' }}>
-                    <div className="ink-sea__track" style={{ animationDuration: '48s' }}>
-                      <img src="/home/sea-front.webp" alt="" className="h-full w-auto max-w-none select-none" draggable={false} />
-                      <img src="/home/sea-front.webp" alt="" aria-hidden="true" className="h-full w-auto max-w-none select-none" draggable={false} />
-                    </div>
-                  </div>
+          {/* Card 1: 八字 & 紫微 */}
+          <div className="core-card">
+            <Shell>
+              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
+<div className="shrink-0 order-last sm:order-last" style={{ width: 300 }}>
+  <BaziPreview />
+</div>
+                <div className="text-center sm:text-left min-w-0">
+                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>八字 & 紫微</h3>
+                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>混沌独有一盘双参。四柱天干地支 + 十二宫排盘。大运流年、主星四化，一图尽览。</p>
+                  <Link href="/create" className="text-sm font-medium tracking-[0.05em] no-underline inline-flex items-center gap-2 group" style={{ color: gold }}>
+                    开始排盘 <span className="transition-transform group-hover:translate-x-1 text-lg">→</span>
+                  </Link>
                 </div>
               </div>
-            </div>
+            </Shell>
+          </div>
 
-            {/* Ambient blurs */}
-            <div aria-hidden="true" className="absolute left-[12%] top-[18%] h-72 w-72 rounded-full bg-hu-po-jin/5 blur-[100px]" />
-            <div aria-hidden="true" className="absolute bottom-[20%] right-[8%] h-64 w-64 rounded-full bg-dai-qing-light/10 blur-[80px]" />
+          {/* Card 2: 六爻 — reversed */}
+          <div className="core-card">
+            <Shell>
+              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
+                <div className="text-center sm:text-left min-w-0">
+                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>六爻问卦</h3>
+                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。</p>
+                  <Link href="/liuyao" className="text-sm font-medium tracking-[0.05em] no-underline inline-flex items-center gap-2 group" style={{ color: gold }}>
+                    开始问卦 <span className="transition-transform group-hover:translate-x-1 text-lg">→</span>
+                  </Link>
+                </div>
+                <div className="shrink-0" style={{ width: 300 }}><LiuYaoPreview /></div>
+              </div>
+            </Shell>
+          </div>
 
-            {/* Floating glyphs */}
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-0 text-hu-po-jin">
-                <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-                  {GLYPHS.map((g, i) => (
-                    <span key={i} className="qn-glyph font-serif" style={{
-                      left: `${5 + (i * 7) % 90}%`,
-                      top: `${3 + (i * 11) % 92}%`,
-                      fontSize: `${14 + (i % 3) * 8}px`,
-                      color: i % 3 === 0 ? 'var(--color-hu-po-jin)' : 'rgba(212,175,55,0.5)',
-                      animationDuration: `${8 + (i % 5) * 2}s`,
-                      animationDelay: `${-(i * 0.7).toFixed(1)}s`,
-                      ['--glyph-peak' as string]: `${0.12 + (i % 3) * 0.06}`,
-                    }}>{g}</span>
-                  ))}
+          {/* Card 3: 姓名合盘 */}
+          <div className="core-card">
+            <Shell>
+              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
+                <div className="shrink-0 order-last sm:order-last" style={{ width: 300 }}><HePanPreview /></div>
+                <div className="text-center sm:text-left min-w-0">
+                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>姓名合盘</h3>
+                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。</p>
+                  <span className="text-[11px] font-medium tracking-[0.1em] px-3 py-1 rounded-full" style={{ background: "rgba(178,149,93,0.08)", color: gold }}>即将上线</span>
                 </div>
               </div>
-            </div>
+            </Shell>
+          </div>
 
-            {/* Content */}
-            <div className="relative z-[1] flex flex-col items-center">
-              <div className="relative">
-                <h1 className="flex font-serif text-8xl font-bold text-hu-po-jin md:text-9xl">
-                  <span className="gold-foil-text inline-block">混</span>
-                  <span className="gold-foil-text inline-block">沌</span>
-                  </h1>
-                <p className="mt-4 text-sm text-hu-po-jin/50">HUNDUN PAVILION</p>
+          {/* Card 4: 择日 */}
+          <div className="core-card">
+            <Shell>
+              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
+                <div className="text-center sm:text-left min-w-0">
+                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>择日</h3>
+                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。</p>
+                  <span className="text-[11px] font-medium tracking-[0.1em] px-3 py-1 rounded-full" style={{ background: "rgba(178,149,93,0.08)", color: gold }}>即将上线</span>
+                </div>
+                <div className="shrink-0 order-last sm:order-last" style={{ width: 300 }}><ZeRiPreview /></div>
               </div>
-              <div className="mt-9">
-                <p className="font-serif text-xl text-xuan-zhi/85">AI 推演 · 秒出命盘</p>
-                <div className="divider-ink mx-auto mt-4 w-48" />
-                <p className="mx-auto mt-4 max-w-md text-[15px] leading-relaxed text-xuan-zhi/60">
-                  八字 · 紫微 · 六爻<br />八字 × 紫微 · 双盘互证，AI 秒出结果
-                </p>
-              </div>
-              <div className="mt-11 flex flex-col items-center gap-4 sm:flex-row">
-                <Link href="/create"
-                  className="btn-glow group relative rounded-xl bg-xuan-zhi px-9 py-3.5 font-medium text-dai-qing-dark shadow-lg shadow-dai-qing-dark/40 transition-all hover:shadow-xl hover:shadow-hu-po-jin/20 no-underline"
-                >
-                  <span className="relative z-[1]">开始排盘</span>
-                </Link>
-                <Link href="/liuyao"
-                  className="btn-glow relative rounded-xl border border-xuan-zhi/30 px-9 py-3.5 text-xuan-zhi/90 transition-all hover:border-hu-po-jin/50 hover:bg-hu-po-jin/10 hover:text-xuan-zhi no-underline"
-                >
-                  <span className="relative z-[1]">六爻起卦</span>
-                </Link>
-              </div>
-            </div>
+            </Shell>
+          </div>
 
-            {/* Scroll indicator */}
-            <div className="absolute bottom-8">
-              <div className="h-8 w-5 rounded-full border border-xuan-zhi/25">
-                <div className="mx-auto mt-1.5 h-2 w-1 rounded-full bg-xuan-zhi/40" />
-              </div>
-            </div>
-          </section>
-
-          {/* ===== Core Features — dark section 1:1 qingnang ===== */}
-          <section className="relative w-full bg-dai-qing-dark pb-28">
-            {/* Floating glyphs */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden text-hu-po-jin" aria-hidden="true">
-              {GLYPHS.slice(15, 30).map((g, i) => (
-                <span key={i} className="qn-glyph font-serif" style={{
-                  left: `${10 + (i * 13) % 85}%`,
-                  top: `${5 + (i * 17) % 90}%`,
-                  fontSize: `${13 + (i % 4) * 5}px`,
-                  animationDuration: `${7 + (i % 4) * 3}s`,
-                  animationDelay: `${-(i * 1.2).toFixed(1)}s`,
-                  ['--glyph-peak' as string]: '0.15',
-                }}>{g}</span>
+          {/* Coming soon grid */}
+          <div className="mt-4">
+            <p className="text-[11px] font-semibold tracking-[0.2em] mb-5 text-center" style={{ color: gold }}>更多即将上线</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { i:"⭐", t:"星座命盘", d:"西方占星 · 本命盘与合盘" },
+                { i:"👤", t:"面相", d:"AI 面相分析 · 五官气色辨吉凶" },
+                { i:"✋", t:"手相", d:"AI 手相解读 · 三大纹路断运势" },
+              ].map((m, idx) => (
+                <div key={idx} className="tool-soon rounded-2xl p-5 text-center"
+                  style={{ background: white, border: "0.5px solid " + hair }}>
+                  <span className="text-2xl"><span>{m.i}</span></span>
+                  <h4 className="font-serif font-bold text-sm mt-3 mb-1" style={{ color: ink }}>{m.t}</h4>
+                  <p className="text-[11px] leading-relaxed" style={{ color: mute }}>{m.d}</p>
+                </div>
               ))}
             </div>
-
-                        {/* Marquee: classics */}
-            <div className="qn-marquee py-7 border-b border-white/5">
-              <div className="qn-marquee__track" style={{ gap: "2.5rem" }}>
-                {["《周易》","《滴天髓》","《穷通宝鉴》","《三命通会》","《渊海子平》","《增删卜易》","《卜筮正宗》","《紫微斗数全书》"].map(function(name, i) { return (
-                  <span key={i} className="qn-marquee__item text-[15px] tracking-[0.15em] text-hu-po-jin/55 font-serif">{name}</span>
-                );})}
-                {["《周易》","《滴天髓》","《穷通宝鉴》","《三命通会》","《渊海子平》","《增删卜易》","《卜筮正宗》","《紫微斗数全书》"].map(function(name, i) { return (
-                  <span key={"d"+i} className="qn-marquee__item text-[15px] tracking-[0.15em] text-hu-po-jin/55 font-serif">{name}</span>
-                );})}
-              </div>
-            </div>
-{/* Core functions heading */}
-            <div className="px-6 pt-24">
-              <h2 className="text-center font-serif text-3xl text-xuan-zhi">核心功能</h2>
-              <p className="mt-3 text-center text-[15px] text-xuan-zhi/55">三术合参 — 以古籍为根 · AI 逐句参详</p>
-            </div>
-
-            {/* Feature cards grid */}
-            <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-5 px-6 sm:grid-cols-2 ">
-              {/* 八字+紫微命盘 */}
-              <div className="spotlight-card h-full rounded-2xl sm:col-span-2">
-                <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline items-center text-center">
-                  <span className="absolute right-4 top-4 rounded-full bg-hu-po-jin/15 px-3 py-0.5 text-xs text-hu-po-jin">免费</span>
-                  <div className="flex items-center gap-3">
-                    <span className="inline-block font-serif text-4xl text-hu-po-jin">问</span>
-                    <span className="text-hu-po-jin/40 text-2xl">·</span>
-                    <span className="inline-block font-serif text-4xl text-hu-po-jin">天</span>
-                  </div>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi text-center">八字+紫微命盘</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60 text-center">双体系合参 — 八字看五行格局，紫微排十二宫星曜，AI 逐句参详</p>
-                  <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
-                    <span>了解更多</span>
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
-                  </div>
-                </Link>
-              </div>
-
-              {/* 六爻起卦 */}
-              <div className="spotlight-card h-full rounded-2xl">
-                <Link href="/liuyao" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
-                  <span className="inline-block font-serif text-4xl text-hu-po-jin mx-auto">卦</span>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi text-center">六爻起卦</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60 text-center">依《增删卜易》《卜筮正宗》参详卦象</p>
-                  <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
-                    <span>了解更多</span>
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
-                  </div>
-                </Link>
-              </div>
-
-              {/* 八字合盘 */}
-              <div className="spotlight-card h-full rounded-2xl">
-                <Link href="/create" className="card-float group relative flex h-full flex-col rounded-2xl border border-xuan-zhi/8 bg-gradient-to-br from-dai-qing to-dai-qing-dark p-7 transition-colors hover:border-hu-po-jin/25 no-underline">
-                  <span className="absolute right-4 top-4 rounded-full bg-hu-po-jin/15 px-3 py-0.5 text-xs text-hu-po-jin">免费</span>
-                  <span className="inline-block font-serif text-4xl text-hu-po-jin mx-auto">缘</span>
-                  <h3 className="mt-4 font-serif text-xl text-xuan-zhi text-center">八字合盘</h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-xuan-zhi/60 text-center">两盘对照，参看缘分契合与互补</p>
-                  <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-hu-po-jin/60 transition-colors group-hover:text-hu-po-jin">
-                    <span>了解更多</span>
-                    <span className="transition-transform group-hover:translate-x-1">→</span>
-                  </div>
-                </Link>
-              </div>
-            </div>
-          </section>
-
-                    {/* ===== 两种人格 × 两种深度 ===== */}
-          <section className="w-full px-6 py-28">
-            <div className="mx-auto max-w-3xl">
-              <p className="text-center text-[11px] tracking-[0.4em] text-dai-qing/55">参 详 输 出</p>
-              <h2 className="mt-4 text-center font-serif text-2xl text-dai-qing">两种人格 × 两种深度</h2>
-              <p className="mt-3 text-center text-sm text-dai-qing/50">同一张盘，两种讲法——点下方按钮，现场感受</p>
-              <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button className={"qn-demo__persona" + (activePersona === "standard" ? " is-active" : "")} onClick={() => setActivePersona("standard")}>
-                  <span className="qn-demo__persona-sub">博 导 型</span>
-                  <span className="qn-demo__persona-title font-serif">客观 · 专业 · 克制</span>
-                  <span className="qn-demo__persona-desc">如博导般引经据典、逻辑严密</span>
-                </button>
-                <button className={"qn-demo__persona" + (activePersona === "casual" ? " is-active" : "")} onClick={() => setActivePersona("casual")}>
-                  <span className="qn-demo__persona-sub">老 友 型</span>
-                  <span className="qn-demo__persona-title font-serif">随性 · 风趣 · 一针见血</span>
-                  <span className="qn-demo__persona-desc">如酒后老友般生动比喻</span>
-                </button>
-              </div>
-              <div className="mt-6 flex justify-center gap-3">
-                <button className={"qn-demo__depth" + (activeDepth === "brief" ? " is-active" : "")} onClick={() => setActiveDepth("brief")}>
-                  <span>简要</span><span className="qn-demo__depth-sub">三五分钟速览</span>
-                </button>
-                <button className={"qn-demo__depth" + (activeDepth === "detail" ? " is-active" : "")} onClick={() => setActiveDepth("detail")}>
-                  <span>详批</span><span className="qn-demo__depth-sub">逐柱逐宫参详</span>
-                </button>
-              </div>
-              <div className="mt-8 qn-demo__output">
-                <div className="qn-demo__output-head"><span className="qn-demo__lamp" /><span>参 详 输 出 · 示 例 文 风</span></div>
-                <div className="qn-demo__text font-serif animate-ink-in" key={activePersona + activeDepth}>{demos[activePersona][activeDepth]}</div>
-                <p className="qn-demo__hint">正式详批中可随时切换人格与深度 · 以上仅为文风示例</p>
-              </div>
-              <div className="mt-8 text-center"><Link href="/create" className="qn-demo__cta">免费排一张自己的盘试试 →</Link></div>
-            </div>
-          </section>
-
-{/* ===== Bottom CTA ===== */}
-          <section className="w-full bg-dai-qing-dark px-6 py-20 text-center">
-            <h2 className="font-serif text-2xl text-xuan-zhi">随身携带你的混沌</h2>
-            <p className="mt-4 text-sm text-xuan-zhi/55">随时随地，排一盘，问一卦</p>
-            
-          </section>
-
-          {/* ===== Footer ===== */}
-          <footer className="w-full bg-xuan-zhi border-t border-dai-qing/8 py-8">
-            <div className="mx-auto max-w-6xl px-6 flex flex-col items-center gap-4">
-              <div className="flex gap-8 text-xs text-dai-qing/25 tracking-[0.03em]">
-                <Link href="/" className="hover:text-hu-po-jin transition-colors no-underline">首页</Link>
-                <Link href="/create" className="hover:text-hu-po-jin transition-colors no-underline">命盘排盘</Link>
-                <Link href="/liuyao" className="hover:text-hu-po-jin transition-colors no-underline">混沌问卦</Link>
-              </div>
-              <p className="text-xs text-dai-qing/20 tracking-[0.03em]">
-                混沌 · 命理研究 — 古籍数字化 · AI 参详 · 仅作文化研究与体验，不构成任何决策建议
-              </p>
-            </div>
-          </footer>
-
+          </div>
         </div>
-      </main>
+      </section>
+
+
+      {/* ════════════ CTA ════════════ */}
+      <section ref={ctaRef} className="py-28 sm:py-40 px-6 text-center" style={{ background: paper }}>
+        <div className="cta-block max-w-md mx-auto">
+          <h2 className="font-serif font-bold tracking-[-0.02em] leading-[1.1] mb-4"
+            style={{ fontSize: 'clamp(1.6rem, 4vw, 2.3rem)', color: ink }}>随身携带你的混沌</h2>
+          <p className="text-[15px] leading-relaxed mb-8" style={{ color: mute }}>随时随地，排一盘，问一卦。</p>
+          <button onClick={() => { window.scrollTo({top:0,behavior:"smooth"}); setTimeout(() => setShowLauncher(true), 600) }} className="cta-btn inline-flex items-center gap-2 rounded-full px-7 py-3 text-[15px] font-medium no-underline transition-all duration-500 hover:scale-105 hover:shadow-xl active:scale-[0.98]"
+            style={{ background: gold, color: white, boxShadow: '0 4px 20px rgba(178,149,93,0.25)' }}>
+            开始使用 <span className="text-lg leading-none">→</span>
+          </button>
+        </div>
+      </section>
+
+      {/* ════════════ FOOTER ════════════ */}
+      <footer className="py-6 px-6" style={{ background: paper, borderTop: '0.5px solid ' + hair }}>
+        <div className="max-w-[980px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-[11px] tracking-[0.03em]" style={{ color: 'rgba(0,0,0,0.30)' }}>混沌 · 玄学一站式 — 古籍数字化 · AI 参详 · 仅供参考</p>
+          <div className="flex gap-6 text-[11px]">
+            <Link href="/" className="no-underline" style={{ color: 'rgba(0,0,0,0.35)' }}>首页</Link>
+            <Link href="/create" className="no-underline" style={{ color: 'rgba(0,0,0,0.35)' }}>命盘</Link>
+            <Link href="/liuyao" className="no-underline" style={{ color: 'rgba(0,0,0,0.35)' }}>问卦</Link>
+          </div>
+        </div>
+      </footer>
+
+      <style>{`
+        @keyframes scrolldot{0%,100%{opacity:0;transform:translateY(0)}50%{opacity:1;transform:translateY(6px)}}
+        @keyframes taijiPulse{0%,100%{opacity:0.4;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
+        @keyframes taijiOrbit{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+        @keyframes ctaGlow{0%,100%{box-shadow:0 4px 20px rgba(178,149,93,0.25)}50%{box-shadow:0 4px 36px rgba(178,149,93,0.45)}}
+        @keyframes coinFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+        @keyframes diamondPulse{0%,100%{opacity:0.28}50%{opacity:0.48}}
+        @keyframes ringBreathe{0%,100%{opacity:0.25}50%{opacity:0.42}}
+        @keyframes hepanPulse{0%,100%{opacity:0.30}50%{opacity:0.50}}
+        .core-card{transition:transform 0.5s cubic-bezier(0.25,0.1,0.25,1),box-shadow 0.5s cubic-bezier(0.25,0.1,0.25,1);border-radius:20px}
+        .core-card:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(178,149,93,0.08),0 4px 12px rgba(0,0,0,0.05)}
+        .core-card:hover .card-shell{border-color:rgba(178,149,93,0.28)}
+        .core-card:hover svg{transform:scale(1.03)}
+        .core-card svg{transition:transform 0.5s cubic-bezier(0.25,0.1,0.25,1)}
+        .card-shell{transition:border-color 0.5s cubic-bezier(0.25,0.1,0.25,1);border:0.5px solid transparent;border-radius:20px}
+        .nav-link{position:relative;transition:color 0.3s}
+        .nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:1px;background:#b2955d;transition:width 0.35s cubic-bezier(0.25,0.1,0.25,1)}
+        .nav-link:hover::after{width:100%}
+        .cta-btn{animation:ctaGlow 3s ease-in-out infinite}
+        .tool-soon{transition:all 0.4s cubic-bezier(0.25,0.1,0.25,1)}
+        .tool-soon:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(0,0,0,0.05)}
+        .tool-soon:hover span{transform:scale(1.15)}
+        .tool-soon span{display:inline-block;transition:transform 0.35s cubic-bezier(0.25,0.1,0.25,1)}
+        .zr-outer{animation:diamondPulse 4s ease-in-out infinite}
+        .bz-outer{animation:ringBreathe 5s ease-in-out infinite}
+        .hp-outer{animation:hepanPulse 5s ease-in-out infinite}
+        .coin-1{animation:coinFloat 2.6s ease-in-out infinite}
+        .coin-2{animation:coinFloat 2.6s ease-in-out 0.4s infinite}
+        .coin-3{animation:coinFloat 2.6s ease-in-out 0.8s infinite}
+        .scrollbar-hide::-webkit-scrollbar{display:none}
+      `}</style>
+
+
+
+            {/* ════════════ LAUNCHER MODAL ════════════ */}
+      {showLauncher && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+          onClick={() => setShowLauncher(false)}>
+          <div className="relative w-full max-w-[440px] rounded-[24px] px-8 py-10"
+            style={{ background: white, boxShadow: '0 40px 100px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(178,149,93,0.06)' }}
+            onClick={e => e.stopPropagation()}>
+
+            <button onClick={() => setShowLauncher(false)}
+              className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-[rgba(0,0,0,0.04)]"
+              style={{ color: mute }} aria-label="关闭">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>
+            </button>
+
+            <div className="text-center mb-8">
+              <p className="text-[10px] tracking-[0.25em] font-semibold mb-3" style={{ color: gold }}>选择功能</p>
+              <h2 className="font-serif font-bold tracking-[-0.03em] leading-[1.2]"
+                style={{ fontSize: 'clamp(1.4rem, 4vw, 1.7rem)', color: ink }}>探索你的命理</h2>
+            </div>
+
+            <div className="relative">
+              <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:-340,behavior:'smooth'}) }}
+                className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-115 active:scale-95"
+                style={{ background: white, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M10 3l-5 5 5 5"/></svg>
+              </button>
+
+              <div id="ls" className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                {[
+                  { href:"/create", zi:"命", title:"八字 & 紫微", desc:"四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。" },
+                  { href:"/liuyao", zi:"爻", title:"六爻问卦", desc:"金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。" },
+                  { href:"#", zi:"合", title:"姓名合盘", desc:"二人姓名，五行适配。五格剖象，深析缘分。", tag:"即将上线" },
+                  { href:"#", zi:"吉", title:"择日", desc:"黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。", tag:"即将上线" },
+                ].map((item, i) => (
+                  <Link key={i} href={item.href}
+                    onClick={() => item.tag ? null : setShowLauncher(false)}
+                    className={item.tag ? 'pointer-events-none group' : 'group'}
+                    style={{ textDecoration: 'none', minWidth: '100%' }}>
+                    <div className="snap-center w-full rounded-2xl px-6 py-8 flex flex-col items-center text-center transition-all duration-400 hover:bg-[rgba(178,149,93,0.02)] cursor-pointer"
+                      style={{ background: 'transparent' }}>
+                      <div className="mb-5 transition-transform duration-500 group-hover:scale-105"
+                        style={{ width: 72, height: 72, position: 'relative' }}>
+                        <svg viewBox="0 0 72 72" style={{ width: 72, height: 72 }}>
+                          <rect x="1" y="1" width="70" height="70" rx="8" fill="none" stroke={gold} strokeWidth="1.2" opacity="0.35" />
+                          <rect x="5" y="5" width="62" height="62" rx="4" fill="none" stroke={gold} strokeWidth="0.5" opacity="0.18" />
+                          <text x="36" y="50" textAnchor="middle" fill={gold} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
+                        </svg>
+                      </div>
+                      <h3 className="font-serif font-bold text-xl tracking-[-0.02em] mb-2" style={{ color: ink }}>{item.title}</h3>
+                      {item.tag ? (
+                        <span className="text-[10px] font-medium tracking-[0.08em] px-2.5 py-0.5 rounded-full mb-4"
+                          style={{ background: 'rgba(178,149,93,0.06)', color: gold }}>{item.tag}</span>
+                      ) : (
+                        <div className="w-10 h-px mb-4" style={{ background: 'rgba(178,149,93,0.18)' }} />
+                      )}
+                      <p className="text-[14px] leading-relaxed mb-6 max-w-[300px]" style={{ color: mute }}>{item.desc}</p>
+                      <div className="flex items-center gap-1.5 transition-all duration-300 group-hover:gap-2.5"
+                        style={{ color: item.tag ? 'rgba(0,0,0,0.10)' : gold }}>
+                        <span className="text-[13px] font-medium tracking-[0.03em]">{item.tag ? '敬请期待' : '进入'}</span>
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:340,behavior:'smooth'}) }}
+                className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-115 active:scale-95"
+                style={{ background: white, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-3 mt-7">
+              {[0,1,2,3].map(i => (
+                <button key={i} onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollTo({left:i*350,behavior:'smooth'}) }}
+                  className="w-1.5 h-1.5 rounded-full transition-all duration-300 hover:scale-125"
+                  style={{ background: gold, opacity: 0.22 }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

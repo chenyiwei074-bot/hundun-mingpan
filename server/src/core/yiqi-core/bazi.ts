@@ -160,7 +160,8 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
 
     // 获取大运（使用lunar-javascript库）
     const yun = baZi.getYun(birthInfo.gender === 'male' ? 1 : 0);
-    const dayunStart = Math.floor(yun.getStartYear());
+    const dayunStartRaw = yun.getStartYear();
+    const dayunStart = Math.round(dayunStartRaw * 10) / 10; // 保留1位小数，四舍五入
     
     // 获取大运列表（跳过第一个，因为它是起运前的状态）
     const dayunList = yun.getDaYun().slice(1, 11); // 取第2-11个，共10步大运

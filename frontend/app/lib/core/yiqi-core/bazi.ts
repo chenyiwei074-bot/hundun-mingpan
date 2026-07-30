@@ -224,6 +224,13 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
 
     // 计算纳音
     const naYin = getSiZhuNaYin(siZhu);
+    // 计算藏干
+    const cangGan = {
+      year: getZhiCangGanFull(siZhu.year.zhi, dayMaster),
+      month: getZhiCangGanFull(siZhu.month.zhi, dayMaster),
+      day: getZhiCangGanFull(siZhu.day.zhi, dayMaster),
+      hour: getZhiCangGanFull(siZhu.hour.zhi, dayMaster),
+    };
 
     console.error('🔍 八字计算结果 - zhangSheng:', zhangSheng);
     console.error('🔍 八字计算结果 - naYin:', naYin);
@@ -236,7 +243,8 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
       zhangSheng,
       naYin,
       dayunStart,
-      dayun
+      dayun,
+      cangGan
     };
   } catch (error) {
     console.error('创建八字排盘失败:', error);

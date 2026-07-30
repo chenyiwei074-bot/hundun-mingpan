@@ -1,4 +1,4 @@
-// 核心数据类型定义
+﻿// 核心数据类型定义
 
 // 生辰信息
 export interface BirthInfo {
@@ -87,6 +87,7 @@ export interface BaziChart {
   };
   dayunStart: number; // 大运起运岁数
   dayun: DayunDetail[]; // 大运详情列表，通常显示前10步
+  cangGan?: { year: { gan: string; tenGod?: string }[]; month: { gan: string; tenGod?: string }[]; day: { gan: string; tenGod?: string }[]; hour: { gan: string; tenGod?: string }[] }
 }
 
 // 紫微斗数十二宫

@@ -1,6 +1,7 @@
-// 统一排盘接口
+﻿// 统一排盘接口
 
-import { BirthInfo, ChartResult } from './types';
+import { BirthInfo, ChartResult, BaziChart, ZiweiChart } from './types';
+export type { BirthInfo, ChartResult, BaziChart, ZiweiChart };
 import { createBaziChart, runBaziTests } from './bazi';
 import { createZiweiChart, runZiweiTests } from './ziwei-standard';
 

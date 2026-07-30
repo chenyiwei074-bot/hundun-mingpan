@@ -1,5 +1,7 @@
 ﻿import type { Metadata } from 'next';
 import './globals.css';
+import Nav from '@/components/Nav';
+import Footer from '@/components/Footer';
 
 export const metadata: Metadata = {
   title: '混沌命盘 - AI融合八字×紫微斗数',
@@ -9,7 +11,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body className="min-h-screen">{children}</body>
+      <body className="min-h-screen">
+        <Nav />
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
