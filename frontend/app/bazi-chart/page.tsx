@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { BaziChart } from "@/components/bazi/BaziChart";
@@ -90,14 +90,7 @@ export default function BaziChartDemoPage() {
     return (
       <div style={{ minHeight:"100vh", background:"#f5f5f7" }}>
         {/* NAV */}
-        <nav className="sticky top-0 z-50 w-full"
-          style={{ background:'rgba(250,250,249,0.85)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', borderBottom:'0.5px solid rgba(0,0,0,0.08)' }}>
-          <div className="mx-auto flex h-11 max-w-[1024px] items-center justify-between px-6">
-            <a href="/" className="no-underline text-base font-semibold tracking-[-0.01em]" style={{ color:"#1d1d1f" }}>混沌</a>
-            <span className="text-xs tracking-[0.1em] font-serif" style={{ color:"#b2955d" }}>八字 & 紫微</span>
-            <div className="w-[44px]" />
-          </div>
-        </nav>
+        
 
         {/* FORM */}
         <div className="max-w-lg mx-auto px-6 pt-16 pb-20">
@@ -190,16 +183,7 @@ export default function BaziChartDemoPage() {
   return (
     <div style={{ minHeight:"100vh", background:"#f5f5f7" }}>
       {/* NAV */}
-      <nav className="sticky top-0 z-50 w-full"
-        style={{ background:'rgba(250,250,249,0.85)', backdropFilter:'blur(20px) saturate(180%)', WebkitBackdropFilter:'blur(20px) saturate(180%)', borderBottom:'0.5px solid rgba(0,0,0,0.08)' }}>
-        <div className="mx-auto flex h-11 max-w-[1024px] items-center justify-between px-6">
-          <a href="/" className="no-underline text-base font-semibold tracking-[-0.01em]" style={{ color:"#1d1d1f" }}>混沌</a>
-          <span className="text-xs tracking-[0.1em] font-serif" style={{ color:"#b2955d" }}>八字 & 紫微</span>
-          <button onClick={() => setSubmitted(false)}
-            className="text-[12px] tracking-[0.05em] px-3 py-1 rounded-full transition-all duration-300"
-            style={{ color:"#86868b", background:'rgba(0,0,0,0.03)' }}>重新输入</button>
-        </div>
-      </nav>
+      <div className="max-w-3xl mx-auto px-4 pt-14 pb-2 flex justify-end"><button onClick={() => setSubmitted(false)} className="text-[12px] tracking-[0.05em] px-3 py-1 rounded-full transition-all duration-300" style={{ color:"#86868b", background:"rgba(0,0,0,0.03)" }}>重新输入</button></div>
 
       <BaziChart data={SAMPLE_BAZI} />
 

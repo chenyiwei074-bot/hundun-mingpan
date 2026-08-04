@@ -33,12 +33,12 @@ export async function saveReport(params: SaveParams): Promise<{ id: string } | n
 
     const data = await res.json();
     if (!res.ok || !data.success) {
-      console.error('saveReport failed:', data.error);
+      console.debug('saveReport failed:', data.error);
       return null;
     }
     return { id: data.data.id };
   } catch (e) {
-    console.error('saveReport error:', e);
+    console.debug('saveReport error:', e);
     return null;
   }
 }

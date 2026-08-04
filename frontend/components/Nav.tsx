@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -10,6 +10,7 @@ const gold = '#b2955d';
 const LINKS = [
   { href: '/create', label: '八字 & 紫微' },
   { href: '/liuyao', label: '六爻' },
+  { href: '/dashboard', label: '我的报告' },
 ];
 
 export default function Nav() {
@@ -40,14 +41,11 @@ export default function Nav() {
               </Link>
             );
           })}
-          <span className="tracking-[0.03em]" style={{ color: mute }}>姓名合盘</span>
-          <span className="tracking-[0.03em]" style={{ color: mute }}>择日</span>
-          <span className="tracking-[0.03em]" style={{ color: mute }}>星座</span>
         </div>
         <div className="flex sm:hidden items-center gap-4 text-xs">
           <Link href="/create" className="nav-link no-underline" style={{ color: ink }}>命盘</Link>
           <Link href="/liuyao" className="nav-link no-underline" style={{ color: ink }}>六爻</Link>
-            <Link href="/dashboard" className="nav-link no-underline tracking-[0.03em]" style={{ color: mute }}>我的报告</Link>
+          <Link href="/dashboard" className="nav-link no-underline tracking-[0.03em]" style={{ color: mute }}>我的报告</Link>
         </div>
       </div>
     </nav>

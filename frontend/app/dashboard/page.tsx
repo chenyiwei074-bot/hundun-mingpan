@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -11,8 +11,6 @@ const card: React.CSSProperties = {
   boxShadow:'0 1px 3px rgba(0,0,0,0.04)', border:'1px solid #f0f0f0',
 };
 
-
-
 export default function DashboardPage() {
   const [reports, setReports] = useState<ReportListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,19 +21,19 @@ export default function DashboardPage() {
     fetch(`/api/reports?visitorId=${vid}`)
       .then(r => r.json())
       .then(d => { if (d.success) setReports(d.data); })
-      .catch(() => setError("????????????"))
+      .catch(() => setError("加载失败，请稍后重试"))
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <main style={{maxWidth:660,margin:'0 auto',padding:'40px 20px 80px'}}>
-      <h1 style={{fontSize:22,fontFamily:'serif',color:'#1d1d1f',margin:'0 0 8px'}}>我的报告</h1>
+      <h1 style={{fontSize:22,fontFamily:'"Noto Serif SC",serif',color:'#1d1d1f',margin:'0 0 8px'}}>我的报告</h1>
       <p style={{fontSize:12,color:'#86868b',margin:'0 0 28px'}}>八字命盘 · 紫微斗数 · 六爻占卜</p>
 
       {error ? (
         <div style={{...card,textAlign:"center",padding:"48px 28px"}}>
           <p style={{margin:0,fontSize:14,color:"#d4544a",marginBottom:12}}>{error}</p>
-          <button onClick={() => window.location.reload()} style={{background:"transparent",color:"#b2955d",border:"1px solid #b2955d",borderRadius:999,padding:"6px 20px",fontSize:12,cursor:"pointer"}}>????</button>
+          <button onClick={() => window.location.reload()} style={{background:"transparent",color:"#b2955d",border:"1px solid #b2955d",borderRadius:999,padding:"6px 20px",fontSize:12,cursor:"pointer"}}>重新加载</button>
         </div>
       ) : loading ? (
         <p style={{textAlign:'center',color:'#86868b',padding:'40px 0'}}>加载中...</p>

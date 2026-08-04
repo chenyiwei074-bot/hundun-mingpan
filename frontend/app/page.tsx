@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useRef, useState } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,9 @@ const ink   = '#1d1d1f'; const mute  = '#86868b';
 const paper = '#f5f5f7'; const white = '#ffffff';
 const gold  = '#b2955d'; const hair  = 'rgba(0,0,0,0.06)'; const red = '#d4544a';
 
+// Round to 6 decimals so server & client Math.cos/sin stay identical (hydration-safe)
+const R6 = (n: number) => Math.round(n * 1e6) / 1e6;
+
 function Taiji({ size = 240 }: { size?: number }) {
   const r = size / 2;
   const s = size;
@@ -22,8 +25,8 @@ function Taiji({ size = 240 }: { size?: number }) {
     const rad = (a * Math.PI) / 180;
     const inner = r + 16;
     const len = i % 6 === 0 ? 10 : i % 3 === 0 ? 6 : 3;
-    return { x1: r + inner * Math.cos(rad), y1: r + inner * Math.sin(rad),
-             x2: r + (inner + len) * Math.cos(rad), y2: r + (inner + len) * Math.sin(rad),
+    return { x1: R6(r + inner * Math.cos(rad)), y1: R6(r + inner * Math.sin(rad)),
+             x2: R6(r + (inner + len) * Math.cos(rad)), y2: R6(r + (inner + len) * Math.sin(rad)),
              thick: i % 6 === 0 ? 0.6 : 0.3 };
   });
   const stems = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
@@ -87,7 +90,7 @@ function Taiji({ size = 240 }: { size?: number }) {
               const a = (i * 45 - 90) * Math.PI / 180;
               const dist = r + 32;
               return (
-                <text key={"g"+i} x={r + dist * Math.cos(a)} y={r + dist * Math.sin(a)}
+                <text key={"g"+i} x={R6(r + dist * Math.cos(a))} y={R6(r + dist * Math.sin(a))}
                   textAnchor="middle" dominantBaseline="central"
                   fill={gold} fontSize={12} fontWeight={400} fontFamily="serif">{g}</text>
               );
@@ -100,7 +103,7 @@ function Taiji({ size = 240 }: { size?: number }) {
             const a = (i * 36 - 108) * Math.PI / 180;
             const dist = r + 56;
             return (
-              <text key={"s"+i} x={r + dist * Math.cos(a)} y={r + dist * Math.sin(a)}
+              <text key={"s"+i} x={R6(r + dist * Math.cos(a))} y={R6(r + dist * Math.sin(a))}
                 textAnchor="middle" dominantBaseline="central"
                 fill={gold} fontSize={10} fontWeight={400} fontFamily="serif"
                 letterSpacing="0.1em">{st}</text>
@@ -160,10 +163,10 @@ function BaziPreview() {
         const ca = Math.cos(a); const sa = Math.sin(a);
         return (
           <g key={"p"+i}>
-            <line x1={cx + (R-4)*ca} y1={cy + (R-4)*sa} x2={cx + (R+3)*ca} y2={cy + (R+3)*sa}
+            <line x1={R6(cx + (R-4)*ca)} y1={R6(cy + (R-4)*sa)} x2={R6(cx + (R+3)*ca)} y2={R6(cy + (R+3)*sa)}
               stroke={isMing ? red : gold} strokeWidth={isMing ? 1.4 : 0.6}
               opacity={isMing ? 0.55 : 0.18} strokeLinecap="round" />
-            <text x={cx + (R+11)*ca} y={cy + (R+11)*sa} textAnchor="middle" dominantBaseline="central"
+            <text x={R6(cx + (R+11)*ca)} y={R6(cy + (R+11)*sa)} textAnchor="middle" dominantBaseline="central"
               fill={isMing ? red : gold} fontSize={isMing ? 8 : 6.5}
               fontWeight={isMing ? 600 : 400} fontFamily="serif"
               opacity={isMing ? 0.50 : 0.20}>{palaceNames[i]}</text>
@@ -279,7 +282,7 @@ function HePanPreview() {
         {Array.from({length:24}, (_,i) => {
           const a = (i*15*Math.PI)/180;
           const inner = R-3; const outer = R+2;
-          return <line key={"lt"+i} x1={cx1+inner*Math.cos(a)} y1={cy+inner*Math.sin(a)} x2={cx1+outer*Math.cos(a)} y2={cy+outer*Math.sin(a)} stroke={gold} strokeWidth={0.4} opacity={0.12} />;
+          return <line key={"lt"+i} x1={R6(cx1+inner*Math.cos(a))} y1={R6(cy+inner*Math.sin(a))} x2={R6(cx1+outer*Math.cos(a))} y2={R6(cy+outer*Math.sin(a))} stroke={gold} strokeWidth={0.4} opacity={0.12} />;
         })}
         {/* Left marker */}
         <circle cx={cx1} cy={cy-14} r={3.5} fill={gold} opacity={0.5} />
@@ -294,7 +297,7 @@ function HePanPreview() {
         {Array.from({length:24}, (_,i) => {
           const a = (i*15*Math.PI)/180;
           const inner = R-3; const outer = R+2;
-          return <line key={"rt"+i} x1={cx2+inner*Math.cos(a)} y1={cy+inner*Math.sin(a)} x2={cx2+outer*Math.cos(a)} y2={cy+outer*Math.sin(a)} stroke={ink} strokeWidth={0.4} opacity={0.07} />;
+          return <line key={"rt"+i} x1={R6(cx2+inner*Math.cos(a))} y1={R6(cy+inner*Math.sin(a))} x2={R6(cx2+outer*Math.cos(a))} y2={R6(cy+outer*Math.sin(a))} stroke={ink} strokeWidth={0.4} opacity={0.07} />;
         })}
         {/* Right marker */}
         <circle cx={cx2} cy={cy-14} r={3.5} fill={ink} opacity={0.25} />
@@ -309,8 +312,8 @@ function HePanPreview() {
         {/* Wuxing dots + labels - left */}
         {leftAngles.map((a, i) => {
           const rad = (a * Math.PI) / 180;
-          const dx = 50*Math.cos(rad); const dy = 50*Math.sin(rad);
-          const lx = cx1 + 62*Math.cos(rad); const ly = cy + 62*Math.sin(rad);
+          const dx = R6(50*Math.cos(rad)); const dy = R6(50*Math.sin(rad));
+          const lx = R6(cx1 + 62*Math.cos(rad)); const ly = R6(cy + 62*Math.sin(rad));
           return (
             <g key={"lw"+i}>
               <circle cx={cx1+dx} cy={cy+dy} r={4.5} fill={colors[i]} opacity={0.6} />
@@ -322,8 +325,8 @@ function HePanPreview() {
         {/* Wuxing dots + labels - right */}
         {rightAngles.map((a, i) => {
           const rad = (a * Math.PI) / 180;
-          const dx = 50*Math.cos(rad); const dy = 50*Math.sin(rad);
-          const lx = cx2 + 62*Math.cos(rad); const ly = cy + 62*Math.sin(rad);
+          const dx = R6(50*Math.cos(rad)); const dy = R6(50*Math.sin(rad));
+          const lx = R6(cx2 + 62*Math.cos(rad)); const ly = R6(cy + 62*Math.sin(rad));
           return (
             <g key={"rw"+i}>
               <circle cx={cx2+dx} cy={cy+dy} r={4.5} fill={colors[i]} opacity={0.6} />
@@ -338,8 +341,8 @@ function HePanPreview() {
           const ra = (rightAngles[ri] * Math.PI) / 180;
           return (
             <line key={"arc"+i}
-              x1={cx1 + 50*Math.cos(la)} y1={cy + 50*Math.sin(la)}
-              x2={cx2 + 50*Math.cos(ra)} y2={cy + 50*Math.sin(ra)}
+              x1={R6(cx1 + 50*Math.cos(la))} y1={R6(cy + 50*Math.sin(la))}
+              x2={R6(cx2 + 50*Math.cos(ra))} y2={R6(cy + 50*Math.sin(ra))}
               stroke={gold} strokeWidth={0.4} opacity={0.10} />
           );
         })}
@@ -361,7 +364,7 @@ function ZeRiPreview() {
     const pts: Array<{x:number,y:number}> = [];
     for (let i = 0; i < 4; i++) {
       const a = (i * 90 - 90) * Math.PI / 180;
-      pts.push({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) });
+      pts.push({ x: R6(cx + r * Math.cos(a)), y: R6(cy + r * Math.sin(a)) });
     }
     return pts.map(p => p.x + ',' + p.y).join(' ');
   };
@@ -379,8 +382,8 @@ function ZeRiPreview() {
         <polygon points={diamond(dR)} fill="none" stroke={gold} strokeWidth={1.2} className="zr-outer" opacity={0.28} />
         {[0,1,2,3].map(i => {
           const a1 = (i*90-90)*Math.PI/180; const a2 = ((i+1)*90-90)*Math.PI/180;
-          const x1 = cx+dR*Math.cos(a1); const y1 = cy+dR*Math.sin(a1);
-          const x2 = cx+dR*Math.cos(a2); const y2 = cy+dR*Math.sin(a2);
+          const x1 = R6(cx+dR*Math.cos(a1)); const y1 = R6(cy+dR*Math.sin(a1));
+          const x2 = R6(cx+dR*Math.cos(a2)); const y2 = R6(cy+dR*Math.sin(a2));
           const mx = (x1+x2)/2; const my = (y1+y2)/2;
           const dx = x2-x1; const dy = y2-y1; const len = Math.sqrt(dx*dx+dy*dy);
           const nx = -dy/len; const ny = dx/len;
@@ -391,11 +394,11 @@ function ZeRiPreview() {
         <polygon points={diamond(dR-40)} fill="none" stroke={red} strokeWidth={0.8} opacity={0.35} />
         {[0,1,2,3].map(i => {
           const a = (i*90-90)*Math.PI/180;
-          return <circle key={"cd"+i} cx={cx+(dR-16)*Math.cos(a)} cy={cy+(dR-16)*Math.sin(a)} r={3} fill={gold} opacity={0.30} />;
+          return <circle key={"cd"+i} cx={R6(cx+(dR-16)*Math.cos(a))} cy={R6(cy+(dR-16)*Math.sin(a))} r={3} fill={gold} opacity={0.30} />;
         })}
         {[45,135,225,315].map((deg,i) => {
           const a = deg*Math.PI/180;
-          return <line key={"sp"+i} x1={cx} y1={cy} x2={cx+(dR-3)*Math.cos(a)} y2={cy+(dR-3)*Math.sin(a)} stroke={gold} strokeWidth={0.35} opacity={0.10} />;
+          return <line key={"sp"+i} x1={cx} y1={cy} x2={R6(cx+(dR-3)*Math.cos(a))} y2={R6(cy+(dR-3)*Math.sin(a))} stroke={gold} strokeWidth={0.35} opacity={0.10} />;
         })}
         <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="central" fontSize={20} fill={red} opacity={0.55} fontFamily="serif" fontWeight="bold">{'\u5409'}</text>
         {[[0,-dR-10],[0,dR+10],[-dR-10,0],[dR+10,0]].map(([dx,dy],i) => (

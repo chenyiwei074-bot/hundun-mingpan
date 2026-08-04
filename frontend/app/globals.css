@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme {
   /* ===== 浅色主题 · 参考问真八字 ===== */
@@ -112,3 +112,23 @@ body {
 .anchor-radiate{animation:anchor-radiate 3s ease-out infinite}
 .hex-particle{animation:float-particle 6s ease-in-out infinite}
 .hex-particle-alt{animation:float-particle-alt 5s ease-in-out infinite}
+
+/* Mobile overflow fix */
+html {
+  overflow-x: hidden !important;
+}
+body {
+  overflow-x: hidden !important;
+}
+
+/* ===== LiuYaoPlate responsive ===== */
+@media (max-width: 580px) {
+  .liuyao-plate {
+    grid-template-columns: 36px 1fr 64px 64px 1fr !important;
+    max-width: 100% !important;
+    font-size: 11px !important;
+  }
+  .liuyao-plate span {
+    font-size: inherit;
+  }
+}

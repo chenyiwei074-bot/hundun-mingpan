@@ -66,11 +66,7 @@ export default function LoadingPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: '#ffffff', color: '#1d1d1f' }}>
-      <nav className="fixed top-0 z-50 w-full" style={{ background: 'rgba(250,250,249,0.85)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
-        <div className="mx-auto flex h-11 max-w-[1024px] items-center px-6">
-          <a href="/" className="no-underline text-base font-semibold tracking-[-0.01em]" style={{ color: '#1d1d1f' }}>混沌</a>
-        </div>
-      </nav>
+      
 
       <div className="text-center pt-11">
         <div className="w-16 h-16 mx-auto mb-8 relative">

@@ -98,14 +98,7 @@ export default function ChartPage() {
 
   return (
     <div className="min-h-screen bg-bg-primary">
-      <nav className="fixed top-0 z-50 w-full" style={{ background: 'rgba(250,250,249,0.85)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
-        <div className="mx-auto flex h-11 max-w-[1024px] items-center justify-between px-6">
-          <a href="/" className="no-underline text-base font-semibold tracking-[-0.01em]" style={{ color: '#1d1d1f' }}>混沌</a>
-          <div className="hidden sm:flex items-center gap-6 text-xs">
-            <a href="/create" className="no-underline tracking-[0.03em]" style={{ color: '#1d1d1f' }}>八字 & 紫微</a>
-          </div>
-        </div>
-      </nav>
+      
 
       <div className="pt-11">
         {/* 命盘信息 */}
