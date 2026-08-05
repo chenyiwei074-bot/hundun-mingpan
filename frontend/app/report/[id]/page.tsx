@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
@@ -41,7 +41,7 @@ export default function ReportDetailPage() {
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
           <div>
             <p style={{margin:0,fontSize:11,color:'#86868b'}}>{REPORT_TYPE_LABELS[report.type] || report.type}</p>
-            <h1 style={{margin:0,fontSize:20,fontFamily:'serif',color:'#1d1d1f',marginTop:4}}>{report.title}</h1>
+            <h1 style={{margin:0,fontSize:20,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#1d1d1f',marginTop:4}}>{report.title}</h1>
             <p style={{margin:0,fontSize:11,color:'#c7c7cc',marginTop:4}}>{new Date(report.createdAt).toLocaleString('zh-CN')}</p>
           </div>
           <span style={{fontSize:11,color:REPORT_STATUS_COLORS[report.status]||'#86868b',background:(REPORT_STATUS_COLORS[report.status]||'#86868b')+'12',padding:'2px 10px',borderRadius:99}}>
@@ -56,11 +56,11 @@ export default function ReportDetailPage() {
               <p style={{margin:0,fontSize:11,color:'#86868b',letterSpacing:'0.1em',textAlign:'center'}}>完整报告需解锁</p>
               {product && (
                 <>
-                  <p style={{margin:0,fontSize:20,fontFamily:'serif',color:'#1d1d1f',textAlign:'center',marginTop:8}}>{product.name}</p>
+                  <p style={{margin:0,fontSize:20,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#1d1d1f',textAlign:'center',marginTop:8}}>{product.name}</p>
                   <p style={{margin:0,fontSize:11,color:'#86868b',textAlign:'center',marginTop:4}}>{product.description}</p>
                   <p style={{textAlign:'center',margin:'16px 0'}}>
                     <span style={{fontSize:14,color:'#86868b'}}>¥</span>
-                    <span style={{fontSize:32,fontFamily:'serif',color:'#b2955d',fontWeight:700}}>{product.price}</span>
+                    <span style={{fontSize:32,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#b2955d',fontWeight:700}}>{product.price}</span>
                   </p>
                   <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
                     {product.features.map((f,i) => (
@@ -73,7 +73,7 @@ export default function ReportDetailPage() {
                 </>
               )}
               <div style={{textAlign:'center'}}>
-                <button style={{background:'#b2955d',color:'#fff',border:'none',borderRadius:999,padding:'12px 40px',fontSize:14,fontWeight:500,cursor:'pointer',letterSpacing:'0.05em',boxShadow:'0 4px 16px rgba(178,149,93,0.2)',transition:'all 0.2s'}}
+                <button style={{background:'#b2955d',color:'#fff',border:'none',borderRadius:999,padding:'12px 40px',fontSize:14,fontWeight:500,cursor:'pointer',letterSpacing:'0.05em',boxShadow:'0 4px 16px rgba(178,149,93,0.2)',transition:'transform 0.2s, box-shadow 0.2s'}}
                   onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(178,149,93,0.3)'; }}
                   onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(178,149,93,0.2)'; }}
                   onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
@@ -88,8 +88,8 @@ export default function ReportDetailPage() {
         {displayText ? (
           <div style={{fontSize:14,lineHeight:'1.9',color:'#1d1d1f'}}>
             {displayText.split('\n').map((line, i) => {
-              if (line.startsWith('# ')) return <h1 key={i} style={{fontSize:20,fontFamily:'serif',margin:'0 0 14px',fontWeight:700}}>{line.slice(2)}</h1>;
-              if (line.startsWith('## ')) return <h2 key={i} style={{fontSize:16,fontFamily:'serif',color:'#b2955d',margin:'18px 0 8px',fontWeight:600,paddingBottom:4,borderBottom:'1px solid rgba(0,0,0,0.06)'}}>{line.slice(3)}</h2>;
+              if (line.startsWith('# ')) return <h1 key={i} style={{fontSize:20,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',margin:'0 0 14px',fontWeight:700}}>{line.slice(2)}</h1>;
+              if (line.startsWith('## ')) return <h2 key={i} style={{fontSize:16,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#b2955d',margin:'18px 0 8px',fontWeight:600,paddingBottom:4,borderBottom:'1px solid rgba(0,0,0,0.06)'}}>{line.slice(3)}</h2>;
               if (line.startsWith('> ')) return <blockquote key={i} style={{margin:'6px 0',padding:'6px 12px',borderLeft:'3px solid #b2955d',background:'rgba(178,149,93,0.04)',borderRadius:'0 6px 6px 0',color:'#555',fontSize:13}}>{line.slice(2)}</blockquote>;
               if (line.trim() === '') return <br key={i} />;
               if (line.startsWith('- ')) return <li key={i} style={{margin:'2px 0 2px 16px',color:'#333',listStyle:'disc'}}>{line.slice(2)}</li>;

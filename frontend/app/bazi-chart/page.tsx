@@ -197,12 +197,7 @@ export default function BaziChartDemoPage() {
         <ZiweiGongs gongs={SAMPLE_ZIWEI.gongs} mingGongIndex={0} shenGongIndex={6} />
       </div>
 
-      {/* Footer */}
-      <div className="py-10 text-center">
-        <p style={{fontSize:"11px",color:"rgba(0,0,0,0.20)",letterSpacing:"0.2em"}}>
-          混沌 · 古籍数字化 · AI 参详 · 仅供参考
-        </p>
-      </div>
+      
     </div>
   );
 }

@@ -8,13 +8,15 @@ const mute = '#86868b';
 const gold = '#b2955d';
 
 const LINKS = [
-  { href: '/create', label: '八字 & 紫微' },
-  { href: '/liuyao', label: '六爻' },
-  { href: '/dashboard', label: '我的报告' },
+  { href: '/create', label: '八字 & 紫微', short: '命盘' },
+  { href: '/liuyao', label: '六爺', short: '六爺' },
+  { href: '/dashboard', label: '我的报告', short: '我的报告' },
 ];
 
 export default function Nav() {
   const pathname = usePathname();
+
+  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
 
   return (
     <nav className="fixed top-0 z-50 w-full" style={{
@@ -29,7 +31,7 @@ export default function Nav() {
         </Link>
         <div className="hidden sm:flex items-center gap-6 text-xs">
           {LINKS.map(l => {
-            const active = pathname === l.href || pathname.startsWith(l.href + '/');
+            const active = isActive(l.href);
             return (
               <Link key={l.href} href={l.href}
                 className="nav-link no-underline tracking-[0.03em] transition-colors duration-200"
@@ -43,9 +45,19 @@ export default function Nav() {
           })}
         </div>
         <div className="flex sm:hidden items-center gap-4 text-xs">
-          <Link href="/create" className="nav-link no-underline" style={{ color: ink }}>命盘</Link>
-          <Link href="/liuyao" className="nav-link no-underline" style={{ color: ink }}>六爻</Link>
-          <Link href="/dashboard" className="nav-link no-underline tracking-[0.03em]" style={{ color: mute }}>我的报告</Link>
+          {LINKS.map(l => {
+            const active = isActive(l.href);
+            return (
+              <Link key={l.href} href={l.href}
+                className="nav-link no-underline"
+                style={{ color: active ? gold : (l.href === '/dashboard' ? mute : ink) }}
+                onMouseEnter={e => { if (!active) e.currentTarget.style.color = gold }}
+                onMouseLeave={e => { if (!active) e.currentTarget.style.color = l.href === '/dashboard' ? mute : ink }}
+              >
+                {l.short}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>

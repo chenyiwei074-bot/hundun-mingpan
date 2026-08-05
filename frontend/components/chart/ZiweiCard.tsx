@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 
@@ -69,14 +69,7 @@ const STAR_COMBO: Record<string,string> = {
   '太阴+天机':'母智双星，细腻谋略。你善于细致规划，适合策划、研究等需要周密思考的工作。',
 };
 
-// ===== 八字交叉验证占位 =====
-const BAZI_CROSS_PLACEHOLDER: Record<string,string> = {
-  '命宫':'【需后端双盘合参接口】结合八字日主五行属性与命宫主星配置，进行性格与命运的交叉验证分析。',
-  '官禄宫':'【需后端双盘合参接口】结合八字格局与官禄宫星曜配置，进行事业方向与成就上限的交叉验证分析。',
-  '财帛宫':'【需后端双盘合参接口】结合八字财星配置与财帛宫星曜分布，进行财富格局与获取模式的交叉验证。',
-  '夫妻宫':'【需后端双盘合参接口】结合八字日支配偶宫与夫妻宫星曜配置，进行婚姻质量与配偶特征的交叉验证。',
-  '福德宫':'【需后端双盘合参接口】结合八字喜用神与福德宫星曜配置，进行精神层面与晚年运势的交叉验证。',
-};
+
 
 // ===== 辅助函数 =====
 function getStarCombo(mainStars: string[]): string {
@@ -96,7 +89,7 @@ function getGongConfig(gong: GongInfo): string {
 }
 
 // ===== 组件 =====
-export default function ZiweiCard({ ziwei, bazi }: Props) {
+export default function ZiweiCard({ ziwei }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['命宫']));
   const gongs: GongInfo[] = ziwei?.gongs || [];
 
@@ -114,7 +107,6 @@ export default function ZiweiCard({ ziwei, bazi }: Props) {
 
   const keyGongs = KEY_GONGS.map(name => gongs.find(g => g.gong === name)).filter(Boolean) as GongInfo[];
   const otherGongs = gongs.filter(g => !KEY_GONGS.includes(g.gong));
-  const baziDayMaster = bazi?.dayMaster || '';
 
   return (
     <section className='w-full'>
@@ -185,18 +177,7 @@ export default function ZiweiCard({ ziwei, bazi }: Props) {
                     </div>
                   )}
 
-                  {/* 5. 八字交叉验证（占位） */}
-                  <div className='rounded-lg p-3' style={{background:'rgba(211,5,5,0.02)',border:'1px dashed rgba(211,5,5,0.1)'}}>
-                    <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#d30505'}}>🔗 八字交叉验证</div>
-                    <p className='text-xs leading-relaxed' style={{color:'#999'}}>
-                      {BAZI_CROSS_PLACEHOLDER[gong.gong] || '【需后端双盘合参接口】'}
-                    </p>
-                    {baziDayMaster && (
-                      <p className='text-[10px] mt-1' style={{color:'#ccc'}}>
-                        日主参考：{baziDayMaster} | 完整双盘验证数据需后端提供
-                      </p>
-                    )}
-                  </div>
+                  
 
                   {/* 6. 实际建议 */}
                   {detail && (

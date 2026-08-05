@@ -655,17 +655,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ════════════ FOOTER ════════════ */}
-      <footer className="py-6 px-6" style={{ background: paper, borderTop: '0.5px solid ' + hair }}>
-        <div className="max-w-[980px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="text-[11px] tracking-[0.03em]" style={{ color: 'rgba(0,0,0,0.30)' }}>混沌 · 玄学一站式 — 古籍数字化 · AI 参详 · 仅供参考</p>
-          <div className="flex gap-6 text-[11px]">
-            <Link href="/" className="no-underline" style={{ color: 'rgba(0,0,0,0.35)' }}>首页</Link>
-            <Link href="/create" className="no-underline" style={{ color: 'rgba(0,0,0,0.35)' }}>命盘</Link>
-            <Link href="/liuyao" className="no-underline" style={{ color: 'rgba(0,0,0,0.35)' }}>问卦</Link>
-          </div>
-        </div>
-      </footer>
+      
 
       <style>{`
         @keyframes scrolldot{0%,100%{opacity:0;transform:translateY(0)}50%{opacity:1;transform:translateY(6px)}}
