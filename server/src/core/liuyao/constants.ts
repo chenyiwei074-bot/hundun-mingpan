@@ -111,8 +111,8 @@ export const LIUSHEN_NAMES: LiuShen[] = ['青龙','朱雀','勾陈','螣蛇','�
 /** 根据日干获取六神顺序 (甲乙日起青龙...) */
 export function getLiuShenOrder(riGan: TianGan): LiuShen[] {
   const idx = GANS.indexOf(riGan);
-  // 甲乙→青龙始, 丙丁→朱雀始, 戊→勾陈始, 己→螣蛇始, 庚辛→白虎始, 壬癸→玄武始
-  const starts: Record<number,number> = { 0:0, 1:0, 2:1, 3:1, 4:2, 5:3, 6:4, 7:4, 8:5, 9:5 };
+  // 与 engine.py get_god6 一致: 甲乙→青龙始, 丙丁→朱雀始, 戊己→勾陈始, 庚辛→螣蛇始, 壬癸→白虎始
+  const starts: Record<number,number> = { 0:0, 1:0, 2:1, 3:1, 4:2, 5:2, 6:3, 7:3, 8:4, 9:4 };
   const start = starts[idx] ?? 0;
   return [...LIUSHEN_NAMES.slice(start), ...LIUSHEN_NAMES.slice(0, start)];
 }
@@ -126,12 +126,13 @@ export const XUNKONG_TABLE: [DiZhi,DiZhi][] = [
 
 /** 根据日干支获取旬空地支 */
 export function getXunKong(riGan: TianGan, riZhi: DiZhi): DiZhi[] {
-  const ganIdx = GANS.indexOf(riGan);
-  const zhiIdx = ZHIS.indexOf(riZhi);
-  // 旬: 甲子→甲戌→甲申→甲午→甲辰→甲寅
-  const xunStart = (ganIdx - zhiIdx + 12) % 12;
-  const xunIdx = Math.floor((xunStart / 2) + 6) % 6;
-  const pair = XUNKONG_TABLE[xunIdx];
+  // 与 engine.py xkong 一致: xk = int((zhi - gan)/2) - 1, KONG[xk]
+  const gm = GANS.indexOf(riGan);
+  let zm = ZHIS.indexOf(riZhi);
+  if (zm < gm) zm += 12;
+  let xk = Math.floor((zm - gm) / 2) - 1;
+  xk = ((xk % 6) + 6) % 6; // Python 负索引: KONG[-1] → KONG[5] = '戌亥'
+  const pair = XUNKONG_TABLE[xk];
   return [pair[0], pair[1]];
 }
 
@@ -147,11 +148,17 @@ export const XIU28: string[] = [
 
 export const DZ_XIU: Record<DiZhi,string[]> = {
   '子':['虚日鼠','女土蝠','危月燕'], '丑':['斗木獬','牛金牛'],
-  '寅':['尾火虎','箕水豹'],           '卯':['氐土貉','房日兔','心月狐'],
+  '寅':['尾火虎','箕水豹'],           '卯':['房日兔','氐土貉','心月狐'],
   '辰':['角木蛟','亢金龙'],           '巳':['翼火蛇','轸水蚓'],
-  '午':['星日马','张月鹿','柳土獐'],  '未':['井木犴','鬼金羊'],
-  '申':['参水猿','觜火猴','毕月乌'],  '酉':['胃土雉','昴日鸡','娄金狗'],
-  '戌':['奎木狼','壁水貐'],           '亥':['室火猪','危月燕'],
+  '午':['星日马','柳土獐','张月鹿'],  '未':['井木犴','鬼金羊'],
+  '申':['觜火猴','参水猿'],           '酉':['昴日鸡','胃土雉','毕月乌'],
+  '戌':['奎木狼','娄金狗'],           '亥':['室火猪','壁水貐'],
+};
+
+// 地支相冲 (月破: 与月建相冲的地支, 与 engine.py chong_map 一致)
+export const CHONG_ZHI: Record<DiZhi,DiZhi> = {
+  '子':'午','午':'子','丑':'未','未':'丑','寅':'申','申':'寅',
+  '卯':'酉','酉':'卯','辰':'戌','戌':'辰','巳':'亥','亥':'巳',
 };
 
 // ============================================================

@@ -5,9 +5,10 @@ import { TianGan, DiZhi, YaoValue, LiuYaoData, YaoInfo, GuaInfo, LiuYaoPan } fro
 import {
   GANS, ZHIS, GUA_NAMES, GUA_YAOS, GUA_WUXING, GUA_YINYANG, GUA64,
   NAJIA, GONG8, GONG_TYPE, SHI_YAO_POS, YING_YAO_POS,
-  ZHI_WUXING, getLiuQin, getLiuShenOrder, getXunKong,
+  ZHI_WUXING, DZ_XIU, CHONG_ZHI, getLiuQin, getLiuShenOrder, getXunKong,
   monthToJian, dateToGanZhi, hourToZhi,
 } from './constants';
+import { JINGFANG_STARS } from './jingfang_stars';
 
 // ============================================================
 // 根据6爻二进制编码查找本卦信息
@@ -81,7 +82,16 @@ function naJia(yaoCode: string): { ganList: TianGan[]; zhiList: DiZhi[] } {
 // ============================================================
 // 排盘主函数
 // ============================================================
-export function paiPan(yaoData: LiuYaoData, date: Date = new Date()): LiuYaoPan {
+export interface PaiPanOptions {
+  /** 日干支 (对应 engine.py day_gz), 缺省按日期推算 */
+  riChen?: { gan: TianGan; zhi: DiZhi };
+  /** 月建地支 (对应 engine.py month_zhi), 缺省按公历月近似 */
+  yueJian?: DiZhi;
+  /** 天盘星宿系统: jingfang=京房穿禽(默认, 与 engine.py 一致), dizhi=地支查表 */
+  xiuMode?: 'jingfang' | 'dizhi';
+}
+
+export function paiPan(yaoData: LiuYaoData, date: Date = new Date(), opts: PaiPanOptions = {}): LiuYaoPan {
   // 本卦二进制编码
   const benCode = yaoData.map(v => v % 2 === 1 ? '1' : '0').join('');
   const benGua = getGuaInfo(benCode);
@@ -100,10 +110,17 @@ export function paiPan(yaoData: LiuYaoData, date: Date = new Date()): LiuYaoPan 
   const { ganList, zhiList } = naJia(benCode);
   const bianNajia = hasDong ? naJia(bianCode) : { ganList: [...ganList], zhiList: [...zhiList] };
   
-  // 日辰月建
-  const riGanZhi = dateToGanZhi(date);
-  const yueJian = monthToJian(date.getMonth() + 1);
+  // 日辰月建 (opts 可覆盖, 与 engine.py day_gz/month_zhi 对应)
+  const riGanZhi = opts.riChen || dateToGanZhi(date);
+  const yueJian = opts.yueJian || monthToJian(date.getMonth() + 1);
   const xunKongZhi = getXunKong(riGanZhi.gan, riGanZhi.zhi);
+  const yuePoZhi = [CHONG_ZHI[yueJian]];
+  
+  // 天盘星宿 (默认京房穿禽, 与 engine.py xiu_mode='jingfang' 一致)
+  const xiuMode = opts.xiuMode || 'jingfang';
+  const tianXiu: string[] = xiuMode === 'jingfang' && JINGFANG_STARS[benCode]
+    ? [...JINGFANG_STARS[benCode]]
+    : zhiList.map(z => (DZ_XIU[z] || ['?'])[0]);
   
   // 六神顺序
   const liuShenOrder = getLiuShenOrder(riGanZhi.gan);
@@ -127,6 +144,8 @@ export function paiPan(yaoData: LiuYaoData, date: Date = new Date()): LiuYaoPan 
       liuShen: liuShenOrder[(pos - 1) % 6],
       shiYing: pos === benGua.shiYao ? '世' : pos === benGua.yingYao ? '应' : null,
       xunKong: xunKongZhi.includes(zhi),
+      yuePo: yuePoZhi.includes(zhi),
+      xiu: tianXiu[i],
     });
   }
   
@@ -143,10 +162,13 @@ export function paiPan(yaoData: LiuYaoData, date: Date = new Date()): LiuYaoPan 
         isDong: false, // 变卦中均为静爻
         naGan: bianNajia.ganList[i],
         naZhi: zhi,
-        liuQin: getLiuQin(bianGua.gongWuXing, ZHI_WUXING[ZHIS.indexOf(zhi)]),
+        // 变卦六亲以本宫五行论 (与 engine.py bian_qin6 一致)
+        liuQin: getLiuQin(benGua.gongWuXing, ZHI_WUXING[ZHIS.indexOf(zhi)]),
         liuShen: liuShenOrder[(pos - 1) % 6],
         shiYing: pos === bianGua.shiYao ? '世' : pos === bianGua.yingYao ? '应' : null,
         xunKong: xunKongZhi.includes(zhi),
+        yuePo: yuePoZhi.includes(zhi),
+        xiu: tianXiu[i],
       });
     }
   } else {
@@ -161,5 +183,7 @@ export function paiPan(yaoData: LiuYaoData, date: Date = new Date()): LiuYaoPan 
     riChen: riGanZhi,
     yueJian,
     xunKongZhi,
+    yuePoZhi,
+    tianXiu,
   };
 }

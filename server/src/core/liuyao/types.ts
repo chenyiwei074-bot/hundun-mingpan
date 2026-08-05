@@ -39,6 +39,8 @@ export interface YaoInfo {
   liuShen: LiuShen;
   shiYing: '世' | '应' | null;
   xunKong: boolean;
+  yuePo: boolean;
+  xiu: string;
 }
 
 export interface GuaInfo {
@@ -60,6 +62,8 @@ export interface LiuYaoPan {
   riChen: { gan: TianGan; zhi: DiZhi };
   yueJian: DiZhi;
   xunKongZhi: DiZhi[];
+  yuePoZhi: DiZhi[];
+  tianXiu: string[];
 }
 
 export interface QiGuaInput {
