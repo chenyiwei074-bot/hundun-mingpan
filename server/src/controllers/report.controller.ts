@@ -1,5 +1,5 @@
 ﻿import { Request, Response } from 'express';
-import { prisma } from '../database';
+import prisma from '../database';
 
 // POST /api/reports — 保存报告（游客直连）
 export async function saveReport(req: Request, res: Response) {
@@ -93,7 +93,7 @@ export async function listReports(req: Request, res: Response) {
 // GET /api/reports/:id — 获取报告详情
 export async function getReport(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const report = await prisma.report.findUnique({ where: { id } });
     if (!report) {
