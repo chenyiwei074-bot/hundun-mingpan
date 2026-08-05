@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 .next/
 dist/
 coverage/
@@ -11,3 +11,22 @@ coverage/
 deploy.tar.gz
 *.tar.gz
 logs/
+
+# ===== AI session artifacts (debug scripts, screenshots, backups) =====
+/_*.py
+/_*.js
+/_*.txt
+/_*.md
+/*.png
+/\.qn-*
+/\.qingnang-*
+/clone-lab/
+/qingnang-clone/
+/yishihui-clone/
+frontend/_*.py
+frontend/_*.js
+frontend/_*.txt
+**/*_bak*
+**/*.bak*
+**/*.bak
+*.traineddata

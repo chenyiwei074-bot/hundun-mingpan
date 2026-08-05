@@ -1,1 +1,0 @@
-const fs=require("fs");let c=fs.readFileSync("C:/Users/Kobe/Documents/HDAI/server/src/templates/report-zonghe-poster.html","utf8");c=c.replace("min-height: 100vh;","min-height: auto;");fs.writeFileSync("C:/Users/Kobe/Documents/HDAI/server/src/templates/report-zonghe-poster.html",c,"utf8");console.log("OK")

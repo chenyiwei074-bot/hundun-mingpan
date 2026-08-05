@@ -1,1 +1,0 @@
-const fs=require("fs");const p="C:/Users/Kobe/Documents/HDAI/frontend/app/chart/[id]/page.tsx";let c=fs.readFileSync(p,"utf8");const old=c.match(/<iframe[^>]*\/>/)[0];const rep=`<iframe srcDoc={data.posterHtml} className="w-full border-0" style={{width:"100%",minHeight:"600px"}} scrolling="auto" title="????" />`;c=c.replace(old,rep);fs.writeFileSync(p,c,"utf8");console.log("OK")

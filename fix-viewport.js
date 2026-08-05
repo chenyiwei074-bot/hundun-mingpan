@@ -1,1 +1,0 @@
-const fs=require("fs");const p="C:/Users/Kobe/Documents/HDAI/server/src/templates/report-zonghe-poster.html";let c=fs.readFileSync(p,"utf8");c=c.replace("<meta charset=\"UTF-8\">","<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">");fs.writeFileSync(p,c,"utf8");console.log("OK")
