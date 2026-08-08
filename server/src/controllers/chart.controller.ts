@@ -221,10 +221,8 @@ export async function getQuota(req: Request, res: Response) {
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }
+}
 
-// ===== 报告订单 API =====
-
-// POST /api/report/create
 export async function createReportOrder(req: Request, res: Response) {
   try {
     const { chartId, email } = req.body;
@@ -283,7 +281,7 @@ export async function confirmPayment(req: Request, res: Response) {
 // GET /api/report/status/:id
 export async function getReportStatus(req: Request, res: Response) {
   try {
-    const id = req.params.id;
+    const id = req.params.id as string;
     const order = await prisma.reportOrder.findUnique({ where: { id } });
     if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
     return res.json({
@@ -318,4 +316,3 @@ async function generateReport(orderId: string): Promise<void> {
   });
 }
 
-}

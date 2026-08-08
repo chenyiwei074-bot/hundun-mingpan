@@ -52,21 +52,24 @@ function getRiXiu(riZhi: DiZhi): string {
 }
 
 export function analyzeTianPan(pan: LiuYaoPan): TianPanResult {
-  const riXiu = getRiXiu(pan.riChen.zhi);
-  const riXiuIdx = XIU28.indexOf(riXiu);
-  
-  // 各爻配宿 (日宿从世爻开始顺排)
-  const shiPos = pan.benGua.shiYao;
-  const startIdx = (riXiuIdx - (shiPos - 1) + 28) % 28;
-  
   let shiXiuName = '', yingXiuName = '';
   const yaoXiu: TianPanResult['yaoXiu'] = [];
   
   for (let i = 0; i < 6; i++) {
     const pos = i + 1;
-    const xiuIdx = (startIdx + i) % 28;
-    const xiuFull = XIU28[xiuIdx];
-    const xiuShort = xiuFull[0]; // 取第一个字作为简称
+    // 优先用排盘的天盘星宿 (京房穿禽: 地支+二十八宿名, 如 '巳牛金牛', 与 engine.py tian.xiu 一致);
+    // 无天盘时回退为日支宿主星宿从世爻顺排
+    const xiuFull = pan.tianXiu && pan.tianXiu[i]
+      ? pan.tianXiu[i]
+      : (() => {
+          const riXiu = getRiXiu(pan.riChen.zhi);
+          const riXiuIdx = XIU28.indexOf(riXiu);
+          const shiPos = pan.benGua.shiYao;
+          const startIdx = (riXiuIdx - (shiPos - 1) + 28) % 28;
+          return XIU28[(startIdx + i) % 28];
+        })();
+    const xiuName = xiuFull.length > 1 ? xiuFull.substring(1) : xiuFull; // 去掉地支前缀
+    const xiuShort = xiuName[0]; // 取宿名第一个字作为简称
     const qin = QIN_XIANG[xiuShort] || '?';
     const wx = XIU_WUXING[xiuShort] || '?';
     const bw = boWei(pan.yaoList[i].naZhi);
