@@ -9,7 +9,7 @@ const gold = '#b2955d';
 
 const LINKS = [
   { href: '/create', label: '八字 & 紫微', short: '命盘' },
-  { href: '/liuyao', label: '六爺', short: '六爺' },
+  { href: '/liuyao', label: '六爻', short: '六爻' },
   { href: '/dashboard', label: '我的报告', short: '我的报告' },
 ];
 
