@@ -1,4 +1,4 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import prisma from '../database';
 import { generateChart, extractFreeSummary } from '../services/chart.service';
 import { runPipeline } from '../services/pipeline.service';
@@ -181,18 +181,32 @@ export async function getStats(req: Request, res: Response) {
 
     const eventTypes = ['page_view', 'create_click', 'chart_complete', 'wechat_click'];
 
-    // 今日统计
+    // 今日统计（chart_complete 按 chartId 去重，避免轮询重复上报虚高）
     const today: Record<string, number> = {};
     for (const ev of eventTypes) {
-      today[ev] = await prisma.event.count({
-        where: { eventName: ev, createdAt: { gte: todayStart, lte: todayEnd } },
-      });
+      if (ev === 'chart_complete') {
+        today[ev] = (await prisma.event.groupBy({
+          by: ['chartId'],
+          where: { eventName: ev, chartId: { not: null }, createdAt: { gte: todayStart, lte: todayEnd } },
+        })).length;
+      } else {
+        today[ev] = await prisma.event.count({
+          where: { eventName: ev, createdAt: { gte: todayStart, lte: todayEnd } },
+        });
+      }
     }
 
-    // 累计统计
+    // 累计统计（chart_complete 按 chartId 去重）
     const total: Record<string, number> = {};
     for (const ev of eventTypes) {
-      total[ev] = await prisma.event.count({ where: { eventName: ev } });
+      if (ev === 'chart_complete') {
+        total[ev] = (await prisma.event.groupBy({
+          by: ['chartId'],
+          where: { eventName: ev, chartId: { not: null } },
+        })).length;
+      } else {
+        total[ev] = await prisma.event.count({ where: { eventName: ev } });
+      }
     }
 
     // 转化率
