@@ -6,6 +6,7 @@ import { getSiZhuChangSheng } from './zhangsheng';
 import { getSiZhuNaYin } from './nayin';
 import { getAccurateMonthGanZhi } from './jieqi';
 import { calculateTrueSolarTime } from './true-solar-time';
+import { toCivilInput } from './lunar-input';
 
 /**
  * 十神关系映射
@@ -84,17 +85,19 @@ export function getZhiCangGanFull(zhi: string, dayMaster: string): Array<{ gan: 
  * @param solar Solar对象
  * @returns 调整后的Solar对象（如果是晚子时）
  */
-function getAdjustedSolarForZiShi(solar: Solar): Solar {
+function getAdjustedSolarForZiShi(solar: Solar, mode: 'ZI_HOUR_23' | 'MIDNIGHT_00' = 'ZI_HOUR_23'): Solar {
   const hour = solar.getHour();
-  
+
   // 如果是晚子时（23:00-24:00），使用第二天的日期计算日柱
-  if (hour === 23) {
+  // MIDNIGHT_00 口径下日柱不滚动（夜子时仍属当日），但时柱照子时排，
+  // 因为时柱取的是未滚动的 solar，两条口径下都得到同一个子时干。
+  if (hour === 23 && mode !== 'MIDNIGHT_00') {
     console.error('[晚子时处理] 23点，使用第二天的日柱');
     // 获取第二天的日期
     const nextDay = solar.next(1); // 下一天
     return nextDay;
   }
-  
+
   return solar;
 }
 
@@ -115,17 +118,23 @@ function safeSubZhi(s: string) { return (s && s.length >= 2 ? s[1] : '?') as any
 
 export function createBaziChart(birthInfo: BirthInfo): BaziChart {
   try {
+    // ── 农历 → 公历（必须在真太阳时之前）─────────────────────────────────
+    // 四柱的年/月/日界都挂在公历轴上（立春、十二节、干支纪日连续序列），
+    // 所以农历只能先换算成公历再排盘。把农历的数字直接当公历用，会得到一个
+    // 完全静默的错误盘面 —— 这正是 isLunar 之前无人读取时的行为。
+    const civil = toCivilInput(birthInfo);
+
     // ── 真太阳时校正（2026-10 接入）───────────────────────────────────────
     // 必须在建 Solar 之前，也必须在「晚子时换日」之前。
     // 顺序理由：晚子时判断的是「出生地真太阳时是否已过 23:00」；
     // 若先换日再校正，日柱会基于错误的钟表时间错位（双重偏移）。
     // 未提供 longitude 时 applied=false，行为与旧版逐字节一致。
     const tst = calculateTrueSolarTime({
-      year: birthInfo.year,
-      month: birthInfo.month,
-      day: birthInfo.day,
-      hour: birthInfo.hour,
-      minute: birthInfo.minute,
+      year: civil.year,
+      month: civil.month,
+      day: civil.day,
+      hour: civil.hour,
+      minute: civil.minute,
       second: 0,
       longitude: birthInfo.longitude,
       timezone: birthInfo.timeZone ?? 8,
@@ -145,7 +154,7 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
     );
 
     // 处理晚子时（23:00-24:00），使用第二天的日柱
-    const solarForDay = getAdjustedSolarForZiShi(solar);
+    const solarForDay = getAdjustedSolarForZiShi(solar, birthInfo.dayBoundaryMode);
     const lunarForDay = solarForDay.getLunar();
     const baZiForDay = lunarForDay.getEightChar();
 
@@ -268,6 +277,7 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
       // 真太阳时校正明细：UI 应展示它，让用户能核对"钟表时间 → 计算时间"，
       // 并据此决定盘面是否可信；跨时辰/跨日时必须提示。
       trueSolarTime: tst,
+      calendarConversion: civil.conversion,
     };
   } catch (error) {
     console.error('创建八字排盘失败:', error);

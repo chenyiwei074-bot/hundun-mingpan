@@ -6,6 +6,7 @@ import { createChart as apiCreateChart, trackEvent } from '@/app/lib/api';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
+import { toCivilInput, lunarDayCount, leapMonthOfYear } from '@/app/lib/core/yiqi-core/lunar-input';
 
 function getVisitorId(): string {
   if (typeof window === 'undefined') return '';
@@ -22,11 +23,15 @@ const YEARS = Array.from({ length: currentYear - 1899 }, (_, i) => String(curren
 const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
 function getDaysInMonth(year: number, month: number): number { return new Date(year, month, 0).getDate(); }
-function getDayOptions(year: string, month: string) {
+function getDayOptions(year: string, month: string, isLunar = false, isLeapMonth = false) {
   if (!year || !month) return [];
   const y = parseInt(year), m = parseInt(month);
   if (isNaN(y) || isNaN(m)) return [];
-  return Array.from({ length: getDaysInMonth(y, m) }, (_, i) => String(i + 1));
+  // 农历月只有 29 或 30 天。按公历月长给选项会让用户选到「三十」这种不存在的
+  // 日子，换算层直接抛错、整条链路退化成失败页。
+  const n = isLunar ? lunarDayCount(y, m, isLeapMonth) : getDaysInMonth(y, m);
+  if (n <= 0) return [];
+  return Array.from({ length: n }, (_, i) => String(i + 1));
 }
 
 export default function CreatePage() {
@@ -38,7 +43,7 @@ export default function CreatePage() {
 
   const [form, setForm] = useState({
     name: '', gender: '男' as '男'|'女', calendar: '公历' as '公历'|'农历'|'四柱',
-    year: '', month: '', day: '', hour: '12', minute: '00', unknownTime: false,
+    year: '', month: '', day: '', hour: '12', minute: '00', unknownTime: false, isLeapMonth: false,
     birthProvince: '北京', birthCity: '北京', birthDistrict: '',
     currentProvince: '北京', currentCity: '北京', currentDistrict: '',
     yearGan: '', yearZhi: '', monthGan: '', monthZhi: '',
@@ -51,10 +56,20 @@ export default function CreatePage() {
   });
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
-  const setField = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
+  // 换年或换月就把闰月标记清掉：标记本身只在「所选月正好是该年闰月」时才生效，
+  // 但留着 true 会让用户改回那个月时发现自己悄悄回到了闰月盘。可见的输入不该藏状态。
+  const setField = (f: string, v: string) => setForm(p => ({
+    ...p, [f]: v, ...(f === 'month' || f === 'year' ? { isLeapMonth: false } : null),
+  }));
   const switchTab = (t: 'single'|'double') => { setTab(t); if (t === 'double' && form.calendar === '四柱') setField('calendar', '公历'); };
 
-  const dayOptions = useMemo(() => getDayOptions(form.year, form.month), [form.year, form.month]);
+  const isLunar = form.calendar === '农历';
+  // 闰月标志只按「派生」方式使用：年或月一变，stale 的 isLeapMonth 立刻被判为
+  // false，永远凑不出 month ≠ 该年闰月 这种换算层会直接抛错的组合。
+  const lunarLeap = isLunar && form.year ? leapMonthOfYear(parseInt(form.year)) : 0;
+  const isLeapOn = lunarLeap > 0 && form.isLeapMonth && parseInt(form.month) === lunarLeap;
+
+  const dayOptions = useMemo(() => getDayOptions(form.year, form.month, isLunar, isLeapOn), [form.year, form.month, isLunar, isLeapOn]);
   const partnerDayOptions = useMemo(() => getDayOptions(form.partnerYear, form.partnerMonth), [form.partnerYear, form.partnerMonth]);
 
   const validate = (): string | null => {
@@ -72,6 +87,13 @@ export default function CreatePage() {
       if (!form.year || !form.month || !form.day) return '请选择您的完整出生日期';
       if (!form.partnerYear || !form.partnerMonth || !form.partnerDay) return '请选择对方的完整出生日期';
     }
+    // 改了月/闰月之后日期可能留在上一月的「三十」上：select 的 options 里已经
+    // 没有它，界面看着是空的，state 里却还是 30 —— 换算层会抛错或跳月。
+    if (isLunar && form.year && form.month && form.day) {
+      const n = lunarDayCount(parseInt(form.year), parseInt(form.month), isLeapOn);
+      if (n <= 0) return '该农历年没有这个闰月';
+      if (parseInt(form.day) > n) return '该农历月没有这一天，请重选日期';
+    }
     return null;
   };
 
@@ -83,29 +105,37 @@ export default function CreatePage() {
     setLoading(true);
 
     try {
-      const pad = (s: string) => s.padStart(2, '0');
+      const pad = (s: string | number) => String(s).padStart(2, '0');
+      const hourNum = parseInt(form.hour);
+      const minuteNum = form.unknownTime ? 0 : parseInt(form.minute || '0');
+      const hourSafe = isNaN(hourNum) ? 12 : hourNum;
+      const minuteSafe = isNaN(minuteNum) ? 0 : minuteNum;
+
+      // 农历必须先换算成公历，因为后面每一步都活在公历轴上：发给后端的 birthday
+      // 字符串、按日期判定历史夏令时、真太阳时校正。把农历数字直接喂给它们，
+      // 会按错误的日期取到错误的时区/夏令时，四柱即使碰对了也是侥幸。
+      const civil = toCivilInput({
+        year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
+        hour: hourSafe, minute: minuteSafe, isLunar, isLeapMonth: isLeapOn,
+      });
       const birthday = form.calendar === '四柱'
         ? `四柱:${form.yearGan}${form.yearZhi},${form.monthGan}${form.monthZhi},${form.dayGan}${form.dayZhi},${form.hourGan}${form.hourZhi}`
-        : `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
+        : `${civil.year}-${pad(civil.month)}-${pad(civil.day)} ${pad(civil.hour)}:${pad(civil.minute)}`;
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
       // 前端秒算排盘
       // 真太阳时（2026-10 接入）：由出生地得经度，由内置 IANA 数据得历史夏令时
-      // 顺序：先真太阳时校正（引擎内部在 Solar 构造前做），再做晚子时换日
-      const hourNum = parseInt(form.hour);
-      const minuteNum = form.unknownTime ? 0 : parseInt(form.minute || '0');
+      // 顺序：农历→公历换算 → 真太阳时校正（引擎内部在 Solar 构造前做）→ 晚子时换日
       const tstWiring = buildTrueSolarWiring(
         { province: form.birthProvince, city: form.birthCity, district: form.birthDistrict },
-        {
-          year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
-          hour: isNaN(hourNum) ? 12 : hourNum, minute: isNaN(minuteNum) ? 0 : minuteNum,
-        },
+        { year: civil.year, month: civil.month, day: civil.day, hour: civil.hour, minute: civil.minute },
       );
       const birthInfo: BirthInfo = {
         year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
-        hour: isNaN(hourNum) ? 12 : hourNum, minute: isNaN(minuteNum) ? 0 : minuteNum,
-        isLunar: form.calendar === '农历',
+        hour: hourSafe, minute: minuteSafe,
+        isLunar,
+        isLeapMonth: isLeapOn,
         gender: form.gender === '男' ? 'male' : 'female',
         timeZone: tstWiring.timeZone,
         longitude: tstWiring.longitude,
@@ -121,9 +151,12 @@ export default function CreatePage() {
       }));
 
       // 后端持久化
+      // birthday 已经是换算后的公历时刻，所以 calendar 必须跟着报「公历」——
+      // 否则等于告诉后端这是一个农历字符串，而接口的 birthday 字段没有闰月位、
+      // 契约又不允许改，后端无从换算。四柱模式维持原样（后端 schema 本就不收）。
       const res = await apiCreateChart({
         visitor_id: visitorId, name: chartName, gender: form.gender,
-        calendar: form.calendar, birthday,
+        calendar: isLunar ? '公历' : form.calendar, birthday,
         birthPlace: birthPlace || '未指定', currentPlace: currentPlace || '未指定',
       });
 
@@ -186,10 +219,11 @@ export default function CreatePage() {
         </div>
       );
     }
+    // minmax 下限是命中区要求：时间列两个 select 各要 44，若只给它们设下限，
+    // 1fr 会把 年/月 挤到 43 —— 修好一处偷走另一处。四列同时设下限后
+    // 375 上 44*3 + 100 + 3*12 = 268 ≤ 291 可用宽，不产生横向溢出。
     return (
-      // minmax 下限是命中区要求：时间列两个 select 各要 44，若只给它们设下限，
-      // 1fr 会把 年/月 挤到 43 —— 修好一处偷走另一处。四列同时设下限后
-      // 375 上 44*3 + 100 + 3*12 = 268 ≤ 291 可用宽，不产生横向溢出。
+      <>
       <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(44px, 1fr) minmax(44px, 1fr) minmax(44px, 1fr) minmax(100px, 1.5fr)' }}>
         <div className="text-center">
           <span className="qn-cap block mb-1.5">年</span>
@@ -238,6 +272,22 @@ export default function CreatePage() {
           </button>
         </div>
       </div>
+      {/* 开关只在「所选月份正好是该年闰的那个月」时出现。每个农历年闰的月份不同，
+          常显的闰月框会让用户以为任何月都能闰，而选了不存在的闰月换算层会直接抛错。 */}
+      {!isP && isLunar && lunarLeap > 0 && parseInt(m || '0') === lunarLeap && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+          <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'rgba(0,0,0,0.04)' }}>
+            <button type="button" aria-pressed={isLeapOn} onClick={() => setForm(p => ({ ...p, isLeapMonth: !p.isLeapMonth }))}
+              className="qn-chip" style={{ minWidth: 46, padding: '0 12px', minHeight: 30, fontSize: 'var(--qn-fs-meta)',
+                border: 'none', borderRadius: 6,
+                background: isLeapOn ? '#ffffff' : 'transparent',
+                color: isLeapOn ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                fontWeight: isLeapOn ? 500 : 400,
+                boxShadow: isLeapOn ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>闰{lunarLeap}月</button>
+          </div>
+        </div>
+      )}
+    </>
     );
   };
 

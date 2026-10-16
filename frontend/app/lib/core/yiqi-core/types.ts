@@ -11,6 +11,15 @@ export interface BirthInfo {
   gender: 'male' | 'female';
   timeZone: number; // 时区偏移，默认为8（北京时间）
 
+  /** 农历输入是否为闰月，仅 isLunar 为真时有意义。缺省按非闰月。 */
+  isLeapMonth?: boolean;
+  /**
+   * 日柱换日口径。缺省 'ZI_HOUR_23'（23:00 换日），与站点既有盘面完全一致。
+   * 'MIDNIGHT_00' 时日柱按公历当日、时柱仍按子时（夜子时），仅在引擎内部与
+   * 验收用例里使用；站点不向用户提供开关。
+   */
+  dayBoundaryMode?: 'ZI_HOUR_23' | 'MIDNIGHT_00';
+
   // ── 真太阳时（2026-10 新增）───────────────────────────────────────────
   // 中国统一用东八区(120°E)，但喀什(75.99°E)与上海(121.47°E)相差 45.5°，
   // 经度时差约 182 分钟；加均时差后最大可超 3 小时，足以跨 1–2 个时辰，
@@ -37,6 +46,16 @@ export interface TrueSolarTimeInfo {
   timezone: number;
   crossed: { hour: boolean; day: boolean };
   algorithm: string;
+}
+
+// 农历输入 → 公历的换算记录（isLunar 为真时才有）
+export interface CalendarConversion {
+  inputType: 'lunar';
+  /** 用户原始输入的农历时刻（月恒为正，闰与否看 isLeapMonth），如 2023-02-01 09:30 */
+  lunar: string;
+  isLeapMonth: boolean;
+  /** 换算出的公历时刻，引擎真正用于排盘的时刻 */
+  civilSolar: string;
 }
 
 // 保存的案例
@@ -118,6 +137,8 @@ export interface BaziChart {
     // 真太阳时校正明细（2026-10 接入）：bazi.ts 赋值，供 UI 展示与存档
     // 注：部署时由运维补声明——原 bazi.ts 已赋值但本接口缺此字段，导致 tsc 失败
     trueSolarTime?: TrueSolarTimeInfo;
+    // 农历输入时记录换算成公历的过程，供 UI 说明「盘面用的是哪一天」
+    calendarConversion?: CalendarConversion;
 }
 
 // 紫微斗数十二宫
