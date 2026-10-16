@@ -13,7 +13,7 @@ interface Props { ziwei: any; bazi?: any; }
 const KEY_GONGS = ['命宫','官禄宫','财帛宫','夫妻宫','福德宫'];
 
 // 四化是「变化」编码，走 --color-sihua-* 家族；与五行数据色分层，不混用。
-// 色值待色卡裁定（要与五行五色在色相上明显拉开，不只靠彩度分层），落值只改 token。
+// 值已落（色卡方案①修正版）；色只当圆点用，文字一律墨色，见 globals.css 的 .qn-sihua。
 const SIHUA_COLOR: Record<string, string> = {
   '化禄': 'var(--color-sihua-lu)',
   '化权': 'var(--color-sihua-quan)',
@@ -156,7 +156,7 @@ export default function ZiweiCard({ ziwei }: Props) {
                   {(gong.sihua?.length ?? 0) > 0 && (
                     <span style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
                       {(gong.sihua || []).map(sh => (
-                        <span key={sh.star + sh.hua} className='qn-cap' style={{ color: SIHUA_COLOR[sh.hua] || 'var(--color-text-secondary)' }}>{sh.star}{sh.hua}</span>
+                        <span key={sh.star + sh.hua} className='qn-cap qn-sihua'><i className='qn-sihua__dot' style={{ background: SIHUA_COLOR[sh.hua] || 'var(--color-accent-gold)' }} />{sh.star}{sh.hua}</span>
                       ))}
                     </span>
                   )}
@@ -255,7 +255,7 @@ export default function ZiweiCard({ ziwei }: Props) {
               {(gong.sihua?.length ?? 0) > 0 && (
                 <div style={{ marginTop: 6 }}>
                   {(gong.sihua || []).slice(0, 1).map((sh, j) => (
-                    <span key={j} className='qn-cap' style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 6, fontWeight: 500, background: `color-mix(in srgb, ${SIHUA_COLOR[sh.hua] || 'var(--color-accent-gold)'} 10%, transparent)`, color: SIHUA_COLOR[sh.hua] || 'var(--color-text-secondary)' }}>{sh.star}{sh.hua}</span>
+                    <span key={j} className='qn-cap qn-sihua' style={{ padding: '2px 7px', borderRadius: 6, fontWeight: 500, background: `color-mix(in srgb, ${SIHUA_COLOR[sh.hua] || 'var(--color-accent-gold)'} 10%, transparent)` }}><i className='qn-sihua__dot' style={{ background: SIHUA_COLOR[sh.hua] || 'var(--color-accent-gold)' }} />{sh.star}{sh.hua}</span>
                   ))}
                 </div>
               )}
@@ -276,7 +276,7 @@ export default function ZiweiCard({ ziwei }: Props) {
               .filter(([, v]) => v)
               .map(([hua, v]) => (
               <div key={hua} style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 10px', textAlign: 'center' }}>
-                <div className='qn-cap' style={{ color: SIHUA_COLOR[hua], fontWeight: 500 }}>{hua}</div>
+                <div className='qn-cap qn-sihua' style={{ fontWeight: 500 }}><i className='qn-sihua__dot' style={{ background: SIHUA_COLOR[hua] }} />{hua}</div>
                 <div className='qn-meta' style={{ color: 'var(--color-text-primary)', fontWeight: 500, marginTop: 4 }}>{v.star}</div>
                 <div className='qn-cap' style={{ marginTop: 2 }}>{v.gong}</div>
               </div>

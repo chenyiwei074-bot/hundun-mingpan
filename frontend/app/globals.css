@@ -26,11 +26,15 @@
   --color-wx-huo: #d30505;
   --color-wx-tu: #8b6d03;
 
-  /* ===== 四化 · 变化编码色，S18-41 低彩度，与五行按彩度分层 ===== */
-  --color-sihua-lu: #2f6b57;
-  --color-sihua-quan: #7a3540;
-  --color-sihua-ke: #3c5578;
-  --color-sihua-ji: #5a4a6b;
+  /* ===== 四化 · 变化编码色，S45/L30 同一档，与五行(S92-97)按彩度分层 =====
+     色相 80/175/250/320：家族内最小间隔 70°，与五行五色 + 六神里四个有彩色的
+     最小间隔都 ≥29°。色卡那版只对齐了五行，化权 164° 离青龙 151° 只差 18°，
+     落值时把化权/化科/化忌挪开、化禄不变。白虎 #86868b、玄武 #1d1d1f 是中性色，
+     无色相可比，不计入间隔。 ---- */
+  --color-sihua-lu: #586f2a;
+  --color-sihua-quan: #2a6f69;
+  --color-sihua-ke: #362a6f;
+  --color-sihua-ji: #6f2a58;
 
   /* ===== 六神 · 数据编码色（青龙/朱雀/勾陈/螣蛇/白虎/玄武），与五行同等冻结。
      专用命名，不复用文本语义 token；只用于圆点/色块，不作文字色。 ---- */
@@ -294,6 +298,23 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   height: 6px;
   flex: 0 0 auto;
   border-radius: 50%;
+}
+
+/* ---- 四化标签：颜色只当圆点，文字回到墨色（与五行/六神同一套纪律）。
+   8px 是裁定值，6px 在浅底上分不开色相。描边走 box-shadow 而不是 border ——
+   全局 border-box 下 1px border 会把 8px 的色芯压成 6px，正好退回被否决的尺寸。 ---- */
+.qn-sihua {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-primary);
+}
+.qn-sihua__dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--color-hairline);
 }
 
 /* ---- 可点击列表行：悬停只换描边，不加第二层阴影也不位移（避免与卡片阴影叠加） ---- */

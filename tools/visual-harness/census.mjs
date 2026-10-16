@@ -70,6 +70,12 @@ const WX_FROZEN = {
   'jin': '#ef9104', 'mu': '#07a830', 'shui': '#2e83f6', 'huo': '#d30505', 'tu': '#8b6d03',
 };
 
+// 四化 values landed from the colour card (hue 80/175/250/320). Frozen for the same
+// reason as 五行: the value is the encoding of 禄/权/科/忌, not a design taste.
+const SIHUA_FROZEN = {
+  'lu': '#586f2a', 'quan': '#2a6f69', 'ke': '#362a6f', 'ji': '#6f2a58',
+};
+
 const STATIC_PAGES = [
   ['home', '/'],
   ['create', '/create'],
@@ -273,20 +279,20 @@ const CENSUS = String.raw`(() => {
   probe.remove();
   // Same rendered value under two names is what made 白虎 indistinguishable from
   // --color-text-muted. Reported, not failed: it is a palette decision, not a bug.
-  const dataFams = Object.keys(resolved).filter(k => k.startsWith('wx-') || k.startsWith('shen-'));
+  const dataFams = Object.keys(resolved).filter(k => /^(wx|shen|sihua)-/.test(k));
   const textFams = Object.keys(resolved).filter(k => k.startsWith('text-') || k === 'accent-gold-text');
   const collisions = [];
   for (const d of dataFams) for (const t of textFams)
     if (resolved[d] === resolved[t]) collisions.push(d + ' == ' + t + ' (' + resolved[d] + ')');
 
-  // Ruling: the 五行/六神 palette encodes data through dots and blocks only.
+  // Ruling: the 五行/六神/四化 palettes encode data through dots and blocks only.
   // Compare by declaration source, not by rendered value -- ink itself renders
   // rgb(29,29,31), which is 玄武's value, so a value match would flag every word.
-  const INK_DATA = /(?:^|[;\s])color\s*:\s*var\(\s*--color-(?:wx|shen)-/;
+  const INK_DATA = /(?:^|[;\s])color\s*:\s*var\(\s*--color-(?:wx|shen|sihua)-/;
   const inkedByStyle = el => {
     for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
       const s = n.getAttribute && n.getAttribute('style');
-      if (s && INK_DATA.test(s)) return (s.match(/--color-(?:wx|shen)-[a-z]+/) || ['?'])[0];
+      if (s && INK_DATA.test(s)) return (s.match(/--color-(?:wx|shen|sihua)-[a-z]+/) || ['?'])[0];
       if (s && /(?:^|[;\s])color\s*:\s*#[0-9a-fA-F]{3,8}/.test(s)) {
         const hx = (s.match(/color\s*:\s*(#[0-9a-fA-F]{3,8})/) || [])[1];
         if (hx && dataFams.some(k => resolved[k].toLowerCase() === normHex(hx))) return 'literal ' + hx;
@@ -478,6 +484,10 @@ function check(tag, v) {
   for (const [k, want] of Object.entries(WX_FROZEN)) {
     const got = v.tokens['wx-' + k];
     if (got && hexOf(got) && hexOf(got).toLowerCase() !== want) bad(`wx-${k} renders ${got}, frozen value is ${want}`);
+  }
+  for (const [k, want] of Object.entries(SIHUA_FROZEN)) {
+    const got = v.tokens['sihua-' + k];
+    if (got && hexOf(got) && hexOf(got).toLowerCase() !== want) bad(`sihua-${k} renders ${got}, frozen value is ${want}`);
   }
 }
 const hexOf = rgb => { const m = String(rgb).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : null; };
