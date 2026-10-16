@@ -1,4 +1,4 @@
-import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX } from '../core';
+import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS } from '../core';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType } from '@/types/liuyao';
 
 export function buildTimeResult(params: {
@@ -41,6 +41,7 @@ export function buildTimeResult(params: {
     dayGZ,
     monthZhi: monthGZ.slice(-1),
     xunKong,
+    ganzhiBasis: GANZHI_BASIS,
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: { name:null, gong:null, wuxing:null },
     yaoRecords: recs,

@@ -110,6 +110,15 @@ export default function LiuyaoResultPage() {
         <p className="qn-meta" style={{ marginTop: 10 }}>
           {methodLabel} · {result.date.year}年{String(result.date.month).padStart(2, '0')}月{String(result.date.day).padStart(2, '0')}日
         </p>
+        {result.ganZhi?.day && (
+          <p className="qn-meta" style={{ marginTop: 6, fontFamily: '"Noto Serif SC", serif' }}>
+            {result.ganZhi.year}年 {result.ganZhi.month}月 {result.ganZhi.day}日 {result.ganZhi.hour}时
+            {result.xunKong ? ` · ${result.xunKong}旬空` : ''}
+          </p>
+        )}
+        {!result.ganzhiBasis && (
+          <p className="qn-cap" style={{ marginTop: 6 }}>本盘按起卦时口径生成</p>
+        )}
       </header>
 
       {/* ===== HERO: 六爻排盘 ===== */}

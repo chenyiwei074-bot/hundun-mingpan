@@ -107,6 +107,7 @@ export default function LiuYaoPlate(p: Props) {
               <span style={{ fontSize:11,color:dongColor,whiteSpace:'nowrap' }}>{nj.liuQin}</span>
               <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:dongColor,whiteSpace:'nowrap' }}>{nj.ganZhi}</span>
               <span style={{ fontSize:11,color:'var(--color-text-secondary)' }}>{WX[nj.naZhi]}</span>
+              {nj.xunKong && <span style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
             </div>
 
             {/* Col 3: 本卦爻象 */}
@@ -133,6 +134,7 @@ export default function LiuYaoPlate(p: Props) {
               <span style={{ fontSize:11,color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap' }}>{bn?bn.liuQin:'—'}</span>
               <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap' }}>{bn?bn.ganZhi:'—'}</span>
               <span style={{ fontSize:11,color:'var(--color-text-secondary)' }}>{bn?WX[bn.naZhi]:'—'}</span>
+              {bn?.xunKong && <span style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
             </div>
           </div>
         );

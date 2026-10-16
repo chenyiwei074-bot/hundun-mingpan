@@ -3,6 +3,9 @@ import { GAN, ZHI, LIUSHEN_NAMES } from './constants';
 
 // 干支口径与八字页统一：年柱以立春为界，月柱以「节」为界，日柱以 23:00 归次日（夜子时 ZI_HOUR_23）。
 // 因此年月都必须由具体日期算出，不能只喂公历年/月数字。
+// 起卦结果里带上口径版本，老盘（无此字段）只标注、不重算——重跑覆盖历史等于伪造。
+export const GANZHI_BASIS = 'jieqi-lichun-v1';
+
 function lunarOf(date: Date) {
   return Solar.fromYmdHms(
     date.getFullYear(),

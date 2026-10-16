@@ -1,4 +1,4 @@
-﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GUA_MAP } from '../core';
+﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GUA_MAP, GANZHI_BASIS } from '../core';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType, NaJiaYao } from '@/types/liuyao';
 
 export function coinToss(): CoinFace[] {
@@ -53,6 +53,7 @@ export function buildCoinResult(params: {
     dayGZ,
     monthZhi: monthGZ.slice(-1),
     xunKong,
+    ganzhiBasis: GANZHI_BASIS,
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: gua.bian ? { name: gua.bian, gong: bianGong?.gong||null, wuxing: bianGong ? WX[bianGong.gong] : null } : { name:null, gong:null, wuxing:null },
     yaoRecords: records,

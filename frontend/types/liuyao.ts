@@ -32,6 +32,7 @@ export interface LiuyaoResult {
   dayGZ: { gan: string; zhi: string; ganIdx: number; zhiIdx: number };
   monthZhi: string;
   xunKong: string;
+  ganzhiBasis?: string;
   benGua: { name: string; gong: string; wuxing: string; shangGua: string; xiaGua: string };
   bianGua: { name: string | null; gong: string | null; wuxing: string | null };
   yaoRecords: YaoRecord[];
