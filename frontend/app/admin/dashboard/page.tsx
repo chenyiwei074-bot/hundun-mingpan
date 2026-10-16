@@ -34,7 +34,11 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/admin/stats')
+    // 2026-10-16 安全修复：/api/admin/stats 需要口令，从网址 ?token= 取并放进请求头
+    const adminToken = new URLSearchParams(window.location.search).get('token') || '';
+    fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/admin/stats', {
+      headers: adminToken ? { 'x-admin-token': adminToken } : {},
+    })
       .then(r => r.json())
       .then(d => { if (d.success) setStats(d.data); })
       .finally(() => setLoading(false));
@@ -51,7 +55,7 @@ export default function AdminDashboard() {
   if (!stats) {
     return (
       <div className="min-h-screen bg-[#0a0806] flex items-center justify-center text-[#a89a85]">
-        数据加载失败
+        数据加载失败：请在网址后加 ?token=你的 ADMIN_STATS_TOKEN
       </div>
     );
   }

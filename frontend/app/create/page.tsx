@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createChart as apiCreateChart, trackEvent } from '@/app/lib/api';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
+import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
 
 function getVisitorId(): string {
   if (typeof window === 'undefined') return '';
@@ -90,17 +91,34 @@ export default function CreatePage() {
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
       // 前端秒算排盘
+      // 真太阳时（2026-10 接入）：由出生地得经度，由内置 IANA 数据得历史夏令时
+      // 顺序：先真太阳时校正（引擎内部在 Solar 构造前做），再做晚子时换日
+      const hourNum = parseInt(form.hour);
+      const minuteNum = form.unknownTime ? 0 : parseInt(form.minute || '0');
+      const tstWiring = buildTrueSolarWiring(
+        { province: form.birthProvince, city: form.birthCity, district: form.birthDistrict },
+        {
+          year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
+          hour: isNaN(hourNum) ? 12 : hourNum, minute: isNaN(minuteNum) ? 0 : minuteNum,
+        },
+      );
       const birthInfo: BirthInfo = {
         year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
-        hour: parseInt(form.hour), minute: form.unknownTime ? 0 : parseInt(form.minute || '0'),
+        hour: isNaN(hourNum) ? 12 : hourNum, minute: isNaN(minuteNum) ? 0 : minuteNum,
         isLunar: form.calendar === '农历',
         gender: form.gender === '男' ? 'male' : 'female',
-        timeZone: 8,
+        timeZone: tstWiring.timeZone,
+        longitude: tstWiring.longitude,
+        dstOffset: tstWiring.dstOffset,
+        enableTrueSolarTime: true,
       };
       const chart = createChart(birthInfo);
       chart.bazi.birthInfo = birthInfo;
       const chartName = form.name.trim();
-      sessionStorage.setItem('chart_preview', JSON.stringify({ chart, chartName }));
+      sessionStorage.setItem('chart_preview', JSON.stringify({
+        chart, chartName,
+        trueSolarWiring: { geo: tstWiring.geo, dstOffset: tstWiring.dstOffset, ambiguousDst: tstWiring.ambiguousDst, warning: tstWiring.warning },
+      }));
 
       // 后端持久化
       const res = await apiCreateChart({

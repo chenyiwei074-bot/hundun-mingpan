@@ -1,4 +1,4 @@
-﻿// 核心数据类型定义
+// 核心数据类型定义
 
 // 生辰信息
 export interface BirthInfo {
@@ -10,6 +10,33 @@ export interface BirthInfo {
   isLunar: boolean; // 是否为农历
   gender: 'male' | 'female';
   timeZone: number; // 时区偏移，默认为8（北京时间）
+
+  // ── 真太阳时（2026-10 新增）───────────────────────────────────────────
+  // 中国统一用东八区(120°E)，但喀什(75.99°E)与上海(121.47°E)相差 45.5°，
+  // 经度时差约 182 分钟；加均时差后最大可超 3 小时，足以跨 1–2 个时辰，
+  // 改变时柱进而改变整个命盘。
+  /** 出生地经度（东经为正）。缺省时不校正，行为与旧版完全一致。 */
+  longitude?: number;
+  /** 夏令时偏移（小时），默认 0。历史夏令时需显式给出（前端不打包 IANA 时区库）。 */
+  dstOffset?: number;
+  /** 是否启用真太阳时校正，默认 true（但需 longitude 才实际生效）。 */
+  enableTrueSolarTime?: boolean;
+}
+
+// 真太阳时校正结果（供 UI 展示与结果存档）
+export interface TrueSolarTimeInfo {
+  applied: boolean;
+  civilTime: string;
+  trueSolarTime: string;
+  longitudeCorrectionMinutes: number;
+  equationOfTimeMinutes: number;
+  dstOffsetMinutes: number;
+  totalCorrectionMinutes: number;
+  standardMeridian: number;
+  longitude: number | null;
+  timezone: number;
+  crossed: { hour: boolean; day: boolean };
+  algorithm: string;
 }
 
 // 保存的案例
@@ -88,6 +115,9 @@ export interface BaziChart {
   dayunStart: number; // 大运起运岁数
   dayun: DayunDetail[]; // 大运详情列表，通常显示前10步
   cangGan?: { year: { gan: string; tenGod?: string }[]; month: { gan: string; tenGod?: string }[]; day: { gan: string; tenGod?: string }[]; hour: { gan: string; tenGod?: string }[] }
+    // 真太阳时校正明细（2026-10 接入）：bazi.ts 赋值，供 UI 展示与存档
+    // 注：部署时由运维补声明——原 bazi.ts 已赋值但本接口缺此字段，导致 tsc 失败
+    trueSolarTime?: TrueSolarTimeInfo;
 }
 
 // 紫微斗数十二宫

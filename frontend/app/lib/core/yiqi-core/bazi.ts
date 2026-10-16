@@ -5,6 +5,7 @@ import { Lunar, Solar } from 'lunar-typescript';
 import { getSiZhuChangSheng } from './zhangsheng';
 import { getSiZhuNaYin } from './nayin';
 import { getAccurateMonthGanZhi } from './jieqi';
+import { calculateTrueSolarTime } from './true-solar-time';
 
 /**
  * 十神关系映射
@@ -114,13 +115,32 @@ function safeSubZhi(s: string) { return (s && s.length >= 2 ? s[1] : '?') as any
 
 export function createBaziChart(birthInfo: BirthInfo): BaziChart {
   try {
-    // 创建Solar对象（公历日期）
+    // ── 真太阳时校正（2026-10 接入）───────────────────────────────────────
+    // 必须在建 Solar 之前，也必须在「晚子时换日」之前。
+    // 顺序理由：晚子时判断的是「出生地真太阳时是否已过 23:00」；
+    // 若先换日再校正，日柱会基于错误的钟表时间错位（双重偏移）。
+    // 未提供 longitude 时 applied=false，行为与旧版逐字节一致。
+    const tst = calculateTrueSolarTime({
+      year: birthInfo.year,
+      month: birthInfo.month,
+      day: birthInfo.day,
+      hour: birthInfo.hour,
+      minute: birthInfo.minute,
+      second: 0,
+      longitude: birthInfo.longitude,
+      timezone: birthInfo.timeZone ?? 8,
+      dstOffset: birthInfo.dstOffset ?? 0,
+      enable: birthInfo.enableTrueSolarTime !== false,
+    });
+    const t = tst.trueSolarDateTime;
+
+    // 创建Solar对象（公历日期）—— 用校正后的真太阳时
     const solar = Solar.fromYmdHms(
-      birthInfo.year, 
-      birthInfo.month, 
-      birthInfo.day, 
-      birthInfo.hour, 
-      birthInfo.minute, 
+      t.year,
+      t.month,
+      t.day,
+      t.hour,
+      t.minute,
       0
     );
 
@@ -244,7 +264,10 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
       naYin,
       dayunStart,
       dayun,
-      cangGan
+      cangGan,
+      // 真太阳时校正明细：UI 应展示它，让用户能核对"钟表时间 → 计算时间"，
+      // 并据此决定盘面是否可信；跨时辰/跨日时必须提示。
+      trueSolarTime: tst,
     };
   } catch (error) {
     console.error('创建八字排盘失败:', error);
