@@ -82,6 +82,7 @@ const STATIC_PAGES = [
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
   ['meihua', '/meihua'],
+  ['xiu', '/xiu'],
   ['dashboard', '/dashboard'],
   ['contact', '/contact'],
   ['privacy', '/privacy'],
@@ -114,6 +115,22 @@ const AFTER = {
   // 精确匹配「起卦」：三个 tab 的文字里也都含「起卦」。
   'meihua': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => (x.textContent || '').trim() === '起卦'); if (!b) return false; b.click(); return true; })()`,
+  // 星宿页同理：输入态只有一栏日期，命宿大字、四象铺表、值日诗全在结果态。
+  // 不点这一下，display 档的宿名与 4×7 网格从未被字号审计量过。
+  // 但点完不能立刻探：实测 React 把结果态排在下一个 tick，同步读到的还是输入态，
+  // 钩子就会返回 false、页面被记成「没点开」，而 800ms 后的审计其实已经在审结果态。
+  // evl 开了 awaitPromise，所以轮询到结果态真出现再返回，判定与实际审到的东西才对得上。
+  'xiu': `(async () => { const b = [...document.querySelectorAll('button')]
+      .find(x => (x.textContent || '').trim() === '查命宿'); if (!b) return false;
+      const i = document.querySelector('input[type=date]'); if (!i) return false;
+      const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      set.call(i, '1994-08-15'); i.dispatchEvent(new Event('input', { bubbles: true }));
+      b.click();
+      for (let n = 0; n < 24; n++) {
+        if ((document.body.innerText || '').includes('取数过程')) return true;
+        await new Promise(r => setTimeout(r, 25));
+      }
+      return false; })()`,
 };
 
 // ---------------------------------------------------------------- chrome + cdp

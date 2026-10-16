@@ -246,6 +246,35 @@ function MeiHuaPreview() {
   );
 }
 
+/* 二十八宿直日表示意：四象各 7 宿铺成 4×7，金框即当日值宿。
+   宿名走 SVG 文字，不进正文阶梯（与其余 preview 同一处理）。 */
+function XiuPreview() {
+  const zi = ['角', '亢', '氐', '房', '心', '尾', '箕', '斗', '牛', '女', '虚', '危', '室', '壁',
+    '奎', '娄', '胃', '昴', '毕', '觜', '参', '井', '鬼', '柳', '星', '张', '翼', '轸'];
+  const active = 4;
+  const cw = 24, ch = 22, gx = 2, gy = 3;
+  return (
+    <div className="pv">
+      <svg viewBox="0 0 182 97">
+        {zi.map((c, i) => {
+          const x = (i % 7) * (cw + gx);
+          const y = Math.floor(i / 7) * (ch + gy);
+          const on = i === active;
+          return (
+            <g key={c}>
+              <rect x={x} y={y} width={cw} height={ch} rx={3}
+                fill={on ? 'rgba(178,149,93,0.18)' : 'none'}
+                stroke={on ? goldDeep : gold} strokeWidth={on ? 1.4 : 0.6} opacity={on ? 0.95 : 0.3} />
+              <text x={x + cw / 2} y={y + ch / 2 + 4} textAnchor="middle" fontSize="11"
+                fontFamily="serif" fill={on ? goldDeep : inkH} opacity={on ? 1 : 0.5}>{c}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 /* 合盘示意：五行点直接引冻结 token（当 fill 用，属于"圆点编码"，不作文字色）。
    原来这两圈用 #5b9a5a/#c8a43e/#5b8db8 自造了一套五行色，和产品里的编码对不上；
    9px 的木火土金水标签在缩略尺寸下也读不出来，去掉。 */
@@ -345,11 +374,12 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="eyebrow">{children}</p>;
 }
 
-type Engine = { title: string; desc: string; href?: string; go?: string; pv: 'liuyao' | 'meihua' | 'hepan' | 'zeri' };
+type Engine = { title: string; desc: string; href?: string; go?: string; pv: 'liuyao' | 'meihua' | 'xiu' | 'hepan' | 'zeri' };
 
 const ENGINES: Engine[] = [
   { title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。', href: '/liuyao', go: '开始问卦', pv: 'liuyao' },
   { title: '梅花易数', desc: '年月日时、报数成卦。体用为纲，本卦互卦变卦一气看完，即时取断。', href: '/meihua', go: '即物起卦', pv: 'meihua' },
+  { title: '二十八宿', desc: '生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。', href: '/xiu', go: '查本命宿', pv: 'xiu' },
   { title: '姓名合盘', desc: '二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。', pv: 'hepan' },
   { title: '择日', desc: '黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。', pv: 'zeri' },
 ];
@@ -481,6 +511,7 @@ export default function HomePage() {
                 <div className="row-pv">
                   {e.pv === 'liuyao' && <LiuYaoPreview />}
                   {e.pv === 'meihua' && <MeiHuaPreview />}
+                  {e.pv === 'xiu' && <XiuPreview />}
                   {e.pv === 'hepan' && <HePanPreview />}
                   {e.pv === 'zeri' && <ZeRiPreview />}
                 </div>
@@ -549,6 +580,7 @@ export default function HomePage() {
                   { href:"/create", zi:"命", title:"八字 & 紫微", desc:"四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。" },
                   { href:"/liuyao", zi:"爻", title:"六爻问卦", desc:"金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。" },
                   { href:"/meihua", zi:"梅", title:"梅花易数", desc:"年月日时或报数成卦，体用生克为纲，本互变三卦一气看完。" },
+                  { href:"/xiu", zi:"宿", title:"二十八宿", desc:"生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。" },
                   { href:"#", zi:"合", title:"姓名合盘", desc:"二人姓名，五行适配。五格剖象，深析缘分。", tag:"即将上线" },
                   { href:"#", zi:"吉", title:"择日", desc:"黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。", tag:"即将上线" },
                 ].map((item, i) => (
