@@ -66,6 +66,8 @@ const ZHI_RELATION: Record<string,{type:string,desc:string}> = {
 
 interface Props { bazi: any; enrichment?: any; }
 
+const fmtMin = (v: number) => (Number.isFinite(v) ? v.toFixed(1) : '0.0') + ' 分';
+
 export default function BaziCard({ bazi, enrichment }: Props) {
   const [expanded, setExpanded] = useState(false);
   const siZhu = bazi?.siZhu; const shiShen = bazi?.shiShen;
@@ -73,6 +75,8 @@ export default function BaziCard({ bazi, enrichment }: Props) {
   const displayDayunStart = dayunStart != null ? Math.round(dayunStart) || 1 : null;
   const dayunLabel = dayunStart != null && dayunStart !== Math.round(dayunStart) ? '约' + displayDayunStart + '岁' : dayunStart != null ? displayDayunStart + '岁' : '';
   const dayMaster = bazi?.dayMaster;
+  const tst = bazi?.trueSolarTime;
+  const conv = bazi?.calendarConversion;
 
   if (!siZhu) return <div className='qn-card qn-meta' style={{ textAlign: 'center' }}>八字数据未加载</div>;
 
@@ -156,6 +160,38 @@ export default function BaziCard({ bazi, enrichment }: Props) {
             </div>);
         })}
       </div>
+
+      {/* 排盘所用时刻摊开给用户核对：真太阳时会让时柱/日柱跟着动，
+          不说清「钟表时间 → 计算时间」，用户没法判断盘面为什么和自己填的不一样。 */}
+      {(tst || conv) && (
+        <div className='qn-card' style={{ marginBottom: 24, display: 'grid', gap: 7 }}>
+          {conv && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <span className='qn-axis' style={{ flex: '0 0 auto' }}>历法换算</span>
+              <span className='qn-meta'>农历 {conv.lunar}{conv.isLeapMonth ? '（闰月）' : ''} → 公历 {conv.civilSolar}</span>
+            </div>
+          )}
+          {tst && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <span className='qn-axis' style={{ flex: '0 0 auto' }}>时间校正</span>
+              <span className='qn-meta'>
+                钟表 {tst.civilTime} → 计算 {tst.trueSolarTime}
+                <span style={{ color: 'var(--color-text-secondary)' }}>
+                  {tst.applied
+                    ? '（经度差 ' + fmtMin(tst.longitudeCorrectionMinutes) + ' / 均时差 ' + fmtMin(tst.equationOfTimeMinutes) + ' / 夏令时 ' + (tst.dstOffsetMinutes / 60).toFixed(1) + ' 小时）'
+                    : '（未校正：出生地未能定位到经度）'}
+                </span>
+              </span>
+            </div>
+          )}
+          {tst?.crossed?.hour && (
+            <p className='qn-cap' style={{ color: 'var(--color-text-secondary)' }}>校正后已跨时辰，时柱按校正后的时刻取。</p>
+          )}
+          {tst?.crossed?.day && (
+            <p className='qn-cap' style={{ color: 'var(--color-text-secondary)' }}>校正后已跨日，日柱按校正后的日期取。</p>
+          )}
+        </div>
+      )}
 
       <div className='qn-card' style={{ marginBottom: 24 }}>
         <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 14 }}>五行能量分析</h4>

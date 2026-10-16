@@ -25,6 +25,23 @@ export default function ChartResultPage() {
     if (!id) { setError('缺少命盘ID'); setLoading(false); return; }
     let cancelled = false;
     let count = 0;
+    // 后端引擎副本（server/src/core/yiqi-core）没有真太阳时与农历换算字段，
+    // 而本次会话的客户端预览有。只在两边四柱逐字相同时把说明借过来——
+    // 四柱不同就不是同一次排盘，宁可不说，也不能说错。
+    const graftLocalMeta = (cd: any) => {
+      if (!cd?.bazi?.siZhu) return cd;
+      try {
+        const raw = sessionStorage.getItem('chart_preview');
+        if (!raw) return cd;
+        const local = JSON.parse(raw)?.chart;
+        const sig = (s: any) => ['year', 'month', 'day', 'hour'].map(k => (s?.[k]?.gan || '') + (s?.[k]?.zhi || '')).join(' ');
+        const ls = sig(local?.bazi?.siZhu);
+        if (ls.length < 8 || ls !== sig(cd.bazi.siZhu)) return cd;
+        return { ...cd, bazi: { ...cd.bazi,
+          trueSolarTime: local.bazi.trueSolarTime ?? cd.bazi.trueSolarTime,
+          calendarConversion: local.bazi.calendarConversion ?? cd.bazi.calendarConversion } };
+      } catch { return cd; }
+    };
     const fallbackToSession = () => {
       try {
         const raw = sessionStorage.getItem('chart_preview');
@@ -43,7 +60,7 @@ export default function ChartResultPage() {
           if (fallbackToSession()) return;
           setError('排盘超时，请返回重试'); setLoading(false);
         } else if (res.success && res.data) {
-          setChartData(res.data.chartData || null);
+          setChartData(graftLocalMeta(res.data.chartData || null));
           setChartName(res.data.name || '');
           setLoading(false);
         } else if (count < 60) { setTimeout(poll, 1000); }
