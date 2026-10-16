@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const LINKS = [
   { href: '/create', label: '八字 & 紫微', short: '命盘' },
   { href: '/liuyao', label: '六爻', short: '六爻' },
+  { href: '/meihua', label: '梅花易数', short: '梅花' },
   { href: '/dashboard', label: '我的报告', short: '我的报告' },
 ];
 

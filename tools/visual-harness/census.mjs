@@ -81,6 +81,7 @@ const STATIC_PAGES = [
   ['create', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
+  ['meihua', '/meihua'],
   ['dashboard', '/dashboard'],
   ['contact', '/contact'],
   ['privacy', '/privacy'],
@@ -108,6 +109,11 @@ const AFTER = {
       .find(x => /开始使用/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
   'chart-result': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /展开/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
+  // 卦成之后才是这个页面真正交付的版式：三卦并排、体用条、取数过程、法务口径。不点这一下，
+  // /meihua 审到的只有输入态，结果态的字号与对比度从未被测量过（等同首页那次「假绿」）。
+  // 精确匹配「起卦」：三个 tab 的文字里也都含「起卦」。
+  'meihua': `(() => { const b = [...document.querySelectorAll('button')]
+      .find(x => (x.textContent || '').trim() === '起卦'); if (!b) return false; b.click(); return true; })()`,
 };
 
 // ---------------------------------------------------------------- chrome + cdp

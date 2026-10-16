@@ -219,6 +219,33 @@ function LiuYaoPreview() {
   );
 }
 
+/* 梅花示意：画的是观梅占（辰年十二月十七日申时）得泽火革，初爻动 —— 
+   这一卦同时是 engine 的验收金标准，示意图和算法对得上。动爻用深金加粗。 */
+function MeiHuaPreview() {
+  const lines = [1, 0, 1, 1, 1, 0];
+  const dong = 1;
+  return (
+    <div className="pv">
+      <svg viewBox="0 0 200 90">
+        {lines.map((v, i) => {
+          const y = 8 + (5 - i) * 13;
+          const on = i + 1 === dong;
+          const stroke = on ? goldDeep : gold;
+          const w = on ? 2.4 : 1.4;
+          const op = on ? 0.95 : 0.5;
+          if (v === 1) {
+            return <line key={i} x1={4} y1={y} x2={196} y2={y} stroke={stroke} strokeWidth={w} opacity={op} />;
+          }
+          return (<g key={i}>
+            <line x1={4} y1={y} x2={92} y2={y} stroke={stroke} strokeWidth={w} opacity={op} />
+            <line x1={108} y1={y} x2={196} y2={y} stroke={stroke} strokeWidth={w} opacity={op} />
+          </g>);
+        })}
+      </svg>
+    </div>
+  );
+}
+
 /* 合盘示意：五行点直接引冻结 token（当 fill 用，属于"圆点编码"，不作文字色）。
    原来这两圈用 #5b9a5a/#c8a43e/#5b8db8 自造了一套五行色，和产品里的编码对不上；
    9px 的木火土金水标签在缩略尺寸下也读不出来，去掉。 */
@@ -318,12 +345,13 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="eyebrow">{children}</p>;
 }
 
-type Engine = { title: string; desc: string; href?: string; go?: string };
+type Engine = { title: string; desc: string; href?: string; go?: string; pv: 'liuyao' | 'meihua' | 'hepan' | 'zeri' };
 
 const ENGINES: Engine[] = [
-  { title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。', href: '/liuyao', go: '开始问卦' },
-  { title: '姓名合盘', desc: '二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。' },
-  { title: '择日', desc: '黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。' },
+  { title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。', href: '/liuyao', go: '开始问卦', pv: 'liuyao' },
+  { title: '梅花易数', desc: '年月日时、报数成卦。体用为纲，本卦互卦变卦一气看完，即时取断。', href: '/meihua', go: '即物起卦', pv: 'meihua' },
+  { title: '姓名合盘', desc: '二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。', pv: 'hepan' },
+  { title: '择日', desc: '黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。', pv: 'zeri' },
 ];
 
 const SOON = [
@@ -448,12 +476,13 @@ export default function HomePage() {
           </div>
 
           <div className="core-rows">
-            {ENGINES.map((e, i) => (
+            {ENGINES.map(e => (
               <div key={e.title} className="core-row">
                 <div className="row-pv">
-                  {i === 0 && <LiuYaoPreview />}
-                  {i === 1 && <HePanPreview />}
-                  {i === 2 && <ZeRiPreview />}
+                  {e.pv === 'liuyao' && <LiuYaoPreview />}
+                  {e.pv === 'meihua' && <MeiHuaPreview />}
+                  {e.pv === 'hepan' && <HePanPreview />}
+                  {e.pv === 'zeri' && <ZeRiPreview />}
                 </div>
                 <div className="row-copy">
                   <h3 className="h3">{e.title}</h3>
@@ -519,6 +548,7 @@ export default function HomePage() {
                 {[
                   { href:"/create", zi:"命", title:"八字 & 紫微", desc:"四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。" },
                   { href:"/liuyao", zi:"爻", title:"六爻问卦", desc:"金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。" },
+                  { href:"/meihua", zi:"梅", title:"梅花易数", desc:"年月日时或报数成卦，体用生克为纲，本互变三卦一气看完。" },
                   { href:"#", zi:"合", title:"姓名合盘", desc:"二人姓名，五行适配。五格剖象，深析缘分。", tag:"即将上线" },
                   { href:"#", zi:"吉", title:"择日", desc:"黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。", tag:"即将上线" },
                 ].map((item, i) => (
