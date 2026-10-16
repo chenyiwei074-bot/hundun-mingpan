@@ -6,6 +6,8 @@ export async function createChart(data: {
   gender: string;
   calendar: string;
   birthday: string;
+  /** 农历闰月位。additive：老客户端不传，后端未接收时按平月处理。 */
+  isLeapMonth?: boolean;
   birthPlace: string;
   currentPlace: string;
 }) {

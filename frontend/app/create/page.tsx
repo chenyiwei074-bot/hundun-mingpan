@@ -111,16 +111,20 @@ export default function CreatePage() {
       const hourSafe = isNaN(hourNum) ? 12 : hourNum;
       const minuteSafe = isNaN(minuteNum) ? 0 : minuteNum;
 
-      // 农历必须先换算成公历，因为后面每一步都活在公历轴上：发给后端的 birthday
-      // 字符串、按日期判定历史夏令时、真太阳时校正。把农历数字直接喂给它们，
-      // 会按错误的日期取到错误的时区/夏令时，四柱即使碰对了也是侥幸。
+      // 农历必须先换算成公历，因为按日期判定历史夏令时、真太阳时校正都活在公历轴上。
+      // 把农历数字直接喂给它们，会按错误的日期取到错误的时区/夏令时，四柱即使碰对了
+      // 也是侥幸。换算结果只用于这两步；引擎与传给后端的串都保持用户原始输入。
       const civil = toCivilInput({
         year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
         hour: hourSafe, minute: minuteSafe, isLunar, isLeapMonth: isLeapOn,
       });
+      // 发给后端的必须是用户原始输入：charts.birth_data 里 calendar 一直表示
+      // 「用户选的历法」，历史行就有 isLunar:true/calendar:'农历'。若为了迁就后端
+      // 把农历归一化成公历再报「公历」，同一列的新旧行语义就分叉了——那是静默的
+      // 数据污染。换算属于引擎职责（前后端同一套），不在传输层做。
       const birthday = form.calendar === '四柱'
         ? `四柱:${form.yearGan}${form.yearZhi},${form.monthGan}${form.monthZhi},${form.dayGan}${form.dayZhi},${form.hourGan}${form.hourZhi}`
-        : `${civil.year}-${pad(civil.month)}-${pad(civil.day)} ${pad(civil.hour)}:${pad(civil.minute)}`;
+        : `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
@@ -151,12 +155,11 @@ export default function CreatePage() {
       }));
 
       // 后端持久化
-      // birthday 已经是换算后的公历时刻，所以 calendar 必须跟着报「公历」——
-      // 否则等于告诉后端这是一个农历字符串，而接口的 birthday 字段没有闰月位、
-      // 契约又不允许改，后端无从换算。四柱模式维持原样（后端 schema 本就不收）。
+      // calendar 保持「用户输入的历法」；闰月单独用一个 additive 字段带过去，
+      // 后端未接收该字段前会按平月排——所以这块必须与后端 lunar 同步同批上线。
       const res = await apiCreateChart({
         visitor_id: visitorId, name: chartName, gender: form.gender,
-        calendar: isLunar ? '公历' : form.calendar, birthday,
+        calendar: form.calendar, birthday, isLeapMonth: isLeapOn,
         birthPlace: birthPlace || '未指定', currentPlace: currentPlace || '未指定',
       });
 
