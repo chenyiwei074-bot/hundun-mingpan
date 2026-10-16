@@ -14,6 +14,7 @@ import {
 import { buildCoinResult } from '../../frontend/lib/liuyao/methods/coin';
 import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
+import { dateToGanZhi } from '../../frontend/app/lib/core/liuyao/constants';
 
 const out = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -156,7 +157,43 @@ for (const [label, r] of [
   ok(`result/${label}-liuShen`, r.liuShen[0] === '玄武', `${label} 初爻六神=${r.liuShen[0]}（癸日起玄武）`);
 }
 
-// ── 6. 控制台摘要（ASCII）──
+// ── 6. 运维 400 天差分回归（2020-01-01 起，双引擎交叉：lunar-typescript × 同源副本）──
+// 运维口径 A1-③：改完必须 400/400。两份参照引擎本身也必须 400/400 互洽，否则差分无意义。
+let ownerDays = 0, ownerBad = 0, crossBad = 0;
+const ownerBadList: string[] = [];
+for (let i = 0; i < 400; i++) {
+  const dt = new Date(2020, 0, 1 + i, 12, 0, 0);
+  const y = dt.getFullYear(), m = dt.getMonth() + 1, d = dt.getDate();
+  const truth = Solar.fromYmdHms(y, m, d, 12, 0, 0).getLunar().getDayInGanZhiExact();
+  const copy = dateToGanZhi(dt);           // app/lib/core 同源副本（后端那份的镜像）
+  const mine = getDayGanZhi(dt);
+  ownerDays++;
+  if (truth !== copy.gan + copy.zhi) crossBad++;
+  if (mine.gan + mine.zhi !== truth) {
+    ownerBad++;
+    if (ownerBadList.length < 5) ownerBadList.push(`${y}-${m}-${d} ${mine.gan + mine.zhi} != ${truth}`);
+  }
+}
+ok('owner-400d/two-engines-agree', crossBad === 0, `两份引擎互检不符 ${crossBad}/${ownerDays} 天`);
+ok('owner-400d/day-pillar', ownerBad === 0, `日柱不符 ${ownerBad}/${ownerDays} 天（运维要求 400/400）${ownerBadList.length ? ' 例:' + ownerBadList.join(' | ') : ''}`);
+
+// ── 7. 每爻空亡：标记必须恰好落在旬空地支的爻上 ──
+for (const [label, r] of [
+  ['coin', buildCoinResult({ question: '验收', questionType: '其他', records, now })],
+  ['time', buildTimeResult({ question: '验收', questionType: '其他', date: now })],
+  ['number', buildNumberResult({ question: '验收', questionType: '其他', nums: [3, 5, 2], now })],
+] as const) {
+  const want = r.naJia.map(y => r.xunKong.includes(y.naZhi));
+  const got = r.naJia.map(y => y.xunKong);
+  ok(`xunkong-per-yao/${label}`, JSON.stringify(want) === JSON.stringify(got),
+    `${label} 旬空${r.xunKong} 应标 ${want.filter(Boolean).length} 爻（${r.naJia.filter(y => y.xunKong).map(y => y.naZhi).join('')}），实标 ${got.filter(Boolean).length} 爻`);
+  const bianWant = r.bianNaJia.map(y => r.xunKong.includes(y.naZhi));
+  const bianGot = r.bianNaJia.map(y => y.xunKong);
+  ok(`xunkong-per-yao/${label}-bian`, r.bianNaJia.length === 0 || JSON.stringify(bianWant) === JSON.stringify(bianGot),
+    `${label} 变卦 ${r.bianNaJia.length} 爻标记一致`);
+}
+
+// ── 8. 控制台摘要（ASCII）──
 const summary = `liuyao ganzhi acceptance: days=${days} pass=${pass} fail=${fail}`;
 try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
 console.log(summary);

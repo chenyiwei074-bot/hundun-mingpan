@@ -23,7 +23,8 @@ export function buildTimeResult(params: {
   const shiYing = getShiYing(gua.ben);
   const dayGZ = getDayGanZhi(now);
   const monthGZ = getMonthGanZhi(now);
-  const naJia = getNaJia(gua.ben, gua.shangGua, gua.xiaGua, vals);
+  const xunKong = getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx);
+  const naJia = getNaJia(gua.ben, gua.shangGua, gua.xiaGua, vals, xunKong);
 
   return {
     id: 'time_'+Date.now().toString(36),
@@ -39,7 +40,7 @@ export function buildTimeResult(params: {
     },
     dayGZ,
     monthZhi: monthGZ.slice(-1),
-    xunKong: getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx),
+    xunKong,
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: { name:null, gong:null, wuxing:null },
     yaoRecords: recs,

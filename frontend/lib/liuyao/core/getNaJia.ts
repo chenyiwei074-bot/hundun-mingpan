@@ -16,7 +16,7 @@ export function getShiYing(guaName: string): { shi: number; ying: number } {
   return { shi, ying };
 }
 
-export function getNaJia(guaName: string, shangGua: string, xiaGua: string, values: number[]): NaJiaYao[] {
+export function getNaJia(guaName: string, shangGua: string, xiaGua: string, values: number[], xunKongZhi = ''): NaJiaYao[] {
   const { gong } = getPalaceGong(guaName);
   const gongWx = WX[gong];
   const naGan = { shang: NA_GAN[shangGua][1], xia: NA_GAN[xiaGua][0] };
@@ -43,7 +43,7 @@ export function getNaJia(guaName: string, shangGua: string, xiaGua: string, valu
       label: values[i] === 7 ? '少阳' : values[i] === 8 ? '少阴' : values[i] === 9 ? '老阳' : '老阴',
       isDong: values[i] === 6 || values[i] === 9,
       naGan: gan, naZhi: zi, ganZhi,
-      liuQin, shiYing, xunKong: false,
+      liuQin, shiYing, xunKong: xunKongZhi.includes(zi),
     });
   }
   return result;

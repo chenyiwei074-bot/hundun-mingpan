@@ -43,7 +43,8 @@ export function buildNumberResult(params: {
   const shiYing = getShiYing(benName);
   const dayGZ = getDayGanZhi(now);
   const monthGZ = getMonthGanZhi(now);
-  const naJia = getNaJia(benName, shang, xia, vals);
+  const xunKong = getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx);
+  const naJia = getNaJia(benName, shang, xia, vals, xunKong);
   
   let bianNaJia: NaJiaYao[] = [];
   let bianInfo = { name:null as string|null, gong:null as string|null, wuxing:null as string|null };
@@ -52,7 +53,7 @@ export function buildNumberResult(params: {
     const bsBits = bv.slice(3).map(v=>v===7||v===9?'1':'0').join('');
     const bxBits = bv.slice(0,3).map(v=>v===7||v===9?'1':'0').join('');
     const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
-    bianNaJia = getNaJia(gua.bian!, bs, bx, bv);
+    bianNaJia = getNaJia(gua.bian!, bs, bx, bv, xunKong);
     const bianGong = getPalaceGong(gua.bian!);
     bianInfo = { name: gua.bian, gong: bianGong.gong, wuxing: WX[bianGong.gong] };
   }
@@ -71,7 +72,7 @@ export function buildNumberResult(params: {
     },
     dayGZ,
     monthZhi: monthGZ.slice(-1),
-    xunKong: getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx),
+    xunKong,
     benGua: { name: benName, gong, wuxing: WX[gong], shangGua: shang, xiaGua: xia },
     bianGua: bianInfo,
     yaoRecords: recs,

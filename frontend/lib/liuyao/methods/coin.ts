@@ -26,14 +26,15 @@ export function buildCoinResult(params: {
   const shiYing = getShiYing(gua.ben);
   const dayGZ = getDayGanZhi(now);
   const monthGZ = getMonthGanZhi(now);
-  const naJia = getNaJia(gua.ben, gua.shangGua, gua.xiaGua, values);
+  const xunKong = getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx);
+  const naJia = getNaJia(gua.ben, gua.shangGua, gua.xiaGua, values, xunKong);
   let bianNaJia: NaJiaYao[] = [];
   if (gua.bian) {
     const bv = records.map(r => r.isDong ? (r.value === 6 ? 7 : 8) : r.value);
     const bsBits = bv.slice(3).map(v => v===7||v===9?'1':'0').join('');
     const bxBits = bv.slice(0,3).map(v => v===7||v===9?'1':'0').join('');
     const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
-    bianNaJia = getNaJia(gua.bian!, bs, bx, bv);
+    bianNaJia = getNaJia(gua.bian!, bs, bx, bv, xunKong);
   }
   const bianGong = gua.bian ? getPalaceGong(gua.bian) : null;
 
@@ -51,7 +52,7 @@ export function buildCoinResult(params: {
     },
     dayGZ,
     monthZhi: monthGZ.slice(-1),
-    xunKong: getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx),
+    xunKong,
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: gua.bian ? { name: gua.bian, gong: bianGong?.gong||null, wuxing: bianGong ? WX[bianGong.gong] : null } : { name:null, gong:null, wuxing:null },
     yaoRecords: records,
