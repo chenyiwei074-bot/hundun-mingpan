@@ -169,7 +169,10 @@ export default function CreatePage() {
       );
     }
     return (
-      <div className="grid gap-3" style={{ gridTemplateColumns: '1fr 1fr 1fr 1.5fr' }}>
+      // minmax 下限是命中区要求：时间列两个 select 各要 44，若只给它们设下限，
+      // 1fr 会把 年/月 挤到 43 —— 修好一处偷走另一处。四列同时设下限后
+      // 375 上 44*3 + 100 + 3*12 = 268 ≤ 291 可用宽，不产生横向溢出。
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(44px, 1fr) minmax(44px, 1fr) minmax(44px, 1fr) minmax(100px, 1.5fr)' }}>
         <div className="text-center">
           <span className="qn-cap block mb-1.5">年</span>
           <select className="qn-select" value={y} onChange={e => setField(pf('year'), e.target.value)} onKeyDown={cycleSelect} onWheel={cycleSelect}>
@@ -202,17 +205,17 @@ export default function CreatePage() {
             </select>
           ) : (
             <div className="flex items-center gap-1.5">
-            <select className="qn-select" style={{ flex: '1 1 0', minWidth: 0, padding: '11px 4px' }} value={h} onChange={e => setField(pf('hour'), e.target.value)} onKeyDown={cycleSelect} onWheel={cycleSelect}>
+            <select className="qn-select" style={{ flex: '1 1 0', minWidth: 44, padding: '11px 4px' }} value={h} onChange={e => setField(pf('hour'), e.target.value)} onKeyDown={cycleSelect} onWheel={cycleSelect}>
               {Array.from({ length: 24 }, (_, i) => (<option key={i} value={String(i).padStart(2,'0')}>{String(i).padStart(2,'0')}</option>))}
             </select>
             <span className="qn-cap select-none">:</span>
-            <select className="qn-select" style={{ flex: '1 1 0', minWidth: 0, padding: '11px 4px' }} value={min} onChange={e => setField(pf('minute'), e.target.value)} onKeyDown={cycleSelect} onWheel={cycleSelect}>
+            <select className="qn-select" style={{ flex: '1 1 0', minWidth: 44, padding: '11px 4px' }} value={min} onChange={e => setField(pf('minute'), e.target.value)} onKeyDown={cycleSelect} onWheel={cycleSelect}>
               {Array.from({ length: 60 }, (_, i) => (<option key={i} value={String(i).padStart(2,'0')}>{String(i).padStart(2,'0')}</option>))}
             </select>
           </div>
           )}
-          <button type="button" onClick={() => setForm(p => ({ ...p, unknownTime: !p.unknownTime }))} className="qn-cap"
-            style={{ color: 'var(--color-accent-gold-text)', letterSpacing: '0.02em', marginTop: 8, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+          <button type="button" onClick={() => setForm(p => ({ ...p, unknownTime: !p.unknownTime }))} className="qn-cap qn-hit"
+            style={{ color: 'var(--color-accent-gold-text)', letterSpacing: '0.02em', marginTop: 16, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             {form.unknownTime ? '精确时间' : '时辰选择'}
           </button>
         </div>

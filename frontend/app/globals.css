@@ -529,6 +529,30 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   .qn-chip { min-height: 44px; }
 }
 
+/* ---- 命中区补足到 44px，视觉盒子一像素不动。
+   ::after 的命中判定归属于宿主元素，所以 44 方框的四角仍解析到控件本身；
+   left/right 收在宿主自身的 padding box 内，不做横向扩张，否则会偷走邻居的可点区。
+   min-height:100% 保证控件本身已经高于 44 时不会被反向缩小。
+   代价全在纵向：34 高的 chip 上下各伸出 5px，所以任何会换行的 .qn-chip 容器
+   必须保持 row-gap > 10，否则下一行的带会盖掉上一行的可点区
+   （app/liuyao/create/page.tsx 的占问类型行就是这么从 8 调到 12 的）。
+   .qn-hit 给那些不是 .qn-chip 但同样偏小的控件（文字型开关）。 ---- */
+.qn-chip,
+.qn-hit {
+  position: relative;
+}
+.qn-chip::after,
+.qn-hit::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 44px;
+  min-height: 100%;
+  transform: translateY(-50%);
+}
+
 /* ---- 墨金面板：命盘 / 起卦的聚焦舞台 ---- */
 .qn-ink {
   position: relative;

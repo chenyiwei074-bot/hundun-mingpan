@@ -308,7 +308,7 @@ const CENSUS = String.raw`(() => {
     for (const r of rules || []) {
       if (!r.style) continue;
       const c = r.style.color || '';
-      if (/var\(\s*--color-(?:wx|shen)-/.test(c) && cssInked.length < 6) cssInked.push(r.selectorText.slice(0, 48) + ' { color: ' + c + ' }');
+      if (/var\(\s*--color-(?:wx|shen|sihua)-/.test(c) && cssInked.length < 6) cssInked.push(r.selectorText.slice(0, 48) + ' { color: ' + c + ' }');
     }
   }
 
@@ -349,6 +349,63 @@ const CENSUS = String.raw`(() => {
         touch[k] = (touch[k] || 0) + 1; } }
   }
 
+  // ---- Tap targets v2: *effective* tappability, not just the painted box. ----
+  // The pass above has two blind spots that made a green small=0 meaningless:
+  //  (a) it only ever saw a control that contains a text node, so an icon-only
+  //      button -- the launcher's 32px close X -- is invisible to it;
+  //  (b) it read getBoundingClientRect, so a control that deliberately grows its
+  //      hit area past its visual box (::after overflow) still reads as "small".
+  // Rule: a control whose own box is already >=44x44 passes. Otherwise a centred
+  // 44x44 box is probed at its four corners with elementFromPoint, and every corner
+  // must resolve to the control or a descendant of it. A pseudo-element hit is
+  // attributed by the browser to its originating element, so a real 44px hit area
+  // passes; a clipped one (ancestor overflow:hidden) or one stolen by an adjacent
+  // control's overlapping hit area fails -- which is the correct outcome, because
+  // overlapping expansions cause mis-taps rather than fixing them.
+  // Why >=44x44 short-circuits instead of being probed: these controls are pills
+  // (border-radius 999px), and the browser clips hit-testing to the rounded shape,
+  // so the corner of a 56x44 pill's own bounding box is genuinely not part of it.
+  // Measured, not assumed. Probing such a control reports a miss no user can hit.
+  const TAP = 44;
+  const tapIssues = [];
+  const ctlSeen = new Set();
+  // No <label>: a label with no associated control is not a pointer target, and the
+  // form labels here are 422x20 blocks that would drown the real findings.
+  const ctlSel = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=tab],[role=radio],[role=button],[role=checkbox],[role=option]';
+  for (const el of document.querySelectorAll(ctlSel)) {
+    if (ctlSeen.has(el)) continue;
+    if (el.disabled || el.getAttribute('aria-hidden') === 'true') continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || +cs.opacity < 0.1 || cs.pointerEvents === 'none') continue;
+    if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) continue;
+    ctlSeen.add(el);
+    if (r.width >= TAP && r.height >= TAP) continue;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    // Only audit a control reachable at its own centre. When a modal is open,
+    // everything behind its backdrop is inert -- reporting those as small targets
+    // would be noise, not a finding. That is the state the home AFTER-click creates.
+    const self = document.elementFromPoint(cx, cy);
+    if (!self || !(self === el || el.contains(self))) continue;
+    const half = TAP / 2 - 0.5;
+    let miss = 0, untestable = 0;
+    for (const [dx, dy] of [[-half, -half], [half, -half], [-half, half], [half, half]]) {
+      const x = cx + dx, y = cy + dy;
+      // A corner pushed outside the viewport cannot be judged -- the edge of the
+      // document sits there for a reason unrelated to this control.
+      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) { untestable++; continue; }
+      const hit = document.elementFromPoint(x, y);
+      if (!hit || !(hit === el || el.contains(hit))) miss++;
+    }
+    if (miss && untestable < 4) {
+      const txt = (el.textContent || '').trim().replace(/\s+/g, ' ');
+      const label = txt.slice(0, 12) || (el.getAttribute('aria-label') || '').trim().slice(0, 12) || '(icon-only)';
+      tapIssues.push(region(el) + '|' + label + '|' + Math.round(r.width) + 'x' + Math.round(r.height) +
+        '|miss' + miss + (txt ? '' : '|ICON'));
+    }
+  }
+
   const nav = document.querySelector('nav.qn-nav');
   const foot = document.querySelector('footer.qn-footer');
   const shell = document.querySelector('main') || document.querySelector('[class*="qn-shell"]');
@@ -375,6 +432,7 @@ const CENSUS = String.raw`(() => {
     bodyDisplay: getComputedStyle(document.body).display,
     regions: {}, offLadder: off,
     smallTargets: Object.keys(touch).sort(),
+    tapIssues: [...new Set(tapIssues)].sort(),
     clsSrc: (window.__clsSrc || []).slice(0, 8),
   };
   for (const [k, v] of Object.entries(R)) out.regions[k] = {
@@ -409,6 +467,18 @@ async function shot(name, full = false) {
     await send('Emulation.setDeviceMetricsOverride', { width: W, height: Math.min(hh, 18000), deviceScaleFactor: 1, mobile: W < 700 });
     await sleep(600);
   }
+  // Freeze before capture. The home hero ring rotates continuously, so two shots of the
+  // SAME build differed by ~6500px in one band while the cross-build diff was ~6000px —
+  // an unchanged page looked like a regression. pause() alone is not enough: it stops the
+  // clock at whatever phase that run happened to reach, so the ticks still land differently
+  // a few hundred ms apart. Infinite animations are rewound to 0, i.e. the authored position;
+  // finite entrance animations keep their finished state, because rewinding those to 0 would
+  // screenshot the page before it faded in.
+  await evl(`[...document.getAnimations()].forEach(a => { try {
+    a.pause();
+    const t = a.effect && a.effect.getComputedTiming && a.effect.getComputedTiming();
+    if (t && t.iterations === Infinity) a.currentTime = 0;
+  } catch (e) {} })`);
   const s = await send('Page.captureScreenshot', { format: 'png' });
   if (s.data) writeFileSync(`${OUT}/${name}.png`, Buffer.from(s.data, 'base64'));
   if (full) await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: TOUCH });
@@ -522,6 +592,7 @@ async function measure(tag, url) {
     if (v.foot) console.log(`   nav=${v.nav && v.nav.h}px shell=${v.shell && v.shell.w}px foot=${v.foot.top}->${v.foot.bottom} docH=${v.docH}${v.docH <= H + 1 ? ' (dead band ' + (H - v.foot.bottom) + 'px)' : ''}`);
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
+    if ((v.tapIssues || []).length) console.log('   TAP44 (effective 44px box not reachable) ' + v.tapIssues.join(' | '));
   }
   if (pageErrors.length) {
     console.log('   PAGEERROR ' + pageErrors.join(' | '));

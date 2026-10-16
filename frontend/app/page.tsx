@@ -733,6 +733,17 @@ export default function HomePage() {
         .hp .sheet-arrow-l { left: -0.75rem; }
         .hp .sheet-arrow-r { right: -0.75rem; }
 
+        /* ---- 命中区补足到 44px。32 的图标按钮在 44 方框的四个角上根本点不到，
+           而视觉尺寸 32 是这个弹窗的密度上限，不能直接放大。两个按钮本来就是
+           position:absolute，::after 居中撑到 44 即可。箭头那 20px 与卡片条目的
+           重叠是既有的（z-index:1 已经压着条目），扩展只是把原本死掉的区域变成可用。 ---- */
+        .hp .sheet-x::after,
+        .hp .sheet-arrow::after {
+          content: ''; position: absolute;
+          top: 50%; left: 50%; width: 44px; height: 44px;
+          transform: translate(-50%, -50%);
+        }
+
         /* ===== 动效 ===== */
         @keyframes hpFade { from { opacity: 0; transform: translate3d(0,16px,0); } to { opacity: 1; transform: none; } }
         @keyframes hpScale { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }

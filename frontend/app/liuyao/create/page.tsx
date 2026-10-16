@@ -466,7 +466,10 @@ export default function LiuyaoCreatePage() {
           onChange={e=>{setQuestion(e.target.value);setError('');}}/>
         <div style={{marginTop:16}}>
           <span className="qn-cap" style={{display:'block',marginBottom:8}}>占问类型</span>
-          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+          {/* 只加 row-gap 不加 column-gap：.qn-chip 的 44 命中带在 34 高的盒子上上下各伸出
+              5px，换行时两带间距必须 > 10 才不互相偷可点区。column-gap 保持 8 —— 撑到 12 会让
+              桌面端第 9 个 chip 折到第二行，横排断掉，而那个方向本来就没有碰撞。 */}
+          <div style={{display:'flex',flexWrap:'wrap',gap:'12px 8px'}}>
             {(['财运','事业','感情','婚姻','考试','健康','出行','合作','其他'] as const).map(t=>(
               <button key={t} type="button" className={`qn-chip${questionType===t?' qn-chip--on':''}`}
                 onClick={()=>setQuestionType(t)}>{t}</button>
