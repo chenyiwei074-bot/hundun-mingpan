@@ -173,7 +173,16 @@ export async function trackEvent(req: Request, res: Response) {
 }
 
 // GET /api/admin/stats
+// 2026-10-16 安全修复：必须带 ADMIN_STATS_TOKEN（请求头 x-admin-token 或 ?token=）
 export async function getStats(req: Request, res: Response) {
+  const expected = process.env.ADMIN_STATS_TOKEN;
+  if (!expected) {
+    return res.status(503).json({ success: false, error: 'admin stats 未配置访问口令' });
+  }
+  const provided = String(req.get('x-admin-token') || req.query.token || '');
+  if (provided !== expected) {
+    return res.status(401).json({ success: false, error: 'unauthorized' });
+  }
   try {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -270,26 +279,14 @@ export async function createReportOrder(req: Request, res: Response) {
 }
 
 // POST /api/report/confirm-payment (预留)
-export async function confirmPayment(req: Request, res: Response) {
-  try {
-    const { orderId } = req.body;
-    if (!orderId) {
-      return res.status(400).json({ success: false, error: '缺少 orderId' });
-    }
-    const order = await prisma.reportOrder.findUnique({ where: { id: orderId } });
-    if (!order) return res.status(404).json({ success: false, error: '订单不存在' });
-    // TODO: 对接真实支付回调
-    // 当前直接标记为已支付
-    await prisma.reportOrder.update({
-      where: { id: orderId },
-      data: { paymentStatus: 'paid', status: 'processing' }
-    });
-    // 异步生成报告
-    generateReport(orderId).catch(err => console.error('Generate report error:', err));
-    return res.json({ success: true, data: { status: 'processing' } });
-  } catch (error: any) {
-    return res.status(500).json({ success: false, error: error.message });
-  }
+export async function confirmPayment(_req: Request, res: Response) {
+  // 2026-10-16 安全下线：原实现无鉴权，凭 orderId 即可把订单改成 paid 并触发报告生成。
+  // 支付未接入；恢复前必须先实现：签名/回调校验 + 幂等 + 金额核对。当前一律拒绝，绝不写库。
+  console.warn('[security] /report/confirm-payment 被调用，但该接口已下线（未接入支付、无鉴权）');
+  return res.status(503).json({
+    success: false,
+    error: '支付确认接口已下线：尚未接入真实支付通道，不接受任何支付确认请求',
+  });
 }
 
 // GET /api/report/status/:id
