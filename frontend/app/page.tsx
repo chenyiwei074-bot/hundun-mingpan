@@ -584,7 +584,7 @@ export default function HomePage() {
         }
         .hp .h3 {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: var(--qn-fs-title); font-weight: 600; line-height: 1.15;
+          font-size: var(--qn-fs-hero); font-weight: 600; line-height: 1.15;
           letter-spacing: -0.02em; margin: 0 0 0.75rem; color: ${ink};
         }
         .hp .body { font-size: var(--qn-fs-body); line-height: 1.7; margin: 0 0 1.5rem; max-width: 34rem; }
