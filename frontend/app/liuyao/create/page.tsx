@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { buildCoinResult } from '@/lib/liuyao/methods/coin';
 import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
+import { getGua, getNaJia, getDayGanZhi, getXunKong, GUA_MAP } from '@/lib/liuyao/core';
 
 type CoinFace = '字' | '花';
 type YaoRecord = { position: number; coins: CoinFace[]; value: number; label: string; isDong: boolean };
@@ -20,146 +21,7 @@ type NaJiaYao = {
 };
 
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
-const GUA_MAP: Record<string, string> = { '111': '乾', '011': '兑', '101': '离', '001': '震', '110': '巽', '010': '坎', '100': '艮', '000': '坤' };
 const GUA_SYMBOL: Record<string, string> = { '乾': '☰', '兑': '☱', '离': '☲', '震': '☳', '巽': '☴', '坎': '☵', '艮': '☶', '坤': '☷' };
-
-const S64: Record<string, string> = {
-  '乾乾':'乾为天','兑兑':'兑为泽','离离':'离为火','震震':'震为雷','巽巽':'巽为风','坎坎':'坎为水','艮艮':'艮为山','坤坤':'坤为地',
-  '乾兑':'天泽履','乾离':'天火同人','乾震':'天雷无妄','乾巽':'天风姤','乾坎':'天水讼','乾艮':'天山遁','乾坤':'天地否',
-  '兑乾':'泽天夬','兑离':'泽火革','兑震':'泽雷随','兑巽':'泽风大过','兑坎':'泽水困','兑艮':'泽山咸','兑坤':'泽地萃',
-  '离乾':'火天大有','离兑':'火泽睽','离震':'火雷噬嗑','离巽':'火风鼎','离坎':'火水未济','离艮':'火山旅','离坤':'火地晋',
-  '震乾':'雷天大壮','震兑':'雷泽归妹','震离':'雷火丰','震巽':'雷风恒','震坎':'雷水解','震艮':'雷山小过','震坤':'雷地豫',
-  '巽乾':'风天小畜','巽兑':'风泽中孚','巽离':'风火家人','巽震':'风雷益','巽坎':'风水涣','巽艮':'风山渐','巽坤':'风地观',
-  '坎乾':'水天需','坎兑':'水泽节','坎离':'水火既济','坎震':'水雷屯','坎巽':'水风井','坎艮':'水山蹇','坎坤':'水地比',
-  '艮乾':'山天大畜','艮兑':'山泽损','艮离':'山火贲','艮震':'山雷颐','艮巽':'山风蛊','艮坎':'山水蒙','艮坤':'山地剥',
-  '坤乾':'地天泰','坤兑':'地泽临','坤离':'地火明夷','坤震':'地雷复','坤巽':'地风升','坤坎':'地水师','坤艮':'地山谦',
-};
-
-// 八宫卦序
-const PALACE: Record<string, string[]> = {
-  '乾':['乾为天','天风姤','天山遁','天地否','风地观','山地剥','火地晋','火天大有'],
-  '兑':['兑为泽','泽水困','泽地萃','泽山咸','水山蹇','地山谦','雷山小过','雷泽归妹'],
-  '离':['离为火','火山旅','火风鼎','火水未济','山水蒙','风水涣','天水讼','天火同人'],
-  '震':['震为雷','雷地豫','雷水解','雷风恒','地风升','水风井','泽风大过','泽雷随'],
-  '巽':['巽为风','风天小畜','风火家人','风雷益','天雷无妄','火雷噬嗑','山雷颐','山风蛊'],
-  '坎':['坎为水','水泽节','水雷屯','水火既济','泽火革','雷火丰','地火明夷','地水师'],
-  '艮':['艮为山','山火贲','山天大畜','山泽损','火泽睽','天泽履','风泽中孚','风山渐'],
-  '坤':['坤为地','地雷复','地泽临','地天泰','雷天大壮','泽天夬','水天需','水地比'],
-};
-
-const SHI_POS = [5,0,1,2,3,4,3,2]; // 世爻位置(0-based) for each palace position
-const NA_GAN: Record<string,[string,string]> = {
-  '乾':['甲','壬'],'坤':['乙','癸'],'震':['庚','庚'],
-  '巽':['辛','辛'],'坎':['戊','戊'],'离':['己','己'],
-  '艮':['丙','丙'],'兑':['丁','丁'],
-};
-const NA_ZHI: Record<string,string[]> = {
-  '乾':['子','寅','辰','午','申','戌'],'震':['子','寅','辰','午','申','戌'],
-  '坎':['寅','辰','午','申','戌','子'],'艮':['辰','午','申','戌','子','寅'],
-  '坤':['未','巳','卯','丑','亥','酉'],'巽':['丑','亥','酉','未','巳','卯'],
-  '离':['卯','丑','亥','酉','未','巳'],'兑':['巳','卯','丑','亥','酉','未'],
-};
-const WX: Record<string,string> = {
-  '甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水',
-  '子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水','乾':'金','兑':'金','离':'火','震':'木','巽':'木','坎':'水','艮':'土','坤':'土',
-};
-
-// ── 干支计算工具 ──
-const GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-const ZHI = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-const LIUSHEN_NAMES = ['青龙','朱雀','勾陈','螣蛇','白虎','玄武'];
-const YUE_GAN_START: Record<number,number> = {0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-
-function getDayGanZhi(date: Date): { gan:string;zhi:string;ganIdx:number;zhiIdx:number } {
-  const ref = new Date(2000,0,1); // 2000-01-01 = 甲午日
-  const days = Math.floor((date.getTime()-ref.getTime())/86400000);
-  const gi = ((0+days)%10+10)%10, zi = ((6+days)%12+12)%12;
-  return {gan:GAN[gi],zhi:ZHI[zi],ganIdx:gi,zhiIdx:zi};
-}
-function getYearGanZhi(y:number){ return GAN[(y-4)%10]+ZHI[(y-4)%12]; }
-function getMonthGanZhi(y:number,m:number){
-  const mz = m%12; // 1=丑..12=子
-  const yg = (y-4)%10;
-  const sg = YUE_GAN_START[yg]??2;
-  return GAN[(sg+(mz-2+12)%12)%10]+ZHI[mz];
-}
-function getHourGanZhi(dg:number,h:number){
-  const hz = Math.floor((h+1)/2)%12;
-  return GAN[(dg*2+hz)%10]+ZHI[hz];
-}
-function getXunKong(dg:number,dz:number):string{
-  const jz = (dz-dg+12)%12;
-  return ZHI[(jz+10)%12]+ZHI[(jz+11)%12];
-}
-function getLiuShen(dg:number):string[]{
-  const sm:Record<number,number>={0:0,1:0,2:1,3:1,4:2,5:3,6:4,7:4,8:5,9:5};
-  const s = sm[dg]??0;
-  return Array.from({length:6},(_,i)=>LIUSHEN_NAMES[(s+i)%6]);
-}
-
-function getPalaceGong(guaName: string): { gong: string; idx: number } {
-  for (const [g,gs] of Object.entries(PALACE)) {
-    const idx = gs.indexOf(guaName);
-    if (idx >= 0) return { gong: g, idx };
-  }
-  return { gong: '乾', idx: 0 };
-}
-
-function getShiYing(guaName: string): { shi: number; ying: number } {
-  const { idx } = getPalaceGong(guaName);
-  const shi = SHI_POS[idx];
-  const ying = shi < 3 ? shi + 3 : shi - 3;
-  return { shi, ying };
-}
-
-function getNaJia(guaName: string, shangGua: string, xiaGua: string, values: number[]): NaJiaYao[] {
-  const { gong } = getPalaceGong(guaName);
-  const gongWx = WX[gong]; // 宫五行 = 宫名的五行
-  
-  const naGan = { shang: NA_GAN[shangGua][1], xia: NA_GAN[xiaGua][0] };
-  const naZhi = { shang: NA_ZHI[shangGua], xia: NA_ZHI[xiaGua] };
-  
-  const { shi } = getShiYing(guaName);
-  
-  const result: NaJiaYao[] = [];
-  for (let i = 0; i < 6; i++) {
-    const pos = i;
-    const gan = i < 3 ? naGan.xia : naGan.shang;
-    const zhiIdx = i < 3 ? i : i - 3;
-    const zhi = i < 3 ? naZhi.xia[zhiIdx] : naZhi.shang[zhiIdx];
-    const ganZhi = gan + zhi;
-    const yaoWx = WX[zhi];
-    
-    // 六亲
-    let liuQin = '';
-    const o = ['木','火','土','金','水'];
-    const gi = o.indexOf(gongWx), yi = o.indexOf(yaoWx);
-    const diff = (yi - gi + 5) % 5;
-    if (diff === 0) liuQin = '兄弟';
-    else if (diff === 1) liuQin = '子孙';
-    else if (diff === 2) liuQin = '妻财';
-    else if (diff === 3) liuQin = '官鬼';
-    else liuQin = '父母';
-    
-    const shiYing = pos === shi ? '世' : (pos === (shi < 3 ? shi + 3 : shi - 3) ? '应' : '');
-    
-    // 空亡 (simplified: based on 旬空)
-    // For demo purposes, mark the first dong yao position's branch
-    const todayGan = '甲'; // simplified
-    const xunKongZhi = ['戌','亥']; // 甲子旬戌亥空
-    const xunKong = xunKongZhi.includes(zhi);
-    
-    result.push({
-      position: pos + 1,
-      value: values[pos],
-      label: values[pos] === 7 ? '少阳' : values[pos] === 8 ? '少阴' : values[pos] === 9 ? '老阳' : '老阴',
-      isDong: values[pos] === 6 || values[pos] === 9,
-      naGan: gan, naZhi: zhi, ganZhi,
-      liuQin, shiYing, xunKong,
-    });
-  }
-  return result;
-}
 
 function calcYao(coins: CoinFace[]) {
   const hua = coins.filter(c => c === '花').length;
@@ -169,21 +31,6 @@ function calcYao(coins: CoinFace[]) {
   return { value: 9, label: '老阳', isDong: true };
 }
 
-function getGua(values: number[]): { ben: string; bian: string | null; dong: number[]; shangGua: string; xiaGua: string } {
-  const bBits = values.map(v => v===7||v===9?'1':'0');
-  const vBits = values.map(v => v===9?'0':v===6?'1':(v===7||v===9?'1':'0'));
-  const dong = values.map((v,i) => (v===6||v===9)?i+1:-1).filter(i=>i>0);
-  const s3 = bBits[5]+bBits[4]+bBits[3], x3 = bBits[2]+bBits[1]+bBits[0];
-  const s = GUA_MAP[s3]||'?', x = GUA_MAP[x3]||'?';
-  const benGua = S64[s+x]||s+x;
-  let bianGua: string|null = null;
-  if(dong.length>0){
-    const bs3=vBits[5]+vBits[4]+vBits[3],bx3=vBits[2]+vBits[1]+vBits[0];
-    const bs=GUA_MAP[bs3]||'?',bx=GUA_MAP[bx3]||'?';
-    bianGua=S64[bs+bx]||bs+bx;
-  }
-  return {ben:benGua,bian:bianGua,dong,shangGua:s,xiaGua:x};
-}
 
 // ── 3D铜钱翻转（字面/花面交替）──
 function FlipCoin({ sz = 80, spinning = false }: { sz?: number; spinning?: boolean }) {
@@ -345,15 +192,18 @@ export default function LiuyaoCreatePage() {
         if (rnd >= 6) {
           const gua = getGua(newRecs.map(r=>r.value));
           const benVals = newRecs.map(r=>r.value);
-          setNaJiaResult(getNaJia(gua.ben, gua.shangGua, gua.xiaGua, benVals));
+          const tossNow = new Date();
+          const dg = getDayGanZhi(tossNow);
+          const xk = getXunKong(dg.ganIdx, dg.zhiIdx);
+          setNaJiaResult(getNaJia(gua.ben, gua.shangGua, gua.xiaGua, benVals, xk));
           if(gua.bian){
             const bv = newRecs.map(r=>r.isDong?(r.value===6?7:8):r.value);
             const bsBits = bv.slice(3).map((v:number)=>v===7||v===9?'1':'0').join('');
             const bxBits = bv.slice(0,3).map((v:number)=>v===7||v===9?'1':'0').join('');
             const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
-            setBianNaJiaResult(getNaJia(gua.bian, bs, bx, bv));
+            setBianNaJiaResult(getNaJia(gua.bian, bs, bx, bv, xk));
           } else { setBianNaJiaResult([]); }
-          const result = buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: new Date() });
+          const result = buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: tossNow });
           sessionStorage.setItem('liuyao_result', JSON.stringify(result));
           router.push('/liuyao/result/' + result.id);
           setAutoRunning(false);
