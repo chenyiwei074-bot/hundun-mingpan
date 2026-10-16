@@ -346,6 +346,10 @@ export default function HomePage() {
   return (
     <div className="hp">
 
+      {/* 首页正文整体进 <main>：没有这个地标时，harness 的 main 区间审计是空过的
+          ——字号、对比度、可点尺寸全部落在 region "other"，报告照样"全绿"。 */}
+      <main>
+
       {/* ════════════ HERO ════════════ */}
       <section className="hero">
         <div className="hero-noise" aria-hidden="true" />
@@ -470,6 +474,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      </main>
+
       {/* ════════════ LAUNCHER MODAL ════════════ */}
       {showLauncher && (
         <div className="overlay" onClick={() => setShowLauncher(false)}>
@@ -526,11 +532,6 @@ export default function HomePage() {
       <style>{`
         .hp {
           background: ${white}; color: ${ink};
-          --fs-1: clamp(2.75rem, 6vw, 3.5rem);
-          --fs-2: clamp(1.5rem, 2.6vw, 1.9rem);
-          --fs-3: 1.0625rem;
-          --fs-4: 0.875rem;
-          --fs-5: 0.75rem;
         }
         .hp * { box-sizing: border-box; }
 
@@ -555,10 +556,10 @@ export default function HomePage() {
         .hp .taiji { height: 100%; width: 100%; overflow: visible; }
         .hp .h1 {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: var(--fs-1); font-weight: 700; line-height: 1.05;
+          font-size: var(--qn-fs-display); font-weight: 700; line-height: 1.05;
           letter-spacing: -0.04em; margin: 0 0 0.5rem; color: ${ink};
         }
-        .hp .hero-sub { font-size: var(--fs-3); line-height: 1.7; margin: 0; color: ${mute}; }
+        .hp .hero-sub { font-size: var(--qn-fs-title); line-height: 1.7; margin: 0; color: ${mute}; }
         .hp .hero-actions { margin-top: 1.5rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
 
         .hp .band { padding: 7rem 1.5rem; }
@@ -572,25 +573,25 @@ export default function HomePage() {
 
         /* ===== Type ===== */
         .hp .eyebrow {
-          font-size: var(--fs-5); font-weight: 600; letter-spacing: 0.22em;
+          font-size: var(--qn-fs-eyebrow); font-weight: 600; letter-spacing: 0.22em;
           color: ${goldText}; margin: 0 0 2.5rem; text-align: center;
         }
         .hp .eyebrow.center { text-align: center; }
         .hp .h2 {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: var(--fs-2); font-weight: 700; line-height: 1.15;
+          font-size: var(--qn-fs-hero); font-weight: 700; line-height: 1.15;
           letter-spacing: -0.02em; margin: 0 0 0.75rem; color: ${ink};
         }
         .hp .h3 {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: var(--fs-2); font-weight: 600; line-height: 1.15;
+          font-size: var(--qn-fs-title); font-weight: 600; line-height: 1.15;
           letter-spacing: -0.02em; margin: 0 0 0.75rem; color: ${ink};
         }
-        .hp .body { font-size: var(--fs-3); line-height: 1.7; margin: 0 0 1.5rem; max-width: 34rem; }
+        .hp .body { font-size: var(--qn-fs-body); line-height: 1.7; margin: 0 0 1.5rem; max-width: 34rem; }
         .hp .muted { color: ${mute}; }
         .hp .brand-line {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: var(--fs-2); font-weight: 600; line-height: 1.6;
+          font-size: var(--qn-fs-hero); font-weight: 600; line-height: 1.6;
           letter-spacing: 0.05em; text-align: center; margin: 0; color: ${ink};
         }
         .hp .brand .body { text-align: center; margin-inline: auto; }
@@ -601,7 +602,7 @@ export default function HomePage() {
         .hp .btn-primary {
           display: inline-flex; align-items: center; gap: 0.5rem;
           border: 0; border-radius: 999px; cursor: pointer;
-          padding: 0.8rem 1.75rem; font-size: var(--fs-3); font-weight: 600; font-family: inherit;
+          padding: 0.8rem 1.75rem; font-size: var(--qn-fs-body); font-weight: 600; font-family: inherit;
           background: ${gold}; color: ${ink};
           transition: transform 400ms cubic-bezier(0.16,1,0.3,1);
         }
@@ -610,18 +611,18 @@ export default function HomePage() {
         .hp .btn-ghost {
           display: inline-flex; align-items: center; gap: 0.4rem;
           border: 0; background: none; cursor: pointer; font-family: inherit;
-          padding: 0; font-size: var(--fs-4); font-weight: 600; letter-spacing: 0.03em;
+          padding: 0; font-size: var(--qn-fs-meta); font-weight: 600; letter-spacing: 0.03em;
           color: ${goldText}; min-height: 44px;
         }
         .hp .text-link {
           display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
-          font-size: var(--fs-4); font-weight: 600; letter-spacing: 0.03em; color: ${goldText};
+          font-size: var(--qn-fs-meta); font-weight: 600; letter-spacing: 0.03em; color: ${goldText};
           min-height: 44px;
           transition: transform 400ms cubic-bezier(0.16,1,0.3,1);
         }
         .hp .text-link:hover { transform: translateX(3px); }
         .hp .tag {
-          display: inline-block; font-size: var(--fs-5); font-weight: 600; letter-spacing: 0.1em;
+          display: inline-block; font-size: var(--qn-fs-eyebrow); font-weight: 600; letter-spacing: 0.1em;
           padding: 0.25rem 0.7rem; border-radius: 999px;
           background: rgba(178,149,93,0.08); color: ${goldText};
         }
@@ -644,9 +645,9 @@ export default function HomePage() {
           background: ${white}; border-radius: 16px; padding: 1.25rem; text-align: center;
           box-shadow: 0 14px 40px rgba(0,0,0,0.04);
         }
-        .hp .tool-ico { font-size: var(--fs-2); line-height: 1; }
-        .hp .tool-t { font-size: var(--fs-3); font-weight: 600; margin: 0.75rem 0 0.25rem; color: ${ink}; }
-        .hp .tool-d { font-size: var(--fs-4); line-height: 1.7; margin: 0; }
+        .hp .tool-ico { font-size: var(--qn-fs-hero); line-height: 1; }
+        .hp .tool-t { font-size: var(--qn-fs-title); font-weight: 600; margin: 0.75rem 0 0.25rem; color: ${ink}; }
+        .hp .tool-d { font-size: var(--qn-fs-meta); line-height: 1.7; margin: 0; }
         .hp .seal-box { display: flex; justify-content: center; margin-top: 2rem; }
         .hp .seal { width: 56px; height: 56px; opacity: 0.55; }
 
@@ -694,12 +695,12 @@ export default function HomePage() {
         }
         .hp .sheet-item.is-soon { pointer-events: none; }
         .hp .sheet-zi { width: 72px; height: 72px; margin-bottom: 1.25rem; }
-        .hp .sheet-name { font-size: var(--fs-3); margin-bottom: 1rem; }
+        .hp .sheet-name { font-size: var(--qn-fs-title); margin-bottom: 1rem; }
         .hp .sheet-rule { display: block; width: 2.5rem; height: 1px; margin: 0 0 1rem; background: rgba(178,149,93,0.24); }
         .hp .sheet-desc { margin-bottom: 1.5rem; max-width: 300px; }
         .hp .sheet-go {
           display: inline-flex; align-items: center; gap: 0.4rem;
-          font-size: var(--fs-4); font-weight: 600; color: ${goldText};
+          font-size: var(--qn-fs-meta); font-weight: 600; color: ${goldText};
         }
         .hp .sheet-go.is-dim { color: ${mute}; }
         .hp .sheet-arrow {
@@ -722,7 +723,7 @@ export default function HomePage() {
 
         /* Narrow phones: keep the brand paragraph on its three authored lines. */
         @media (max-width: 400px) {
-          .hp .brand .body { font-size: var(--fs-4); }
+          .hp .brand .body { font-size: var(--qn-fs-meta); }
         }
 
         /* ===== Wide layout ===== */

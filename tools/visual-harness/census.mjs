@@ -60,11 +60,9 @@ mkdirSync(OUT, { recursive: true });
 // Deliberate, tracked violations — each entry names why it is not an accident and
 // what would clear it. Anything not listed here still fails, so a page cannot buy
 // silence by falling outside an audited region. Contrast never consults this table.
-const EXEMPT = {
-  home: 'the homepage predates the batch-0 ladder: .hp carries its own --fs scale ' +
-        '(hero 44-56, section 24-30, body 17, meta 12) and has no <main> landmark. ' +
-        'Clears when the display tier is ruled into the ladder and the hero is wrapped in <main>.',
-};
+// Empty since 批 5: the homepage's own --fs scale was ruled into the ladder as the
+// display tier and its copy moved inside <main>, so there is nothing left to excuse.
+const EXEMPT = {};
 
 // Frozen data-encoding colours. A value drifting here means someone edited the
 // 五行 palette, which is a data bug, not a design choice.
@@ -100,6 +98,8 @@ const ORPHAN_PAGES = [
 // return true; the click itself doubles as a "did the control survive the redesign"
 // check, and without it the collapsed half of the chart card is never audited.
 const AFTER = {
+  'home': `(() => { const b = [...document.querySelectorAll('button')]
+      .find(x => /开始使用/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
   'chart-result': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /展开/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
 };
@@ -215,7 +215,19 @@ await send('Runtime.enable');
 
 // ---------------------------------------------------------------- measurement
 const CENSUS = String.raw`(() => {
-  const LADDER = [11, 13, 14, 15, 18, 26];
+  // The ladder is read out of the page's own tokens, never restated here. A
+  // hardcoded copy drifts from the source of truth silently, and it can quietly
+  // start passing a page that gained a size nobody ruled in. Reading the declared
+  // value (not a probe's computed font-size) also avoids the inherit trap: an
+  // undefined custom property makes font-size fall back to the inherited 16px,
+  // which would add a phantom tier instead of failing.
+  const rootCS = getComputedStyle(document.documentElement);
+  const LADDER = [];
+  for (const tier of ['eyebrow', 'meta', 'legal', 'body', 'title', 'hero', 'display']) {
+    const raw = rootCS.getPropertyValue('--qn-fs-' + tier).trim();
+    const px = Math.round(parseFloat(raw) * 10) / 10;
+    if (px > 0 && px < 400) LADDER.push(px); else LADDER.push(NaN);
+  }
   const lum = c => { const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
     return 0.2126 * f(c[0] / 255) + 0.7152 * f(c[1] / 255) + 0.0722 * f(c[2] / 255); };
   const parse = s => { const m = String(s).match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
@@ -307,7 +319,7 @@ const CENSUS = String.raw`(() => {
     R[g] = R[g] || { sizes: new Map(), aa: [] };
     const size = Math.round(parseFloat(cs.fontSize) * 10) / 10;
     R[g].sizes.set(size, (R[g].sizes.get(size) || 0) + 1);
-    if (g !== 'svg' && !LADDER.includes(size) && off.length < 14)
+    if (g !== 'svg' && !LADDER.includes(size))
       off.push({ size, text: t.slice(0, 16), tag: el.nodeName.toLowerCase(), cls: String(el.className || '').slice(0, 44), region: g });
     if (g !== 'svg') {
       const fg = parse(cs.color);
@@ -347,6 +359,7 @@ const CENSUS = String.raw`(() => {
     nav: nav ? { h: Math.round(nav.getBoundingClientRect().height), bg: getComputedStyle(nav).backgroundColor } : null,
     navLists: [...document.querySelectorAll('.qn-nav__links')].filter(e => e.getBoundingClientRect().width > 0).length,
     hasMain: !!document.querySelector('main'),
+    ladder: LADDER,
     foot: foot ? { bg: getComputedStyle(foot).backgroundColor,
       top: Math.round(foot.getBoundingClientRect().top), bottom: Math.round(foot.getBoundingClientRect().bottom) } : null,
     docH: document.documentElement.scrollHeight,
@@ -443,14 +456,21 @@ function check(tag, v) {
   const aaOther = Object.entries(v.regions).filter(([g]) => g !== 'main' && g !== 'nav' && g !== 'footer' && g !== 'svg');
   for (const [g, r] of aaOther) for (const a of (r.aa || []).slice(0, 4)) bad(`AA(${g}) ${a.ratio} ${a.size}px/${a.weight} "${a.text}"`);
 
-  // A page without <main> keeps its copy in region "other", which the old
-  // main-only filter let escape the ladder audit entirely.
-  const offHits = (v.offLadder || []).filter(o => v.hasMain ? o.region === 'main' : o.region !== 'svg');
+  // Ladder escapes are closed for good: the old filter only looked inside <main>,
+  // so anything outside a landmark (a modal, a page root that never became one)
+  // sat in region "other" and was never compared to anything. Now every non-svg
+  // region is checked, and the tier set itself is verified to have resolved --
+  // otherwise a missing token would empty the ladder and make every page pass.
+  const offHits = (v.offLadder || []).filter(o => o.region !== 'svg');
+  const ladderBad = !v.ladder || v.ladder.length < 7 || v.ladder.some(x => !Number.isFinite(x));
   if (ex) {
-    if (!v.hasMain || offHits.length) exempt(`${offHits.length} off-ladder size(s)` + (v.hasMain ? '' : ', no <main> landmark') + ' — ' + ex);
+    if (!v.hasMain || ladderBad || offHits.length)
+      exempt(`${offHits.length} off-ladder size(s)` + (v.hasMain ? '' : ', no <main> landmark') + ' — ' + ex);
   } else {
-    if (!v.hasMain) bad('no <main> landmark: shell/pin/ladder checks are vacuous here');
-    for (const o of offHits) bad(`off-ladder ${o.size}px "${o.text}" ${o.tag}.${o.cls.split(' ')[0]} in ${o.region}`);
+    if (ladderBad) bad('ladder did not resolve from --qn-fs-* tokens: ' + JSON.stringify(v.ladder));
+    if (!v.hasMain) bad('no <main> landmark: shell/pin checks are vacuous here');
+    for (const o of offHits.slice(0, 20)) bad(`off-ladder ${o.size}px "${o.text}" ${o.tag}.${o.cls.split(' ')[0]} in ${o.region}`);
+    if (offHits.length > 20) bad(`off-ladder list truncated at 20, ${offHits.length - 20} more`);
   }
   for (const i of (v.inkedDataColors || [])) bad(`DATA COLOUR USED AS INK ${i.color} ${i.size}px "${i.text}" in ${i.region}`);
   for (const s of (v.smallTargets || []).filter(x => x.startsWith('nav|') || x.startsWith('footer|'))) bad(`sub-44 target in shell: ${s}`);
@@ -468,8 +488,10 @@ async function measure(tag, url) {
   const base = tag.replace(/^(d1|m1)-/, '');
   if (AFTER[base]) {
     // A programmatic .click() does not set hadRecentInput, so the expansion shift
-    // would land in CLS and look like a load regression. Mark the load value first.
-    await evl('window.__clsAtLoad = window.__cls');
+    // would land in CLS and look like a load regression. Mark both load values first:
+    // content the click reveals is also a fresh LCP candidate, which reads as a
+    // multi-second load regression on a page that paints fine.
+    await evl('window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp');
     const ok = await evl(AFTER[base]);
     if (ok !== true) fail.push(tag + ': expand control not found — the collapsed half of this page was never measured');
     else { await sleep(800); console.log('    clicked expand control'); }
@@ -477,14 +499,16 @@ async function measure(tag, url) {
   const v = await evl(CENSUS);
   if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; }
   results[tag] = v;
-  const perf = await evl(`({ lcp: window.__lcp && Math.round(window.__lcp), cls: Math.round(window.__cls * 1000) / 1000,
+  const perf = await evl(`({ lcp: window.__lcpAtLoad === undefined ? (window.__lcp && Math.round(window.__lcp)) : (window.__lcpAtLoad && Math.round(window.__lcpAtLoad)),
+    lcpInteract: window.__lcpAtLoad === undefined || !window.__lcp || window.__lcp === window.__lcpAtLoad ? undefined : Math.round(window.__lcp),
+    cls: Math.round(window.__cls * 1000) / 1000,
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000 })`);
   results[tag + '__perf'] = perf;
   console.log(`\n== ${tag}  ${v && v.path ? v.path : url}`);
   console.log(`   perf ${JSON.stringify(perf)}   ${STUB ? '[FETCH STUB — not a live measurement]' : '[real backend]'}`);
   if (v && !v.__err) {
     const m = v.regions.main || {};
-    console.log(`   coarse=${v.pointerCoarse} ovfX=${v.overflowX} text=${v.bodyText} | main AA=${m.aaCount || 0} sizes=${JSON.stringify(m.sizes)} | nav AA=${(v.regions.nav || {}).aaCount || 0} | footer AA=${(v.regions.footer || {}).aaCount || 0} | small=${(v.smallTargets || []).length}`);
+    console.log(`   coarse=${v.pointerCoarse} ovfX=${v.overflowX} text=${v.bodyText} ladder=${JSON.stringify(v.ladder)} | main AA=${m.aaCount || 0} sizes=${JSON.stringify(m.sizes)} | nav AA=${(v.regions.nav || {}).aaCount || 0} | footer AA=${(v.regions.footer || {}).aaCount || 0} | small=${(v.smallTargets || []).length}`);
     if (v.foot) console.log(`   nav=${v.nav && v.nav.h}px shell=${v.shell && v.shell.w}px foot=${v.foot.top}->${v.foot.bottom} docH=${v.docH}${v.docH <= H + 1 ? ' (dead band ' + (H - v.foot.bottom) + 'px)' : ''}`);
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
