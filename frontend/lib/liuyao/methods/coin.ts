@@ -25,6 +25,7 @@ export function buildCoinResult(params: {
   const { gong } = getPalaceGong(gua.ben);
   const shiYing = getShiYing(gua.ben);
   const dayGZ = getDayGanZhi(now);
+  const monthGZ = getMonthGanZhi(now);
   const naJia = getNaJia(gua.ben, gua.shangGua, gua.xiaGua, values);
   let bianNaJia: NaJiaYao[] = [];
   if (gua.bian) {
@@ -43,13 +44,13 @@ export function buildCoinResult(params: {
     questionType,
     date: { year:now.getFullYear(), month:now.getMonth()+1, day:now.getDate(), hour:now.getHours(), minute:now.getMinutes() },
     ganZhi: {
-      year: getYearGanZhi(now.getFullYear()),
-      month: getMonthGanZhi(now.getFullYear(), now.getMonth()+1),
+      year: getYearGanZhi(now),
+      month: monthGZ,
       day: dayGZ.gan+dayGZ.zhi,
       hour: getHourGanZhi(dayGZ.ganIdx, now.getHours()),
     },
     dayGZ,
-    monthZhi: getMonthGanZhi(now.getFullYear(), now.getMonth()+1).slice(-1),
+    monthZhi: monthGZ.slice(-1),
     xunKong: getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx),
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: gua.bian ? { name: gua.bian, gong: bianGong?.gong||null, wuxing: bianGong ? WX[bianGong.gong] : null } : { name:null, gong:null, wuxing:null },

@@ -42,6 +42,7 @@ export function buildNumberResult(params: {
   const { gong } = getPalaceGong(benName);
   const shiYing = getShiYing(benName);
   const dayGZ = getDayGanZhi(now);
+  const monthGZ = getMonthGanZhi(now);
   const naJia = getNaJia(benName, shang, xia, vals);
   
   let bianNaJia: NaJiaYao[] = [];
@@ -63,13 +64,13 @@ export function buildNumberResult(params: {
     questionType: params.questionType,
     date: { year:now.getFullYear(), month:now.getMonth()+1, day:now.getDate(), hour:now.getHours(), minute:now.getMinutes() },
     ganZhi: {
-      year: getYearGanZhi(now.getFullYear()),
-      month: getMonthGanZhi(now.getFullYear(), now.getMonth()+1),
+      year: getYearGanZhi(now),
+      month: monthGZ,
       day: dayGZ.gan+dayGZ.zhi,
       hour: getHourGanZhi(dayGZ.ganIdx, now.getHours()),
     },
     dayGZ,
-    monthZhi: getMonthGanZhi(now.getFullYear(), now.getMonth()+1).slice(-1),
+    monthZhi: monthGZ.slice(-1),
     xunKong: getXunKong(dayGZ.ganIdx, dayGZ.zhiIdx),
     benGua: { name: benName, gong, wuxing: WX[gong], shangGua: shang, xiaGua: xia },
     bianGua: bianInfo,
