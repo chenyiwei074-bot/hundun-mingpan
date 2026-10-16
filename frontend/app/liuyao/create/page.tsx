@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import LiuYaoPlate from './LiuYaoPlate';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { buildCoinResult } from '@/lib/liuyao/methods/coin';
 import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
@@ -303,6 +301,7 @@ export default function LiuyaoCreatePage() {
   const timer = useRef<ReturnType<typeof setTimeout>|null>(null);
   const autoSeq = useRef<ReturnType<typeof setTimeout>|null>(null);
   const mounted = useRef(true);
+  const [coinSz, setCoinSz] = useState(100);
   const questionRef = useRef(question);
   questionRef.current = question;
   const questionTypeRef = useRef(questionType);
@@ -400,6 +399,15 @@ export default function LiuyaoCreatePage() {
     return () => { mounted.current = false; if(timer.current)clearTimeout(timer.current); if(autoSeq.current)clearTimeout(autoSeq.current); };
   }, []);
 
+  // 铜钱是舞台主体，尺寸必须跟着视口走，不能靠 transform 缩放（会留白）。
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 430px)');
+    const apply = () => setCoinSz(mq.matches ? 84 : 100);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
 
   const yaoLine = (v:number, dong:boolean) => {
     const c = dong?'#b2955d':'#1d1d1f';
@@ -419,11 +427,11 @@ export default function LiuyaoCreatePage() {
       </span>
     );
   };
-  const line = (v:number,w=80) => {
+  const line = (v:number,w=80,c?:string) => {
     const dong = v===6||v===9;
-    const c = dong?'#b2955d':'#1d1d1f';
-    if(v===7||v===9) return <div style={{width:w,height:3,background:c,borderRadius:99}}/>;
-    return <div style={{display:'flex',gap:8,width:w}}><div style={{flex:1,height:3,background:c,borderRadius:99}}/><div style={{flex:1,height:3,background:c,borderRadius:99}}/></div>;
+    const col = c ?? (dong?'#b2955d':'#1d1d1f');
+    if(v===7||v===9) return <div style={{width:w,height:3,background:col,borderRadius:99}}/>;
+    return <div style={{display:'flex',gap:8,width:w}}><div style={{flex:1,height:3,background:col,borderRadius:99}}/><div style={{flex:1,height:3,background:col,borderRadius:99}}/></div>;
   };
 
   const coinSummary = (cs: CoinFace[]) => {
@@ -434,75 +442,153 @@ export default function LiuyaoCreatePage() {
     return '三花 → 老阳';
   };
 
-  
-  const card: React.CSSProperties = {background:'#fff',borderRadius:18,padding:24,border:'0.5px solid rgba(0,0,0,0.06)',boxShadow:'0 2px 16px rgba(0,0,0,0.05)',width:'100%',boxSizing:'border-box'};
+  const INK_STROKE = 'rgba(255,255,255,0.88)';
+  const METHODS = [
+    {id:'coin',num:'壹',title:'铜钱摇卦',tag:'推荐',desc:'三枚铜钱自动摇六次，最传统的起卦方式。'},
+    {id:'time',num:'贰',title:'时间起卦',desc:'以当前年月日时自动成卦，方便快捷。'},
+    {id:'number',num:'叁',title:'报数起卦',desc:'您报3个正整数，系统以此推算卦象。'},
+  ] as const;
 
-  return (<div className="min-h-screen" style={{background:'#f5f5f7'}}>
-    <main className="pt-[56px] pb-20 px-6 max-w-[600px] mx-auto">
+  return (<main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
 
-      {/* ── STEP 1: INPUT ── */}
-      {step==='input'&&(<div className="animate-ink-in">
-        <div className="text-center pt-14 pb-8"><p className="text-[11px] font-semibold mb-3" style={{color:'#b2955d',letterSpacing:'0.3em'}}>六爻占卜</p><h1 className="text-[26px] font-serif mb-2" style={{color:'#1d1d1f',fontWeight:600,lineHeight:1.4,letterSpacing:'0.01em'}}>六爻起卦</h1><p className="text-xs tracking-[0.15em]" style={{color:'#86868b'}}>诚心默念 · 一事一问</p></div>
-        <div style={card}><label className="block text-xs tracking-[0.1em] mb-3" style={{color:'#86868b'}}>你想问什么？</label><textarea value={question} onChange={e=>{setQuestion(e.target.value);setError('');}} placeholder="例如：这次投资是否顺利？换工作时机如何？..." rows={3} maxLength={200} style={{width:'100%',border:'1px solid rgba(0,0,0,0.08)',borderRadius:12,padding:'14px 16px',fontSize:15,lineHeight:1.7,resize:'none',outline:'none',fontFamily:'inherit',color:'#1d1d1f',background:'#fafafa',transition:'border-color 0.2s'}} onFocus={e=>e.target.style.borderColor='rgba(178,149,93,0.5)'} onBlur={e=>e.target.style.borderColor='rgba(0,0,0,0.08)'}/>
-            <div style={{marginTop:14}}>
-              <label style={{display:'block',fontSize:11,color:'#86868b',letterSpacing:'0.08em',marginBottom:8}}>占问类型</label>
-              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-                {(['财运','事业','感情','婚姻','考试','健康','出行','合作','其他'] as const).map(t=>(
-                  <button key={t} type="button" onClick={()=>setQuestionType(t)} style={{
-                    padding:'5px 12px',fontSize:11,borderRadius:99,cursor:'pointer',
-                    border:questionType===t?'1px solid #b2955d':'1px solid rgba(0,0,0,0.08)',
-                    background:questionType===t?'rgba(178,149,93,0.08)':'#fff',
-                    color:questionType===t?'#b2955d':'#86868b',
-                    transition:'all 0.15s',
-                  }}>{t}</button>
-                ))}
-              </div>
-            </div><p className="text-[10px] mt-2 tracking-[0.08em]" style={{color:'#c7c7cc'}}>六爻讲究一事一问，问题越具体，卦象越清晰</p>{error&&<p className="text-xs mt-2" style={{color:'#d4544a'}}>{error}</p>}</div>
-        
-        <div className="text-center mt-10"><button onClick={()=>{if(!question.trim()){setError('请填写所问之事');return;}setError('');setStep('method');}} className="btn-glow" style={{background:'#b2955d',color:'#fff',border:'none',borderRadius:999,padding:'14px 48px',fontSize:16,fontWeight:500,cursor:'pointer',letterSpacing:'0.15em',boxShadow:'0 4px 20px rgba(178,149,93,0.25)',transition:'all 0.2s'}}>下一步：选择起卦方式</button></div>
-      </div>)}
+    {/* ── STEP 1: INPUT ── */}
+    {step==='input'&&(<>
+      <header className="qn-rise" style={{textAlign:'center',marginBottom:24}}>
+        <p className="qn-eyebrow" style={{margin:0}}>六爻占卜</p>
+        <h1 className="qn-hero" style={{margin:'12px 0 6px'}}>六爻起卦</h1>
+        <p className="qn-meta" style={{letterSpacing:'0.14em'}}>诚心默念 · 一事一问</p>
+      </header>
 
-      {/* ── STEP 2: METHOD ── */}
-      {step==='method'&&(<div className="animate-ink-in">
-        <div className="text-center pt-10 pb-6"><p className="text-[11px] font-semibold mb-3" style={{color:'#b2955d',letterSpacing:'0.3em'}}>选择起卦方式</p><p className="text-sm" style={{color:'#1d1d1f'}}>「{question}」</p></div>
-        <div className="space-y-3 mb-8">
-          {[{id:'coin',icon:'🪙',title:'铜钱摇卦',tag:'推荐',desc:'三枚铜钱自动摇六次，最传统的起卦方式。'},
-            {id:'time',icon:'⏳',title:'时间起卦',desc:'以当前年月日时自动成卦，方便快捷。'},
-            {id:'number',icon:'🔢',title:'报数起卦',desc:'您报3个正整数，系统以此推算卦象。'}].map(opt=>(
-            <div key={opt.id} onClick={()=>{setMethod(opt.id as QiMethod);setError('');}} style={{...card,border:method===opt.id?'1.5px solid #b2955d':'1px solid rgba(0,0,0,0.06)',boxShadow:method===opt.id?'0 4px 20px rgba(178,149,93,0.12)':'0 1px 3px rgba(0,0,0,0.03)',transition:'all 0.2s',cursor:'pointer'}}>
-              <div className="flex items-center gap-4"><span className="text-2xl">{opt.icon}</span><div className="flex-1"><div className="flex items-center gap-2"><span className="font-serif text-base" style={{color:'#1d1d1f'}}>{opt.title}</span>{opt.tag&&<span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'rgba(178,149,93,0.12)',color:'#b2955d'}}>{opt.tag}</span>}</div><p className="text-xs mt-1" style={{color:'#86868b',lineHeight:1.5}}>{opt.desc}</p></div><div style={{width:20,height:20,borderRadius:'50%',border:method===opt.id?'5px solid #b2955d':'2px solid rgba(0,0,0,0.15)',transition:'all 0.2s'}}/></div>
-            </div>))}
-        </div>
-        {method==='number'&&(<div className="animate-ink-in mb-6" style={card}><label className="block text-xs tracking-[0.05em] mb-2" style={{color:'#86868b'}}>请输入3个正整数（逗号分隔）</label><input value={numInput} onChange={e=>setNumInput(e.target.value)} placeholder="例如：3, 8, 15" style={{width:'100%',border:'1px solid rgba(0,0,0,0.08)',borderRadius:10,padding:'10px 14px',fontSize:15,outline:'none',fontFamily:'inherit',color:'#1d1d1f',background:'#fafafa'}} onFocus={e=>e.target.style.borderColor='rgba(178,149,93,0.5)'} onBlur={e=>e.target.style.borderColor='rgba(0,0,0,0.08)'}/>{error&&<p className="text-xs mt-2" style={{color:'#d4544a'}}>{error}</p>}</div>)}
-        <div className="flex justify-center gap-4"><button onClick={()=>setStep('input')} style={{background:'transparent',color:'#86868b',border:'1px solid rgba(0,0,0,0.1)',borderRadius:999,padding:'12px 28px',fontSize:14,cursor:'pointer',letterSpacing:'0.1em',transition:'all 0.2s'}}>返回修改问题</button><button onClick={startToss} className="btn-glow" style={{background:'#b2955d',color:'#fff',border:'none',borderRadius:999,padding:'12px 36px',fontSize:15,fontWeight:500,cursor:'pointer',letterSpacing:'0.15em',boxShadow:'0 4px 20px rgba(178,149,93,0.25)',transition:'all 0.2s'}}>{method==='coin'?'开始摇卦':'生成卦象'}</button></div>
-      </div>)}
-      {/* ── STEP 3: TOSSING ── */}
-      {step==='tossing'&&(<div className="pt-6">
-        <div className="flex items-center justify-between mb-2"><div/><p className="text-xs tracking-[0.1em]" style={{color:'#86868b'}}>第 {Math.min(round,6)} / 6 爻</p><div style={{width:40}}/></div>
-        <div className="mb-6 mx-auto max-w-[260px] sm:max-w-[280px]" style={{height:2,background:'rgba(0,0,0,0.06)',borderRadius:99,overflow:'hidden'}}><div style={{height:'100%',background:'#b2955d',borderRadius:99,width:(Math.min(round,6)/6*100)+'%',transition:'width 0.5s ease'}}/></div>
-
-        <div className="relative flex flex-col items-center justify-center mb-6" style={{minHeight:200}}>
-          {/* 三枚铜钱固定在中央，原地3D旋转 */}
-          <div className="flex gap-3 sm:gap-6 justify-center items-center" style={{minHeight:110}}>
-            {coins.length===3 ? coins.map((face,i)=>(
-              <div key={i}>
-                {anim==='spinning' ? <FlipCoin sz={64} spinning={true}/> : <Coin face={face} sz={64}/>}
-              </div>
-            )) : [0,1,2].map(i=>(<div key={i} style={{opacity:0.25}}><Coin face="字" sz={64}/></div>))}
+      <section className="qn-card qn-rise qn-rise--2">
+        <label className="qn-label" htmlFor="ly-question">你想问什么？</label>
+        <textarea id="ly-question" className="qn-textarea" value={question} rows={3} maxLength={200}
+          placeholder="例如：这次投资是否顺利？换工作时机如何？..."
+          onChange={e=>{setQuestion(e.target.value);setError('');}}/>
+        <div style={{marginTop:16}}>
+          <span className="qn-cap" style={{display:'block',marginBottom:8}}>占问类型</span>
+          <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
+            {(['财运','事业','感情','婚姻','考试','健康','出行','合作','其他'] as const).map(t=>(
+              <button key={t} type="button" className={`qn-chip${questionType===t?' qn-chip--on':''}`}
+                onClick={()=>setQuestionType(t)}>{t}</button>
+            ))}
           </div>
+        </div>
+        <p className="qn-cap" style={{marginTop:14}}>六爻讲究一事一问，问题越具体，卦象越清晰</p>
+        {error&&<p className="qn-alert" role="alert" style={{marginTop:14}}>{error}</p>}
+      </section>
 
-          {/* 当前爻结果 */}
-          {anim==='result'&&records.length>0&&(()=>{const last=records[records.length-1];return(<div className="mt-3 text-center animate-ink-in"><p className="text-xs tracking-[0.1em]" style={{color:'#86868b'}}>{YAO_NAMES[last.position-1]}</p><p className="text-lg font-serif mt-0.5" style={{color:last.isDong?'#b2955d':'#1d1d1f'}}>{last.label}{last.isDong&&<span className="text-xs ml-1.5 tracking-[0.1em]" style={{color:'#b2955d'}}>动爻</span>}</p><div className="mt-1 flex justify-center">{line(last.value,56)}</div><p className="text-[10px] mt-1" style={{color:'#c7c7cc'}}>{coinSummary(last.coins)}</p></div>);})()}
+      <button type="button" className="qn-btn qn-btn--solid qn-btn--block qn-rise qn-rise--3" style={{marginTop:20}}
+        onClick={()=>{if(!question.trim()){setError('请填写所问之事');return;}setError('');setStep('method');}}>
+        下一步：选择起卦方式
+      </button>
+    </>)}
 
-          {/* 准备中 */}
-          {anim==='idle'&&round===0&&autoRunning&&(<p className="text-xs tracking-[0.1em]" style={{color:'#86868b'}}>起卦中...</p>)}
+    {/* ── STEP 2: METHOD ── */}
+    {step==='method'&&(<>
+      <header className="qn-rise" style={{textAlign:'center',marginBottom:20}}>
+        <p className="qn-eyebrow" style={{margin:0}}>选择起卦方式</p>
+        <p className="qn-title" style={{marginTop:12,overflowWrap:'break-word'}}>「{question}」</p>
+      </header>
+
+      <div role="radiogroup" aria-label="起卦方式" className="qn-rise qn-rise--2" style={{display:'grid',gap:12}}>
+        {METHODS.map(opt=>{
+          const on = method===opt.id;
+          return (
+            <button key={opt.id} type="button" role="radio" aria-checked={on}
+              onClick={()=>{setMethod(opt.id);setError('');}} className="qn-card"
+              style={{width:'100%',textAlign:'left',fontFamily:'inherit',cursor:'pointer',
+                display:'flex',alignItems:'flex-start',gap:14,padding:'20px 22px',
+                border:on?'1px solid var(--color-accent-gold)':'var(--qn-hairline)',
+                background:'var(--color-bg-card)',
+                boxShadow:on?'0 4px 20px rgba(178,149,93,0.12)':'var(--qn-shadow)',
+                transition:'border-color .2s, background-color .2s, box-shadow .2s'}}>
+              <span className="qn-axis" style={{marginTop:5,fontFamily:'"Noto Serif SC", "STSong", serif'}}>{opt.num}</span>
+              <span style={{flex:'1 1 auto',minWidth:0}}>
+                <span style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                  <span className="qn-title">{opt.title}</span>
+                  {'tag'in opt&&<span className="qn-cap" style={{color:'var(--color-accent-gold-text)',border:'0.5px solid rgba(178,149,93,0.35)',borderRadius:999,padding:'2px 9px'}}>{opt.tag}</span>}
+                </span>
+                <p className="qn-meta" style={{marginTop:4}}>{opt.desc}</p>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {method==='number'&&(
+        <div className="qn-card" style={{marginTop:12}}>
+          <label className="qn-label" htmlFor="ly-nums">请输入3个正整数（逗号分隔）</label>
+          <input id="ly-nums" className="qn-input" value={numInput} placeholder="例如：3, 8, 15"
+            onChange={e=>setNumInput(e.target.value)}/>
+          {error&&<p className="qn-alert" role="alert" style={{marginTop:12}}>{error}</p>}
+        </div>
+      )}
+
+      <div className="qn-rise qn-rise--3" style={{display:'flex',gap:12,justifyContent:'center',marginTop:20,flexWrap:'wrap'}}>
+        <button type="button" className="qn-btn qn-btn--ghost" onClick={()=>setStep('input')}>返回修改问题</button>
+        <button type="button" className="qn-btn qn-btn--solid" onClick={startToss}>{method==='coin'?'开始摇卦':'生成卦象'}</button>
+      </div>
+    </>)}
+
+    {/* ── STEP 3: TOSSING ── */}
+    {step==='tossing'&&(<section className="qn-ink qn-rise"
+      style={{padding:'22px 24px 24px',display:'flex',flexDirection:'column',
+        minHeight:'max(480px, calc(100vh - 160px))'}}>
+
+      <div style={{display:'flex',justifyContent:'flex-end'}}>
+        <p className="qn-meta" style={{margin:0,letterSpacing:'0.1em'}}>第 {Math.min(round,6)} / 6 爻</p>
+      </div>
+      <div style={{marginTop:12,height:2,borderRadius:99,background:'rgba(255,255,255,0.14)',overflow:'hidden'}}>
+        <div style={{height:'100%',borderRadius:99,background:'var(--color-accent-gold)',width:(Math.min(round,6)/6*100)+'%',transition:'width .5s ease'}}/>
+      </div>
+
+      <div style={{flex:'1 1 auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:'10px 0'}}>
+        <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:coinSz>90?14:10}}>
+          {coins.length===3 ? coins.map((face,i)=>(
+            <div key={i}>{anim==='spinning'?<FlipCoin sz={coinSz} spinning={true}/>:<Coin face={face} sz={coinSz}/>}</div>
+          )) : [0,1,2].map(i=>(
+            <div key={i} style={{opacity:0.22}}><Coin face="字" sz={coinSz}/></div>
+          ))}
         </div>
 
-        {/* 卦象记录：显示爻符 */}
-        {records.length>0&&(<div style={card}><p className="text-[10px] tracking-[0.15em] mb-3 text-center" style={{color:'#c7c7cc'}}>卦象记录（从下往上）</p><div className="space-y-1.5">{[...records].reverse().map((r,i)=>(<div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{background:i===0?'rgba(178,149,93,0.06)':'transparent'}}><span className="text-xs w-10" style={{color:'#86868b'}}>{YAO_NAMES[r.position-1]}</span><div className="flex-1 flex justify-center">{line(r.value,56)}</div><span className="text-xs font-serif min-w-[2.5em] text-right" style={{color:r.isDong?'#b2955d':'#1d1d1f'}}>{r.label}</span>{r.isDong&&<span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{background:'rgba(178,149,93,0.1)',color:'#b2955d'}}>动</span>}</div>))}</div></div>)}
-      </div>)}
-    </main>
+        <div style={{minHeight:96,textAlign:'center'}}>
+          {anim==='result'&&records.length>0?(()=>{const last=records[records.length-1];return(<>
+            <p className="qn-note" style={{margin:0,letterSpacing:'0.1em'}}>{YAO_NAMES[last.position-1]}</p>
+            <p className="qn-title" style={{margin:'4px 0 8px',color:last.isDong?'var(--color-accent-gold-light)':'#fff'}}>
+              {last.label}{last.isDong&&<span className="qn-cap" style={{letterSpacing:'0.1em',marginLeft:6}}>动爻</span>}
+            </p>
+            <div style={{display:'flex',justifyContent:'center'}}>{line(last.value,64,INK_STROKE)}</div>
+            <p className="qn-note" style={{margin:'8px 0 0'}}>{coinSummary(last.coins)}</p>
+          </>);})()
+          :<p className="qn-note" style={{margin:0,visibility:anim==='idle'&&round===0&&autoRunning?'visible':'hidden'}}>起卦中...</p>}
+        </div>
+      </div>
+
+      <div style={{borderTop:'0.5px solid rgba(255,255,255,0.12)',paddingTop:14}}>
+        <p className="qn-cap" style={{textAlign:'center',marginBottom:8}}>卦象记录（从下往上）</p>
+        <div style={{display:'grid',gap:5}}>
+          {[6,5,4,3,2,1].map(pos=>{
+            const r = records.find(x=>x.position===pos);
+            const lit = anim==='result'&&records.length>0&&records[records.length-1].position===pos;
+            return (
+              <div key={pos} style={{display:'flex',alignItems:'center',gap:10,minHeight:28,
+                padding:'0 8px',borderRadius:8,background:lit?'rgba(178,149,93,0.12)':'transparent'}}>
+                <span className="qn-cap" style={{width:32,flex:'0 0 auto'}}>{YAO_NAMES[pos-1]}</span>
+                <span style={{flex:'1 1 auto',display:'flex',justifyContent:'center'}}>
+                  {r?line(r.value,64,INK_STROKE):<span style={{width:64,height:1,background:'rgba(255,255,255,0.16)'}}/>}
+                </span>
+                <span className="qn-note" style={{width:38,textAlign:'right',flex:'0 0 auto',
+                  color:r?(r.isDong?'var(--color-accent-gold-light)':INK_STROKE):'rgba(255,255,255,0.3)'}}>{r?r.label:'—'}</span>
+                <span style={{width:24,flex:'0 0 auto',textAlign:'center'}}>
+                  {r?.isDong&&<span className="qn-cap" style={{display:'inline-block',border:'0.5px solid rgba(212,184,122,0.45)',color:'var(--color-accent-gold-light)',borderRadius:999,padding:'1px 6px'}}>动</span>}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>)}
 
     <style jsx global>{`@keyframes coinSpin3D{0%{transform:rotateY(0deg);animation-timing-function:cubic-bezier(0.15,0.85,0.25,1)}100%{transform:rotateY(1800deg)}}@keyframes coinFlip3D{0%{transform:rotateY(0deg)}25%{transform:rotateY(90deg)}50%{transform:rotateY(180deg)}75%{transform:rotateY(270deg)}100%{transform:rotateY(360deg)}}`}</style>
-  </div>);
+  </main>);
 }

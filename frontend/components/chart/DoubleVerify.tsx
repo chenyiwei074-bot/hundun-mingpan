@@ -184,86 +184,77 @@ export default function DoubleVerify({ chartData }: Props) {
   return (
     <section className='w-full'>
       {/* 标题区域 */}
-      <div className='mb-6'>
-        <h3 className='font-serif text-xl font-bold mb-2 tracking-wider' style={{color:'#1d1d1f'}}>
-          <span className='inline-block w-1.5 h-5 rounded-full mr-2.5 align-middle' style={{background:'#b2955d'}} />
-          你的双盘人生分析
-        </h3>
-        <p className='text-sm leading-relaxed' style={{color:'#86868b'}}>
-          八字提供<strong style={{color:'#1d1d1f'}}>先天结构</strong>与<strong style={{color:'#1d1d1f'}}>时间框架</strong>，
-          紫微提供<strong style={{color:'#1d1d1f'}}>人生领域</strong>与<strong style={{color:'#1d1d1f'}}>场景验证</strong>。
-          两者交叉得出<strong style={{color:'#b2955d'}}>双盘综合判断</strong>。
+      <header style={{ marginBottom: 24 }}>
+        <p className='qn-eyebrow' style={{ marginBottom: 6 }}>双盘合参</p>
+        <h3 className='qn-title' style={{ marginBottom: 10 }}>你的双盘人生分析</h3>
+        <p className='qn-meta'>
+          八字提供<strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>先天结构</strong>与<strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>时间框架</strong>，
+          紫微提供<strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>人生领域</strong>与<strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>场景验证</strong>。
+          两者交叉得出<strong style={{ color: 'var(--color-accent-gold-text)', fontWeight: 500 }}>双盘综合判断</strong>。
         </p>
-      </div>
+      </header>
 
       {/* 4个分析维度 */}
-      <div className='space-y-5 mb-8'>
-        {analyses.filter(a => a.id !== 'life_stages').map((item, i) => (
-          <div key={item.id} className='rounded-xl border border-black/5 bg-white shadow-sm overflow-hidden'>
+      <div style={{ display: 'grid', gap: 20, marginBottom: 32 }}>
+        {analyses.filter(a => a.id !== 'life_stages').map((item) => (
+          <div key={item.id} className='qn-card' style={{ padding: 0 }}>
             {/* 维度头部 */}
-            <div className='px-5 py-4' style={{borderBottom:'0.5px solid rgba(0,0,0,0.05)'}}>
-              <div className='flex items-center gap-3 mb-2'>
-                <span className='font-serif text-base font-bold' style={{color:'#1d1d1f'}}>{item.title}</span>
-                <span className='text-xs' style={{color:'#86868b'}}>{item.subtitle}</span>
+            <div style={{ padding: '18px 20px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                <span className='qn-body' style={{ fontWeight: 600 }}>{item.title}</span>
+                <span className='qn-cap'>{item.subtitle}</span>
               </div>
-              <div className='flex flex-wrap gap-1.5'>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {item.keywords.map((kw, j) => (
-                  <span key={j} className='inline-block px-2 py-0.5 rounded-full text-[11px] font-medium'
-                    style={{background:'rgba(178,149,93,0.08)',color:'#b2955d'}}>{kw}</span>
+                  <span key={j} className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 10px', borderRadius: 999, fontWeight: 500 }}>{kw}</span>
                 ))}
               </div>
             </div>
 
             {/* 双盘融合 */}
-            <div className='px-5 py-4'>
+            <div style={{ padding: '18px 20px' }}>
               {/* 八字依据 + 紫微验证 并排 */}
-              <div className='grid md:grid-cols-2 gap-3 mb-4'>
-                <div className='rounded-lg p-3 relative' style={{background:'rgba(46,131,246,0.03)',border:'0.5px solid rgba(46,131,246,0.1)'}}>
-                  <div className='flex items-center gap-2 mb-2'>
-                    <span className='text-xs font-bold px-1.5 py-0.5 rounded' style={{background:'rgba(46,131,246,0.1)',color:'#2e83f6'}}>八字</span>
-                    <span className='text-[11px]' style={{color:'#2e83f6'}}>{item.baziEvidence.title}</span>
+              <div className='grid md:grid-cols-2' style={{ gap: 12, marginBottom: 16 }}>
+                <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span className='qn-cap' style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--color-text-primary)', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>八字</span>
+                    <span className='qn-cap'>{item.baziEvidence.title}</span>
                   </div>
-                  <p className='text-sm leading-relaxed mb-2' style={{color:'#555'}}>{item.baziEvidence.content}</p>
-                  <p className='text-[10px]' style={{color:'#aaa'}}>{item.baziEvidence.source}</p>
+                  <p className='qn-meta' style={{ color: 'var(--color-text-primary)', marginBottom: 6 }}>{item.baziEvidence.content}</p>
+                  <p className='qn-cap'>{item.baziEvidence.source}</p>
                 </div>
-                <div className='rounded-lg p-3 relative' style={{background:'rgba(7,168,48,0.03)',border:'0.5px solid rgba(7,168,48,0.1)'}}>
-                  <div className='flex items-center gap-2 mb-2'>
-                    <span className='text-xs font-bold px-1.5 py-0.5 rounded' style={{background:'rgba(7,168,48,0.1)',color:'#07a830'}}>紫微</span>
-                    <span className='text-[11px]' style={{color:'#07a830'}}>{item.ziweiEvidence.title}</span>
+                <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span className='qn-cap' style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--color-text-primary)', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>紫微</span>
+                    <span className='qn-cap'>{item.ziweiEvidence.title}</span>
                   </div>
-                  <p className='text-sm leading-relaxed mb-2' style={{color:'#555'}}>{item.ziweiEvidence.content}</p>
-                  <p className='text-[10px]' style={{color:'#aaa'}}>{item.ziweiEvidence.source}</p>
+                  <p className='qn-meta' style={{ color: 'var(--color-text-primary)', marginBottom: 6 }}>{item.ziweiEvidence.content}</p>
+                  <p className='qn-cap'>{item.ziweiEvidence.source}</p>
                 </div>
               </div>
 
               {/* 融合箭头 */}
-              <div className='flex justify-center mb-4'>
-                <div className='flex items-center gap-2 px-4 py-1.5 rounded-full' style={{background:'rgba(178,149,93,0.06)'}}>
-                  <span style={{color:'#b2955d',fontSize:'10px'}}>八字结构</span>
-                  <span style={{color:'#b2955d'}}>+</span>
-                  <span style={{color:'#b2955d',fontSize:'10px'}}>紫微验证</span>
-                  <span style={{color:'#b2955d'}}>→</span>
-                  <span className='font-bold' style={{color:'#b2955d',fontSize:'10px'}}>双盘结论</span>
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                <p className='qn-cap' style={{ color: 'var(--color-accent-gold-text)', background: 'rgba(178,149,93,0.07)', padding: '5px 14px', borderRadius: 999 }}>八字结构 + 紫微验证 → 双盘结论</p>
               </div>
 
               {/* 综合判断 */}
-              <div className='rounded-lg p-4 mb-3' style={{background:'rgba(178,149,93,0.04)',border:'0.5px solid rgba(178,149,93,0.12)'}}>
-                <div className='text-xs font-bold mb-1.5' style={{color:'#b2955d'}}>⚡ 双盘综合判断</div>
-                <p className='text-sm leading-relaxed' style={{color:'#555'}}>{item.combinedJudgment}</p>
+              <div style={{ background: 'rgba(178,149,93,0.05)', boxShadow: 'inset 0 0 0 1px rgba(178,149,93,0.16)', borderRadius: 12, padding: '14px 16px', marginBottom: 12 }}>
+                <div className='qn-axis' style={{ marginBottom: 6 }}>双盘综合判断</div>
+                <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{item.combinedJudgment}</p>
               </div>
 
               {/* 行动建议 */}
-              <div className='rounded-lg p-3 mb-2' style={{background:'rgba(0,0,0,0.02)'}}>
-                <div className='text-xs font-bold mb-1.5' style={{color:'#1d1d1f'}}>💡 行动建议</div>
-                <p className='text-sm leading-relaxed' style={{color:'#555'}}>{item.practicalAdvice}</p>
+              <div style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 14px', marginBottom: 8 }}>
+                <div className='qn-axis' style={{ marginBottom: 6 }}>行动建议</div>
+                <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{item.practicalAdvice}</p>
               </div>
 
               {/* 注意事项 */}
               {item.caution && (
-                <div className='rounded-lg p-3' style={{background:'rgba(211,5,5,0.02)',border:'0.5px dashed rgba(211,5,5,0.1)'}}>
-                  <div className='text-xs font-bold mb-1.5' style={{color:'#d30505'}}>⚠️ 注意事项</div>
-                  <p className='text-sm leading-relaxed' style={{color:'#777'}}>{item.caution}</p>
+                <div style={{ background: 'rgba(178,58,46,0.04)', boxShadow: 'inset 0 0 0 1px rgba(178,58,46,0.16)', borderRadius: 12, padding: '12px 14px' }}>
+                  <div className='qn-axis' style={{ color: 'var(--color-xiong)', marginBottom: 6 }}>注意事项</div>
+                  <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{item.caution}</p>
                 </div>
               )}
             </div>
@@ -272,57 +263,54 @@ export default function DoubleVerify({ chartData }: Props) {
       </div>
 
       {/* 人生阶段时间轴 */}
-      <div className='rounded-xl border border-black/5 bg-white shadow-sm overflow-hidden'>
-        <div className='px-5 py-4' style={{borderBottom:'0.5px solid rgba(0,0,0,0.05)'}}>
-          <div className='flex items-center gap-3 mb-2'>
-            <span className='font-serif text-base font-bold' style={{color:'#1d1d1f'}}>人生阶段</span>
-            <span className='text-xs' style={{color:'#86868b'}}>先天大运周期 × 后天领域侧重</span>
+      <div className='qn-card' style={{ padding: 0 }}>
+        <div style={{ padding: '18px 20px', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+            <span className='qn-body' style={{ fontWeight: 600 }}>人生阶段</span>
+            <span className='qn-cap'>先天大运周期 × 后天领域侧重</span>
           </div>
-          <div className='flex flex-wrap gap-1.5'>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {lifeStages[0]?.baziHint !== '大运数据数据同步中，刷新页面后展现' ? (
               <>
-                <span className='inline-block px-2 py-0.5 rounded-full text-[11px] font-medium' style={{background:'rgba(178,149,93,0.08)',color:'#b2955d'}}>起运{chartData?.bazi?.dayunStart}岁</span>
-                <span className='inline-block px-2 py-0.5 rounded-full text-[11px] font-medium' style={{background:'rgba(178,149,93,0.08)',color:'#b2955d'}}>十年一运</span>
+                <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 10px', borderRadius: 999, fontWeight: 500 }}>起运{chartData?.bazi?.dayunStart}岁</span>
+                <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 10px', borderRadius: 999, fontWeight: 500 }}>十年一运</span>
               </>
             ) : (
-              <span className='inline-block px-2 py-0.5 rounded-full text-[11px] font-medium' style={{background:'rgba(0,0,0,0.04)',color:'#86868b'}}>大运数据数据同步中，刷新页面后展现</span>
+              <span className='qn-cap' style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--color-text-secondary)', padding: '3px 10px', borderRadius: 999 }}>大运数据数据同步中，刷新页面后展现</span>
             )}
           </div>
         </div>
-        <div className='px-5 py-5'>
+        <div style={{ padding: '22px 20px' }}>
           {/* 时间轴 */}
-          <div className='relative'>
+          <div style={{ position: 'relative' }}>
             {/* 横线 */}
-            <div className='absolute top-6 left-0 right-0 h-0.5' style={{background:'linear-gradient(90deg, rgba(178,149,93,0.15), rgba(178,149,93,0.5), rgba(178,149,93,0.15))'}} />
+            <div style={{ position: 'absolute', top: 24, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, rgba(178,149,93,0.15), rgba(178,149,93,0.55), rgba(178,149,93,0.15))' }} />
 
-            <div className='grid grid-cols-4 gap-2 relative'>
-              {lifeStages.map((stage, i) => (
-                <div key={i} className='text-center'>
+            <div className='grid grid-cols-4' style={{ position: 'relative', gap: 8 }}>
+              {lifeStages.map((stage) => (
+                <div key={stage.label} style={{ textAlign: 'center' }}>
                   {/* 圆点 */}
-                  <div className='flex justify-center mb-3'>
-                    <div className='w-3 h-3 rounded-full relative z-10' style={{
-                      background: i === 1 ? '#b2955d' : i === 2 ? '#8b6d03' : 'rgba(178,149,93,0.3)',
-                      boxShadow: i === 1 ? '0 0 0 3px rgba(178,149,93,0.2)' : 'none'
-                    }} />
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: 'var(--color-accent-gold)', boxShadow: '0 0 0 4px #fff' }} />
                   </div>
                   {/* 内容 */}
-                  <div className='space-y-1.5'>
-                    <div className='font-serif text-sm font-bold' style={{color:'#1d1d1f'}}>{stage.label}</div>
-                    <div className='text-xs' style={{color:'#b2955d'}}>{stage.ageRange}</div>
+                  <div style={{ display: 'grid', gap: 5 }}>
+                    <div className='qn-body' style={{ fontWeight: 600 }}>{stage.label}</div>
+                    <div className='qn-cap' style={{ color: 'var(--color-accent-gold-text)' }}>{stage.ageRange}</div>
                     {stage.theme !== '将在深度报告中展开' && (
-                      <div className='text-[11px] px-2 py-0.5 rounded-full inline-block' style={{background:'rgba(178,149,93,0.08)',color:'#b2955d'}}>{stage.theme}</div>
+                      <div>
+                        <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 10px', borderRadius: 999, display: 'inline-block', fontWeight: 500 }}>{stage.theme}</span>
+                      </div>
                     )}
                     {stage.theme === '将在深度报告中展开' && (
-                      <div className='text-[11px]' style={{color:'#ccc'}}>将在深度报告中展开</div>
+                      <div className='qn-cap'>将在深度报告中展开</div>
                     )}
-                    <div className='text-[10px] leading-relaxed' style={{color:'#aaa'}}>
-                      <div className='mb-0.5'>
-                        <span style={{color:'#2e83f6'}}>八字 </span>
-                        {stage.baziHint}
+                    <div className='qn-cap' style={{ marginTop: 4 }}>
+                      <div style={{ marginBottom: 3 }}>
+                        <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>八字 </span>{stage.baziHint}
                       </div>
                       <div>
-                        <span style={{color:'#07a830'}}>紫微 </span>
-                        {stage.ziweiHint}
+                        <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>紫微 </span>{stage.ziweiHint}
                       </div>
                     </div>
                   </div>
@@ -334,10 +322,10 @@ export default function DoubleVerify({ chartData }: Props) {
       </div>
 
       {/* 后端数据提示 */}
-      <div className='mt-6 rounded-lg p-4 text-center' style={{background:'rgba(0,0,0,0.02)',border:'0.5px dashed rgba(0,0,0,0.08)'}}>
-        <p className='text-xs' style={{color:'#999'}}>
-          ⚡ 以上双盘分析基于 <strong style={{color:'#1d1d1f'}}>前端静态知识库</strong> 与 <strong style={{color:'#1d1d1f'}}>命盘结构数据</strong> 生成。
-          完整双盘AI合参分析需 <strong style={{color:'#b2955d'}}>后端双盘分析引擎</strong> 支持。
+      <div className='qn-card' style={{ marginTop: 24, padding: '16px 20px', textAlign: 'center', boxShadow: 'none', border: '0.5px dashed rgba(0,0,0,0.12)' }}>
+        <p className='qn-cap'>
+          以上双盘分析基于 <strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>前端静态知识库</strong> 与 <strong style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>命盘结构数据</strong> 生成。
+          完整双盘AI合参分析需 <strong style={{ color: 'var(--color-accent-gold-text)', fontWeight: 500 }}>后端双盘分析引擎</strong> 支持。
         </p>
       </div>
     </section>

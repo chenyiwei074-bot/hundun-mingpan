@@ -12,6 +12,15 @@ interface Props { ziwei: any; bazi?: any; }
 
 const KEY_GONGS = ['命宫','官禄宫','财帛宫','夫妻宫','福德宫'];
 
+// 四化是「变化」编码，走 --color-sihua-* 家族；与五行数据色分层，不混用。
+// 色值待色卡裁定（要与五行五色在色相上明显拉开，不只靠彩度分层），落值只改 token。
+const SIHUA_COLOR: Record<string, string> = {
+  '化禄': 'var(--color-sihua-lu)',
+  '化权': 'var(--color-sihua-quan)',
+  '化科': 'var(--color-sihua-ke)',
+  '化忌': 'var(--color-sihua-ji)',
+};
+
 
 // ===== 星曜个性化解读库 =====
 const STAR_DETAIL: Record<string,{p:string,l:string,a:string}> = {
@@ -102,24 +111,26 @@ export default function ZiweiCard({ ziwei }: Props) {
   };
 
   if (!gongs.length) {
-    return <div className='rounded-xl border border-black/5 bg-white p-6 text-center text-sm' style={{color:'#86868b'}}>紫微数据未加载</div>;
+    return <div className='qn-card qn-meta' style={{ textAlign: 'center' }}>紫微数据未加载</div>;
   }
 
   const keyGongs = KEY_GONGS.map(name => gongs.find(g => g.gong === name)).filter(Boolean) as GongInfo[];
   const otherGongs = gongs.filter(g => !KEY_GONGS.includes(g.gong));
 
+  const blockLabel = 'qn-axis';
+  const softBox: React.CSSProperties = { background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 14px' };
+
   return (
     <section className='w-full'>
       {/* 标题 */}
-      <h3 className='font-serif text-xl font-bold mb-5 tracking-wider' style={{color:'#1d1d1f'}}>
-        <span className='inline-block w-1.5 h-5 rounded-full mr-2.5 align-middle' style={{background:'#2e83f6'}} />
-        <span className='text-xs font-normal tracking-wider px-2 py-0.5 rounded mr-2 align-middle' style={{color:'#86868b',background:'rgba(0,0,0,0.04)'}}>分析依据</span>
-        紫微十二宫 · 个人化解读
-      </h3>
+      <header style={{ marginBottom: 18 }}>
+        <p className='qn-eyebrow' style={{ marginBottom: 6 }}>分析依据</p>
+        <h3 className='qn-title'>紫微十二宫 · 个人化解读</h3>
+      </header>
 
       {/* 5个重点宫位 */}
-      <div className='space-y-3 mb-6'>
-        {keyGongs.map((gong, i) => {
+      <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
+        {keyGongs.map((gong) => {
           const isOpen = expanded.has(gong.gong);
           const mainStars = gong.mainStars || [];
           const combo = getStarCombo(mainStars);
@@ -127,75 +138,82 @@ export default function ZiweiCard({ ziwei }: Props) {
           const detail = STAR_DETAIL[primaryStar];
 
           return (
-            <div key={i} className='rounded-xl border border-black/5 bg-white shadow-sm overflow-hidden'>
+            <div key={gong.gong} className='qn-card' style={{ padding: 0 }}>
               {/* 宫位头部 */}
-              <button onClick={() => toggle(gong.gong)} className='w-full flex items-center justify-between px-4 py-3.5 text-left hover:bg-gray-50/30 transition-colors'>
-                <div className='flex items-center gap-3'>
-                  <span className='text-sm font-bold' style={{color:'#1d1d1f'}}>{gong.gong}</span>
-                  <span className='text-xs px-2 py-0.5 rounded-full' style={{background:'rgba(178,149,93,0.1)',color:'#b2955d'}}>
+              <button
+                onClick={() => toggle(gong.gong)}
+                aria-expanded={isOpen}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                  width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '15px 20px', fontFamily: 'inherit',
+                }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <span className='qn-body' style={{ fontWeight: 600 }}>{gong.gong}</span>
+                  <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 10px', borderRadius: 999, fontWeight: 500 }}>
                     {mainStars.length > 0 ? mainStars.join(' · ') : '无主星'}
                   </span>
                   {(gong.sihua?.length ?? 0) > 0 && (
-                    <span className='text-[10px]' style={{color:'#86868b'}}>
-                      {gong.sihua?.map(s=>s.star+s.hua).join(' ') || ''}
+                    <span style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
+                      {(gong.sihua || []).map(sh => (
+                        <span key={sh.star + sh.hua} className='qn-cap' style={{ color: SIHUA_COLOR[sh.hua] || 'var(--color-text-secondary)' }}>{sh.star}{sh.hua}</span>
+                      ))}
                     </span>
                   )}
-                </div>
-                <span className='text-xs transition-transform' style={{color:'#86868b',transform:isOpen?'rotate(180deg)':''}}>▼</span>
+                </span>
+                <span className='qn-cap' style={{ flex: '0 0 auto', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : '' }}>▾</span>
               </button>
 
               {/* 展开内容 */}
               {isOpen && (
-                <div className='px-4 pb-4 space-y-3'>
+                <div style={{ padding: '0 20px 20px', display: 'grid', gap: 12 }}>
                   {/* 1. 我的宫位配置 */}
-                  <div className='rounded-lg p-3' style={{background:'rgba(0,0,0,0.02)'}}>
-                    <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#86868b'}}>📋 我的宫位配置</div>
-                    <p className='text-sm' style={{color:'#1d1d1f'}}>{getGongConfig(gong)}</p>
+                  <div style={softBox}>
+                    <div className={blockLabel} style={{ marginBottom: 6 }}>我的宫位配置</div>
+                    <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{getGongConfig(gong)}</p>
                   </div>
 
                   {/* 2. 星曜组合 */}
                   {combo && (
-                    <div className='rounded-lg p-3' style={{background:'rgba(178,149,93,0.04)',border:'1px solid rgba(178,149,93,0.1)'}}>
-                      <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#b2955d'}}>⭐ 星曜组合</div>
-                      <p className='text-sm leading-relaxed' style={{color:'#555'}}>{combo}</p>
+                    <div style={{ ...softBox, background: 'rgba(178,149,93,0.05)', boxShadow: 'inset 0 0 0 1px rgba(178,149,93,0.14)' }}>
+                      <div className={blockLabel} style={{ marginBottom: 6 }}>星曜组合</div>
+                      <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{combo}</p>
                     </div>
                   )}
 
                   {/* 3. 专业含义 */}
                   {detail && (
-                    <div className='rounded-lg p-3' style={{background:'rgba(46,131,246,0.03)'}}>
-                      <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#2e83f6'}}>🔬 专业含义</div>
-                      <p className='text-sm leading-relaxed' style={{color:'#555'}}>{detail.p}</p>
+                    <div style={softBox}>
+                      <div className={blockLabel} style={{ marginBottom: 6 }}>专业含义</div>
+                      <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{detail.p}</p>
                     </div>
                   )}
 
                   {/* 4. 人生表现 */}
                   {detail && (
-                    <div className='rounded-lg p-3' style={{background:'rgba(7,168,48,0.03)'}}>
-                      <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#07a830'}}>🧬 你的人生表现</div>
-                      <p className='text-sm leading-relaxed' style={{color:'#555'}}>{detail.l}</p>
+                    <div style={softBox}>
+                      <div className={blockLabel} style={{ marginBottom: 6 }}>你的人生表现</div>
+                      <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{detail.l}</p>
                     </div>
                   )}
 
-                  
-
                   {/* 6. 实际建议 */}
                   {detail && (
-                    <div className='rounded-lg p-3' style={{background:'rgba(139,109,3,0.03)'}}>
-                      <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#8b6d03'}}>💡 实际建议</div>
-                      <p className='text-sm leading-relaxed' style={{color:'#555'}}>{detail.a}</p>
+                    <div style={softBox}>
+                      <div className={blockLabel} style={{ marginBottom: 6 }}>实际建议</div>
+                      <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>{detail.a}</p>
                     </div>
                   )}
 
                   {/* 辅星解读 */}
                   {gong.auxStars && gong.auxStars.length > 0 && (
-                    <div className='rounded-lg p-3' style={{background:'rgba(0,0,0,0.01)'}}>
-                      <div className='text-[11px] tracking-wider mb-1.5' style={{color:'#86868b'}}>🔸 辅星解读</div>
-                      <div className='flex flex-wrap gap-2'>
+                    <div style={softBox}>
+                      <div className={blockLabel} style={{ marginBottom: 8 }}>辅星解读</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {gong.auxStars.map((s, j) => (
-                          <span key={j} className='inline-block px-2 py-1 rounded text-[11px]' style={{background:'rgba(0,0,0,0.03)',color:'#555'}}>
-                            <span className='font-medium' style={{color:'#1d1d1f'}}>{s}</span>
-                            {AUX_STAR[s] && <span className='ml-1' style={{color:'#999'}}>{AUX_STAR[s]}</span>}
+                          <span key={j} className='qn-cap' style={{ background: '#fff', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.07)', borderRadius: 8, padding: '5px 9px', lineHeight: 1.6 }}>
+                            <span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{s}</span>
+                            {AUX_STAR[s] && <span> {AUX_STAR[s]}</span>}
                           </span>
                         ))}
                       </div>
@@ -216,33 +234,33 @@ export default function ZiweiCard({ ziwei }: Props) {
           otherGongs.forEach(g => allOpen ? next.delete(g.gong) : next.add(g.gong));
           return next;
         });
-      }} className='w-full text-center py-2.5 rounded-lg text-xs tracking-wider mb-4 transition-colors' style={{color:'#b2955d',background:'rgba(178,149,93,0.06)'}}>
-        {otherGongs.every(g => expanded.has(g.gong)) ? '收起全部宫位详情 ▲' : '展开其余七宫详情 ▼'}
+      }} className='qn-btn qn-btn--quiet' style={{ width: '100%', minHeight: 44, marginBottom: 16 }}>
+        {otherGongs.every(g => expanded.has(g.gong)) ? '收起全部宫位详情' : '展开其余七宫详情'}
       </button>
 
-      <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-4'>
-        {otherGongs.map((gong, i) => {
+      <div className='grid grid-cols-2 md:grid-cols-4' style={{ gap: 12, marginBottom: 16 }}>
+        {otherGongs.map((gong) => {
           const isOpen = expanded.has(gong.gong);
           const mainStars = gong.mainStars || [];
           const detail = STAR_DETAIL[mainStars[0] || ''];
           return (
-            <div key={i} className='rounded-xl border border-black/5 bg-white p-3 text-center shadow-sm' onClick={() => toggle(gong.gong)} style={{cursor:'pointer'}}>
-              <div className='text-xs tracking-wider mb-1' style={{color:'#86868b'}}>{gong.gong}</div>
-              <div className='text-xs font-medium mb-1' style={{color:'#1d1d1f'}}>
-                {mainStars.length > 0 ? mainStars.join(' ') : <span style={{color:'#ccc'}}>—</span>}
+            <div key={gong.gong} className='qn-card' style={{ padding: 14, textAlign: 'center', cursor: 'pointer' }} onClick={() => toggle(gong.gong)}>
+              <div className='qn-cap'>{gong.gong}</div>
+              <div className='qn-meta' style={{ color: 'var(--color-text-primary)', fontWeight: 500, marginTop: 4 }}>
+                {mainStars.length > 0 ? mainStars.join(' ') : <span style={{ color: 'var(--color-text-secondary)' }}>—</span>}
               </div>
               {(gong.auxStars?.length ?? 0) > 0 && (
-                <div className='text-[10px]' style={{color:'#aaa'}}>{(gong.auxStars || []).slice(0,2).join(' ')}</div>
+                <div className='qn-cap' style={{ marginTop: 3 }}>{(gong.auxStars || []).slice(0, 2).join(' ')}</div>
               )}
               {(gong.sihua?.length ?? 0) > 0 && (
-                <div className='mt-1'>
-                  {(gong.sihua || []).slice(0,1).map((sh, j) => (
-                    <span key={j} className='inline-block px-1.5 py-0.5 rounded text-[10px] font-medium' style={{background:sh.hua==='化忌'?'rgba(211,5,5,0.1)':'rgba(178,149,93,0.1)',color:sh.hua==='化忌'?'#d30505':'#b2955d'}}>{sh.star}{sh.hua}</span>
+                <div style={{ marginTop: 6 }}>
+                  {(gong.sihua || []).slice(0, 1).map((sh, j) => (
+                    <span key={j} className='qn-cap' style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 6, fontWeight: 500, background: `color-mix(in srgb, ${SIHUA_COLOR[sh.hua] || 'var(--color-accent-gold)'} 10%, transparent)`, color: SIHUA_COLOR[sh.hua] || 'var(--color-text-secondary)' }}>{sh.star}{sh.hua}</span>
                   ))}
                 </div>
               )}
               {isOpen && detail && (
-                <p className='text-[10px] mt-2 leading-relaxed' style={{color:'#999'}}>{detail.l.slice(0,50)}…</p>
+                <p className='qn-cap' style={{ marginTop: 8, textAlign: 'left' }}>{detail.l.slice(0, 50)}…</p>
               )}
             </div>
           );
@@ -251,13 +269,18 @@ export default function ZiweiCard({ ziwei }: Props) {
 
       {/* 四化总览 */}
       {ziwei?.sihuaOverview && (
-        <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-          <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>生年四化</h4>
-          <div className='grid grid-cols-2 md:grid-cols-4 gap-3 text-xs'>
-            {ziwei.sihuaOverview.lu && (<div className='rounded-lg p-3 text-center' style={{background:'rgba(7,168,48,0.06)'}}><div style={{color:'#07a830'}}>化禄</div><div className='font-medium mt-1' style={{color:'#1d1d1f'}}>{ziwei.sihuaOverview.lu.star}</div><div style={{color:'#86868b'}}>{ziwei.sihuaOverview.lu.gong}</div></div>)}
-            {ziwei.sihuaOverview.quan && (<div className='rounded-lg p-3 text-center' style={{background:'rgba(211,5,5,0.06)'}}><div style={{color:'#d30505'}}>化权</div><div className='font-medium mt-1' style={{color:'#1d1d1f'}}>{ziwei.sihuaOverview.quan.star}</div><div style={{color:'#86868b'}}>{ziwei.sihuaOverview.quan.gong}</div></div>)}
-            {ziwei.sihuaOverview.ke && (<div className='rounded-lg p-3 text-center' style={{background:'rgba(46,131,246,0.06)'}}><div style={{color:'#2e83f6'}}>化科</div><div className='font-medium mt-1' style={{color:'#1d1d1f'}}>{ziwei.sihuaOverview.ke.star}</div><div style={{color:'#86868b'}}>{ziwei.sihuaOverview.ke.gong}</div></div>)}
-            {ziwei.sihuaOverview.ji && (<div className='rounded-lg p-3 text-center' style={{background:'rgba(139,109,3,0.06)'}}><div style={{color:'#8b6d03'}}>化忌</div><div className='font-medium mt-1' style={{color:'#1d1d1f'}}>{ziwei.sihuaOverview.ji.star}</div><div style={{color:'#86868b'}}>{ziwei.sihuaOverview.ji.gong}</div></div>)}
+        <div className='qn-card'>
+          <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 14 }}>生年四化</h4>
+          <div className='grid grid-cols-2 md:grid-cols-4' style={{ gap: 12 }}>
+            {([['化禄', ziwei.sihuaOverview.lu], ['化权', ziwei.sihuaOverview.quan], ['化科', ziwei.sihuaOverview.ke], ['化忌', ziwei.sihuaOverview.ji]] as [string, any][])
+              .filter(([, v]) => v)
+              .map(([hua, v]) => (
+              <div key={hua} style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 10px', textAlign: 'center' }}>
+                <div className='qn-cap' style={{ color: SIHUA_COLOR[hua], fontWeight: 500 }}>{hua}</div>
+                <div className='qn-meta' style={{ color: 'var(--color-text-primary)', fontWeight: 500, marginTop: 4 }}>{v.star}</div>
+                <div className='qn-cap' style={{ marginTop: 2 }}>{v.gong}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}

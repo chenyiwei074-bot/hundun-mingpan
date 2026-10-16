@@ -10,13 +10,15 @@ const FREE_ITEMS = [
 ];
 
 const LOCKED_ITEMS = [
-  { icon: '📈', label: '十年大运详细走势', desc: '每个大运的干支、十神、行运方向与关键节点' },
-  { icon: '🔢', label: '未来流年分析', desc: '逐年干支、十神、合冲刑害与趋吉避凶建议' },
-  { icon: '💵', label: '财富阶段', desc: '财运周期、财富上限、赚钱方式与投资建议' },
-  { icon: '🚀', label: '事业突破年份', desc: '事业上升期、转型时机、创业窗口期' },
-  { icon: '💍', label: '婚姻关系', desc: '配偶特征、结婚时机、婚后相处建议' },
-  { icon: '🔑', label: '人生关键节点', desc: '重大转折年份、健康预警、应对策略' },
+  { label: '十年大运详细走势', desc: '每个大运的干支、十神、行运方向与关键节点' },
+  { label: '未来流年分析', desc: '逐年干支、十神、合冲刑害与趋吉避凶建议' },
+  { label: '财富阶段', desc: '财运周期、财富上限、赚钱方式与投资建议' },
+  { label: '事业突破年份', desc: '事业上升期、转型时机、创业窗口期' },
+  { label: '婚姻关系', desc: '配偶特征、结婚时机、婚后相处建议' },
+  { label: '人生关键节点', desc: '重大转折年份、健康预警、应对策略' },
 ];
+
+const NUMERALS = ['壹', '贰', '叁', '肆', '伍', '陆'];
 
 type Step = 'preview' | 'form' | 'processing' | 'completed';
 
@@ -61,16 +63,16 @@ export default function ReportUnlock({ chartId }: Props) {
   return (
     <section className='w-full'>
       {/* 已获得 */}
-      <div className='rounded-xl border border-black/5 bg-white p-5 md:p-6 mb-6 shadow-sm'>
-        <h3 className='font-serif text-lg font-bold mb-2 tracking-wider' style={{color:'#1d1d1f'}}>你已获得</h3>
-        <p className='text-xs mb-4' style={{color:'#86868b'}}>以下内容已免费为你展示，可随时查看</p>
-        <div className='grid grid-cols-1 md:grid-cols-3 gap-3'>
-          {FREE_ITEMS.map((item, i) => (
-            <div key={i} className='flex items-start gap-2 text-sm'>
-              <span style={{color:'#07a830'}}>✓</span>
+      <div className='qn-card' style={{ marginBottom: 24 }}>
+        <h3 className='qn-title' style={{ marginBottom: 6 }}>你已获得</h3>
+        <p className='qn-meta' style={{ marginBottom: 18 }}>以下内容已免费为你展示，可随时查看</p>
+        <div className='grid grid-cols-1 md:grid-cols-3' style={{ gap: 14 }}>
+          {FREE_ITEMS.map((item) => (
+            <div key={item.label} style={{ display: 'flex', gap: 9 }}>
+              <span className='qn-body' style={{ color: 'var(--color-ji)', fontWeight: 600, lineHeight: 1.6 }}>✓</span>
               <div>
-                <span className='font-medium' style={{color:'#1d1d1f'}}>{item.label}</span>
-                <span className='block text-xs mt-0.5' style={{color:'#86868b'}}>{item.desc}</span>
+                <span className='qn-body' style={{ display: 'block', fontWeight: 500, lineHeight: 1.6 }}>{item.label}</span>
+                <span className='qn-cap' style={{ display: 'block', marginTop: 3 }}>{item.desc}</span>
               </div>
             </div>
           ))}
@@ -78,102 +80,97 @@ export default function ReportUnlock({ chartId }: Props) {
       </div>
 
       {/* 完整版解锁 */}
-      <div className='rounded-2xl p-6 md:p-8 text-center relative overflow-hidden' style={{background:'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)'}}>
-        <div className='absolute top-0 right-0 w-48 h-48 rounded-full opacity-5' style={{background:'radial-gradient(circle, #b2955d 0%, transparent 70%)',transform:'translate(30%, -30%)'}} />
-        <div className='relative z-10'>
-          {step === 'preview' && (
-            <>
-              <h3 className='text-xl font-serif font-bold mb-3 tracking-wider' style={{color:'#ffffff'}}>完整双盘命理档案</h3>
-              <p className='text-sm mb-2' style={{color:'rgba(255,255,255,0.6)'}}>由 AI 双盘合参引擎深度分析生成</p>
-              <p className='text-xs mb-6' style={{color:'rgba(255,255,255,0.35)'}}>包含八字 × 紫微双体系交叉验证 · 约3000字专业报告</p>
-              
-              <div className='space-y-3 mb-8 max-w-[340px] mx-auto'>
-                {LOCKED_ITEMS.map((item, i) => (
-                  <div key={i} className='flex items-center gap-3 rounded-lg px-4 py-3 text-left' style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.08)'}}>
-                    <span className='text-lg flex-shrink-0'>{item.icon}</span>
-                    <div>
-                      <div className='text-sm font-medium' style={{color:'#ffffff'}}>{item.label}</div>
-                      <div className='text-xs' style={{color:'rgba(255,255,255,0.4)'}}>{item.desc}</div>
-                    </div>
-                    <span className='ml-auto text-xs' style={{color:'rgba(255,255,255,0.3)'}}>🔒</span>
-                  </div>
-                ))}
-              </div>
+      <div className='qn-ink' style={{ padding: '34px 26px 30px', textAlign: 'center' }}>
+        {step === 'preview' && (
+          <>
+            <p className='qn-eyebrow' style={{ marginBottom: 12 }}>完整档案</p>
+            <h3 className='qn-title' style={{ marginBottom: 8 }}>完整双盘命理档案</h3>
+            <p className='qn-meta' style={{ marginBottom: 4 }}>由 AI 双盘合参引擎深度分析生成</p>
+            <p className='qn-cap' style={{ marginBottom: 24 }}>包含八字 × 紫微双体系交叉验证 · 约3000字专业报告</p>
 
-              <button onClick={() => setStep('form')} className='rounded-full px-8 py-3.5 font-medium text-sm tracking-[0.05em] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]' style={{background:'#b2955d',color:'#ffffff',boxShadow:'0 4px 20px rgba(178,149,93,0.35)'}}>
-                获取完整报告
+            <div style={{ maxWidth: 400, margin: '0 auto 26px', textAlign: 'left' }}>
+              {LOCKED_ITEMS.map((item, i) => (
+                <div key={item.label} style={{ display: 'flex', gap: 12, padding: '12px 0', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                  <span className='qn-cap' style={{ color: 'var(--color-accent-gold-light)', flex: '0 0 auto', letterSpacing: '0.14em' }}>{NUMERALS[i]}</span>
+                  <div style={{ flex: '1 1 auto' }}>
+                    <div className='qn-body' style={{ lineHeight: 1.6 }}>{item.label}</div>
+                    <div className='qn-cap' style={{ marginTop: 3 }}>{item.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button className='qn-btn qn-btn--solid' onClick={() => setStep('form')}>获取完整报告</button>
+            <div className='qn-title' style={{ color: 'var(--color-accent-gold-light)', marginTop: 18 }}>¥138</div>
+            <p className='qn-cap' style={{ marginTop: 6 }}>一次购买，永久查看 · AI 深度分析</p>
+          </>
+        )}
+
+        {step === 'form' && (
+          <>
+            <h3 className='qn-title' style={{ marginBottom: 8 }}>确认订单</h3>
+            <p className='qn-meta' style={{ marginBottom: 22 }}>报告将发送至你的邮箱，请确保邮箱正确</p>
+
+            <div style={{ maxWidth: 360, margin: '0 auto 24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px 12px', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+                <span className='qn-meta'>双盘命理档案</span>
+                <span className='qn-body' style={{ color: '#fff', fontWeight: 600 }}>¥138.00</span>
+              </div>
+              <input
+                type='email'
+                value={email}
+                onChange={e => { setEmail(e.target.value); setError(''); }}
+                placeholder='请输入接收报告的邮箱'
+                className='qn-input'
+                style={{ marginTop: 18, textAlign: 'center' }}
+              />
+              <p className='qn-cap' style={{ marginTop: 10, textAlign: 'center' }}>预计生成时间：1-3 分钟 · 完成后发送至邮箱</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button className='qn-btn qn-btn--ghost' onClick={() => { setStep('preview'); setError(''); }}>
+                返回
               </button>
-              <p className='mt-4 text-lg font-bold' style={{color:'#d4b87a'}}>¥138</p>
-            </>
-          )}
+              <button className='qn-btn qn-btn--solid' onClick={handlePurchase} disabled={loading}>
+                {loading ? '提交中...' : '确认支付 ¥138'}
+              </button>
+            </div>
+          </>
+        )}
 
-          {step === 'form' && (
-            <>
-              <h3 className='text-xl font-serif font-bold mb-3 tracking-wider' style={{color:'#ffffff'}}>确认订单</h3>
-              <p className='text-sm mb-6' style={{color:'rgba(255,255,255,0.6)'}}>报告将发送至你的邮箱，请确保邮箱正确</p>
-              
-              <div className='max-w-[320px] mx-auto space-y-4 mb-6'>
-                <div className='flex items-center justify-between rounded-lg px-4 py-3' style={{background:'rgba(255,255,255,0.05)'}}>
-                  <span className='text-sm' style={{color:'rgba(255,255,255,0.6)'}}>双盘命理档案</span>
-                  <span className='text-sm font-bold' style={{color:'#ffffff'}}>¥138.00</span>
+        {step === 'processing' && (
+          <>
+            <div style={{ width: 44, height: 44, margin: '0 auto 22px', borderRadius: '50%', border: '2px solid rgba(178,149,93,0.25)', borderTopColor: 'var(--color-accent-gold-light)', animation: 'qn-spin 0.9s linear infinite' }} />
+            <h3 className='qn-title' style={{ marginBottom: 8 }}>正在生成报告</h3>
+            <p className='qn-meta' style={{ marginBottom: 18 }}>AI 引擎正在为你撰写双盘命理档案</p>
+            <div style={{ maxWidth: 300, margin: '0 auto', textAlign: 'left' }}>
+              {['八字四柱深度分析', '紫微十二宫解读', '双盘交叉验证', '生成完整报告'].map((s) => (
+                <div key={s} className='qn-cap' style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0' }}>
+                  <span style={{ width: 6, height: 6, flex: '0 0 auto', borderRadius: '50%', background: 'var(--color-accent-gold-light)' }} /> {s}
                 </div>
-                <div>
-                  <input
-                    type='email'
-                    value={email}
-                    onChange={e => { setEmail(e.target.value); setError(''); }}
-                    placeholder='请输入接收报告的邮箱'
-                    className='w-full rounded-lg px-4 py-3 text-sm text-center outline-none border'
-                    style={{background:'rgba(255,255,255,0.08)',border:'1px solid rgba(255,255,255,0.12)',color:'#ffffff'}}
-                  />
-                  {error && <p className='text-xs mt-2' style={{color:'#ff6b6b'}}>{error}</p>}
-                </div>
-                <p className='text-[10px]' style={{color:'rgba(255,255,255,0.3)'}}>预计生成时间：1-3 分钟 · 完成后发送至邮箱</p>
-              </div>
+              ))}
+            </div>
+          </>
+        )}
 
-              <div className='flex gap-3 justify-center'>
-                <button onClick={() => { setStep('preview'); setError(''); }} className='rounded-full px-6 py-3 text-sm' style={{background:'rgba(255,255,255,0.08)',color:'rgba(255,255,255,0.6)'}}>
-                  返回
-                </button>
-                <button onClick={handlePurchase} disabled={loading} className='rounded-full px-8 py-3 font-medium text-sm tracking-[0.05em] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50' style={{background:'#b2955d',color:'#ffffff',boxShadow:'0 4px 20px rgba(178,149,93,0.35)'}}>
-                  {loading ? '提交中...' : '确认支付 ¥138'}
-                </button>
-              </div>
-            </>
-          )}
-
-          {step === 'processing' && (
-            <>
-              <div className='w-12 h-12 border-2 rounded-full animate-spin mx-auto mb-6' style={{borderColor:'rgba(178,149,93,0.2)',borderTopColor:'#b2955d'}} />
-              <h3 className='text-xl font-serif font-bold mb-3 tracking-wider' style={{color:'#ffffff'}}>正在生成报告</h3>
-              <p className='text-sm mb-2' style={{color:'rgba(255,255,255,0.6)'}}>AI 引擎正在为你撰写双盘命理档案</p>
-              <div className='max-w-[280px] mx-auto space-y-2 mt-4'>
-                {['八字四柱深度分析', '紫微十二宫解读', '双盘交叉验证', '生成完整报告'].map((s,i) => (
-                  <div key={i} className='flex items-center gap-2 text-xs' style={{color:'rgba(255,255,255,0.4)'}}>
-                    <span style={{color:'#b2955d'}}>●</span> {s}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {step === 'completed' && (
-            <>
-              <div className='w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-6' style={{background:'rgba(7,168,48,0.15)'}}>
-                <span className='text-2xl'>✓</span>
-              </div>
-              <h3 className='text-xl font-serif font-bold mb-3 tracking-wider' style={{color:'#ffffff'}}>报告已生成</h3>
-              <p className='text-sm mb-2' style={{color:'rgba(255,255,255,0.6)'}}>完整双盘命理档案已发送至</p>
-              <p className='text-sm font-medium mb-6' style={{color:'#d4b87a'}}>{email}</p>
-              <p className='text-xs' style={{color:'rgba(255,255,255,0.35)'}}>如未收到请检查垃圾邮件箱 · 订单号：{orderId?.slice(-8)}</p>
-            </>
-          )}
-
-          {step === 'preview' && (
-            <p className='text-xs mt-1' style={{color:'rgba(255,255,255,0.35)'}}>一次购买，永久查看 · AI 深度分析</p>
-          )}
-        </div>
+        {step === 'completed' && (
+          <>
+            <div style={{ width: 54, height: 54, margin: '0 auto 20px', borderRadius: '50%', background: 'rgba(178,149,93,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" role="img" style={{ display: 'block' }}>
+                <path d="M4 12.5l5 5L20 6.5" />
+              </svg>
+            </div>
+            <h3 className='qn-title' style={{ marginBottom: 8 }}>报告已生成</h3>
+            <p className='qn-meta' style={{ marginBottom: 4 }}>完整双盘命理档案已发送至</p>
+            <p className='qn-body' style={{ color: 'var(--color-accent-gold-light)', fontWeight: 500, marginBottom: 18, wordBreak: 'break-all' }}>{email}</p>
+            <p className='qn-cap'>如未收到请检查垃圾邮件箱 · 订单号：{orderId?.slice(-8)}</p>
+          </>
+        )}
       </div>
+
+      {error && (
+        <div className='qn-alert' role='alert' style={{ marginTop: 16 }}>{error}</div>
+      )}
     </section>
   );
 }

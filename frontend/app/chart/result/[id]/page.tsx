@@ -103,33 +103,33 @@ export default function ChartResultPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: '#ffffff' }}>
-        <div className="w-12 h-12 border-2 rounded-full animate-spin mb-6" style={{ borderColor: 'rgba(178,149,93,0.2)', borderTopColor: '#b2955d' }} />
-        <p className="text-sm tracking-[0.1em]" style={{ color: '#86868b' }}>正在生成命理档案...</p>
-      </div>
+      <main className="qn-shell qn-shell--wide">
+        <section style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid rgba(178,149,93,0.2)', borderTopColor: 'var(--color-accent-gold)', animation: 'qn-spin 0.9s linear infinite' }} />
+          <p className="qn-meta" style={{ marginTop: 24, letterSpacing: '0.1em' }}>正在生成命理档案...</p>
+        </section>
+      </main>
     );
   }
   if (error) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4" style={{ background: '#ffffff' }}>
-        <p className="text-base mb-6" style={{ color: '#1d1d1f' }}>{error}</p>
-        <button onClick={() => router.push('/create')} className="rounded-full px-6 py-2.5 text-sm font-medium" style={{ background: '#b2955d', color: '#ffffff' }}>重新排盘</button>
-      </div>
+      <main className="qn-shell qn-shell--wide" style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <p className="qn-title">{error}</p>
+        <button type="button" onClick={() => router.push('/create')} className="qn-btn qn-btn--solid" style={{ marginTop: 24 }}>重新排盘</button>
+      </main>
     );
   }
   if (!enrichedChartData) return null;
 
   return (
-    <div className="min-h-screen" style={{ background: '#f5f5f7' }}>
-<main className="pt-[56px] pb-20 px-4">
-        <div className="max-w-[720px] mx-auto">
-          <ChartOverview chartData={enrichedChartData} chartName={chartName} />
-          <div className="mb-10"><DoubleVerify chartData={enrichedChartData} /></div>
-          <div className="mb-10"><BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} /></div>
-          <div className="mb-10"><ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} /></div>
-          <div className="mb-10"><ReportUnlock chartId={id} /></div>
-        </div>
-      </main>
-    </div>
+    <main className="qn-shell qn-shell--wide">
+      <div style={{ display: 'grid', gap: 40 }}>
+        <ChartOverview chartData={enrichedChartData} chartName={chartName} />
+        <DoubleVerify chartData={enrichedChartData} />
+        <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
+        <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />
+        <ReportUnlock chartId={id} />
+      </div>
+    </main>
   );
 }

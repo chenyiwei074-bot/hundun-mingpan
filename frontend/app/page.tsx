@@ -8,139 +8,90 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
-const ink   = '#1d1d1f'; const mute  = '#86868b';
+const ink   = '#1d1d1f'; const mute  = '#6e6e73';
 const paper = '#f5f5f7'; const white = '#ffffff';
-const gold  = '#b2955d'; const hair  = 'rgba(0,0,0,0.06)'; const red = '#d4544a';
+const gold  = '#b2955d'; const goldText = '#8b6d3b'; const red = '#d4544a';
 
 // Round to 6 decimals so server & client Math.cos/sin stay identical (hydration-safe)
 const R6 = (n: number) => Math.round(n * 1e6) / 1e6;
 
-function Taiji({ size = 240 }: { size?: number }) {
-  const r = size / 2;
-  const s = size;
-  const h = r / 2;
-  // Generate tick marks around the circle
+const prefersReduced = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function Taiji() {
+  const R = 100;
+  const H = R / 2;
   const ticks24 = Array.from({ length: 24 }, (_, i) => {
-    const a = (i * 360) / 24 - 90;
-    const rad = (a * Math.PI) / 180;
-    const inner = r + 16;
+    const rad = ((i * 360) / 24 - 90) * Math.PI / 180;
+    const inner = R + 32;
     const len = i % 6 === 0 ? 10 : i % 3 === 0 ? 6 : 3;
-    return { x1: R6(r + inner * Math.cos(rad)), y1: R6(r + inner * Math.sin(rad)),
-             x2: R6(r + (inner + len) * Math.cos(rad)), y2: R6(r + (inner + len) * Math.sin(rad)),
+    return { x1: R6(inner * Math.cos(rad)), y1: R6(inner * Math.sin(rad)),
+             x2: R6((inner + len) * Math.cos(rad)), y2: R6((inner + len) * Math.sin(rad)),
              thick: i % 6 === 0 ? 0.6 : 0.3 };
   });
   const stems = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+  const gua   = ["☰","☱","☲","☳","☴","☵","☶","☷"];
   return (
-    <div className="taiji-glow relative inline-flex items-center justify-center"
-      style={{ width: s + 120, height: s + 120 }}>
-      {/* Pulse aura */}
-      <div className="absolute inset-0 rounded-full" style={{
-        background: "radial-gradient(circle, rgba(178,149,93,0.08) 0%, transparent 60%)",
-        animation: "taijiPulse 4s ease-in-out infinite",
-      }} />
-      {/* Outer decorative rings */}
-      <div className="absolute rounded-full" style={{
-        width: s + 100, height: s + 100,
-        border: "0.5px solid rgba(178,149,93,0.30)",
-        animation: "taijiOrbit 50s linear infinite reverse",
-      }} />
-      <div className="absolute rounded-full" style={{
-        width: s + 70, height: s + 70,
-        border: "0.5px dashed rgba(178,149,93,0.24)",
-        animation: "taijiOrbit 35s linear infinite",
-      }} />
-      {/* Orbiting dots */}
-      {[{ d: r+50, sz:3.5, o:0.45, t:22, rev:true },
-        { d: r+44, sz:2.5, o:0.3, t:28, rev:false },
-        { d: r+56, sz:2, o:0.35, t:19, rev:true },
-        { d: r+38, sz:3, o:0.25, t:33, rev:false },
-        { d: r+62, sz:2, o:0.3, t:26, rev:true }].map((p,i) => (
-        <div key={"p"+i} className="absolute rounded-full" style={{
-          width: p.sz, height: p.sz, background: gold, opacity: p.o,
-          animation: "taijiOrbit " + p.t + "s linear infinite" + (p.rev ? " reverse" : ""),
-          top: "calc(50% - " + (p.sz/2) + "px)",
-          left: "calc(50% + " + p.d + "px)",
-          transformOrigin: "-" + p.d + "px " + (p.sz/2) + "px",
-        }} />
-      ))}
-      {/* Main cosmic diagram SVG */}
-      <svg width={s + 80} height={s + 80} viewBox={"-40 -40 " + (s+80) + " " + (s+80)} className="relative z-10" style={{ overflow: "visible" }}>
-        <defs>
-          <radialGradient id={"yg" + s} cx="60%" cy="35%">
-            <stop offset="0%" stopColor={gold} stopOpacity={0.30} />
-            <stop offset="100%" stopColor={gold} stopOpacity={0.12} />
-          </radialGradient>
-          <radialGradient id={"ig" + s} cx="40%" cy="65%">
-            <stop offset="0%" stopColor={ink} stopOpacity={0.16} />
-            <stop offset="100%" stopColor={ink} stopOpacity={0.06} />
-          </radialGradient>
-        </defs>
-        {/* 24 tick marks ring */}
-        <g opacity={0.20}>
-          {ticks24.map((t, i) => (
-            <line key={"t"+i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
-              stroke={gold} strokeWidth={t.thick} strokeLinecap="round" />
-          ))}
-        </g>
-        {/* Subtle trigram ring */}
-        <g opacity={0.15}>
-          {(() => {
-            const gua = ["☰","☱","☲","☳","☴","☵","☶","☷"];
-            return gua.map((g, i) => {
-              const a = (i * 45 - 90) * Math.PI / 180;
-              const dist = r + 32;
-              return (
-                <text key={"g"+i} x={R6(r + dist * Math.cos(a))} y={R6(r + dist * Math.sin(a))}
-                  textAnchor="middle" dominantBaseline="central"
-                  fill={gold} fontSize={12} fontWeight={400} fontFamily="serif">{g}</text>
-              );
-            });
-          })()}
-        </g>
-        {/* Heavenly stems outer ring */}
-        <g opacity={0.18}>
-          {stems.map((st, i) => {
-            const a = (i * 36 - 108) * Math.PI / 180;
-            const dist = r + 56;
-            return (
-              <text key={"s"+i} x={R6(r + dist * Math.cos(a))} y={R6(r + dist * Math.sin(a))}
-                textAnchor="middle" dominantBaseline="central"
-                fill={gold} fontSize={10} fontWeight={400} fontFamily="serif"
-                letterSpacing="0.1em">{st}</text>
-            );
-          })}
-        </g>
-        {/* Main Taiji */}
-        <g transform={"translate(40,40)"}>
-          <circle cx={r} cy={r} r={r - 1.5} fill="none" stroke="rgba(178,149,93,0.32)" strokeWidth={1} />
-          <circle cx={r} cy={r} r={r - 1.5} fill="none" stroke="rgba(178,149,93,0.32)" strokeWidth={1} />
-          <circle cx={r} cy={r} r={r - 5} fill="none" stroke="rgba(178,149,93,0.10)" strokeWidth={0.5} />
-          {/* Yang half */}
-          <path d={"M" + r + "," + 1.5 + " A" + (r-1.5) + "," + (r-1.5) + " 0 0,1 " + r + "," + (s-1.5) + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + r + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,0 " + r + "," + 1.5 + " Z"}
-            fill={"url(#yg" + s + ")"} />
-          {/* Yin half */}
-          <path d={"M" + r + "," + 1.5 + " A" + (r-1.5) + "," + (r-1.5) + " 0 0,0 " + r + "," + (s-1.5) + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,0 " + r + "," + r + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + 1.5 + " Z"}
-            fill={"url(#ig" + s + ")"} />
-          {/* S-curve */}
-          <path d={"M" + r + "," + 1.5 + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + r + " A" + (h-0.5) + "," + (h-0.5) + " 0 0,1 " + r + "," + (s-1.5)}
-            fill="none" stroke="rgba(178,149,93,0.40)" strokeWidth={0.8} />
-          {/* Dots */}
-          <circle cx={r} cy={h + 1} r={h * 0.32} fill={ink} opacity={0.22} />
-          <circle cx={r} cy={h + 1} r={h * 0.46} fill="none" stroke="rgba(178,149,93,0.18)" strokeWidth={0.5} />
-          <circle cx={r} cy={s - h - 1} r={h * 0.32} fill={gold} opacity={0.48} />
-          <circle cx={r} cy={s - h - 1} r={h * 0.46} fill="none" stroke="rgba(178,149,93,0.22)" strokeWidth={0.5} />
-          {/* Center dot */}
-          <circle cx={r} cy={r} r={1.8} fill={gold} opacity={0.35} />
-        </g>
-      </svg>
-    </div>
+    <svg viewBox="-168 -168 336 336" className="taiji" role="img" aria-label="太极图">
+      <defs>
+        <radialGradient id="hp-yang" cx="60%" cy="35%">
+          <stop offset="0%" stopColor={gold} stopOpacity={0.40} />
+          <stop offset="100%" stopColor={gold} stopOpacity={0.20} />
+        </radialGradient>
+        <radialGradient id="hp-yin" cx="40%" cy="65%">
+          <stop offset="0%" stopColor={ink} stopOpacity={0.24} />
+          <stop offset="100%" stopColor={ink} stopOpacity={0.10} />
+        </radialGradient>
+      </defs>
+
+      {/* Twenty-four solar-term ticks */}
+      <g opacity={0.32}>
+        {ticks24.map((t, i) => (
+          <line key={"t" + i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2}
+            stroke={gold} strokeWidth={t.thick} strokeLinecap="round" />
+        ))}
+      </g>
+      {/* Eight trigrams */}
+      <g opacity={0.26}>
+        {gua.map((g, i) => {
+          const a = (i * 45 - 90) * Math.PI / 180;
+          return (
+            <text key={"g" + i} x={R6((R + 20) * Math.cos(a))} y={R6((R + 20) * Math.sin(a))}
+              textAnchor="middle" dominantBaseline="central"
+              fill={gold} fontSize={12} fontFamily="serif">{g}</text>
+          );
+        })}
+      </g>
+      {/* Ten heavenly stems */}
+      <g opacity={0.28}>
+        {stems.map((st, i) => {
+          const a = (i * 36 - 108) * Math.PI / 180;
+          return (
+            <text key={"s" + i} x={R6((R + 54) * Math.cos(a))} y={R6((R + 54) * Math.sin(a))}
+              textAnchor="middle" dominantBaseline="central"
+              fill={gold} fontSize={10} fontFamily="serif" letterSpacing="0.1em">{st}</text>
+          );
+        })}
+      </g>
+
+      <circle r={R} fill="none" stroke="rgba(178,149,93,0.48)" strokeWidth={1.2} />
+      {/* Yang half */}
+      <path d={`M0,${-R} A${R},${R} 0 0,1 0,${R} A${H},${H} 0 0,1 0,0 A${H},${H} 0 0,0 0,${-R} Z`}
+        fill="url(#hp-yang)" />
+      {/* Yin half */}
+      <path d={`M0,${-R} A${R},${R} 0 0,0 0,${R} A${H},${H} 0 0,0 0,0 A${H},${H} 0 0,1 0,${-R} Z`}
+        fill="url(#hp-yin)" />
+      <path d={`M0,${-R} A${H},${H} 0 0,1 0,0 A${H},${H} 0 0,1 0,${R}`}
+        fill="none" stroke="rgba(178,149,93,0.55)" strokeWidth={0.8} />
+      <circle cy={-H} r={H * 0.32} fill={ink} opacity={0.30} />
+      <circle cy={H} r={H * 0.32} fill={gold} opacity={0.60} />
+      <circle r={1.8} fill={gold} opacity={0.35} />
+    </svg>
   );
 }
 
-
 function BaziPreview() {
-  const R = 88;
-  const cx = 100; const cy = 100;
+  const R = 88; const cx = 100; const cy = 100;
   const bars = [
     { h: 46, stem: red, branch: red },
     { h: 54, stem: "#c8a43e", branch: "#c8a43e" },
@@ -153,9 +104,8 @@ function BaziPreview() {
   const mingGong = 5;
 
   return (
-    <svg viewBox="0 0 200 200" style={{ width: 200, height: 200, marginLeft: 60 }}>
-      <circle cx={cx} cy={cy} r={R + 6} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.08} />
-      <circle cx={cx} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={0.8} className="bz-outer" opacity={0.25} />
+    <svg viewBox="0 0 200 200">
+      <circle cx={cx} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={0.8} opacity={0.25} />
       <circle cx={cx} cy={cy} r={R - 10} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.10} />
       {Array.from({length: 12}).map((_, i) => {
         const a = (i * 30 - 90) * Math.PI / 180;
@@ -167,9 +117,9 @@ function BaziPreview() {
               stroke={isMing ? red : gold} strokeWidth={isMing ? 1.4 : 0.6}
               opacity={isMing ? 0.55 : 0.18} strokeLinecap="round" />
             <text x={R6(cx + (R+11)*ca)} y={R6(cy + (R+11)*sa)} textAnchor="middle" dominantBaseline="central"
-              fill={isMing ? red : gold} fontSize={isMing ? 8 : 6.5}
+              fill={isMing ? red : goldText} fontSize={isMing ? 8 : 6.5}
               fontWeight={isMing ? 600 : 400} fontFamily="serif"
-              opacity={isMing ? 0.50 : 0.20}>{palaceNames[i]}</text>
+              opacity={isMing ? 0.50 : 0.30}>{palaceNames[i]}</text>
           </g>
         );
       })}
@@ -192,14 +142,12 @@ function BaziPreview() {
       })}
       {bars.map((b, i) => {
         const x = startX + i * spacing;
-        const y = cy - b.h / 2 - 10;
-        return <circle key={"s"+i} cx={x} cy={y} r={b.dayMaster ? 4 : 3}
+        return <circle key={"s"+i} cx={x} cy={cy - b.h / 2 - 10} r={b.dayMaster ? 4 : 3}
           fill={b.dayMaster ? red : b.stem} opacity={b.dayMaster ? 0.85 : 0.60} />;
       })}
       {bars.map((b, i) => {
         const x = startX + i * spacing;
-        const y = cy + b.h / 2 + 10;
-        return <circle key={"b"+i} cx={x} cy={y} r={3} fill={b.branch} opacity={0.40} />;
+        return <circle key={"b"+i} cx={x} cy={cy + b.h / 2 + 10} r={3} fill={b.branch} opacity={0.40} />;
       })}
       <line x1={cx-3} y1={cy} x2={cx+3} y2={cy} stroke={gold} strokeWidth={0.4} opacity={0.15} />
       <line x1={cx} y1={cy-3} x2={cx} y2={cy+3} stroke={gold} strokeWidth={0.4} opacity={0.15} />
@@ -207,11 +155,11 @@ function BaziPreview() {
   );
 }
 
-function CoinSVG({ size = 40, opacity = 1 }: { size?: number; opacity?: number }) {
+function Coin({ o }: { o: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="18" fill="none" stroke={gold} strokeWidth={1.2} opacity={opacity} />
-      <rect x="14" y="14" width="12" height="12" rx="1.5" fill="none" stroke={gold} strokeWidth={1} opacity={opacity * 0.7} />
+    <svg viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="none" stroke={gold} strokeWidth={1.2} opacity={o} />
+      <rect x="14" y="14" width="12" height="12" rx="1.5" fill="none" stroke={gold} strokeWidth={1} opacity={o * 0.7} />
     </svg>
   );
 }
@@ -219,25 +167,25 @@ function CoinSVG({ size = 40, opacity = 1 }: { size?: number; opacity?: number }
 function LiuYaoPreview() {
   const lines = [true, false, true, false, true, true];
   return (
-    <div className="relative" style={{ width: 380, height: 120 }}>
-      <svg viewBox="0 0 280 90" className="absolute right-[-40px] top-[5px] w-[280px] h-full pointer-events-none">
+    <div className="pv pv-liuyao">
+      <svg viewBox="0 0 200 90" className="ly-lines">
         {lines.map((solid, i) => {
           const y = 8 + i * 13;
           if (solid) {
-            return <line key={i} x1={10} y1={y} x2={270} y2={y} stroke={gold} strokeWidth={1} opacity={0.12} />;
-          } else {
-            return (<g key={i}><line x1={10} y1={y} x2={130} y2={y} stroke={gold} strokeWidth={1} opacity={0.12} /><line x1={150} y1={y} x2={270} y2={y} stroke={gold} strokeWidth={1} opacity={0.12} /></g>);
+            return <line key={i} x1={4} y1={y} x2={196} y2={y} stroke={gold} strokeWidth={1} opacity={0.16} />;
           }
+          return (<g key={i}><line x1={4} y1={y} x2={92} y2={y} stroke={gold} strokeWidth={1} opacity={0.16} /><line x1={108} y1={y} x2={196} y2={y} stroke={gold} strokeWidth={1} opacity={0.16} /></g>);
         })}
       </svg>
-      <div className="absolute right-[-40px] top-1/2 flex gap-2" style={{ transform: "translateY(-50%)" }}>
-        <div className="coin-1"><CoinSVG size={90} opacity={0.50} /></div>
-        <div className="coin-2"><CoinSVG size={90} opacity={0.70} /></div>
-        <div className="coin-3"><CoinSVG size={90} opacity={0.50} /></div>
+      <div className="ly-coins">
+        <span><Coin o={0.50} /></span>
+        <span><Coin o={0.70} /></span>
+        <span><Coin o={0.50} /></span>
       </div>
     </div>
   );
 }
+
 function HePanPreview() {
   const cx1 = 100; const cx2 = 180; const cy = 96;
   const R = 72;
@@ -246,69 +194,25 @@ function HePanPreview() {
   const leftAngles = [0, 72, 144, 216, 288];
   const rightAngles = [36, 108, 180, 252, 324];
   return (
-    <div className="relative" style={{ width: 300, height: 200 }}>
-      <svg viewBox="0 0 300 200" style={{ width: 300, height: 200, marginLeft: 60 }}>
-        <defs>
-          {/* Glow for left circle */}
-          <radialGradient id="glowL" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={gold} stopOpacity={0.06} />
-            <stop offset="70%" stopColor={gold} stopOpacity={0.02} />
-            <stop offset="100%" stopColor={gold} stopOpacity={0} />
-          </radialGradient>
-          {/* Glow for right circle */}
-          <radialGradient id="glowR" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={ink} stopOpacity={0.04} />
-            <stop offset="70%" stopColor={ink} stopOpacity={0.01} />
-            <stop offset="100%" stopColor={ink} stopOpacity={0} />
-          </radialGradient>
-          {/* Overlap zone gradient */}
-          <radialGradient id="overlap" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={gold} stopOpacity={0.10} />
-            <stop offset="60%" stopColor={gold} stopOpacity={0.03} />
-            <stop offset="100%" stopColor={gold} stopOpacity={0} />
-          </radialGradient>
-        </defs>
-        {/* Glow backgrounds */}
-        <circle cx={cx1} cy={cy} r={R} fill="url(#glowL)" />
-        <circle cx={cx2} cy={cy} r={R} fill="url(#glowR)" />
-        {/* Overlap zone */}
-        <ellipse cx={(cx1+cx2)/2} cy={cy} rx={R*0.62} ry={R*0.9} fill="url(#overlap)" />
-        <circle cx={cx1} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={1.2} className="hp-outer" opacity={0.30} />
+    <div className="pv">
+      <svg viewBox="22 18 256 156">
         <circle cx={cx1} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={1.2} opacity={0.30} />
-        <circle cx={cx1} cy={cy} r={R-6} fill="none" stroke={gold} strokeWidth={0.35} opacity={0.12} strokeDasharray="1 5" />
         <circle cx={cx1} cy={cy} r={R-12} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.14} />
-        <circle cx={cx1} cy={cy} r={R-22} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.08} strokeDasharray="2 4" />
-        {/* Tick marks on outer ring */}
         {Array.from({length:24}, (_,i) => {
           const a = (i*15*Math.PI)/180;
-          const inner = R-3; const outer = R+2;
-          return <line key={"lt"+i} x1={R6(cx1+inner*Math.cos(a))} y1={R6(cy+inner*Math.sin(a))} x2={R6(cx1+outer*Math.cos(a))} y2={R6(cy+outer*Math.sin(a))} stroke={gold} strokeWidth={0.4} opacity={0.12} />;
+          return <line key={"lt"+i} x1={R6(cx1+(R-3)*Math.cos(a))} y1={R6(cy+(R-3)*Math.sin(a))} x2={R6(cx1+(R+2)*Math.cos(a))} y2={R6(cy+(R+2)*Math.sin(a))} stroke={gold} strokeWidth={0.4} opacity={0.12} />;
         })}
-        {/* Left marker */}
         <circle cx={cx1} cy={cy-14} r={3.5} fill={gold} opacity={0.5} />
-        <circle cx={cx1} cy={cy-14} r={7} fill="none" stroke={gold} strokeWidth={0.7} opacity={0.25} />
-        <circle cx={cx1} cy={cy-14} r={10} fill="none" stroke={gold} strokeWidth={0.3} opacity={0.10} strokeDasharray="1 3" />
         {/* Right person - dark rings */}
         <circle cx={cx2} cy={cy} r={R} fill="none" stroke={ink} strokeWidth={1.2} opacity={0.14} />
-        <circle cx={cx2} cy={cy} r={R-6} fill="none" stroke={ink} strokeWidth={0.35} opacity={0.06} strokeDasharray="1 5" />
         <circle cx={cx2} cy={cy} r={R-12} fill="none" stroke={ink} strokeWidth={0.6} opacity={0.08} />
-        <circle cx={cx2} cy={cy} r={R-22} fill="none" stroke={ink} strokeWidth={0.4} opacity={0.04} strokeDasharray="2 4" />
-        {/* Tick marks right */}
         {Array.from({length:24}, (_,i) => {
           const a = (i*15*Math.PI)/180;
-          const inner = R-3; const outer = R+2;
-          return <line key={"rt"+i} x1={R6(cx2+inner*Math.cos(a))} y1={R6(cy+inner*Math.sin(a))} x2={R6(cx2+outer*Math.cos(a))} y2={R6(cy+outer*Math.sin(a))} stroke={ink} strokeWidth={0.4} opacity={0.07} />;
+          return <line key={"rt"+i} x1={R6(cx2+(R-3)*Math.cos(a))} y1={R6(cy+(R-3)*Math.sin(a))} x2={R6(cx2+(R+2)*Math.cos(a))} y2={R6(cy+(R+2)*Math.sin(a))} stroke={ink} strokeWidth={0.4} opacity={0.07} />;
         })}
-        {/* Right marker */}
         <circle cx={cx2} cy={cy-14} r={3.5} fill={ink} opacity={0.25} />
-        <circle cx={cx2} cy={cy-14} r={7} fill="none" stroke={ink} strokeWidth={0.7} opacity={0.14} />
-        <circle cx={cx2} cy={cy-14} r={10} fill="none" stroke={ink} strokeWidth={0.3} opacity={0.06} strokeDasharray="1 3" />
-        {/* Intersection lines */}
-        <line x1={cx1+R} y1={cy} x2={cx2-R} y2={cy} stroke={gold} strokeWidth={0.5} opacity={0.15} strokeDasharray="2 3" />
         <line x1={cx1} y1={cy-R} x2={cx1} y2={cy+R} stroke={gold} strokeWidth={0.35} opacity={0.08} strokeDasharray="1 4" />
         <line x1={cx2} y1={cy-R} x2={cx2} y2={cy+R} stroke={ink} strokeWidth={0.35} opacity={0.05} strokeDasharray="1 4" />
-        {/* Horizontal align line */}
-        <line x1={cx1-R} y1={cy} x2={cx2+R} y2={cy} stroke={gold} strokeWidth={0.25} opacity={0.06} strokeDasharray="1 6" />
         {/* Wuxing dots + labels - left */}
         {leftAngles.map((a, i) => {
           const rad = (a * Math.PI) / 180;
@@ -317,8 +221,7 @@ function HePanPreview() {
           return (
             <g key={"lw"+i}>
               <circle cx={cx1+dx} cy={cy+dy} r={4.5} fill={colors[i]} opacity={0.6} />
-              <circle cx={cx1+dx} cy={cy+dy} r={7} fill="none" stroke={colors[i]} strokeWidth={0.4} opacity={0.18} />
-              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={9} fill={colors[i]} opacity={0.55} fontFamily="serif">{wuxing[i]}</text>
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={9} fill={colors[i]} opacity={0.7} fontFamily="serif">{wuxing[i]}</text>
             </g>
           );
         })}
@@ -330,12 +233,11 @@ function HePanPreview() {
           return (
             <g key={"rw"+i}>
               <circle cx={cx2+dx} cy={cy+dy} r={4.5} fill={colors[i]} opacity={0.6} />
-              <circle cx={cx2+dx} cy={cy+dy} r={7} fill="none" stroke={colors[i]} strokeWidth={0.4} opacity={0.18} />
-              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={9} fill={colors[i]} opacity={0.55} fontFamily="serif">{wuxing[i]}</text>
+              <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fontSize={9} fill={colors[i]} opacity={0.7} fontFamily="serif">{wuxing[i]}</text>
             </g>
           );
         })}
-        {/* Connecting web between matching elements */}
+        {/* Matching-element web */}
         {[[0,3],[1,1],[2,4],[3,0],[4,2]].map(([li,ri], i) => {
           const la = (leftAngles[li] * Math.PI) / 180;
           const ra = (rightAngles[ri] * Math.PI) / 180;
@@ -346,17 +248,13 @@ function HePanPreview() {
               stroke={gold} strokeWidth={0.4} opacity={0.10} />
           );
         })}
-        {/* Center union symbol */}
-        <circle cx={(cx1+cx2)/2} cy={cy} r={10} fill="none" stroke={gold} strokeWidth={0.4} opacity={0.10} />
-        <circle cx={(cx1+cx2)/2} cy={cy} r={15} fill="none" stroke={gold} strokeWidth={0.3} opacity={0.06} strokeDasharray="1 4" />
         <circle cx={(cx1+cx2)/2} cy={cy} r={7} fill={gold} opacity={0.35} />
-        <circle cx={(cx1+cx2)/2} cy={cy} r={12} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.22} />
-        {/* 合 character */}
-        <text x={(cx1+cx2)/2} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={gold} opacity={0.50} fontFamily="serif" fontWeight="bold">合</text>
+        <text x={(cx1+cx2)/2} y={cy} textAnchor="middle" dominantBaseline="central" fontSize={11} fill={goldText} opacity={0.85} fontFamily="serif" fontWeight="bold">合</text>
       </svg>
     </div>
   );
 }
+
 function ZeRiPreview() {
   const cx = 125; const cy = 105;
   const dR = 65;
@@ -369,17 +267,9 @@ function ZeRiPreview() {
     return pts.map(p => p.x + ',' + p.y).join(' ');
   };
   return (
-    <div style={{ width: 260, height: 210 }}>
-      <svg viewBox="0 0 260 210" style={{ width: 260, height: 210, marginLeft: 80 }}>
-        <defs>
-          <radialGradient id="zrGlow3" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor={gold} stopOpacity={0.06} />
-            <stop offset="80%" stopColor={gold} stopOpacity={0.01} />
-            <stop offset="100%" stopColor={gold} stopOpacity={0} />
-          </radialGradient>
-        </defs>
-        <circle cx={cx} cy={cy} r={dR+36} fill="url(#zrGlow3)" />
-        <polygon points={diamond(dR)} fill="none" stroke={gold} strokeWidth={1.2} className="zr-outer" opacity={0.28} />
+    <div className="pv">
+      <svg viewBox="34 18 182 174">
+        <polygon points={diamond(dR)} fill="none" stroke={gold} strokeWidth={1.2} opacity={0.30} />
         {[0,1,2,3].map(i => {
           const a1 = (i*90-90)*Math.PI/180; const a2 = ((i+1)*90-90)*Math.PI/180;
           const x1 = R6(cx+dR*Math.cos(a1)); const y1 = R6(cy+dR*Math.sin(a1));
@@ -390,250 +280,177 @@ function ZeRiPreview() {
           return <line key={"dt"+i} x1={mx+nx*2} y1={my+ny*2} x2={mx+nx*8} y2={my+ny*8} stroke={gold} strokeWidth={0.5} opacity={0.15} />;
         })}
         <polygon points={diamond(dR-16)} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.16} />
-        <polygon points={diamond(dR-28)} fill="none" stroke={gold} strokeWidth={0.35} opacity={0.08} strokeDasharray="2 4" />
-        <polygon points={diamond(dR-40)} fill="none" stroke={red} strokeWidth={0.8} opacity={0.35} />
+        <polygon points={diamond(dR-40)} fill="none" stroke={gold} strokeWidth={0.8} opacity={0.45} />
         {[0,1,2,3].map(i => {
           const a = (i*90-90)*Math.PI/180;
           return <circle key={"cd"+i} cx={R6(cx+(dR-16)*Math.cos(a))} cy={R6(cy+(dR-16)*Math.sin(a))} r={3} fill={gold} opacity={0.30} />;
         })}
-        {[45,135,225,315].map((deg,i) => {
-          const a = deg*Math.PI/180;
-          return <line key={"sp"+i} x1={cx} y1={cy} x2={R6(cx+(dR-3)*Math.cos(a))} y2={R6(cy+(dR-3)*Math.sin(a))} stroke={gold} strokeWidth={0.35} opacity={0.10} />;
-        })}
-        <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="central" fontSize={20} fill={red} opacity={0.55} fontFamily="serif" fontWeight="bold">{'\u5409'}</text>
-        {[[0,-dR-10],[0,dR+10],[-dR-10,0],[dR+10,0]].map(([dx,dy],i) => (
-          <circle key={"card2"+i} cx={cx+dx} cy={cy+dy} r={2} fill={gold} opacity={0.22} />
-        ))}
+        <text x={cx} y={cy+1} textAnchor="middle" dominantBaseline="central" fontSize={20} fill={goldText} opacity={0.8} fontFamily="serif" fontWeight="bold">{'\u5409'}</text>
       </svg>
     </div>
   );
 }
-function Eyebrow({ children, size = "sm" }: { children: React.ReactNode; size?: "sm" | "lg" }) {
-  return <p className={size === "lg" ? "text-[14px] tracking-[0.2em]" : "text-[11px] tracking-[0.25em]"} style={{ fontWeight: 600, marginBottom: size === "lg" ? "0.75rem" : "0.75rem", color: gold }}>{children}</p>;
-}
-function Head2({ children }: { children: React.ReactNode }) {
-  return <h2 className="font-serif font-bold tracking-[-0.02em] leading-[1.12] mb-3"
-    style={{ fontSize: 'clamp(1.8rem, 4vw, 2.6rem)', color: ink }}>{children}</h2>;
-}
-function Sub({ children }: { children: React.ReactNode }) {
-  return <p className="text-[15px] leading-relaxed max-w-md" style={{ color: mute }}>{children}</p>;
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return <p className="eyebrow">{children}</p>;
 }
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="card-shell p-[0.5px] rounded-[20px]"
-      style={{ background: 'linear-gradient(135deg, rgba(178,149,93,0.18), rgba(178,149,93,0.04))' }}>
-      <div className="rounded-[19px] p-6 sm:p-10 h-full" style={{ background: white, boxShadow: "0 1px 2px rgba(0,0,0,0.02), 0 8px 32px rgba(0,0,0,0.03)" }}>
-        {children}
-      </div>
-    </div>
-  );
+  return <div className="shell">{children}</div>;
 }
 
 export default function HomePage() {
-  const heroRef  = useRef<HTMLDivElement>(null);
-  const brandRef = useRef<HTMLDivElement>(null);
-  const coreRef  = useRef<HTMLDivElement>(null);
+  const brandRef = useRef<HTMLElement>(null);
+  const coreRef  = useRef<HTMLElement>(null);
   const toolsRef = useRef<HTMLDivElement>(null);
-  const ctaRef   = useRef<HTMLDivElement>(null);
+  const ctaRef   = useRef<HTMLElement>(null);
 
   const [showLauncher, setShowLauncher] = useState(false);
 
-  useGSAP(() => {
-    const tl = gsap.timeline({ defaults: { duration: 0.9, ease: 'power3.out' } });
-    tl.fromTo('.taiji-ring', { opacity: 0, scale: 0.7, rotation: -30 }, { opacity: 1, scale: 1, rotation: 0, duration: 1.5 })
-      .fromTo('.hero-brand', { opacity: 0, y: 40 }, { opacity: 1, y: 0 }, '-=0.7')
-      .fromTo('.hero-quote', { opacity: 0, y: 24 }, { opacity: 1, y: 0 }, '-=0.4')
-      .fromTo('.hero-line',  { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.6 }, '-=0.2')
-      .fromTo('.hero-sub',   { opacity: 0, y: 14 }, { opacity: 1, y: 0 }, '-=0.15')
-      .fromTo('.hero-cta',   { opacity: 0, y: 8  }, { opacity: 1, y: 0 }, '-=0.1');
-    gsap.to('.taiji-ring', { rotation: 360, duration: 120, repeat: -1, ease: 'none' });
-    // Idle float: gentle up-down bob
-    gsap.to('.taiji-ring', { y: -8, duration: 3, repeat: -1, yoyo: true, ease: 'sine.inOut' });
-  }, { scope: heroRef });
-  // Mouse-follow parallax (quickTo - always returns to center)
-  useGSAP(() => {
-    const xTo = gsap.quickTo(".taiji-ring", "x", { duration: 0.6, ease: "power3.out" });
-    const xBrand = gsap.quickTo(".hero-brand", "x", { duration: 0.7, ease: "power3.out" });
-    const onMove = (e: MouseEvent) => {
-      const px = (e.clientX - window.innerWidth / 2) / window.innerWidth;
-      xTo(px * 20);
-      xBrand(px * 6);
-    };
-    window.addEventListener("mousemove", onMove);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      xTo(0); xBrand(0);
-    };
-  }, { scope: heroRef });
+  const scrollTo = (el: Element | null) => {
+    el?.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' });
+  };
 
-
+  // One scroll narrative inside the first screen below the fold.
   useGSAP(() => {
+    if (prefersReduced()) return;
     gsap.fromTo('.brand-quote', { opacity: 0, y: 40 }, {
-      opacity: 1, y: 0, duration: 1, ease: 'power2.out',
-      scrollTrigger: { trigger: brandRef.current, start: 'top 75%' },
+      opacity: 1, y: 0, duration: 0.7, ease: 'expo.out',
+      scrollTrigger: { trigger: brandRef.current, start: 'top 78%', once: true },
     });
   }, { scope: brandRef });
+
   useGSAP(() => {
-    gsap.fromTo('.core-card', { opacity: 0, y: 48 }, {
-      opacity: 1, y: 0, stagger: 0.15, duration: 0.7, ease: 'power2.out',
-      scrollTrigger: { trigger: coreRef.current, start: 'top 78%' },
+    if (prefersReduced()) return;
+    gsap.fromTo('.core-card', { opacity: 0, y: 40 }, {
+      opacity: 1, y: 0, stagger: 0.12, duration: 0.7, ease: 'expo.out',
+      scrollTrigger: { trigger: coreRef.current, start: 'top 80%', once: true },
     });
   }, { scope: coreRef });
+
   useGSAP(() => {
-    gsap.fromTo('.tool-card', { opacity: 0, y: 32 }, {
-      opacity: 1, y: 0, stagger: 0.08, duration: 0.6, ease: 'power2.out',
-      scrollTrigger: { trigger: toolsRef.current, start: 'top 82%' },
+    if (prefersReduced()) return;
+    gsap.fromTo('.tool-soon', { opacity: 0, y: 24 }, {
+      opacity: 1, y: 0, stagger: 0.08, duration: 0.6, ease: 'expo.out',
+      scrollTrigger: { trigger: toolsRef.current, start: 'top 85%', once: true },
     });
   }, { scope: toolsRef });
+
   useGSAP(() => {
-    gsap.fromTo('.cta-block', { opacity: 0, y: 32 }, {
-      opacity: 1, y: 0, duration: 0.7, ease: 'power2.out',
-      scrollTrigger: { trigger: ctaRef.current, start: 'top 85%' },
+    if (prefersReduced()) return;
+    gsap.fromTo('.cta-block', { opacity: 0, y: 24 }, {
+      opacity: 1, y: 0, duration: 0.6, ease: 'expo.out',
+      scrollTrigger: { trigger: ctaRef.current, start: 'top 88%', once: true },
     });
   }, { scope: ctaRef });
 
   return (
-    <div style={{ background: white, color: ink }}>
-
-      {/* ════════════ NAV ════════════ */}
-
+    <div className="hp">
 
       {/* ════════════ HERO ════════════ */}
-      <section ref={heroRef} className="relative flex min-h-[100dvh] flex-col items-center justify-center px-6 pt-11 text-center overflow-hidden"
-        style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fafaf8 100%)' }}>
+      <section className="hero">
+        <div className="hero-noise" aria-hidden="true" />
 
-        {/* Paper texture */}
-        <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.03,
-          backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E")',
-        }} />
-
-
-        {/* Taiji */}
-        <div className="taiji-ring mb-8 z-10">
-          <div className="block sm:hidden"><Taiji size={200} /></div>
-          <div className="hidden sm:block"><Taiji size={240} /></div>
-        </div>
-        <h1 className="hero-brand font-serif font-bold tracking-[-0.04em] leading-[1.05] mb-5 relative z-10"
-          style={{ fontSize: 'clamp(3rem, 8vw, 5.5rem)', color: ink }}>混沌</h1>
-        <p className="hero-quote font-serif text-lg sm:text-xl tracking-[0.2em] relative z-10" style={{ color: gold }}>天地未分 · 元气未判</p>
-        <div className="hero-line mt-7 mb-6 w-16 h-px mx-auto relative z-10" style={{ background: 'rgba(178,149,93,0.40)', transformOrigin: 'center' }} />
-        <p className="hero-sub text-[15px] sm:text-[17px] leading-relaxed tracking-[-0.01em] max-w-sm relative z-10" style={{ color: mute }}>Ai+传统命理研究平台</p>
-        <div className="hero-cta mt-9 relative z-10">
-          <button onClick={() => setShowLauncher(true)} className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-[15px] font-medium no-underline transition-all duration-500 hover:scale-105 hover:shadow-lg active:scale-[0.98]"
-            style={{ background: gold, color: white, boxShadow: '0 4px 20px rgba(178,149,93,0.25)' }}>
-            开始使用 <span className="text-lg leading-none">→</span>
-          </button>
-        </div>
-
-        {/* Scroll hint */}
-        <div className="absolute bottom-8 opacity-25 z-10">
-          <div className="w-5 h-8 rounded-full border-2 mx-auto flex justify-center" style={{ borderColor: mute }}>
-            <div className="w-1 h-2 rounded-full mt-1.5" style={{ background: mute, animation: 'scrolldot 2s ease-in-out infinite' }} />
+        <div className="hero-stack">
+          <div className="hero-stage fx fx-stage"><Taiji /></div>
+          <h1 className="h1 fx fx-title">混沌</h1>
+          <p className="hero-sub fx fx-sub">Ai+传统命理研究平台</p>
+          <div className="hero-actions fx fx-cta">
+            <button onClick={() => setShowLauncher(true)} className="btn-primary">
+              开始使用 <span aria-hidden="true">→</span>
+            </button>
+            <button onClick={() => scrollTo(coreRef.current)} className="btn-ghost">
+              核心引擎 <span aria-hidden="true">↓</span>
+            </button>
           </div>
         </div>
       </section>
 
       {/* ════════════ BRAND ════════════ */}
-      <section ref={brandRef} className="py-28 sm:py-36 px-6" style={{ background: paper }}>
-        <div className="brand-quote max-w-2xl mx-auto">
-          <p className="font-serif font-bold text-center leading-[1.6] tracking-[0.05em]" style={{ fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: ink }}>世间万象，看似纷繁无序</p>
-          <p className="font-serif font-bold text-center leading-[1.6] tracking-[0.05em] mt-3" style={{ fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: ink }}>实则暗藏规律</p>
-          <p className="mt-10 text-center text-[14px] leading-relaxed" style={{ color: mute }}>
+      <section ref={brandRef} className="band band-paper brand">
+        <div className="brand-quote wrap-narrow">
+          <p className="brand-line">世间万象，看似纷繁无序</p>
+          <p className="brand-line mt-3">实则暗藏规律</p>
+          <p className="body muted mt-10">
             「混沌」之名，取自道家宇宙观。<br />天地未分，元气未判。以 AI 之力，解古籍之密，<br />让传统玄学，触手可及。
           </p>
-          <div className="flex justify-center mt-8">
-            <svg width="56" height="56" viewBox="0 0 56 56" style={{ opacity: 0.30 }}>
-              <rect x="2" y="2" width="52" height="52" rx="4" fill="none" stroke="#b2955d" strokeWidth="1.5" />
-              <rect x="5" y="5" width="46" height="46" rx="2" fill="none" stroke="#b2955d" strokeWidth="0.5" />
-              <text x="28" y="36" textAnchor="middle" fill="#b2955d" fontSize="18" fontWeight="700" fontFamily="serif">混沌</text>
+          <div className="seal-box">
+            <svg viewBox="0 0 56 56" className="seal">
+              <rect x="2" y="2" width="52" height="52" rx="4" fill="none" stroke={goldText} strokeWidth="1.5" />
+              <text x="28" y="36" textAnchor="middle" fill={goldText} fontSize="18" fontWeight="700" fontFamily="serif">混沌</text>
             </svg>
           </div>
         </div>
       </section>
 
       {/* ════════════ CORE ════════════ */}
-      <section ref={coreRef} className="py-24 sm:py-32 px-6" style={{ background: white }}>
-        <div className="max-w-[980px] mx-auto flex flex-col gap-6">
-          <div className="text-center mb-6">
-            <Eyebrow size="lg">核心引擎</Eyebrow>
-          </div>
+      <section ref={coreRef} className="band band-white core">
+        <div className="wrap-mid flex-col-gap">
+          <Eyebrow>核心引擎</Eyebrow>
 
-          {/* Card 1: 八字 & 紫微 */}
           <div className="core-card">
             <Shell>
-              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
-<div className="shrink-0 order-last sm:order-last" style={{ width: 300 }}>
-  <BaziPreview />
-</div>
-                <div className="text-center sm:text-left min-w-0">
-                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>八字 & 紫微</h3>
-                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>混沌独有一盘双参。四柱天干地支 + 十二宫排盘。大运流年、主星四化，一图尽览。</p>
-                  <Link href="/create" className="text-sm font-medium tracking-[0.05em] no-underline inline-flex items-center gap-2 group" style={{ color: gold }}>
-                    开始排盘 <span className="transition-transform group-hover:translate-x-1 text-lg">→</span>
-                  </Link>
+              <div className="card-row">
+                <div className="pv-col"><BaziPreview /></div>
+                <div className="card-copy">
+                  <h3 className="h3">八字 &amp; 紫微</h3>
+                  <p className="body muted">混沌独有一盘双参。四柱天干地支 + 十二宫排盘。大运流年、主星四化，一图尽览。</p>
+                  <Link href="/create" className="text-link">开始排盘 <span aria-hidden="true">→</span></Link>
                 </div>
               </div>
             </Shell>
           </div>
 
-          {/* Card 2: 六爻 — reversed */}
           <div className="core-card">
             <Shell>
-              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
-                <div className="text-center sm:text-left min-w-0">
-                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>六爻问卦</h3>
-                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。</p>
-                  <Link href="/liuyao" className="text-sm font-medium tracking-[0.05em] no-underline inline-flex items-center gap-2 group" style={{ color: gold }}>
-                    开始问卦 <span className="transition-transform group-hover:translate-x-1 text-lg">→</span>
-                  </Link>
-                </div>
-                <div className="shrink-0" style={{ width: 300 }}><LiuYaoPreview /></div>
-              </div>
-            </Shell>
-          </div>
-
-          {/* Card 3: 姓名合盘 */}
-          <div className="core-card">
-            <Shell>
-              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
-                <div className="shrink-0 order-last sm:order-last" style={{ width: 300 }}><HePanPreview /></div>
-                <div className="text-center sm:text-left min-w-0">
-                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>姓名合盘</h3>
-                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。</p>
-                  <span className="text-[11px] font-medium tracking-[0.1em] px-3 py-1 rounded-full" style={{ background: "rgba(178,149,93,0.08)", color: gold }}>即将上线</span>
+              <div className="card-row card-row-rev">
+                <div className="pv-col"><LiuYaoPreview /></div>
+                <div className="card-copy">
+                  <h3 className="h3">六爻问卦</h3>
+                  <p className="body muted">金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。</p>
+                  <Link href="/liuyao" className="text-link">开始问卦 <span aria-hidden="true">→</span></Link>
                 </div>
               </div>
             </Shell>
           </div>
 
-          {/* Card 4: 择日 */}
           <div className="core-card">
             <Shell>
-              <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12 min-h-[200px]">
-                <div className="text-center sm:text-left min-w-0">
-                  <h3 className="font-serif font-bold text-2xl sm:text-3xl mb-3 tracking-[-0.02em]" style={{ color: ink }}>择日</h3>
-                  <p className="text-[15px] leading-relaxed mb-6 max-w-lg" style={{ color: mute }}>黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。</p>
-                  <span className="text-[11px] font-medium tracking-[0.1em] px-3 py-1 rounded-full" style={{ background: "rgba(178,149,93,0.08)", color: gold }}>即将上线</span>
+              <div className="card-row">
+                <div className="pv-col"><HePanPreview /></div>
+                <div className="card-copy">
+                  <h3 className="h3">姓名合盘</h3>
+                  <p className="body muted">二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。</p>
+                  <span className="tag">即将上线</span>
                 </div>
-                <div className="shrink-0 order-last sm:order-last" style={{ width: 300 }}><ZeRiPreview /></div>
               </div>
             </Shell>
           </div>
 
-          {/* Coming soon grid */}
-          <div className="mt-4">
-            <p className="text-[11px] font-semibold tracking-[0.2em] mb-5 text-center" style={{ color: gold }}>更多即将上线</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="core-card">
+            <Shell>
+              <div className="card-row card-row-rev">
+                <div className="pv-col"><ZeRiPreview /></div>
+                <div className="card-copy">
+                  <h3 className="h3">择日</h3>
+                  <p className="body muted">黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。</p>
+                  <span className="tag">即将上线</span>
+                </div>
+              </div>
+            </Shell>
+          </div>
+
+          <div ref={toolsRef} className="tools">
+            <p className="eyebrow center">更多即将上线</p>
+            <div className="tools-grid">
               {[
                 { i:"⭐", t:"星座命盘", d:"西方占星 · 本命盘与合盘" },
                 { i:"👤", t:"面相", d:"AI 面相分析 · 五官气色辨吉凶" },
                 { i:"✋", t:"手相", d:"AI 手相解读 · 三大纹路断运势" },
               ].map((m, idx) => (
-                <div key={idx} className="tool-soon rounded-2xl p-5 text-center"
-                  style={{ background: white, border: "0.5px solid " + hair }}>
-                  <span className="text-2xl"><span>{m.i}</span></span>
-                  <h4 className="font-serif font-bold text-sm mt-3 mb-1" style={{ color: ink }}>{m.t}</h4>
-                  <p className="text-[11px] leading-relaxed" style={{ color: mute }}>{m.d}</p>
+                <div key={idx} className="tool-soon">
+                  <span className="tool-ico">{m.i}</span>
+                  <h4 className="tool-t">{m.t}</h4>
+                  <p className="tool-d muted">{m.d}</p>
                 </div>
               ))}
             </div>
@@ -641,86 +458,38 @@ export default function HomePage() {
         </div>
       </section>
 
-
       {/* ════════════ CTA ════════════ */}
-      <section ref={ctaRef} className="py-28 sm:py-40 px-6 text-center" style={{ background: paper }}>
-        <div className="cta-block max-w-md mx-auto">
-          <h2 className="font-serif font-bold tracking-[-0.02em] leading-[1.1] mb-4"
-            style={{ fontSize: 'clamp(1.6rem, 4vw, 2.3rem)', color: ink }}>随身携带你的混沌</h2>
-          <p className="text-[15px] leading-relaxed mb-8" style={{ color: mute }}>随时随地，排一盘，问一卦。</p>
-          <button onClick={() => { window.scrollTo({top:0,behavior:"smooth"}); setTimeout(() => setShowLauncher(true), 600) }} className="cta-btn inline-flex items-center gap-2 rounded-full px-7 py-3 text-[15px] font-medium no-underline transition-all duration-500 hover:scale-105 hover:shadow-xl active:scale-[0.98]"
-            style={{ background: gold, color: white, boxShadow: '0 4px 20px rgba(178,149,93,0.25)' }}>
-            开始使用 <span className="text-lg leading-none">→</span>
+      <section ref={ctaRef} className="band band-paper cta">
+        <div className="cta-block wrap-narrow">
+          <h2 className="h2">随身携带你的混沌</h2>
+          <p className="body muted">随时随地，排一盘，问一卦。</p>
+          <button onClick={() => { window.scrollTo({ top: 0, behavior: prefersReduced() ? 'auto' : 'smooth' }); setTimeout(() => setShowLauncher(true), prefersReduced() ? 0 : 600) }}
+            className="btn-primary">
+            开始使用 <span aria-hidden="true">→</span>
           </button>
         </div>
       </section>
 
-      
-
-      <style>{`
-        @keyframes scrolldot{0%,100%{opacity:0;transform:translateY(0)}50%{opacity:1;transform:translateY(6px)}}
-        @keyframes taijiPulse{0%,100%{opacity:0.4;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}
-        @keyframes taijiOrbit{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-        @keyframes ctaGlow{0%,100%{box-shadow:0 4px 20px rgba(178,149,93,0.25)}50%{box-shadow:0 4px 36px rgba(178,149,93,0.45)}}
-        @keyframes coinFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-        @keyframes diamondPulse{0%,100%{opacity:0.28}50%{opacity:0.48}}
-        @keyframes ringBreathe{0%,100%{opacity:0.25}50%{opacity:0.42}}
-        @keyframes hepanPulse{0%,100%{opacity:0.30}50%{opacity:0.50}}
-        .core-card{transition:transform 0.5s cubic-bezier(0.25,0.1,0.25,1),box-shadow 0.5s cubic-bezier(0.25,0.1,0.25,1);border-radius:20px}
-        .core-card:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(178,149,93,0.08),0 4px 12px rgba(0,0,0,0.05)}
-        .core-card:hover .card-shell{border-color:rgba(178,149,93,0.28)}
-        .core-card:hover svg{transform:scale(1.03)}
-        .core-card svg{transition:transform 0.5s cubic-bezier(0.25,0.1,0.25,1)}
-        .card-shell{transition:border-color 0.5s cubic-bezier(0.25,0.1,0.25,1);border:0.5px solid transparent;border-radius:20px}
-        .nav-link{position:relative;transition:color 0.3s}
-        .nav-link::after{content:'';position:absolute;left:0;bottom:-2px;width:0;height:1px;background:#b2955d;transition:width 0.35s cubic-bezier(0.25,0.1,0.25,1)}
-        .nav-link:hover::after{width:100%}
-        .cta-btn{animation:ctaGlow 3s ease-in-out infinite}
-        .tool-soon{transition:all 0.4s cubic-bezier(0.25,0.1,0.25,1)}
-        .tool-soon:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(0,0,0,0.05)}
-        .tool-soon:hover span{transform:scale(1.15)}
-        .tool-soon span{display:inline-block;transition:transform 0.35s cubic-bezier(0.25,0.1,0.25,1)}
-        .zr-outer{animation:diamondPulse 4s ease-in-out infinite}
-        .bz-outer{animation:ringBreathe 5s ease-in-out infinite}
-        .hp-outer{animation:hepanPulse 5s ease-in-out infinite}
-        .coin-1{animation:coinFloat 2.6s ease-in-out infinite}
-        .coin-2{animation:coinFloat 2.6s ease-in-out 0.4s infinite}
-        .coin-3{animation:coinFloat 2.6s ease-in-out 0.8s infinite}
-        .scrollbar-hide::-webkit-scrollbar{display:none}
-      `}</style>
-
-
-
-            {/* ════════════ LAUNCHER MODAL ════════════ */}
+      {/* ════════════ LAUNCHER MODAL ════════════ */}
       {showLauncher && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
-          onClick={() => setShowLauncher(false)}>
-          <div className="relative w-full max-w-[440px] rounded-[24px] px-8 py-10"
-            style={{ background: white, boxShadow: '0 40px 100px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(178,149,93,0.06)' }}
-            onClick={e => e.stopPropagation()}>
-
-            <button onClick={() => setShowLauncher(false)}
-              className="absolute top-5 right-5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:bg-[rgba(0,0,0,0.04)]"
-              style={{ color: mute }} aria-label="关闭">
+        <div className="overlay" onClick={() => setShowLauncher(false)}>
+          <div className="sheet" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowLauncher(false)} className="sheet-x" aria-label="关闭">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5"><line x1="3" y1="3" x2="13" y2="13"/><line x1="13" y1="3" x2="3" y2="13"/></svg>
             </button>
 
-            <div className="text-center mb-8">
-              <p className="text-[10px] tracking-[0.25em] font-semibold mb-3" style={{ color: gold }}>选择功能</p>
-              <h2 className="font-serif font-bold tracking-[-0.03em] leading-[1.2]"
-                style={{ fontSize: 'clamp(1.4rem, 4vw, 1.7rem)', color: ink }}>探索你的命理</h2>
+            <div className="sheet-head">
+              <p className="eyebrow center">选择功能</p>
+              <h2 className="h2 sheet-title">探索你的命理</h2>
             </div>
 
-            <div className="relative">
-              <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:-340,behavior:'smooth'}) }}
-                className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-115 active:scale-95"
-                style={{ background: white, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <div className="sheet-body">
+              <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:-340,behavior: prefersReduced() ? 'auto' : 'smooth'}) }}
+                className="sheet-arrow sheet-arrow-l" aria-label="上一个">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M10 3l-5 5 5 5"/></svg>
               </button>
 
-              <div id="ls" className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              <div id="ls" className="sheet-track">
                 {[
                   { href:"/create", zi:"命", title:"八字 & 紫微", desc:"四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。" },
                   { href:"/liuyao", zi:"爻", title:"六爻问卦", desc:"金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。" },
@@ -729,53 +498,252 @@ export default function HomePage() {
                 ].map((item, i) => (
                   <Link key={i} href={item.href}
                     onClick={() => item.tag ? null : setShowLauncher(false)}
-                    className={item.tag ? 'pointer-events-none group' : 'group'}
-                    style={{ textDecoration: 'none', minWidth: '100%' }}>
-                    <div className="snap-center w-full rounded-2xl px-6 py-8 flex flex-col items-center text-center transition-all duration-400 hover:bg-[rgba(178,149,93,0.02)] cursor-pointer"
-                      style={{ background: 'transparent' }}>
-                      <div className="mb-5 transition-transform duration-500 group-hover:scale-105"
-                        style={{ width: 72, height: 72, position: 'relative' }}>
-                        <svg viewBox="0 0 72 72" style={{ width: 72, height: 72 }}>
-                          <rect x="1" y="1" width="70" height="70" rx="8" fill="none" stroke={gold} strokeWidth="1.2" opacity="0.35" />
-                          <rect x="5" y="5" width="62" height="62" rx="4" fill="none" stroke={gold} strokeWidth="0.5" opacity="0.18" />
-                          <text x="36" y="50" textAnchor="middle" fill={gold} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
-                        </svg>
-                      </div>
-                      <h3 className="font-serif font-bold text-xl tracking-[-0.02em] mb-2" style={{ color: ink }}>{item.title}</h3>
-                      {item.tag ? (
-                        <span className="text-[10px] font-medium tracking-[0.08em] px-2.5 py-0.5 rounded-full mb-4"
-                          style={{ background: 'rgba(178,149,93,0.06)', color: gold }}>{item.tag}</span>
-                      ) : (
-                        <div className="w-10 h-px mb-4" style={{ background: 'rgba(178,149,93,0.18)' }} />
-                      )}
-                      <p className="text-[14px] leading-relaxed mb-6 max-w-[300px]" style={{ color: mute }}>{item.desc}</p>
-                      <div className="flex items-center gap-1.5 transition-all duration-300 group-hover:gap-2.5"
-                        style={{ color: item.tag ? 'rgba(0,0,0,0.10)' : gold }}>
-                        <span className="text-[13px] font-medium tracking-[0.03em]">{item.tag ? '敬请期待' : '进入'}</span>
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
-                      </div>
-                    </div>
+                    className={item.tag ? 'sheet-item is-soon' : 'sheet-item'}>
+                    <svg viewBox="0 0 72 72" className="sheet-zi">
+                      <rect x="1" y="1" width="70" height="70" rx="8" fill="none" stroke={gold} strokeWidth="1.2" opacity="0.35" />
+                      <text x="36" y="50" textAnchor="middle" fill={goldText} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
+                    </svg>
+                    <h3 className="h3 sheet-name">{item.title}</h3>
+                    {item.tag ? <span className="tag">{item.tag}</span> : <span className="sheet-rule" />}
+                    <p className="body muted sheet-desc">{item.desc}</p>
+                    <span className={item.tag ? 'sheet-go is-dim' : 'sheet-go'}>
+                      {item.tag ? '敬请期待' : '进入'}
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
+                    </span>
                   </Link>
                 ))}
               </div>
 
-              <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:340,behavior:'smooth'}) }}
-                className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-115 active:scale-95"
-                style={{ background: white, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:340,behavior: prefersReduced() ? 'auto' : 'smooth'}) }}
+                className="sheet-arrow sheet-arrow-r" aria-label="下一个">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
               </button>
-            </div>
-
-            <div className="flex items-center justify-center gap-3 mt-7">
-              {[0,1,2,3].map(i => (
-                <button key={i} onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollTo({left:i*350,behavior:'smooth'}) }}
-                  className="w-1.5 h-1.5 rounded-full transition-all duration-300 hover:scale-125"
-                  style={{ background: gold, opacity: 0.22 }} />
-              ))}
             </div>
           </div>
         </div>
       )}
+
+      <style>{`
+        .hp {
+          background: ${white}; color: ${ink};
+          --fs-1: clamp(2.75rem, 6vw, 3.5rem);
+          --fs-2: clamp(1.5rem, 2.6vw, 1.9rem);
+          --fs-3: 1.0625rem;
+          --fs-4: 0.875rem;
+          --fs-5: 0.75rem;
+        }
+        .hp * { box-sizing: border-box; }
+
+        /* ===== Layout ===== */
+        .hp .hero {
+          position: relative; overflow: hidden;
+          min-height: 100dvh;
+          display: flex; align-items: center; justify-content: center;
+          padding: 2.75rem 1.5rem 0;
+          background: linear-gradient(180deg, ${white} 0%, #fafaf8 100%);
+        }
+        .hp .hero-noise {
+          position: absolute; inset: 0; pointer-events: none; opacity: 0.03;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox=%220 0 256 256%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22n%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/%3E%3C/svg%3E");
+        }
+        .hp .hero-stack {
+          position: relative; z-index: 1;
+          display: flex; flex-direction: column; align-items: center; text-align: center;
+          width: 100%; max-width: 1120px;
+        }
+        .hp .hero-stage { height: 41svh; min-height: 190px; width: 100%; display: flex; align-items: center; justify-content: center; }
+        .hp .taiji { height: 100%; width: 100%; overflow: visible; }
+        .hp .h1 {
+          font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+          font-size: var(--fs-1); font-weight: 700; line-height: 1.05;
+          letter-spacing: -0.04em; margin: 0 0 0.5rem; color: ${ink};
+        }
+        .hp .hero-sub { font-size: var(--fs-3); line-height: 1.7; margin: 0; color: ${mute}; }
+        .hp .hero-actions { margin-top: 1.5rem; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
+
+        .hp .band { padding: 7rem 1.5rem; }
+        .hp .band-paper { background: ${paper}; }
+        .hp .band-white { background: ${white}; }
+        .hp .brand, .hp .cta { scroll-margin-top: 2.75rem; }
+        .hp .core { scroll-margin-top: 2.75rem; }
+        .hp .wrap-narrow { max-width: 672px; margin: 0 auto; }
+        .hp .wrap-mid { max-width: 980px; margin: 0 auto; }
+        .hp .flex-col-gap { display: flex; flex-direction: column; gap: 1.5rem; }
+
+        /* ===== Type ===== */
+        .hp .eyebrow {
+          font-size: var(--fs-5); font-weight: 600; letter-spacing: 0.22em;
+          color: ${goldText}; margin: 0 0 2.5rem; text-align: center;
+        }
+        .hp .eyebrow.center { text-align: center; }
+        .hp .h2 {
+          font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+          font-size: var(--fs-2); font-weight: 700; line-height: 1.15;
+          letter-spacing: -0.02em; margin: 0 0 0.75rem; color: ${ink};
+        }
+        .hp .h3 {
+          font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+          font-size: var(--fs-2); font-weight: 600; line-height: 1.15;
+          letter-spacing: -0.02em; margin: 0 0 0.75rem; color: ${ink};
+        }
+        .hp .body { font-size: var(--fs-3); line-height: 1.7; margin: 0 0 1.5rem; max-width: 34rem; }
+        .hp .muted { color: ${mute}; }
+        .hp .brand-line {
+          font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+          font-size: var(--fs-2); font-weight: 600; line-height: 1.6;
+          letter-spacing: 0.05em; text-align: center; margin: 0; color: ${ink};
+        }
+        .hp .brand .body { text-align: center; margin-inline: auto; }
+        .hp .mt-3 { margin-top: 0.75rem; }
+        .hp .mt-10 { margin-top: 2.5rem; }
+
+        /* ===== Buttons ===== */
+        .hp .btn-primary {
+          display: inline-flex; align-items: center; gap: 0.5rem;
+          border: 0; border-radius: 999px; cursor: pointer;
+          padding: 0.8rem 1.75rem; font-size: var(--fs-3); font-weight: 600; font-family: inherit;
+          background: ${gold}; color: ${ink};
+          transition: transform 400ms cubic-bezier(0.16,1,0.3,1);
+        }
+        .hp .btn-primary:hover { transform: translateY(-2px); }
+        .hp .btn-primary:active { transform: translateY(0); }
+        .hp .btn-ghost {
+          display: inline-flex; align-items: center; gap: 0.4rem;
+          border: 0; background: none; cursor: pointer; font-family: inherit;
+          padding: 0; font-size: var(--fs-4); font-weight: 600; letter-spacing: 0.03em;
+          color: ${goldText}; min-height: 44px;
+        }
+        .hp .text-link {
+          display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
+          font-size: var(--fs-4); font-weight: 600; letter-spacing: 0.03em; color: ${goldText};
+          min-height: 44px;
+          transition: transform 400ms cubic-bezier(0.16,1,0.3,1);
+        }
+        .hp .text-link:hover { transform: translateX(3px); }
+        .hp .tag {
+          display: inline-block; font-size: var(--fs-5); font-weight: 600; letter-spacing: 0.1em;
+          padding: 0.25rem 0.7rem; border-radius: 999px;
+          background: rgba(178,149,93,0.08); color: ${goldText};
+        }
+
+        /* ===== Cards ===== */
+        .hp .shell {
+          background: ${white}; border-radius: 20px; padding: 1.5rem;
+          box-shadow: 0 14px 40px rgba(0,0,0,0.05);
+        }
+        .hp .card-row { display: flex; flex-direction: column; align-items: center; gap: 2rem; }
+        .hp .card-copy { text-align: center; min-width: 0; }
+        .hp .card-copy .body { margin-inline: auto; }
+        .hp .pv-col { width: 100%; max-width: 260px; flex-shrink: 0; }
+        .hp .pv svg, .hp .pv-col > svg { display: block; width: 100%; height: auto; overflow: visible; }
+        .hp .core-card { border-radius: 20px; transition: transform 400ms cubic-bezier(0.16,1,0.3,1); }
+        .hp .core-card:hover { transform: translateY(-4px); }
+        .hp .tools { margin-top: 1rem; }
+        .hp .tools-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        .hp .tool-soon {
+          background: ${white}; border-radius: 16px; padding: 1.25rem; text-align: center;
+          box-shadow: 0 14px 40px rgba(0,0,0,0.04);
+        }
+        .hp .tool-ico { font-size: var(--fs-2); line-height: 1; }
+        .hp .tool-t { font-size: var(--fs-3); font-weight: 600; margin: 0.75rem 0 0.25rem; color: ${ink}; }
+        .hp .tool-d { font-size: var(--fs-4); line-height: 1.7; margin: 0; }
+        .hp .seal-box { display: flex; justify-content: center; margin-top: 2rem; }
+        .hp .seal { width: 56px; height: 56px; opacity: 0.55; }
+
+        .hp .pv-liuyao { position: relative; }
+        .hp .pv-liuyao .ly-lines { position: static; }
+        .hp .pv-liuyao .ly-coins {
+          position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+          display: flex; gap: 4%; width: 46%;
+        }
+        .hp .pv-liuyao .ly-coins > span { flex: 1; display: block; }
+
+        /* ===== CTA ===== */
+        .hp .cta { text-align: center; }
+        .hp .cta .body { margin-inline: auto; }
+
+        /* ===== Launcher ===== */
+        .hp .overlay {
+          position: fixed; inset: 0; z-index: 100;
+          display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+          background: rgba(0,0,0,0.45);
+        }
+        .hp .sheet {
+          position: relative; width: 100%; max-width: 440px;
+          border-radius: 24px; padding: 2.5rem 2rem;
+          background: ${white}; box-shadow: 0 32px 80px rgba(0,0,0,0.16);
+        }
+        .hp .sheet-x {
+          position: absolute; top: 1.25rem; right: 1.25rem; width: 2rem; height: 2rem;
+          border: 0; border-radius: 999px; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          background: none; color: ${mute};
+        }
+        .hp .sheet-head { text-align: center; margin-bottom: 2rem; }
+        .hp .sheet-head .eyebrow { margin-bottom: 0.75rem; }
+        .hp .sheet-title { margin: 0; }
+        .hp .sheet-body { position: relative; }
+        .hp .sheet-track {
+          display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+        }
+        .hp .sheet-track::-webkit-scrollbar { display: none; }
+        .hp .sheet-item {
+          scroll-snap-align: center; flex: 0 0 100%; min-width: 100%;
+          display: flex; flex-direction: column; align-items: center; text-align: center;
+          padding: 0.5rem 1rem; text-decoration: none; cursor: pointer;
+        }
+        .hp .sheet-item.is-soon { pointer-events: none; }
+        .hp .sheet-zi { width: 72px; height: 72px; margin-bottom: 1.25rem; }
+        .hp .sheet-name { font-size: var(--fs-3); margin-bottom: 1rem; }
+        .hp .sheet-rule { display: block; width: 2.5rem; height: 1px; margin: 0 0 1rem; background: rgba(178,149,93,0.24); }
+        .hp .sheet-desc { margin-bottom: 1.5rem; max-width: 300px; }
+        .hp .sheet-go {
+          display: inline-flex; align-items: center; gap: 0.4rem;
+          font-size: var(--fs-4); font-weight: 600; color: ${goldText};
+        }
+        .hp .sheet-go.is-dim { color: ${mute}; }
+        .hp .sheet-arrow {
+          position: absolute; top: 50%; transform: translateY(-50%); z-index: 1;
+          width: 2rem; height: 2rem; border-radius: 999px; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          background: ${white}; border: 0.5px solid rgba(0,0,0,0.08);
+        }
+        .hp .sheet-arrow-l { left: -0.75rem; }
+        .hp .sheet-arrow-r { right: -0.75rem; }
+
+        /* ===== One-shot hero entrance ===== */
+        @keyframes hpFade { from { opacity: 0; transform: translate3d(0,16px,0); } to { opacity: 1; transform: none; } }
+        @keyframes hpScale { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
+        .hp .fx { animation-duration: 700ms; animation-timing-function: cubic-bezier(0.16,1,0.3,1); animation-fill-mode: both; }
+        .hp .fx-stage { animation-name: hpScale; }
+        .hp .fx-title { animation-name: hpFade; animation-delay: 120ms; }
+        .hp .fx-sub   { animation-name: hpFade; animation-delay: 200ms; }
+        .hp .fx-cta   { animation-name: hpFade; animation-delay: 280ms; }
+
+        /* Narrow phones: keep the brand paragraph on its three authored lines. */
+        @media (max-width: 400px) {
+          .hp .brand .body { font-size: var(--fs-4); }
+        }
+
+        /* ===== Wide layout ===== */
+        @media (min-width: 640px) {
+          .hp .band { padding: 9rem 1.5rem; }
+          .hp .shell { padding: 2.5rem; }
+          .hp .card-row { flex-direction: row; gap: 3rem; text-align: left; }
+          .hp .card-row-rev { flex-direction: row-reverse; }
+          .hp .card-copy { text-align: left; }
+          .hp .card-copy .body { margin-inline: 0; }
+          .hp .cta .body { margin-inline: auto; }
+          .hp .tools-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .hp *, .hp *::before, .hp *::after {
+            animation: none !important; transition: none !important;
+          }
+          .hp .fx { opacity: 1; transform: none; }
+        }
+      `}</style>
     </div>
   );
 }

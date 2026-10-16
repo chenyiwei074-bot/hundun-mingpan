@@ -65,63 +65,51 @@ export default function LoadingPage() {
   }, [id, router]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6" style={{ background: '#ffffff', color: '#1d1d1f' }}>
-      
-
-      <div className="text-center pt-11">
-        <div className="w-16 h-16 mx-auto mb-8 relative">
-          <div className="absolute inset-0 rounded-full border-2 border-accent-gold/20" />
-          <div className="absolute inset-0 rounded-full border-2 border-t-accent-gold animate-spin" style={{ borderTopColor: '#b2955d' }} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="font-serif text-xl font-bold" style={{ color: '#b2955d' }}>混</span>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '76px 24px 48px' }}>
+      <section className="qn-ink qn-rise" style={{ width: '100%', maxWidth: 420, padding: '40px 28px 34px', textAlign: 'center' }}>
+        <div style={{ width: 62, height: 62, margin: '0 auto 26px', position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid rgba(178,149,93,0.25)' }} />
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '2px solid transparent', borderTopColor: 'var(--color-accent-gold)', animation: 'qn-spin 1.1s linear infinite' }} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="qn-title" style={{ color: 'var(--color-accent-gold-light)', margin: 0 }}>混</span>
           </div>
         </div>
 
-        <h1 className="font-serif text-2xl font-bold tracking-[0.05em] mb-3" style={{ color: '#1d1d1f' }}>
-          正在建立你的命理档案
-        </h1>
-        <p className="text-sm mb-10" style={{ color: '#86868b' }}>
-          八字 × 紫微双盘 AI 合参
-        </p>
+        <h1 className="qn-hero" style={{ margin: 0 }}>正在建立你的命理档案</h1>
+        <p className="qn-note" style={{ margin: '10px 0 30px' }}>八字 × 紫微双盘 AI 合参</p>
 
-        {/* Progress steps */}
-        <div className="space-y-3 max-w-[280px] mx-auto">
+        <div style={{ display: 'grid', gap: 12, maxWidth: 280, margin: '0 auto', textAlign: 'left' }}>
           {STEPS.map((s, i) => {
             const done = i < step;
             const active = i === step;
+            const badge = done ? 'var(--color-accent-gold)' : active ? 'rgba(178,149,93,0.22)' : 'rgba(255,255,255,0.08)';
+            const tint = done ? 'var(--color-text-primary)' : active ? 'var(--color-accent-gold-light)' : 'rgba(255,255,255,0.55)';
             return (
-              <div key={i} className="flex items-center gap-3 transition-all duration-500"
-                style={{ opacity: done || active ? 1 : 0.3 }}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300"
-                  style={{
-                    background: done ? '#b2955d' : active ? 'rgba(178,149,93,0.15)' : 'rgba(0,0,0,0.06)',
-                    color: done ? '#fff' : active ? '#b2955d' : 'rgba(0,0,0,0.25)',
-                  }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, transition: 'opacity .5s' }}>
+                <span style={{ flex: '0 0 auto', width: 30, height: 30, borderRadius: '50%', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', background: badge, color: tint,
+                  fontSize: 'var(--qn-fs-eyebrow)', fontWeight: 600, transition: 'background-color .3s, color .3s' }}>
                   {done ? '✓' : s.icon}
-                </div>
-                <span className="text-sm tracking-wider" style={{
-                  color: done ? '#1d1d1f' : active ? '#b2955d' : 'rgba(0,0,0,0.25)',
-                  fontWeight: active ? 600 : 400,
-                }}>
+                </span>
+                <span className="qn-meta" style={{ margin: 0, color: tint, fontWeight: active ? 600 : 400, letterSpacing: '0.04em' }}>
                   {s.label}
                 </span>
-                {active && (
-                  <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse ml-auto" style={{ background: '#b2955d' }} />
-                )}
+                {active && <span style={{ marginLeft: 'auto', width: 6, height: 6, borderRadius: '50%',
+                  background: 'var(--color-accent-gold)', animation: 'qn-pulse 1.4s ease-in-out infinite' }} />}
               </div>
             );
           })}
         </div>
+      </section>
 
-        {error && (
-          <div className="mt-8 rounded-lg p-4 text-sm max-w-[320px] mx-auto" style={{ background: 'rgba(212,84,74,0.06)', color: '#d4544a' }}>
-            <p className="mb-3">{error}</p>
-            <button onClick={() => router.push('/create')} className="px-5 py-2 rounded-full text-sm font-medium" style={{ background: '#b2955d', color: '#fff' }}>
-              返回重新排盘
-            </button>
-          </div>
-        )}
-      </div>
+      {error && (
+        <div className="qn-alert qn-rise" role="alert" style={{ width: '100%', maxWidth: 420, marginTop: 16, textAlign: 'center' }}>
+          <p style={{ margin: 0 }}>{error}</p>
+          <button type="button" onClick={() => router.push('/create')} className="qn-btn qn-btn--ghost" style={{ display: 'flex', margin: '14px auto 0' }}>
+            返回重新排盘
+          </button>
+        </div>
+      )}
     </div>
   );
 }

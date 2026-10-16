@@ -1,32 +1,53 @@
 @import "tailwindcss";
 
 @theme {
-  /* ===== 浅色主题 · 参考问真八字 ===== */
+  /* ===== 中性 · 以线上实际渲染值为准 ===== */
   --color-bg-primary: #f5f5f7;
   --color-bg-card: #ffffff;
   --color-bg-card-hover: #fafafa;
-  --color-text-primary: #101010;
-  --color-text-secondary: #666666;
-  --color-text-muted: #999999;
+  /* 顶栏/页脚共用的暖纸面：顶栏带透明度，页脚实色，值取自线上实渲 */
+  --color-bg-nav: rgba(250, 250, 249, 0.85);
+  --color-bg-footer: #fafaf8;
+  --color-text-primary: #1d1d1f;
+  /* secondary 供正文次级文字，取到 4.52:1 过 AA；muted 保留线上实渲值，只用于标签/辅助信息 */
+  --color-text-secondary: #707076;
+  --color-text-muted: #86868b;
+  --color-hairline: #c7c7cc;
+
+  /* ===== 品牌金 ===== */
   --color-accent-gold: #b2955d;
   --color-accent-gold-light: #d4b87a;
   --color-accent-gold-dark: #8b6d3b;
 
-  /* 五行配色 */
-  --color-wx-gold: #ef9104;
-  --color-wx-wood: #07a830;
-  --color-wx-water: #2e83f6;
-  --color-wx-fire: #d30505;
-  --color-wx-earth: #8b6d03;
+  /* ===== 五行 · 数据编码色，S92-97 高彩度，值冻结不可改 ===== */
+  --color-wx-jin: #ef9104;
+  --color-wx-mu: #07a830;
+  --color-wx-shui: #2e83f6;
+  --color-wx-huo: #d30505;
+  --color-wx-tu: #8b6d03;
 
-  /* 兼容旧别名 */
-  --color-xuan-zhi: #f5f5f7;
-  --color-dai-qing: #101010;
-  --color-dai-qing-dark: #000000;
-  --color-dai-qing-light: #333333;
-  --color-hu-po-jin: #b2955d;
-  --color-hu-po-jin-light: #d4b87a;
-  --color-hu-po-jin-dark: #8b6d3b;
+  /* ===== 四化 · 变化编码色，S18-41 低彩度，与五行按彩度分层 ===== */
+  --color-sihua-lu: #2f6b57;
+  --color-sihua-quan: #7a3540;
+  --color-sihua-ke: #3c5578;
+  --color-sihua-ji: #5a4a6b;
+
+  /* ===== 六神 · 数据编码色（青龙/朱雀/勾陈/螣蛇/白虎/玄武），与五行同等冻结。
+     专用命名，不复用文本语义 token；只用于圆点/色块，不作文字色。 ---- */
+  --color-shen-qinglong: #2e8b57;
+  --color-shen-zhuque: #d93a3a;
+  --color-shen-gouchen: #cfa972;
+  --color-shen-tengshe: #d4544a;
+  --color-shen-baihu: #86868b;
+  --color-shen-xuanwu: #1d1d1f;
+
+  /* ===== 吉凶 · 判断编码轴（星曜煞吉共用同一轴，不另立同名异值 token） ===== */
+  --color-ji: #8b6d3b;
+  --color-xiong: #b23a2e;
+
+  /* 品牌金的文字变体：#b2955d 在白/灰底上只有 2.86:1，不能用作可读文字，
+     小字号 eyebrow/强调一律走这个 5.99:1 的深金，色相不变、只压明度。 */
+  --color-accent-gold-text: #7a5f31;
 }
 
 * { box-sizing: border-box; }
@@ -37,6 +58,12 @@ body {
   font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  /* flex 列 + 页脚 margin-top:auto：内容不足一屏时页脚贴住视口底部，
+     而不是浮在中间、下面拖一条裸底色。slack 全给页脚的外边距，
+     所以不依赖页面根元素是 main 还是 div，也不会撑出假滚动条。 */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 .font-serif, h1, h2, h3, h4 { font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; }
 /* ===== Animations ===== */
@@ -91,11 +118,7 @@ body {
 @keyframes ring-rotate{to{transform:rotate(360deg)}}
 
 /* ===== Form ===== */
-.qn-input{width:100%;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-text-primary);outline:none;font-family:inherit;transition:border-color .2s}
-.qn-input:focus{border-color:rgba(178,149,93,0.4)}
-.qn-input::placeholder{color:rgba(0,0,0,0.25)}
-.qn-select{width:100%;background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--color-text-primary);outline:none;cursor:pointer;font-family:inherit;text-align:center;appearance:none}
-.qn-label{font-size:11px;letter-spacing:.28px;color:rgba(0,0,0,0.45);margin-bottom:6px;display:block}
+/* .qn-input / .qn-select / .qn-label 已上移到批 1 原语层，唯一消费者是 /create。 */
 
 /* ===== Additional animations ===== */
 @keyframes ink-spread{0%{opacity:.8;filter:blur(0);transform:scale(0)}to{opacity:0;filter:blur(12px);transform:scale(1)}}
@@ -130,5 +153,459 @@ body {
   }
   .liuyao-plate span {
     font-size: inherit;
+  }
+}
+
+/* ============================================================
+   批 1 · 共享原语层（只新增类，不改批 1 之外的既有值）
+   阶梯 5 级：11 eyebrow / 13 meta / 15 body / 18 title / 26 hero
+   标题只用 600 一档字重；正文 400，强调 500。
+   ============================================================ */
+:root {
+  --qn-fs-eyebrow: 11px;
+  --qn-fs-meta: 13px;
+  --qn-fs-body: 15px;
+  --qn-fs-title: 18px;
+  --qn-fs-hero: 26px;
+  /* 法务正文专用档：长文正文取 14px（批 3 裁定），可读性用行高补，不回退到 15。
+     仍然是阶梯里的一档，不在页面里写死 px。 */
+  --qn-fs-legal: 14px;
+  --qn-nav-h: 56px;
+  --qn-card-pad: 24px;
+  --qn-card-radius: 18px;
+  --qn-gap: 16px;
+  --qn-shadow: 0 2px 16px rgba(0, 0, 0, 0.05);
+  --qn-hairline: 0.5px solid rgba(0, 0, 0, 0.06);
+}
+
+/* 粘性导航让锚点滚动留出头部高度（Next 16 不再代管 scroll-behavior） */
+/* scrollbar-gutter：滚动条出现/消失不再改变可用宽度，否则整页横向跳 ~11px */
+html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stable; }
+
+.qn-shell {
+  max-width: 680px;
+  margin: 0 auto;
+  /* body 改成 flex 列之后必须显式 width:100%：flex 项在交叉轴上有 auto 外边距时
+     不再 stretch（规范如此），只给 max-width 会塌成 max-content ——
+     实测 /chart/result 从 760px 塌到 168px。box-sizing 全局是 border-box，
+     所以 width:100% + max-width + auto 外边距 = 改 flex 之前的块级填充行为。 */
+  width: 100%;
+  padding: calc(var(--qn-nav-h) + 24px) 20px 80px;
+}
+.qn-shell--wide { max-width: 760px; }
+@media (max-width: 480px) {
+  .qn-shell { padding-left: 24px; padding-right: 24px; }
+}
+
+.qn-stack > * + * { margin-top: var(--qn-gap); }
+
+.qn-card {
+  background: var(--color-bg-card);
+  border: var(--qn-hairline);
+  border-radius: var(--qn-card-radius);
+  box-shadow: var(--qn-shadow);
+  padding: var(--qn-card-pad);
+}
+@media (max-width: 480px) {
+  :root { --qn-card-pad: 20px; }
+}
+
+.qn-eyebrow {
+  font-size: var(--qn-fs-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  color: var(--color-accent-gold-text);
+}
+.qn-hero {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  font-size: var(--qn-fs-hero);
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.qn-title {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  font-size: var(--qn-fs-title);
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.qn-body { font-size: var(--qn-fs-body); line-height: 1.7; color: var(--color-text-primary); margin: 0; }
+.qn-meta { font-size: var(--qn-fs-meta); line-height: 1.7; color: var(--color-text-secondary); margin: 0; }
+.qn-note { font-size: var(--qn-fs-meta); line-height: 1.6; color: var(--color-text-secondary); margin: 0; }
+
+/* 段内标签：只用于卡片左侧的轴名，不参与阅读层级 */
+.qn-axis {
+  font-size: var(--qn-fs-eyebrow);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--color-accent-gold-text);
+  flex: 0 0 auto;
+}
+
+/* 控件小注（年/月/日/时间这类字段说明）：11px 但走 AA 达标的次级色，
+   原来用 rgba(0,0,0,0.35) 只有 2.42:1。 */
+.qn-cap {
+  font-size: var(--qn-fs-eyebrow);
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+/* ---- 状态徽标：状态色只做圆点编码，文字一律走 primary。
+   状态色（#4a9e6e/#c9a84c/#86868b/#b2955d/#d4544a）当 11px 文字用最高只有 3.5:1。 ---- */
+.qn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  min-height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: var(--qn-hairline);
+  background: var(--color-bg-card);
+  font-size: var(--qn-fs-eyebrow);
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+.qn-badge__dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+/* ---- 可点击列表行：悬停只换描边，不加第二层阴影也不位移（避免与卡片阴影叠加） ---- */
+.qn-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.18s;
+}
+.qn-row:hover { border-color: rgba(178, 149, 93, 0.45); }
+
+/* ---- 法务 / 说明页：四个静态页共用一套阅读节奏，页面里只写语义标签 ---- */
+.qn-legal h2 {
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  font-size: var(--qn-fs-body);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+  color: var(--color-accent-gold-text);
+  margin: 30px 0 8px;
+}
+/* 只给没挂类的裸 <p> 上节奏，带 .qn-meta / .qn-legal__foot 的段落归自己的类管 */
+.qn-legal p:not([class]) {
+  font-size: var(--qn-fs-legal);
+  line-height: 1.85;
+  color: var(--color-text-primary);
+  margin: 0 0 12px;
+}
+.qn-legal p:not([class]):last-child { margin-bottom: 0; }
+.qn-legal__foot {
+  margin-top: 36px;
+  padding-top: 16px;
+  border-top: var(--qn-hairline);
+  font-size: var(--qn-fs-meta);
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+/* ---- 顶栏：高度只认 --qn-nav-h，页面壳层已经按它留了顶部内边距，
+       之前 nav 实际 45px 而 token 56px，每个白页都多让了 12px。 ---- */
+.qn-nav {
+  position: fixed;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  background: var(--color-bg-nav);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: var(--qn-hairline);
+}
+.qn-nav__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1024px;
+  height: var(--qn-nav-h);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.qn-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  font-size: var(--qn-fs-title);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+.qn-nav__links { display: flex; align-items: center; }
+/* 断点自己写，不用 Tailwind 的 hidden sm:flex：本文件在 @import "tailwindcss" 之后，
+   同为单类选择器时后写的 .qn-nav__links{display:flex} 会盖掉 .sm\\:flex 之外的 hidden。 */
+.qn-nav__links--narrow { display: none; }
+@media (max-width: 639px) {
+  .qn-nav__links { display: none; }
+  .qn-nav__links--narrow { display: flex; }
+}
+.qn-navlink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  font-size: var(--qn-fs-meta);
+  letter-spacing: 0.03em;
+  color: var(--color-text-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.qn-navlink:hover { color: var(--color-accent-gold-text); }
+/* 激活态不能再用 #b2955d（2.74:1），换深金并叠一层字重，色盲下也分得出来 */
+.qn-navlink--active {
+  color: var(--color-accent-gold-text);
+  font-weight: 500;
+}
+
+/* ---- 页脚：margin-top:auto 把它顶到视口底部，短页面下面不再悬一条裸底色。
+       靠 body 的 flex 列生效，与页面根元素是 main 还是 div 无关。 ---- */
+.qn-footer {
+  margin-top: auto;
+  border-top: var(--qn-hairline);
+  background: var(--color-bg-footer);
+  padding: 28px 24px 32px;
+  text-align: center;
+}
+.qn-footer__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.qn-footer__meta {
+  margin: 0;
+  font-size: var(--qn-fs-meta);
+  line-height: 1.6;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+}
+.qn-footer__links { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.qn-footer__foot {
+  margin-top: 10px;
+  font-size: var(--qn-fs-eyebrow);
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+/* 页脚文字原先 12/11/10px 配 #86868b(3.47:1) 与 #c7c7cc(1.61:1)，两者都不过 AA；
+   可读文字最浅只能到 --color-text-secondary，层级改用字号与间距拉开。 */
+.qn-footlink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: var(--qn-fs-meta);
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.qn-footlink:hover { color: var(--color-accent-gold-text); }
+
+/* ---- 按钮：金底配墨字 5.90:1，白字配金底只有 2.86:1，已弃用 ---- */
+.qn-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 30px;
+  border-radius: 999px;
+  border: none;
+  font-family: inherit;
+  font-size: var(--qn-fs-body);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.qn-btn--solid { background: var(--color-accent-gold); color: var(--color-text-primary); }
+.qn-btn--solid:hover { background: var(--color-accent-gold-light); }
+.qn-btn--solid:active { transform: scale(0.985); }
+.qn-btn--ghost {
+  background: transparent;
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+.qn-btn--ghost:hover { box-shadow: inset 0 0 0 1px var(--color-accent-gold); }
+.qn-btn--quiet { background: transparent; color: var(--color-text-secondary); min-height: 40px; padding: 0 14px; }
+.qn-btn--quiet:hover { color: var(--color-text-primary); }
+.qn-btn--block { width: 100%; }
+.qn-btn:disabled { opacity: 0.45; cursor: wait; }
+.qn-btn:focus-visible, .qn-chip:focus-visible, .qn-link:focus-visible {
+  outline: 2px solid var(--color-accent-gold);
+  outline-offset: 2px;
+}
+
+.qn-link { color: var(--color-accent-gold-text); text-decoration: none; font-size: var(--qn-fs-meta); }
+.qn-link:hover { text-decoration: underline; }
+
+/* ---- 选项 chip ---- */
+.qn-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: var(--qn-fs-meta);
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+.qn-chip:hover { border-color: rgba(178, 149, 93, 0.5); }
+.qn-chip--on {
+  border-color: var(--color-accent-gold);
+  background: rgba(178, 149, 93, 0.10);
+  color: var(--color-accent-gold-text);
+  font-weight: 500;
+}
+@media (pointer: coarse) {
+  .qn-chip { min-height: 44px; }
+}
+
+/* ---- 墨金面板：命盘 / 起卦的聚焦舞台 ---- */
+.qn-ink {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  background: linear-gradient(158deg, #19191c 0%, #23201a 55%, #2c2519 100%);
+  color: #fff;
+  box-shadow: 0 10px 40px rgba(20, 16, 8, 0.22);
+}
+.qn-ink::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 82% -10%, rgba(178, 149, 93, 0.30) 0%, rgba(178, 149, 93, 0) 60%);
+  pointer-events: none;
+}
+.qn-ink > * { position: relative; z-index: 1; }
+.qn-ink .qn-hero { color: #fff; }
+.qn-ink .qn-title { color: #fff; }
+.qn-ink .qn-meta, .qn-ink .qn-note { color: rgba(255, 255, 255, 0.72); }
+.qn-ink .qn-cap { color: rgba(255, 255, 255, 0.66); }
+.qn-ink .qn-eyebrow { color: var(--color-accent-gold-light); }
+.qn-ink .qn-body { color: #fff; }
+/* 面板内表单：字段底色只有 6% 白，边框要拉到 40% 才过 3:1 图形对比 */
+.qn-ink .qn-input { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.40); color: #fff; }
+.qn-ink .qn-input::placeholder { color: rgba(255, 255, 255, 0.66); opacity: 1; }
+.qn-ink .qn-input:focus { border-color: var(--color-accent-gold-light); box-shadow: 0 0 0 3px rgba(178, 149, 93, 0.22); }
+.qn-ink .qn-btn--ghost { color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.40); }
+.qn-ink .qn-btn--ghost:hover { box-shadow: inset 0 0 0 1px var(--color-accent-gold-light); }
+
+/* ---- 表单控件（仅 /create 使用，批 1 内可安全升级） ---- */
+.qn-input {
+  width: 100%;
+  min-height: 46px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: var(--qn-fs-body);
+  color: var(--color-text-primary);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.qn-input:focus { border-color: rgba(178, 149, 93, 0.65); box-shadow: 0 0 0 3px rgba(178, 149, 93, 0.12); }
+.qn-input::placeholder { color: var(--color-text-secondary); opacity: 0.75; }
+.qn-select {
+  width: 100%;
+  min-height: 46px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 10px;
+  padding: 11px 10px;
+  font-size: var(--qn-fs-body);
+  color: var(--color-text-primary);
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  appearance: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.qn-select:focus { border-color: rgba(178, 149, 93, 0.65); box-shadow: 0 0 0 3px rgba(178, 149, 93, 0.12); }
+.qn-label {
+  font-size: var(--qn-fs-meta);
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  display: block;
+}
+.qn-textarea {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  border-radius: 12px;
+  padding: 13px 15px;
+  font-size: var(--qn-fs-body);
+  line-height: 1.7;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.qn-textarea:focus { border-color: rgba(178, 149, 93, 0.65); box-shadow: 0 0 0 3px rgba(178, 149, 93, 0.12); }
+
+/* ---- 状态条 ---- */
+.qn-alert {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: var(--qn-fs-meta);
+  line-height: 1.6;
+  background: rgba(178, 58, 46, 0.06);
+  color: var(--color-xiong);
+  border: 0.5px solid rgba(178, 58, 46, 0.18);
+}
+
+/* ---- 动效：一次性入场 + 全站降级 ---- */
+@keyframes qn-rise {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes qn-spin { to { transform: rotate(360deg); } }
+@keyframes qn-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.qn-rise { animation: qn-rise 0.62s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.qn-rise--2 { animation-delay: 0.08s; }
+.qn-rise--3 { animation-delay: 0.16s; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 
 const GAN_WX: Record<string,string>={'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
 const ZHI_WX: Record<string,string>={'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
-const WX_COLOR: Record<string,string>={'木':'#07a830','火':'#d30505','土':'#8b6d03','金':'#ef9104','水':'#2e83f6'};
-const WX_BG: Record<string,string>={'木':'rgba(7,168,48,0.08)','火':'rgba(211,5,5,0.08)','土':'rgba(139,109,3,0.08)','金':'rgba(239,145,4,0.08)','水':'rgba(46,131,246,0.08)'};
+const WX_COLOR: Record<string,string>={'木':'var(--color-wx-mu)','火':'var(--color-wx-huo)','土':'var(--color-wx-tu)','金':'var(--color-wx-jin)','水':'var(--color-wx-shui)'};
+const WX_BG: Record<string,string>={'木':'rgba(7,168,48,0.12)','火':'rgba(211,5,5,0.12)','土':'rgba(139,109,3,0.12)','金':'rgba(239,145,4,0.12)','水':'rgba(46,131,246,0.12)'};
 
 const WX_DETAIL: Record<string,{meaning:string,excess:string,deficit:string}> = {
   '木':{meaning:'生长、发展、创造力，代表仁慈与责任感',excess:'固执、不肯让步、容易钻牛角尖',deficit:'缺乏决断力、容易犹豫、做事拖沣'},
@@ -74,7 +74,7 @@ export default function BaziCard({ bazi, enrichment }: Props) {
   const dayunLabel = dayunStart != null && dayunStart !== Math.round(dayunStart) ? '约' + displayDayunStart + '岁' : dayunStart != null ? displayDayunStart + '岁' : '';
   const dayMaster = bazi?.dayMaster;
 
-  if (!siZhu) return <div className='rounded-xl border border-black/5 bg-white p-6 text-center text-sm' style={{color:'#86868b'}}>八字数据未加载</div>;
+  if (!siZhu) return <div className='qn-card qn-meta' style={{ textAlign: 'center' }}>八字数据未加载</div>;
 
   const wxCount: Record<string,number> = {'木':0,'火':0,'土':0,'金':0,'水':0};
   for (const key of PILLAR_KEYS) { const p = siZhu[key]; if (p) { const g=GAN_WX[p.gan]; const z=ZHI_WX[p.zhi]; if(g)wxCount[g]++; if(z)wxCount[z]++; } }
@@ -88,30 +88,29 @@ export default function BaziCard({ bazi, enrichment }: Props) {
 
   return (
     <section className='w-full'>
-      <h3 className='font-serif text-xl font-bold mb-5 tracking-wider' style={{color:'#1d1d1f'}}>
-        <span className='inline-block w-1.5 h-5 rounded-full mr-2.5 align-middle' style={{background:'#07a830'}} />
-        <span className='text-xs font-normal tracking-wider px-2 py-0.5 rounded mr-2 align-middle' style={{color:'#86868b',background:'rgba(0,0,0,0.04)'}}>分析依据</span>
-        八字四柱
-      </h3>
+      <header style={{ marginBottom: 18 }}>
+        <p className='qn-eyebrow' style={{ marginBottom: 6 }}>分析依据</p>
+        <h3 className='qn-title'>八字四柱</h3>
+      </header>
 
       {/* ━━━ 命格总览 ━━━ */}
       {dmWx && enrichment && (
-        <div className='rounded-2xl p-5 md:p-6 mb-6' style={{background:'rgba(7,168,48,0.03)',border:'1px solid rgba(7,168,48,0.1)'}}>
-          <div className='flex items-center gap-3 mb-4'>
-            <div className='w-10 h-10 rounded-full flex items-center justify-center text-xl font-serif font-bold' style={{background:WX_BG[dmWx],color:WX_COLOR[dmWx]}}>{dayMaster}</div>
+        <div className='qn-card' style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+            <div className='qn-title' style={{ width: 52, height: 52, flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: WX_BG[dmWx], color: 'var(--color-text-primary)', fontWeight: 700 }}>{dayMaster}</div>
             <div>
-              <h4 className='font-serif text-base font-bold' style={{color:'#1d1d1f'}}>{dmWx}性日主 · {enrichment?.['格局']?.primary||'格局待定'}</h4>
-              <p className='text-xs' style={{color:'#86868b'}}>命格总览</p>
+              <h4 className='qn-body' style={{ fontWeight: 600 }}>{dmWx}性日主 · {enrichment?.['格局']?.primary||'格局待定'}</h4>
+              <p className='qn-cap' style={{ marginTop: 3 }}>命格总览</p>
             </div>
           </div>
-          <div className='flex flex-wrap gap-1.5 mb-3'>
-            <span className='inline-block px-2.5 py-1 rounded-full text-[11px] font-medium' style={{background:WX_BG[dmWx],color:WX_COLOR[dmWx]}}>{dmWx} · {dmDetail?.meaning?.slice(0,4)}</span>
-            {enrichment?.['格局']?.primary && <span className='inline-block px-2.5 py-1 rounded-full text-[11px] font-medium' style={{background:'rgba(178,149,93,0.1)',color:'#b2955d'}}>{enrichment['格局'].primary}</span>}
-            {enrichment?.['旺衰']?.verdict && <span className='inline-block px-2.5 py-1 rounded-full text-[11px] font-medium' style={{background:'rgba(0,0,0,0.04)',color:'#555'}}>{enrichment['旺衰'].verdict}</span>}
-            {enrichment?.['调候用神']?.length > 0 && <span className='inline-block px-2.5 py-1 rounded-full text-[11px] font-medium' style={{background:'rgba(46,131,246,0.08)',color:'#2e83f6'}}>喜{enrichment['调候用神'].slice(0,2).join('')}</span>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+            <span className='qn-cap' style={{ background: WX_BG[dmWx], color: 'var(--color-text-primary)', padding: '4px 11px', borderRadius: 999, fontWeight: 500 }}>{dmWx} · {dmDetail?.meaning?.slice(0,4)}</span>
+            {enrichment?.['格局']?.primary && <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '4px 11px', borderRadius: 999, fontWeight: 500 }}>{enrichment['格局'].primary}</span>}
+            {enrichment?.['旺衰']?.verdict && <span className='qn-cap' style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--color-text-primary)', padding: '4px 11px', borderRadius: 999, fontWeight: 500 }}>{enrichment['旺衰'].verdict}</span>}
+            {enrichment?.['调候用神']?.length > 0 && <span className='qn-cap' style={{ background: 'rgba(0,0,0,0.04)', color: 'var(--color-text-primary)', padding: '4px 11px', borderRadius: 999, fontWeight: 500 }}>喜{enrichment['调候用神'].slice(0,2).join('')}</span>}
           </div>
-          <p className='text-sm leading-relaxed' style={{color:'#555'}}>
-            日主<strong style={{color:WX_COLOR[dmWx]}}>{dayMaster}</strong>（{dmWx}），
+          <p className='qn-meta' style={{ color: 'var(--color-text-primary)' }}>
+            日主<strong>{dayMaster}</strong>（{dmWx}），
             {enrichment?.['旺衰']?.verdict === '偏旺' ? '命局能量充沛，自主意识强，行事主动果断。' : 
              enrichment?.['旺衰']?.verdict === '偏弱' ? '命局温和内敛，善于借力，在协作中发挥最大价值。' :
              enrichment?.['旺衰']?.verdict?.includes('极旺') ? '命局能量极强，格局宏大，需注意平衡与节制。' :
@@ -124,111 +123,110 @@ export default function BaziCard({ bazi, enrichment }: Props) {
       )}
 
       {dmWx && dmDetail && (
-        <div className='rounded-xl border border-black/5 bg-white p-5 mb-6 shadow-sm'>
-          <h4 className='text-sm font-bold mb-4 tracking-wider' style={{color:'#1d1d1f'}}>日主解析</h4>
-          <div className='grid md:grid-cols-2 gap-4'>
+        <div className='qn-card' style={{ marginBottom: 24 }}>
+          <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 16 }}>日主解析</h4>
+          <div className='grid md:grid-cols-2' style={{ gap: 16 }}>
             <div>
-              <div className='flex items-center gap-2 mb-3'>
-                <span className='text-3xl font-serif font-bold' style={{color:WX_COLOR[dmWx]||'#1d1d1f'}}>{dayMaster}</span>
-                <span className='text-xs px-2 py-0.5 rounded-full' style={{background:WX_BG[dmWx],color:WX_COLOR[dmWx]}}>{dmWx}性日主</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <span className='qn-hero font-serif' style={{ fontWeight: 700, color: 'var(--color-text-primary)' }}>{dayMaster}</span>
+                <span className='qn-cap' style={{ background: WX_BG[dmWx], color: 'var(--color-text-primary)', padding: '3px 10px', borderRadius: 999, fontWeight: 500 }}>{dmWx}性日主</span>
               </div>
-              <p className='text-sm' style={{color:'#555'}}>
-                <span style={{color:'#86868b'}}>代表性格：</span>{dmDetail.meaning}
-              </p>
+              <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>代表性格：</span>{dmDetail.meaning}</p>
             </div>
-            <div className='space-y-2 text-sm'>
-              <div><span style={{color:'#07a830'}}>优势：</span>{dmDetail.excess.replace('，','、').split('、').slice(0,2).join('、')}</div>
-              <div><span style={{color:'#d30505'}}>不足：</span>{dmDetail.deficit.replace('，','、').split('、').slice(0,2).join('、')}</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {/* 吉凶走判断编码轴，不用五行色：这里没有数据映射，绿色/红色一旦占用，
+                  真正的五行数据就不再有唯一视觉含义 */}
+              <p className='qn-meta'><span className='qn-axis' style={{ color: 'var(--color-ji)' }}>优势</span> {dmDetail.excess.replace('，','、').split('、').slice(0,2).join('、')}</p>
+              <p className='qn-meta'><span className='qn-axis' style={{ color: 'var(--color-xiong)' }}>不足</span> {dmDetail.deficit.replace('，','、').split('、').slice(0,2).join('、')}</p>
             </div>
           </div>
         </div>
       )}
 
-      <div className='grid grid-cols-4 gap-2 md:gap-4 mb-6'>
+      <div className='grid grid-cols-4' style={{ gap: 8, marginBottom: 24 }}>
         {PILLAR_KEYS.map((key, idx) => {
           const p = siZhu[key]; if (!p) return null;
-          const gc = WX_COLOR[GAN_WX[p.gan]]||'#1d1d1f'; const zc = WX_COLOR[ZHI_WX[p.zhi]]||'#1d1d1f';
           const gb = WX_BG[GAN_WX[p.gan]]||'rgba(0,0,0,0.03)'; const zb = WX_BG[ZHI_WX[p.zhi]]||'rgba(0,0,0,0.03)';
           return (
-            <div key={key} className='rounded-xl border border-black/5 bg-white p-3 md:p-4 text-center shadow-sm'>
-              <div className='text-xs tracking-wider mb-2' style={{color:'#86868b'}}>{PILLAR_LABELS[idx]}</div>
-              <div className='text-xs mb-2' style={{color:'#b2955d'}}>{shiShen?.[key]||''}</div>
-              <div className='text-2xl md:text-3xl font-serif font-bold mb-1 rounded-lg py-1 mx-auto' style={{color:gc,background:gb,maxWidth:'60px'}}>{p.gan}</div>
-              <div className='text-2xl md:text-3xl font-serif font-bold rounded-lg py-1 mx-auto' style={{color:zc,background:zb,maxWidth:'60px'}}>{p.zhi}</div>
+            <div key={key} className='qn-card' style={{ padding: '14px 8px', textAlign: 'center' }}>
+              <div className='qn-cap' style={{ marginBottom: 8 }}>{PILLAR_LABELS[idx]}</div>
+              <div className='qn-cap' style={{ color: 'var(--color-accent-gold-text)', marginBottom: 8 }}>{shiShen?.[key]||''}</div>
+              <div className='font-serif' style={{ fontSize: 26, fontWeight: 700, marginBottom: 4, borderRadius: 8, padding: '4px 0', width: 44, marginInline: 'auto', color: 'var(--color-text-primary)', background: gb }}>{p.gan}</div>
+              <div className='font-serif' style={{ fontSize: 26, fontWeight: 700, borderRadius: 8, padding: '4px 0', width: 44, marginInline: 'auto', color: 'var(--color-text-primary)', background: zb }}>{p.zhi}</div>
             </div>);
         })}
       </div>
 
-      <div className='rounded-xl border border-black/5 bg-white p-5 mb-6 shadow-sm'>
-        <h4 className='text-sm font-bold mb-4 tracking-wider' style={{color:'#1d1d1f'}}>五行能量分析</h4>
-        <p className='text-xs mb-4 leading-relaxed' style={{color:'#86868b'}}>以下展示你命局中五行的分布与强弱，每种五行代表不同的人生能量维度。</p>
+      <div className='qn-card' style={{ marginBottom: 24 }}>
+        <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 14 }}>五行能量分析</h4>
+        <p className='qn-meta' style={{ marginBottom: 16 }}>以下展示你命局中五行的分布与强弱，每种五行代表不同的人生能量维度。</p>
         {(['木','火','土','金','水'] as const).map(wx => {
           const cnt = wxCount[wx]||0; const pct = Math.round((cnt/8)*100); const d = WX_DETAIL[wx];
           return (
-            <div key={wx} className='mb-3 last:mb-0'>
-              <div className='flex items-center gap-3 mb-1'>
-                <span className='text-xs w-8 font-bold' style={{color:WX_COLOR[wx]}}>{wx}</span>
-                <div className='flex-1 h-2 rounded-full overflow-hidden' style={{background:'rgba(0,0,0,0.06)'}}>
-                  <div className='h-full rounded-full' style={{width:pct+'%',background:WX_COLOR[wx]}} />
+            <div key={wx} style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                <span className='qn-body' style={{ width: 22, flex: '0 0 auto', fontWeight: 700, color: 'var(--color-text-primary)' }}>{wx}</span>
+                <div style={{ flex: '1 1 auto', height: 8, borderRadius: 999, overflow: 'hidden', background: 'rgba(0,0,0,0.07)' }}>
+                  <div style={{ height: '100%', borderRadius: 999, width: pct + '%', background: WX_COLOR[wx] }} />
                 </div>
-                <span className='text-xs w-10 text-right' style={{color:'#86868b'}}>{cnt}/8</span>
+                <span className='qn-cap' style={{ width: 34, flex: '0 0 auto', textAlign: 'right' }}>{cnt}/8</span>
               </div>
-              <p className='text-[11px] leading-relaxed pl-11' style={{color:'#aaa'}}>
-                  <span style={{color:'#555'}}>{d.meaning}</span>
-                  {cnt>=3 ? <span style={{color:'#d30505'}}> · 偏强：{d.excess}</span> : cnt<=1 ? <span style={{color:'#2e83f6'}}> · 偏弱：{d.deficit}</span> : <span style={{color:'#07a830'}}> · 均衡</span>}
+              <p className='qn-cap' style={{ paddingLeft: 34, color: 'var(--color-text-secondary)' }}>
+                  <span style={{ color: 'var(--color-text-primary)' }}>{d.meaning}</span>
+                  {cnt>=3 ? <span style={{ color: 'var(--color-xiong)' }}> · 偏强：{d.excess}</span> : cnt<=1 ? <span style={{ color: 'var(--color-xiong)' }}> · 偏弱：{d.deficit}</span> : <span style={{ color: 'var(--color-text-primary)' }}> · 均衡</span>}
                 </p>
             </div>);
         })}
       </div>
 
-      {zhiRels.length > 0 && (
-        <div className='rounded-xl border border-black/5 bg-white p-5 mb-6 shadow-sm'>
-          <h4 className='text-sm font-bold mb-3 tracking-wider' style={{color:'#1d1d1f'}}>干支关系</h4>
-          <div className='space-y-2'>
-            {zhiRels.slice(0,4).map((r:any,i:number) => (
-              <div key={i} className='flex items-start gap-2 text-sm'>
-                <span className='px-1.5 py-0.5 rounded text-[11px] font-medium flex-shrink-0' style={{background:'rgba(178,149,93,0.1)',color:'#b2955d'}}>{r.type}</span>
-                <span style={{color:'#1d1d1f'}}>{r.pair[0]}{r.pair[1]}</span>
-                <span className='text-xs' style={{color:'#86868b'}}>{r.desc}</span>
-              </div>
-            ))}
-          </div>
-          {zhiRels.length === 0 && <p className='text-xs' style={{color:'#aaa'}}>四柱地支暂无明显合冲刑害关系</p>}
+      <div className='qn-card' style={{ marginBottom: 24 }}>
+        <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>干支关系</h4>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {zhiRels.length === 0 && (
+            <p className='qn-meta' style={{ color: 'var(--color-text-secondary)' }}>四柱地支暂无明显合冲刑害关系</p>
+          )}
+          {zhiRels.slice(0,4).map((r:any,i:number) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+              <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 8px', borderRadius: 6, fontWeight: 500, flex: '0 0 auto' }}>{r.type}</span>
+              <span className='qn-body' style={{ fontWeight: 500 }}>{r.pair[0]}{r.pair[1]}</span>
+              <span className='qn-meta'>{r.desc}</span>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
 
-      <button onClick={()=>setExpanded(!expanded)} className='w-full text-center py-2.5 rounded-lg text-xs tracking-wider transition-colors' style={{color:'#b2955d',background:'rgba(178,149,93,0.06)'}}>
-        {expanded ? '收起详情 ▲' : '展开更多八字信息 ▼'}
+      <button onClick={()=>setExpanded(!expanded)} className='qn-btn qn-btn--ghost' style={{ width: '100%' }}>
+        {expanded ? '收起详情' : '展开更多八字信息'}
       </button>
 
       {expanded && (
-        <div className='mt-4 space-y-4'>
+        <div style={{ display: 'grid', gap: 16, marginTop: 16 }}>
           {/* 格局分析 */}
           {enrichment?.['格局'] && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>格局分析</h4>
-              <div className='space-y-2 text-sm'>
-                <div><span style={{color:'#86868b'}}>格局：</span><span className='font-medium ml-1' style={{color:'#b2955d'}}>{enrichment['格局'].primary||'—'}</span><span className='ml-2 text-[10px] px-1.5 py-0.5 rounded' style={{background:'rgba(178,149,93,0.08)',color:'#b2955d'}}>置信度 {enrichment['格局'].confidence||'—'}</span></div>
-                {enrichment['格局'].basis && <div><span style={{color:'#86868b'}}>形成原因：</span><span className='ml-1' style={{color:'#555'}}>{enrichment['格局'].basis}</span></div>}
-                {enrichment['格局'].透干?.length > 0 && <div><span style={{color:'#86868b'}}>透干：</span><span className='ml-1' style={{color:'#555'}}>{enrichment['格局'].透干.join('、')}</span></div>}
-                {enrichment['格局'].notes?.length > 0 && <div><span style={{color:'#86868b'}}>备注：</span><span className='ml-1' style={{color:'#555'}}>{enrichment['格局'].notes.slice(0,4).join('、')}</span></div>}
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>格局分析</h4>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>格局：</span><span style={{ color: 'var(--color-accent-gold-text)', fontWeight: 500 }}>{enrichment['格局'].primary||'—'}</span><span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', marginLeft: 8, padding: '2px 7px', borderRadius: 6 }}>置信度 {enrichment['格局'].confidence||'—'}</span></p>
+                {enrichment['格局'].basis && <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>形成原因：</span>{enrichment['格局'].basis}</p>}
+                {enrichment['格局'].透干?.length > 0 && <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>透干：</span>{enrichment['格局'].透干.join('、')}</p>}
+                {enrichment['格局'].notes?.length > 0 && <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>备注：</span>{enrichment['格局'].notes.slice(0,4).join('、')}</p>}
               </div>
             </div>
           )}
 
           {/* 旺衰分析 */}
           {enrichment?.['旺衰'] && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>旺衰分析</h4>
-              <div className='grid grid-cols-2 gap-3 text-sm mb-3'>
-                <div><span style={{color:'#86868b'}}>日主强弱：</span><span className='font-medium' style={{color:'#1d1d1f'}}>{enrichment['旺衰'].verdict||'—'}</span></div>
-                <div><span style={{color:'#86868b'}}>得分：</span><span className='font-medium' style={{color:'#1d1d1f'}}>{enrichment['旺衰'].score??'—'}</span><span className='ml-2 text-[10px] px-1.5 py-0.5 rounded' style={{background:'rgba(178,149,93,0.08)',color:'#b2955d'}}>置信度 {enrichment['旺衰'].confidence||'—'}</span></div>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>旺衰分析</h4>
+              <div className='grid grid-cols-2' style={{ gap: 12, marginBottom: 12 }}>
+                <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>日主强弱：</span><span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{enrichment['旺衰'].verdict||'—'}</span></p>
+                <p className='qn-meta'><span style={{ color: 'var(--color-text-secondary)' }}>得分：</span><span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{enrichment['旺衰'].score??'—'}</span><span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', marginLeft: 8, padding: '2px 7px', borderRadius: 6 }}>置信度 {enrichment['旺衰'].confidence||'—'}</span></p>
               </div>
               {enrichment['旺衰'].breakdown?.details?.length > 0 && (
-                <div className='space-y-1'>
-                  <div className='text-[11px] tracking-wider mb-2' style={{color:'#86868b'}}>计算明细</div>
+                <div style={{ display: 'grid', gap: 4 }}>
+                  <div className='qn-axis' style={{ marginBottom: 4 }}>计算明细</div>
                   {enrichment['旺衰'].breakdown.details.map((d:string,i:number) => (
-                    <div key={i} className='text-xs' style={{color:'#999'}}>{d}</div>
+                    <p key={i} className='qn-cap'>{d}</p>
                   ))}
                 </div>
               )}
@@ -237,36 +235,36 @@ export default function BaziCard({ bazi, enrichment }: Props) {
 
           {/* 五行统计与调候 */}
           {enrichment?.['五行统计'] && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>五行统计</h4>
-              <div className='grid grid-cols-5 gap-2 text-center text-xs mb-3'>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>五行统计</h4>
+              <div className='grid grid-cols-5' style={{ gap: 8, marginBottom: 12, textAlign: 'center' }}>
                 {(Object.entries(enrichment['五行统计'].surface||{}) as [string,any][]).map(([wx,cnt]) => (
-                  <div key={wx} className='rounded-lg p-2' style={{background:wx==='木'?'rgba(7,168,48,0.06)':wx==='火'?'rgba(211,5,5,0.06)':wx==='土'?'rgba(139,109,3,0.06)':wx==='金'?'rgba(239,145,4,0.06)':'rgba(46,131,246,0.06)'}}>
-                    <div style={{color:wx==='木'?'#07a830':wx==='火'?'#d30505':wx==='土'?'#8b6d03':wx==='金'?'#ef9104':'#2e83f6'}}>{wx} {cnt}</div>
+                  <div key={wx} style={{ background: WX_BG[wx] || 'rgba(0,0,0,0.03)', borderRadius: 10, padding: '9px 4px' }}>
+                    <div className='qn-meta' style={{ color: 'var(--color-text-primary)', fontWeight: 600 }}>{wx} {cnt}</div>
                   </div>
                 ))}
               </div>
-              {enrichment['五行统计'].strongest?.length > 0 && <p className='text-xs mb-2' style={{color:'#555'}}>最强五行：<span className='font-medium' style={{color:'#07a830'}}>{enrichment['五行统计'].strongest.join('、')}</span></p>}
-              {enrichment['五行统计'].missing?.length > 0 && <p className='text-xs mb-2' style={{color:'#999'}}>缺失五行：{enrichment['五行统计'].missing.join('、')}</p>}
-              {enrichment?.['调候用神']?.length > 0 && <p className='text-xs' style={{color:'#555'}}>调候用神：<span className='font-medium' style={{color:'#b2955d'}}>{enrichment['调候用神'].join('、')}</span></p>}
+              {enrichment['五行统计'].strongest?.length > 0 && <p className='qn-meta' style={{ marginBottom: 6 }}>最强五行：<span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{enrichment['五行统计'].strongest.join('、')}</span></p>}
+              {enrichment['五行统计'].missing?.length > 0 && <p className='qn-meta' style={{ marginBottom: 6 }}>缺失五行：{enrichment['五行统计'].missing.join('、')}</p>}
+              {enrichment?.['调候用神']?.length > 0 && <p className='qn-meta'>调候用神：<span style={{ color: 'var(--color-text-primary)', fontWeight: 500 }}>{enrichment['调候用神'].join('、')}</span></p>}
             </div>
           )}
 
           {/* 十神分析 */}
           {shiShen && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>十神分析</h4>
-              <p className='text-xs mb-3 leading-relaxed' style={{color:'#86868b'}}>十神揭示你与外界的关系模式——如何对待他人、获取财富、面对压力。</p>
-              <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-3'>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 10 }}>十神分析</h4>
+              <p className='qn-meta' style={{ marginBottom: 12 }}>十神揭示你与外界的关系模式——如何对待他人、获取财富、面对压力。</p>
+              <div className='grid grid-cols-2 md:grid-cols-4' style={{ gap: 12 }}>
                 {PILLAR_KEYS.map((key,idx) => {
                   const ss = shiShen?.[key];
                   const info = SHI_SHEN_MEANING[ss||''];
                   if (!ss || !info) return null;
                   return (
-                    <div key={key} className='rounded-lg p-3 text-center' style={{background:'rgba(0,0,0,0.02)'}}>
-                      <div className='text-[10px] mb-1' style={{color:'#86868b'}}>{PILLAR_LABELS[idx]}</div>
-                      <div className='text-sm font-bold mb-1' style={{color:'#1d1d1f'}}>{ss}</div>
-                      <div className='text-[10px] leading-relaxed' style={{color:'#999'}}>{info.meaning}</div>
+                    <div key={key} style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 12, padding: '12px 10px', textAlign: 'center' }}>
+                      <div className='qn-cap' style={{ marginBottom: 4 }}>{PILLAR_LABELS[idx]}</div>
+                      <div className='qn-body' style={{ fontWeight: 600, marginBottom: 4 }}>{ss}</div>
+                      <p className='qn-cap'>{info.meaning}</p>
                     </div>
                   );
                 })}
@@ -276,13 +274,13 @@ export default function BaziCard({ bazi, enrichment }: Props) {
 
           {/* 天干关系 */}
           {enrichment?.['天干关系']?.length > 0 && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>天干关系</h4>
-              <div className='space-y-2'>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>天干关系</h4>
+              <div style={{ display: 'grid', gap: 8 }}>
                 {enrichment['天干关系'].map((r:any,i:number) => (
-                  <div key={i} className='flex items-start gap-2 text-sm'>
-                    <span className='px-1.5 py-0.5 rounded text-[11px] font-medium flex-shrink-0' style={{background:'rgba(178,149,93,0.1)',color:'#b2955d'}}>{r.type}</span>
-                    <span style={{color:'#1d1d1f'}}>{r.gans?.join('')}{r.pillars ? '（'+r.pillars.join('')+'柱）' : ''}</span>
+                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 8px', borderRadius: 6, fontWeight: 500, flex: '0 0 auto' }}>{r.type}</span>
+                    <span className='qn-body'>{r.gans?.join('')}{r.pillars ? '（'+r.pillars.join('')+'柱）' : ''}</span>
                   </div>
                 ))}
               </div>
@@ -291,14 +289,14 @@ export default function BaziCard({ bazi, enrichment }: Props) {
 
           {/* 地支关系 */}
           {enrichment?.['地支关系']?.length > 0 && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>地支关系</h4>
-              <div className='space-y-2'>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>地支关系</h4>
+              <div style={{ display: 'grid', gap: 8 }}>
                 {enrichment['地支关系'].map((r:any,i:number) => (
-                  <div key={i} className='flex items-start gap-2 text-sm'>
-                    <span className='px-1.5 py-0.5 rounded text-[11px] font-medium flex-shrink-0' style={{background:'rgba(178,149,93,0.1)',color:'#b2955d'}}>{r.type}</span>
-                    <span style={{color:'#1d1d1f'}}>{r.zhi?.join('')}{r.pillars ? '（'+r.pillars.join('')+'柱）' : ''}</span>
-                    {r.detail && <span className='text-xs' style={{color:'#86868b'}}>{r.detail}</span>}
+                  <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <span className='qn-cap' style={{ background: 'rgba(178,149,93,0.10)', color: 'var(--color-accent-gold-text)', padding: '3px 8px', borderRadius: 6, fontWeight: 500, flex: '0 0 auto' }}>{r.type}</span>
+                    <span className='qn-body'>{r.zhi?.join('')}{r.pillars ? '（'+r.pillars.join('')+'柱）' : ''}</span>
+                    {r.detail && <span className='qn-meta'>{r.detail}</span>}
                   </div>
                 ))}
               </div>
@@ -307,14 +305,14 @@ export default function BaziCard({ bazi, enrichment }: Props) {
 
           {/* 整柱分析 */}
           {enrichment?.['整柱']?.length > 0 && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>整柱分析</h4>
-              <div className='grid grid-cols-4 gap-2 text-center text-xs'>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>整柱分析</h4>
+              <div className='grid grid-cols-4' style={{ gap: 8, textAlign: 'center' }}>
                 {enrichment['整柱'].map((r:any,i:number) => (
-                  <div key={i} className='rounded-lg p-2' style={{background:'rgba(0,0,0,0.02)'}}>
-                    <div className='mb-1' style={{color:'#86868b'}}>{r.pillar}柱</div>
-                    <div className='font-serif font-bold text-sm mb-0.5' style={{color:'#1d1d1f'}}>{r.gan}{r.zhi}</div>
-                    <div style={{color:'#b2955d'}}>{r.verdict}</div>
+                  <div key={i} style={{ background: 'rgba(0,0,0,0.02)', borderRadius: 10, padding: '10px 6px' }}>
+                    <div className='qn-cap' style={{ marginBottom: 4 }}>{r.pillar}柱</div>
+                    <div className='qn-body font-serif' style={{ fontWeight: 600, marginBottom: 4 }}>{r.gan}{r.zhi}</div>
+                    <div className='qn-cap' style={{ color: 'var(--color-accent-gold-text)' }}>{r.verdict}</div>
                   </div>
                 ))}
               </div>
@@ -323,13 +321,13 @@ export default function BaziCard({ bazi, enrichment }: Props) {
 
           {/* 大运概览 */}
           {dayun && dayun.length > 0 && (
-            <div className='rounded-xl border border-black/5 bg-white p-4 shadow-sm'>
-              <h4 className='text-sm font-bold mb-3' style={{color:'#1d1d1f'}}>大运起运：<span style={{color:'#b2955d'}}>{dayunLabel}</span></h4>
-              <div className='flex flex-wrap gap-2'>
+            <div className='qn-card'>
+              <h4 className='qn-body' style={{ fontWeight: 600, marginBottom: 12 }}>大运起运：<span style={{ color: 'var(--color-accent-gold-text)' }}>{dayunLabel}</span></h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {dayun.slice(0,8).map((dy:any,i:number)=>(
-                  <div key={i} className='rounded-lg px-3 py-2 text-center text-xs' style={{background:'rgba(0,0,0,0.03)'}}>
-                    <div style={{color:'#86868b'}}>{dy.startAge}岁</div>
-                    <div className='font-medium mt-0.5' style={{color:'#1d1d1f'}}>{dy.ganZhi?.gan}{dy.ganZhi?.zhi}</div>
+                  <div key={i} style={{ background: 'rgba(0,0,0,0.03)', borderRadius: 10, padding: '8px 14px', textAlign: 'center' }}>
+                    <div className='qn-cap'>{dy.startAge}岁</div>
+                    <div className='qn-meta font-serif' style={{ color: 'var(--color-text-primary)', fontWeight: 500, marginTop: 3 }}>{dy.ganZhi?.gan}{dy.ganZhi?.zhi}</div>
                   </div>))}
               </div>
             </div>

@@ -8,10 +8,49 @@ import { getProductByType } from '@/lib/product/product';
 import { checkReportAccess } from '@/lib/report/access';
 import type { ReportRecord } from '@/lib/report/types';
 
-const card: React.CSSProperties = {
-  background:'#fff',borderRadius:12,padding:'24px 28px',
-  boxShadow:'0 1px 3px rgba(0,0,0,0.04)',border:'1px solid #f0f0f0',
-};
+/** 返回链接要撑到 44px 命中区，否则手机上只有 17px 高 */
+const BACK: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 44 };
+
+/** 把报告正文按行渲染：连续的 `- ` 归到一个 ul 里，空行只作为块间距 */function renderReport(text: string) {
+  const out: React.ReactNode[] = [];
+  let items: string[] = [];
+  const flush = () => {
+    if (!items.length) return;
+    out.push(
+      <ul key={`ul-${out.length}`} style={{ margin: '0 0 12px', padding: 0, listStyle: 'none' }}>
+        {items.map((t, i) => (
+          <li key={i} className="qn-body" style={{ display: 'flex', gap: 10, marginBottom: 6 }}>
+            <span aria-hidden="true" style={{ flex: '0 0 auto', color: 'var(--color-accent-gold-text)' }}>·</span>
+            <span style={{ flex: '1 1 auto' }}>{t}</span>
+          </li>
+        ))}
+      </ul>
+    );
+    items = [];
+  };
+
+  text.split('\n').forEach((line, i) => {
+    if (line.startsWith('# ')) {
+      flush();
+      out.push(<h2 key={i} className="qn-title" style={{ margin: '26px 0 10px', textWrap: 'balance' }}>{line.slice(2)}</h2>);
+    } else if (line.startsWith('## ')) {
+      flush();
+      out.push(<h3 key={i} className="qn-body" style={{ margin: '22px 0 8px', fontWeight: 600, color: 'var(--color-accent-gold-text)', letterSpacing: '0.04em' }}>{line.slice(3)}</h3>);
+    } else if (line.startsWith('> ')) {
+      flush();
+      out.push(<blockquote key={i} className="qn-body" style={{ margin: '10px 0', padding: '10px 14px', borderLeft: '2px solid var(--color-accent-gold)', background: 'rgba(178,149,93,0.04)', borderRadius: '0 8px 8px 0' }}>{line.slice(2)}</blockquote>);
+    } else if (line.startsWith('- ')) {
+      items.push(line.slice(2));
+    } else if (line.trim() === '') {
+      flush();
+    } else {
+      flush();
+      out.push(<p key={i} className="qn-body" style={{ marginBottom: 8 }}>{line}</p>);
+    }
+  });
+  flush();
+  return out;
+}
 
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -27,79 +66,74 @@ export default function ReportDetailPage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <main style={{maxWidth:720,margin:'0 auto',padding:'60px 20px'}}><p style={{textAlign:'center',color:'#86868b'}}>加载中...</p></main>;
-  if (error || !report) return <main style={{maxWidth:720,margin:'0 auto',padding:'60px 20px'}}><div style={{...card,textAlign:'center'}}><p style={{color:'#d4544a',margin:'0 0 12px'}}>{error || '报告不存在'}</p><Link href="/dashboard" style={{fontSize:13,color:'#b2955d'}}>← 返回报告列表</Link></div></main>;
+  if (loading) return (
+    <main className="qn-shell qn-shell--wide" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
+      <div style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px) - 80px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid rgba(178,149,93,0.2)', borderTopColor: 'var(--color-accent-gold)', animation: 'qn-spin 0.9s linear infinite' }} />
+        <p className="qn-meta" style={{ marginTop: 24, letterSpacing: '0.1em' }}>加载中...</p>
+      </div>
+    </main>
+  );
+
+  if (error || !report) return (
+    <main className="qn-shell qn-shell--wide" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
+      <div className="qn-card" style={{ textAlign: 'center', padding: '44px 24px' }}>
+        <div className="qn-alert" role="alert" style={{ display: 'inline-block' }}>{error || '报告不存在'}</div>
+        <div style={{ marginTop: 22 }}>
+          <Link href="/dashboard" className="qn-link" style={BACK}>← 返回报告列表</Link>
+        </div>
+      </div>
+    </main>
+  );
 
   const access = checkReportAccess(report.status);
   const displayText = access.canViewFull ? (report.reportText || report.previewText || '') : (report.previewText || '');
+  const product = access.showUnlockPrompt ? getProductByType(report.type) : null;
 
   return (
-    <main style={{maxWidth:720,margin:'0 auto',padding:'40px 20px 80px'}}>
-      <Link href="/dashboard" style={{fontSize:12,color:'#86868b',textDecoration:'none'}}>← 返回报告列表</Link>
+    <main className="qn-shell qn-shell--wide" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
+      <Link href="/dashboard" className="qn-link" style={BACK}>← 返回报告列表</Link>
 
-      <div style={{...card,marginTop:16}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
-          <div>
-            <p style={{margin:0,fontSize:11,color:'#86868b'}}>{REPORT_TYPE_LABELS[report.type] || report.type}</p>
-            <h1 style={{margin:0,fontSize:20,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#1d1d1f',marginTop:4}}>{report.title}</h1>
-            <p style={{margin:0,fontSize:11,color:'#c7c7cc',marginTop:4}}>{new Date(report.createdAt).toLocaleString('zh-CN')}</p>
+      <header className="qn-card" style={{ marginTop: 18, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 240px', minWidth: 0 }}>
+            <p className="qn-cap" style={{ marginBottom: 6 }}>{REPORT_TYPE_LABELS[report.type] || report.type}</p>
+            <h1 className="qn-title" style={{ textWrap: 'balance' }}>{report.title}</h1>
+            <p className="qn-meta" style={{ marginTop: 8 }}>{new Date(report.createdAt).toLocaleString('zh-CN')}</p>
           </div>
-          <span style={{fontSize:11,color:REPORT_STATUS_COLORS[report.status]||'#86868b',background:(REPORT_STATUS_COLORS[report.status]||'#86868b')+'12',padding:'2px 10px',borderRadius:99}}>
+          <span className="qn-badge" style={{ marginTop: 4 }}>
+            <span className="qn-badge__dot" style={{ background: REPORT_STATUS_COLORS[report.status] || 'var(--color-text-secondary)' }} />
             {REPORT_STATUS_LABELS[report.status] || report.status}
           </span>
         </div>
+      </header>
 
-        {access.showUnlockPrompt && (() => {
-          const product = getProductByType(report.type);
-          return (
-            <div style={{background:'linear-gradient(135deg,#fafaf8 0%,#f5f3ef 100%)',borderRadius:12,padding:'24px 28px',marginBottom:20,border:'1px solid rgba(178,149,93,0.15)'}}>
-              <p style={{margin:0,fontSize:11,color:'#86868b',letterSpacing:'0.1em',textAlign:'center'}}>完整报告需解锁</p>
-              {product && (
-                <>
-                  <p style={{margin:0,fontSize:20,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#1d1d1f',textAlign:'center',marginTop:8}}>{product.name}</p>
-                  <p style={{margin:0,fontSize:11,color:'#86868b',textAlign:'center',marginTop:4}}>{product.description}</p>
-                  <p style={{textAlign:'center',margin:'16px 0'}}>
-                    <span style={{fontSize:14,color:'#86868b'}}>¥</span>
-                    <span style={{fontSize:32,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#b2955d',fontWeight:700}}>{product.price}</span>
-                  </p>
-                  <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:20}}>
-                    {product.features.map((f,i) => (
-                      <div key={i} style={{display:'flex',alignItems:'center',gap:8,justifyContent:'center'}}>
-                        <span style={{color:'#4a9e6e',fontSize:12}}>✓</span>
-                        <span style={{fontSize:12,color:'#1d1d1f'}}>{f}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-              <div style={{textAlign:'center'}}>
-                <button style={{background:'#b2955d',color:'#fff',border:'none',borderRadius:999,padding:'12px 40px',fontSize:14,fontWeight:500,cursor:'pointer',letterSpacing:'0.05em',boxShadow:'0 4px 16px rgba(178,149,93,0.2)',transition:'transform 0.2s, box-shadow 0.2s'}}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(178,149,93,0.3)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(178,149,93,0.2)'; }}
-                  onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                  onMouseUp={e => e.currentTarget.style.transform = 'scale(1.02)'}>
-                  立即解锁
-                </button>
+      {access.showUnlockPrompt && product && (
+        <section className="qn-ink" style={{ padding: '32px 26px 30px', textAlign: 'center', marginBottom: 20 }}>
+          <p className="qn-eyebrow" style={{ marginBottom: 12 }}>完整报告需解锁</p>
+          <h2 className="qn-title" style={{ marginBottom: 8 }}>{product.name}</h2>
+          <p className="qn-meta" style={{ marginBottom: 22 }}>{product.description}</p>
+
+          <div style={{ maxWidth: 360, margin: '0 auto 24px', textAlign: 'left' }}>
+            {product.features.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                <span className="qn-body" style={{ color: 'var(--color-accent-gold-light)', lineHeight: 1.6 }}>✓</span>
+                <span className="qn-body" style={{ flex: '1 1 auto', lineHeight: 1.6 }}>{f}</span>
               </div>
-            </div>
-          );
-        })()}
-
-        {displayText ? (
-          <div style={{fontSize:14,lineHeight:'1.9',color:'#1d1d1f'}}>
-            {displayText.split('\n').map((line, i) => {
-              if (line.startsWith('# ')) return <h1 key={i} style={{fontSize:20,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',margin:'0 0 14px',fontWeight:700}}>{line.slice(2)}</h1>;
-              if (line.startsWith('## ')) return <h2 key={i} style={{fontSize:16,fontFamily:'"Noto Serif SC","Source Han Serif SC","STSong",Georgia,serif',color:'#b2955d',margin:'18px 0 8px',fontWeight:600,paddingBottom:4,borderBottom:'1px solid rgba(0,0,0,0.06)'}}>{line.slice(3)}</h2>;
-              if (line.startsWith('> ')) return <blockquote key={i} style={{margin:'6px 0',padding:'6px 12px',borderLeft:'3px solid #b2955d',background:'rgba(178,149,93,0.04)',borderRadius:'0 6px 6px 0',color:'#555',fontSize:13}}>{line.slice(2)}</blockquote>;
-              if (line.trim() === '') return <br key={i} />;
-              if (line.startsWith('- ')) return <li key={i} style={{margin:'2px 0 2px 16px',color:'#333',listStyle:'disc'}}>{line.slice(2)}</li>;
-              return <p key={i} style={{margin:'4px 0',color:'#333'}}>{line}</p>;
-            })}
+            ))}
           </div>
-        ) : (
-          <p style={{textAlign:'center',color:'#c7c7cc',padding:'32px 0'}}>暂无报告内容</p>
+
+          {/* 解锁按钮暂不出：支付链路未接（无 onClick，点了没有反应），先隐藏避免死按钮；
+              支付接通后随 backlog 一起恢复。 */}
+          <div className="qn-title" style={{ color: 'var(--color-accent-gold-light)', marginTop: 4 }}>¥{product.price}</div>
+        </section>
+      )}
+
+      <article className="qn-card">
+        {displayText ? renderReport(displayText) : (
+          <p className="qn-meta" style={{ textAlign: 'center', padding: '28px 0' }}>暂无报告内容</p>
         )}
-      </div>
+      </article>
     </main>
   );
 }
