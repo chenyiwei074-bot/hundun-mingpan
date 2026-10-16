@@ -116,6 +116,13 @@ export default function LiuyaoResultPage() {
             {result.xunKong ? ` · ${result.xunKong}旬空` : ''}
           </p>
         )}
+        {result.solar && (
+          <p className="qn-meta" style={{ marginTop: 6 }}>
+            {result.solar.mode === 'true-solar'
+              ? `起卦用${result.solar.label}：钟表 ${result.solar.clockText} → 真太阳时 ${result.solar.solarText}（${result.solar.correctionMinutes > 0 ? '+' : ''}${result.solar.correctionMinutes} 分钟）`
+              : `起卦口径：${result.solar.label}`}
+          </p>
+        )}
         {!result.ganzhiBasis && (
           <p className="qn-cap" style={{ marginTop: 6 }}>本盘按起卦时口径生成</p>
         )}

@@ -22,6 +22,21 @@ export interface GanZhiInfo {
   year: string; month: string; day: string; hour: string;
 }
 
+/** 起卦时刻采用的时间口径，必须随盘存下来，不能靠事后重算 */
+export interface QiguaSolarInfo {
+  mode: 'standard' | 'true-solar';
+  label: string;
+  place: string | null;
+  longitude: number | null;
+  clockText: string;
+  solarText: string;
+  correctionMinutes: number;
+  longitudeCorrectionMinutes: number;
+  equationOfTimeMinutes: number;
+  crossedHour: boolean;
+  crossedDay: boolean;
+}
+
 export interface LiuyaoResult {
   id: string;
   method: DivinationMethod;
@@ -33,6 +48,7 @@ export interface LiuyaoResult {
   monthZhi: string;
   xunKong: string;
   ganzhiBasis?: string;
+  solar?: QiguaSolarInfo;
   benGua: { name: string; gong: string; wuxing: string; shangGua: string; xiaGua: string };
   bianGua: { name: string | null; gong: string | null; wuxing: string | null };
   yaoRecords: YaoRecord[];

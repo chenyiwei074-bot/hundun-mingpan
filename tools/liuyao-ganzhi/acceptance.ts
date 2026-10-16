@@ -15,6 +15,8 @@ import { buildCoinResult } from '../../frontend/lib/liuyao/methods/coin';
 import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { dateToGanZhi } from '../../frontend/app/lib/core/liuyao/constants';
+import { resolveQiguaMoment } from '../../frontend/lib/liuyao/solar-basis';
+import { lookupGeo } from '../../frontend/app/lib/true-solar/birth-wiring';
 
 const out = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -193,7 +195,45 @@ for (const [label, r] of [
     `${label} 变卦 ${r.bianNaJia.length} 爻标记一致`);
 }
 
-// ── 8. 控制台摘要（ASCII）──
+// ── 8. 起卦时刻口径：默认不校正，选了地点必须按真太阳时前移，且口径可标注 ──
+const wlmq = lookupGeo({ city: '乌鲁木齐市' });
+const shanghai = lookupGeo({ city: '上海市' });
+ok('solar/geo-resolved', !!wlmq && !!shanghai, `乌鲁木齐 ${wlmq?.lng}°E / 上海 ${shanghai?.lng}°E`);
+
+const stdMoment = resolveQiguaMoment(new Date(2026, 9, 17, 22, 43));
+ok('solar/default-uncorrected', stdMoment.info.mode === 'standard' && stdMoment.date.getTime() === new Date(2026, 9, 17, 22, 43).getTime(),
+  `缺省口径「${stdMoment.info.label}」，时刻原样`);
+
+const west = resolveQiguaMoment(new Date(2026, 9, 17, 22, 43), { province: '新疆维吾尔自治区', city: '乌鲁木齐市' });
+const wantLon = +(((wlmq?.lng ?? 0) - 120) * 4).toFixed(1);
+ok('solar/longitude-term', Math.abs(west.info.longitudeCorrectionMinutes - wantLon) < 0.05,
+  `经度时差 ${west.info.longitudeCorrectionMinutes} 分 应 ${wantLon} 分（(经度−120)×4）`);
+ok('solar/label-not-silent', west.info.label.includes('真太阳时') && !!west.info.place,
+  `口径必须显式：${west.info.label} @ ${west.info.place}`);
+ok('solar/western-shift', west.info.correctionMinutes < -100 && west.info.correctionMinutes > -145,
+  `总校正 ${west.info.correctionMinutes} 分 → 真太阳时 ${west.info.solarText}（钟表 ${west.info.clockText}）`);
+
+const east = resolveQiguaMoment(new Date(2026, 9, 17, 12, 0), { city: '上海市' });
+ok('solar/east-of-120-positive', east.info.longitudeCorrectionMinutes > 0,
+  `上海经度时差 ${east.info.longitudeCorrectionMinutes} 分（东经 > 120 应为正）`);
+
+// 00:10 的乌鲁木齐真太阳时回到前一天晚上，日柱必须跟着前移，不是只改时柱
+const cross = resolveQiguaMoment(new Date(2026, 9, 17, 0, 10), { city: '乌鲁木齐市' });
+const crossCivil = new Date(2026, 9, 17, 0, 10);
+const gzSolar = getDayGanZhi(cross.date), gzCivil = getDayGanZhi(crossCivil);
+ok('solar/crosses-day', cross.info.crossedDay && cross.date.getDate() === 16,
+  `00:10 乌鲁木齐 → ${cross.date.getMonth() + 1}-${cross.date.getDate()} ${cross.info.solarText}`);
+ok('solar/day-pillar-follows', gzSolar.gan + gzSolar.zhi !== gzCivil.gan + gzCivil.zhi,
+  `日柱 校正后 ${gzSolar.gan + gzSolar.zhi} ≠ 钟表 ${gzCivil.gan + gzCivil.zhi}`);
+
+const hr = resolveQiguaMoment(new Date(2026, 9, 17, 9, 20), { city: '乌鲁木齐市' });
+const gzHr = getDayGanZhi(hr.date);
+const hourSolar = getHourGanZhi(gzHr.ganIdx, hr.date.getHours());
+const hourCivil = getHourGanZhi(getDayGanZhi(new Date(2026, 9, 17, 9, 20)).ganIdx, 9);
+ok('solar/hour-pillar-follows', hourSolar !== hourCivil,
+  `时柱 校正后 ${hourSolar}（真太阳 ${hr.info.solarText}）≠ 钟表 ${hourCivil}`);
+
+// ── 9. 控制台摘要（ASCII）──
 const summary = `liuyao ganzhi acceptance: days=${days} pass=${pass} fail=${fail}`;
 try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
 console.log(summary);

@@ -6,6 +6,9 @@ import { buildCoinResult } from '@/lib/liuyao/methods/coin';
 import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
 import { getGua, getNaJia, getDayGanZhi, getXunKong, GUA_MAP } from '@/lib/liuyao/core';
+import { resolveQiguaMoment, type QiguaPlace } from '@/lib/liuyao/solar-basis';
+import type { QiguaSolarInfo } from '@/types/liuyao';
+import { provinces as regionProvinces } from '@/app/lib/region-data';
 
 type CoinFace = '字' | '花';
 type YaoRecord = { position: number; coins: CoinFace[]; value: number; label: string; isDong: boolean };
@@ -154,9 +157,18 @@ export default function LiuyaoCreatePage() {
   const questionTypeRef = useRef(questionType);
   questionTypeRef.current = questionType;
 
+  const [placeProv, setPlaceProv] = useState('');
+  const [placeCity, setPlaceCity] = useState('');
+  const [basis, setBasis] = useState<QiguaSolarInfo | null>(null);
+  const placeRef = useRef<QiguaPlace | null>(null);
+  placeRef.current = placeProv || placeCity ? { province: placeProv, city: placeCity } : null;
+
+  // 口径预览只在客户端求值：SSR 用服务器时钟渲染时刻文本会触发 hydration 不一致
+  useEffect(() => { setBasis(resolveQiguaMoment(new Date(), placeRef.current).info); }, [placeProv, placeCity]);
+
   const doTimeGua = useCallback(() => {
-    const now = new Date();
-    const result = buildTimeResult({ question, questionType, date: now });
+    const m = resolveQiguaMoment(new Date(), placeRef.current);
+    const result = { ...buildTimeResult({ question, questionType, date: m.date }), solar: m.info };
     sessionStorage.setItem('liuyao_result', JSON.stringify(result));
     router.push('/liuyao/result/' + result.id);
   },[question, questionType]);
@@ -165,7 +177,8 @@ export default function LiuyaoCreatePage() {
     const nums=numInput.trim().split(/[,，\s]+/).map(Number).filter(n=>!isNaN(n)&&n>0);
     if(nums.length<3){setError('请输入至少3个正整数，用逗号隔开');return;}
     setError('');
-    const result = buildNumberResult({ question, questionType, nums, now: new Date() });
+    const m = resolveQiguaMoment(new Date(), placeRef.current);
+    const result = { ...buildNumberResult({ question, questionType, nums, now: m.date }), solar: m.info };
     sessionStorage.setItem('liuyao_result', JSON.stringify(result));
     router.push('/liuyao/result/' + result.id);
   },[question, questionType, numInput]);
@@ -192,7 +205,8 @@ export default function LiuyaoCreatePage() {
         if (rnd >= 6) {
           const gua = getGua(newRecs.map(r=>r.value));
           const benVals = newRecs.map(r=>r.value);
-          const tossNow = new Date();
+          const toss = resolveQiguaMoment(new Date(), placeRef.current);
+          const tossNow = toss.date;
           const dg = getDayGanZhi(tossNow);
           const xk = getXunKong(dg.ganIdx, dg.zhiIdx);
           setNaJiaResult(getNaJia(gua.ben, gua.shangGua, gua.xiaGua, benVals, xk));
@@ -203,7 +217,7 @@ export default function LiuyaoCreatePage() {
             const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
             setBianNaJiaResult(getNaJia(gua.bian, bs, bx, bv, xk));
           } else { setBianNaJiaResult([]); }
-          const result = buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: tossNow });
+          const result = { ...buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: tossNow }), solar: toss.info };
           sessionStorage.setItem('liuyao_result', JSON.stringify(result));
           router.push('/liuyao/result/' + result.id);
           setAutoRunning(false);
@@ -376,6 +390,33 @@ export default function LiuyaoCreatePage() {
           {error&&<p className="qn-alert" role="alert" style={{marginTop:12}}>{error}</p>}
         </div>
       )}
+
+      {/* 起卦时刻口径：摇卦地经度会改时柱日柱，必须让用户看见并选择，不允许静默假设 */}
+      <div className="qn-card" style={{marginTop:12}}>
+        <label className="qn-label" htmlFor="ly-prov">起卦地点（可留空 = 按北京时间不校正）</label>
+        <div className="grid grid-cols-2 gap-3">
+          <select id="ly-prov" className="qn-select" value={placeProv}
+            onChange={e=>{const np=e.target.value; setPlaceProv(np); setPlaceCity(np?(regionProvinces.find(p=>p.name===np)?.cities[0]?.name)||'':'' );}}>
+            <option value="">省份</option>
+            {regionProvinces.map(p=><option key={p.name} value={p.name}>{p.name}</option>)}
+          </select>
+          <select className="qn-select" value={placeCity} disabled={!placeProv}
+            onChange={e=>setPlaceCity(e.target.value)}>
+            <option value="">城市</option>
+            {(regionProvinces.find(p=>p.name===placeProv)?.cities||[]).map(c=><option key={c.name} value={c.name}>{c.name}</option>)}
+          </select>
+        </div>
+        {basis&&(
+          <p className="qn-meta" style={{marginTop:10}}>
+            <span style={{color:'var(--color-text-secondary)'}}>时间口径：</span>
+            {basis.mode==='true-solar'
+              ? `${basis.label} · 钟表 ${basis.clockText} → 真太阳时 ${basis.solarText}（${basis.correctionMinutes > 0 ? '+' : ''}${basis.correctionMinutes} 分钟）`
+              : basis.label}
+          </p>
+        )}
+        {basis?.crossedDay && <p className="qn-cap" style={{marginTop:6}}>校正后跨日，日柱按真太阳时所在日取</p>}
+        {!basis?.crossedDay && basis?.crossedHour && <p className="qn-cap" style={{marginTop:6}}>校正后跨时辰，时柱按真太阳时所在时辰取</p>}
+      </div>
 
       <div className="qn-rise qn-rise--3" style={{display:'flex',gap:12,justifyContent:'center',marginTop:20,flexWrap:'wrap'}}>
         <button type="button" className="qn-btn qn-btn--ghost" onClick={()=>setStep('input')}>返回修改问题</button>
