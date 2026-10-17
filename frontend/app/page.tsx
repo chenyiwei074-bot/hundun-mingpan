@@ -575,7 +575,9 @@ export default function HomePage() {
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M10 3l-5 5 5 5"/></svg>
               </button>
 
-              <div id="ls" className="sheet-track">
+              {/* data-vh-scroll：这条横向轨永远溢出容器（6 张卡 × 100%），显式声明它的可滚动
+                  凭据是左右两个箭头按钮，视觉验收 harness 据此放行；没有声明的溢出会被判失败。 */}
+              <div id="ls" className="sheet-track" data-vh-scroll="arrows">
                 {[
                   { href:"/create", zi:"命", title:"八字 & 紫微", desc:"四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。" },
                   { href:"/liuyao", zi:"爻", title:"六爻问卦", desc:"金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。" },

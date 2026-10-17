@@ -8,7 +8,7 @@
 //   node tools/visual-harness/census.mjs --base=http://localhost:3001 --out=/tmp/vh
 //
 // Against the real backend, pass live ids so the dynamic routes render real content:
-//   ... --chart-id=<id> --report-id=<id> --liuyao-id=<id>
+//   ... --chart-id=<id> --report-id=<id> --liuyao-fixture=<file>
 // Without ids those routes are skipped and the run says so out loud.
 //
 // --stub exists for local dev where the Express/Postgres API is not running; it
@@ -54,6 +54,10 @@ const IDS = {
 // A dump of the app's own sessionStorage key "chart_preview", so --stub can render
 // /chart/result at all. Without it that page has nothing to draw.
 const CHART_FIXTURE = arg('chart-fixture') ? readFileSync(arg('chart-fixture'), 'utf8') : null;
+// Same idea for 六爻: /liuyao/result/[id] reads its plate out of sessionStorage key
+// "liuyao_result" and has no fetch fallback, so a route id alone can never render it.
+// Generated, committed, synthetic: tools/liuyao-ganzhi/make-fixture.ts.
+const LIUYAO_FIXTURE = arg('liuyao-fixture') ? readFileSync(arg('liuyao-fixture'), 'utf8') : null;
 
 mkdirSync(OUT, { recursive: true });
 
@@ -92,7 +96,8 @@ const STATIC_PAGES = [
 const DYNAMIC_PAGES = [
   ['chart-loading', '/chart/loading/', 'chart'],
   ['chart-result', '/chart/result/', 'chart'],
-  ['liuyao-result', '/liuyao/result/', 'liuyao'],
+  // liuyao-result deliberately not here: it takes its plate from sessionStorage, not
+  // from the API, so an id cannot make it render. See the LIUYAO_FIXTURE block below.
   ['report', '/report/', 'report'],
 ];
 // Orphan routes: out of scope for the redesign, they only have to not error.
@@ -131,6 +136,19 @@ const AFTER = {
         await new Promise(r => setTimeout(r, 25));
       }
       return false; })()`,
+};
+
+// Injected states must actually land on screen. A fixture the app silently fails to
+// read leaves the page on its empty state, and an empty state is also "a page with a
+// nav, a footer and a ladder" — so bodyText alone can pass it while the real delivery
+// (四柱行、每爻空亡、口径行、跨日提示) was never measured. These tokens are read out of
+// the committed fixture; if you regenerate the fixture you must update them too.
+const MUST_SHOW = {
+  'liuyao-result': ['壬戌日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日'],
+};
+const MUST_COUNT = {
+  // 每爻空亡 renders one 空 per 旬空 branch, in both the 本卦 and 变卦 columns.
+  'liuyao-result': [['[data-ly-kong]', 1]],
 };
 
 // ---------------------------------------------------------------- chrome + cdp
@@ -231,6 +249,9 @@ await send('Runtime.enable');
 await send('Page.addScriptToEvaluateOnNewDocument', { source: STUB ? OBSERVERS + ';\n' + STUB_BOOT : OBSERVERS });
 if (CHART_FIXTURE) {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: 'try{sessionStorage.setItem("chart_preview",' + JSON.stringify(CHART_FIXTURE) + ')}catch(e){}' });
+}
+if (LIUYAO_FIXTURE) {
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: 'try{sessionStorage.setItem("liuyao_result",' + JSON.stringify(LIUYAO_FIXTURE) + ')}catch(e){}' });
 }
 
 const consoleErrors = [];
@@ -429,6 +450,47 @@ const CENSUS = String.raw`(() => {
     }
   }
 
+  // ---- Clipped-by-overflow must announce itself (ruling 2026-10-17). ----
+  // "可见内容宽 <= 容器，或有显式可滚动标记". A scroller whose content is wider than the
+  // box is not a pass by virtue of being scrollable: the user has to be told the rest
+  // exists. Two ways to satisfy it, and both are explicit in the markup:
+  //   data-ly-overflow="1" on the scroller + a [data-ly-overflow-hint] node  (measured at
+  //     runtime by the component itself, used by 卦盘 because its need depends on width);
+  //   data-vh-scroll="<what the affordance is>"  (a hand-authored strip that always scrolls
+  //     and ships its own arrows, e.g. the homepage service carousel).
+  // Anything else that spills is a silent cut and fails.
+  const clips = [];
+  for (const el of document.querySelectorAll('*')) {
+    const cs = getComputedStyle(el);
+    if (!/(auto|scroll)/.test(cs.overflowX)) continue;
+    if (el.scrollWidth <= el.clientWidth + 1) continue;
+    const r = el.getBoundingClientRect();
+    if (!r.width || r.bottom <= 0 || r.top >= innerHeight) continue;
+    const hint = !!(el.parentElement && el.parentElement.querySelector('[data-ly-overflow-hint]'));
+    const declared = el.getAttribute('data-vh-scroll');
+    clips.push({
+      sel: (el.getAttribute('class') || el.nodeName.toLowerCase()).slice(0, 30),
+      sw: Math.round(el.scrollWidth), cw: Math.round(el.clientWidth),
+      marked: el.getAttribute('data-ly-overflow') === '1', hint, declared: declared || null,
+      region: region(el),
+    });
+  }
+
+  const kong = document.querySelectorAll('.liuyao-plate [data-ly-kong]').length;
+  // The plate has two distinct failure modes and they need different evidence:
+  //  (a) it is wider than its own box -> scrollable, must carry an affordance (clips above);
+  //  (b) it grows past the card that holds it (a flex item refusing to shrink, min-width:auto)
+  //      -> the 六神 column paints over the page gutter and no scroller ever appears, so the
+  //      clip check stays silent. Comparing against the card box is what catches that.
+  const plate = (() => {
+    const el = document.querySelector('.liuyao-plate'); if (!el) return null;
+    const card = el.closest('.qn-card') || (el.parentElement && el.parentElement.parentElement);
+    const r = el.getBoundingClientRect(); const c = card ? card.getBoundingClientRect() : null;
+    return { sw: Math.round(el.scrollWidth), cw: Math.round(el.clientWidth),
+      left: Math.round(r.left), right: Math.round(r.right),
+      cardLeft: c ? Math.round(c.left) : null, cardRight: c ? Math.round(c.right) : null };
+  })();
+
   const nav = document.querySelector('nav.qn-nav');
   const foot = document.querySelector('footer.qn-footer');
   const shell = document.querySelector('main') || document.querySelector('[class*="qn-shell"]');
@@ -454,6 +516,7 @@ const CENSUS = String.raw`(() => {
       return { tag: shell.tagName.toLowerCase(), w, max: getComputedStyle(s).maxWidth, cls: s.className.slice(0, 40) }; })() : null,
     bodyDisplay: getComputedStyle(document.body).display,
     regions: {}, offLadder: off,
+    overflowClips: clips, kongMarks: kong, plate,
     smallTargets: Object.keys(touch).sort(),
     tapIssues: [...new Set(tapIssues)].sort(),
     clsSrc: (window.__clsSrc || []).slice(0, 8),
@@ -582,6 +645,22 @@ function check(tag, v) {
     const got = v.tokens['sihua-' + k];
     if (got && hexOf(got) && hexOf(got).toLowerCase() !== want) bad(`sihua-${k} renders ${got}, frozen value is ${want}`);
   }
+
+  // Ruling 2026-10-17: 不接受靠 overflow 兜住不报. The 卦盘's 五行/干支 columns were being
+  // cut off at 375px with nothing telling the user the rest exists.
+  for (const c of (v.overflowClips || [])) {
+    if (c.declared) continue;
+    if (c.marked && c.hint) continue;
+    bad(`overflow hides ${c.sw - c.cw}px in ${c.region} content: ${c.sel} is ${c.sw}px wide in a ${c.cw}px box` +
+      (c.marked ? ' (marked but the hint did not render)' : ' (no scroll affordance at all)'));
+  }
+  if (v.plate && v.plate.cardLeft !== null) {
+    const spillL = v.plate.cardLeft - v.plate.left, spillR = v.plate.right - v.plate.cardRight;
+    if (spillL > 1 || spillR > 1) {
+      bad(`plate escapes its card by ${Math.max(spillL, spillR)}px (plate ${v.plate.left}->${v.plate.right}, ` +
+        `card ${v.plate.cardLeft}->${v.plate.cardRight}) — a flex item that refuses to shrink, not a scroller`);
+    }
+  }
 }
 const hexOf = rgb => { const m = String(rgb).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : null; };
 
@@ -598,6 +677,18 @@ async function measure(tag, url) {
     const ok = await evl(AFTER[base]);
     if (ok !== true) fail.push(tag + ': expand control not found — the collapsed half of this page was never measured');
     else { await sleep(800); console.log('    clicked expand control'); }
+  }
+  // The injected state has to be provably on screen before anything else here means
+  // anything: an empty-state fallback is also "a page with nav, footer and ladder".
+  if (MUST_SHOW[base] || MUST_COUNT[base]) {
+    const miss = await evl(`(() => { const t = document.body.innerText || ''; const m = [];
+      (${JSON.stringify(MUST_SHOW[base] || [])}).forEach(x => { if (!t.includes(x)) m.push('text:' + x); });
+      (${JSON.stringify(MUST_COUNT[base] || [])}).forEach(([sel, min]) => {
+        const n = document.querySelectorAll(sel).length; if (n < min) m.push('count:' + sel + '=' + n + '<' + min); });
+      return m; })()`);
+    if (Array.isArray(miss)) for (const x of miss) fail.push(tag + ': fixture state not rendered, missing ' + x);
+    else fail.push(tag + ': fixture state probe failed ' + JSON.stringify(miss));
+    console.log(Array.isArray(miss) && miss.length ? '    MISSING fixture state: ' + miss.join(', ') : '    fixture state confirmed on screen');
   }
   const v = await evl(CENSUS);
   if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; }
@@ -616,6 +707,10 @@ async function measure(tag, url) {
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
     if ((v.tapIssues || []).length) console.log('   TAP44 (effective 44px box not reachable) ' + v.tapIssues.join(' | '));
+    if ((v.overflowClips || []).length) console.log('   CLIP ' + v.overflowClips.map(c =>
+      `${c.sel} ${c.sw}>${c.cw}px ` + (c.declared ? `[declared:${c.declared}]`
+        : c.marked && c.hint ? '[affordance]' : '[NO AFFORDANCE]')).join(' | '));
+    if (v.plate) console.log(`   PLATE box=${v.plate.cw}px content=${v.plate.sw}px card=${v.plate.cardLeft}->${v.plate.cardRight} plate=${v.plate.left}->${v.plate.right} kong=${v.kongMarks}`);
   }
   if (pageErrors.length) {
     console.log('   PAGEERROR ' + pageErrors.join(' | '));
@@ -647,6 +742,13 @@ if (!STUB) {
     else console.log('\nSKIP chart-result: --stub needs --chart-fixture=<chart_preview dump> before it can render a chart');
   }
   if (keep('report', '/report')) pages.push(['report', '/report/stub-locked', false]);
+}
+
+// 六爻结果态：只有注入 fixture 才画得出来，live 模式也一样 —— 这个页面不请求 API。
+if (keep('liuyao-result', '/liuyao/result')) {
+  if (LIUYAO_FIXTURE) pages.push(['liuyao-result', '/liuyao/result/fixture_synth_0001', false]);
+  else console.log('\nSKIP liuyao-result: its plate comes from sessionStorage, not the API, so --liuyao-id ' +
+    'cannot render it. Pass --liuyao-fixture=tools/visual-harness/fixtures/liuyao-result.json');
 }
 
 console.log(`\nbase=${BASE}  out=${OUT}  stub=${STUB}  chrome=${CHROME}`);

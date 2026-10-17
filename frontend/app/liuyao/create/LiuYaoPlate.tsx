@@ -1,10 +1,7 @@
 'use client';
 
-type NaJiaYao = {
-  position: number; value: number; label: string; isDong: boolean;
-  naGan: string; naZhi: string; ganZhi: string;
-  liuQin: string; shiYing: string; xunKong: boolean;
-};
+import { useEffect, useRef, useState } from 'react';
+import type { NaJiaYao } from '@/types/liuyao';
 
 interface Props {
   benName: string;
@@ -46,13 +43,30 @@ export default function LiuYaoPlate(p: Props) {
   const { benName, bianName, gong, gongWx, bianGong, naJiaResult, bianNaJiaResult, liuShenList, WX } = p;
   const sepColor = 'rgba(0,0,0,0.05)';
   const rowH = 44; // fixed row height in px
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [overflowing, setOverflowing] = useState(false);
+
+  // 窄屏放不下五行列时不静默裁切：测出来就给出可滑动的明示（也是 harness 的断言锚点）
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const check = () => setOverflowing(el.scrollWidth > el.clientWidth + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
-    <div className="liuyao-plate" style={{
+    // minWidth:0 是这条链上真正的开关：外层是 display:flex + justify-content:center，
+    // flex item 默认 min-width:auto，不肯缩到内容宽以下，于是整个盘被撑到 min-content
+    // 再向两侧溢出卡片（375px 实测六神列溢出到屏幕边缘）。给它宽度与 0 下限之后，
+    // 溢出发生在 .liuyao-plate 自己身上 —— 那才是可以被滚动、也可以被断言的地方。
+    <div style={{ maxWidth:560, margin:'0 auto', width:'100%', minWidth:0, position:'relative' }}>
+    <div ref={boxRef} className="liuyao-plate" data-ly-overflow={overflowing?'1':'0'} style={{
       display:'grid',
       gridTemplateColumns:'44px 1fr 80px 80px 1fr',
-      maxWidth:560,
-      margin:'0 auto',
+      width:'100%',
       alignItems:'center',
       overflowX:'auto',
       fontFamily:'"PingFang SC","Microsoft YaHei",sans-serif',
@@ -107,7 +121,7 @@ export default function LiuYaoPlate(p: Props) {
               <span style={{ fontSize:11,color:dongColor,whiteSpace:'nowrap' }}>{nj.liuQin}</span>
               <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:dongColor,whiteSpace:'nowrap' }}>{nj.ganZhi}</span>
               <span style={{ fontSize:11,color:'var(--color-text-secondary)' }}>{WX[nj.naZhi]}</span>
-              {nj.xunKong && <span style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
+              {nj.xunKong && <span data-ly-kong style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
             </div>
 
             {/* Col 3: 本卦爻象 */}
@@ -134,7 +148,7 @@ export default function LiuYaoPlate(p: Props) {
               <span style={{ fontSize:11,color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap' }}>{bn?bn.liuQin:'—'}</span>
               <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap' }}>{bn?bn.ganZhi:'—'}</span>
               <span style={{ fontSize:11,color:'var(--color-text-secondary)' }}>{bn?WX[bn.naZhi]:'—'}</span>
-              {bn?.xunKong && <span style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
+              {bn?.xunKong && <span data-ly-kong style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
             </div>
           </div>
         );
@@ -146,6 +160,10 @@ export default function LiuYaoPlate(p: Props) {
       <div style={{ padding:'6px 0',textAlign:'center',fontSize:11,color:'var(--color-text-secondary)',letterSpacing:'0.08em',borderTop:`1px solid ${sepColor}` }}>本卦</div>
       <div style={{ padding:'6px 0',textAlign:'center',fontSize:11,color:'var(--color-text-secondary)',letterSpacing:'0.08em',borderTop:`1px solid ${sepColor}` }}>变卦</div>
       <div />
+      </div>
+      {overflowing && (
+        <p className="qn-cap" data-ly-overflow-hint style={{ textAlign:'center', margin:'6px 0 0' }}>盘面较宽，可左右滑动查看全部</p>
+      )}
     </div>
   );
 }

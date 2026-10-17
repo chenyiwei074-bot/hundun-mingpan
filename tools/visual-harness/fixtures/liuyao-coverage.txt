@@ -1,0 +1,13 @@
+六爻 harness fixture 覆盖报告（合成数据，§七-5）
+
+PASS  sizhu_xunkong  四柱+旬空行
+PASS  yao_kongwang  每爻空亡
+PASS  basis_longitude  口径与经度行
+PASS  cross_hour  跨时辰提示
+PASS  cross_day  跨日提示
+       地点     新疆维吾尔自治区 乌鲁木齐市
+       四柱     丙午年 戊戌月 壬戌日 辛亥时 · 子丑旬空（口径 jieqi-lichun-v1）
+       每爻空亡 3 爻
+       口径     真太阳时 · 87.62°E（均时差 + 经度时差）：钟表 00:00 → 真太阳时 22:04（-115.3 分钟，经度 87.6168°E，经度项 -129.5 / 均时差 14.3）
+       跨界     crossedHour=true crossedDay=true
+       写入     tools/visual-harness/fixtures/liuyao-result.json

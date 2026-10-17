@@ -22,7 +22,7 @@ node tools/visual-harness/census.mjs \
   --out=/tmp/vh-live \
   --chart-id=<已完成命盘 id> \
   --report-id=<报告订单 id> \
-  --liuyao-id=<六爻会话 id>
+  --liuyao-fixture=tools/visual-harness/fixtures/liuyao-result.json
 ```
 
 浏览器找不到时显式给路径，支持逗号分隔候选表（第一个存在的胜出），也可用 `QN_CHROME`：
@@ -35,9 +35,10 @@ node tools/visual-harness/census.mjs \
 | --- | --- |
 | `--base` | 站点地址，默认 `http://localhost:3001`，亦可用 `QN_BASE` |
 | `--out` | 证据目录，默认 `.visual-harness` |
-| `--chart-id` / `--report-id` / `--liuyao-id` | 动态路由用的真实 id |
+| `--chart-id` / `--report-id` | 动态路由用的真实 id |
 | `--stub` | 本地无 API 时用 fixture 顶替 fetch |
 | `--chart-fixture=<file>` | `--stub` 下渲染 `/chart/result` 所需的 `chart_preview` dump |
+| `--liuyao-fixture=<file>` | 渲染 `/liuyao/result` 的 `liuyao_result` dump（仓库里已带一份合成的） |
 | `--only=home,legal` | 按 tag 或 url 片段过滤 |
 | `--no-shots` | 不截图，只出 census.json |
 | `--port` | CDP 端口，默认 9399，需空闲 |
@@ -53,6 +54,46 @@ id 从哪来：harness **只 GET 页面**，不建命盘、不下单、不点按
 sessionStorage 的 `chart_preview`。本地要测这个态，先在浏览器里跑一次流程，
 DevTools 执行 `copy(sessionStorage.getItem('chart_preview'))` 存成文件再传进来。
 仓库里不放任何命盘数据（含示例），所以这一步必须现场做。
+
+`--liuyao-fixture`：`/liuyao/result/[id]` 同构——盘只从 sessionStorage 的
+`liuyao_result` 读，**不请求 API**，所以 `--liuyao-id` 从来画不出结果态（它落到
+「未找到卦象数据」空态，然后被「正文 ≥100 字」判负）。这条路由因此改成注入制，
+live 模式也一样。仓库里带一份**纯合成**的盘
+（`fixtures/liuyao-result.json`，问题文案是占位符、时刻与地点写死，无真实客户资料），
+由 `tools/liuyao-ganzhi/make-fixture.ts` 生成：
+
+```bash
+cd <repo root> && NODE_PATH="<…>/fate-reverse/reproduce/node_modules" \
+  "<…>/fate-reverse/bazi-engine/node_modules/.bin/tsx" --tsconfig=frontend/tsconfig.json \
+  tools/liuyao-ganzhi/make-fixture.ts
+```
+
+它不是「随手存一份盘」：脚本在 3 天 × 24 时 × 2 分 × 5 组摇卦 × 2 个地点里扫出第一个
+让四个状态同时出现的组合，缺任何一个就 exit 1，并把覆盖清单写进
+`fixtures/liuyao-coverage.txt`。当前那份是 2026-10-16 00:00 钟表 + 乌鲁木齐
+→ 真太阳时 10-15 22:04（−115.3 分钟，跨时辰且跨日），四柱 丙午年 戊戌月 壬戌日 辛亥时
+· 子丑旬空，3 个爻带空亡。重生成后 `census.mjs` 里的 `MUST_SHOW` 要一起改。
+
+## 注入态必须真的在屏上
+
+`MUST_SHOW` / `MUST_COUNT` 对注入进来的态做断言（文本 token + `[data-ly-kong]` 计数）。
+理由：空态也有 nav、footer 和合规阶梯，光看「正文够长」会把「fixture 没被读到」
+审成通过——与首页那次假绿同一类。断言不过直接判负。
+
+## 溢出必须自己说清楚
+
+裁定 2026-10-17「不接受靠 overflow 兜住不报」。两条断言：
+
+1. 任何 `overflow-x:auto|scroll` 且 `scrollWidth > clientWidth` 的元素，必须有显式可滚动
+   标记：要么组件自己量出来（`data-ly-overflow="1"` + 同块的 `[data-ly-overflow-hint]`
+   文案，卦盘走这条，因为它是否溢出取决于视口宽度），要么手写声明
+   `data-vh-scroll="<affordance>"`（首页功能轮播走这条：6 张卡 × 100%，永远溢出，
+   显式凭据是左右两个 44px 箭头）。其余一律判负。
+2. `.liuyao-plate` 不得越出所在 `.qn-card`。这条单独存在是因为溢出有两种成因，
+   第 1 条只抓得到一种：外层 `display:flex` 的 item 默认 `min-width:auto`，
+   整个盘被撑到 min-content 再向两侧溢出卡片，此时滚动容器自己 `scrollWidth ==
+   clientWidth`，第 1 条静默通过，而六神列已经画到屏幕边缘（375px 实测）。
+   修法是给外层 `width:100%; min-width:0`，让溢出发生在盘自己身上。
 
 ## 产物
 
@@ -72,7 +113,9 @@ DevTools 执行 `copy(sessionStorage.getItem('chart_preview'))` 存成文件再�
 被删空后「阶梯为空 ⇒ 人人通过」）；数据色（`--color-wx-*` / `--color-shen-*`）
 **0 次出现在文字色上**——内联 style、字面 hex、样式表三路都查；
 五行五个值与冻结十六进制逐个相等；nav/footer 内 0 个 <44px 可点目标；
-`prefers-reduced-motion: reduce` 下 0 个仍在动的动画；orphan 路由不抛异常、不渲染 404 体。
+`prefers-reduced-motion: reduce` 下 0 个仍在动的动画；orphan 路由不抛异常、不渲染 404 体；
+被 `overflow-x` 兜住的横向内容必须自带可滚动标记（见「溢出必须自己说清楚」）；
+注入进来的态必须在屏上（见「注入态必须真的在屏上」）。
 
 只上报不判负：`COLLIDE`（数据色与文字色解析出同一个值，例如
 `shen-baihu == text-muted`，属调色板决策不是 bug，但它使「按值比对」不可用，

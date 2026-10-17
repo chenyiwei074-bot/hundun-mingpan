@@ -123,6 +123,12 @@ export default function LiuyaoResultPage() {
               : `起卦口径：${result.solar.label}`}
           </p>
         )}
+        {result.solar?.crossedDay && (
+          <p className="qn-cap" style={{ marginTop: 4 }}>校正后跨日，日柱按真太阳时所在日取</p>
+        )}
+        {result.solar && !result.solar.crossedDay && result.solar.crossedHour && (
+          <p className="qn-cap" style={{ marginTop: 4 }}>校正后跨时辰，时柱按真太阳时所在时辰取</p>
+        )}
         {!result.ganzhiBasis && (
           <p className="qn-cap" style={{ marginTop: 6 }}>本盘按起卦时口径生成</p>
         )}
