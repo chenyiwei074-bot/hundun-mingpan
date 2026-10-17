@@ -1,5 +1,15 @@
 ﻿// 混沌六爻 常量表
 // Ported from 混沌六爻 skill engine.py v2.0
+//
+// 【护栏 2026-10-17】本文件的 `monthToJian` 曾按公历月近似取月建（365/365 天，与节气月建差一整月），
+// 已废弃删除；禁止再统一回本文件。六爻时间层唯一真相是 `frontend/lib/liuyao/core/calcGanZhi.ts`
+// （立春年界 / 节月界 / 23:00 归次日）。同目录 dipan/engine/index/najia/qigua/tianpan 六个零引用文件同日删除。
+// live 消费者只有：`frontend/lib/xiu/engine.ts`（XIU28/WUXING_KE/WUXING_SHENG）
+// 与验收工具 `tools/liuyao-ganzhi/acceptance.ts`、`tools/xiu-acceptance/acceptance.ts`（dateToGanZhi/XIU28）。
+// 本文件 36 个导出里只有 4 个被外部点名；函数级的坑逐个写在各自注释上（getXunKong 60/60 错、
+// randomYao 的花/背映射与 coin.ts 相反、timeQiGua 按公历月日+24 小时原值取数（传统应农历月日+时辰序）、
+// yearGan/yearZhi 无立春界）。
+// 引用本文件任何函数前先读它的注释 ——「导出了但算错」的函数不许留，剩下的待裁项在交付报告里。
 
 import { TianGan, DiZhi, WuXing, GuaName, LiuQin, LiuShen, YaoValue, LiuYaoData } from './types';
 
@@ -124,7 +134,14 @@ export const XUNKONG_TABLE: [DiZhi,DiZhi][] = [
   ['子','丑'],['寅','卯'],['辰','巳'],['午','未'],['申','酉'],['戌','亥']
 ];
 
-/** 根据日干支获取旬空地支 */
+/**
+ * 根据日干支获取旬空地支。⚠ 60 甲子逐一对拍**全错**（2026-10-17 实测：与站点 live 引擎不符 60/60）。
+ * 旬索引取了 `xunStart/2` 而不是 `5 - xunStart/2`，等于把六旬的旬空整体反转：
+ * 甲子日应空「戌亥」这里给「子丑」，甲寅应空「子丑」给「戌亥」……
+ * 后端 `server/src/core/liuyao/constants.ts` 的同名函数是对的那一份（同批对拍 0/60 不符），
+ * 两份**不是同源副本**。六爻盘面每爻空亡走的是 `lib/liuyao/core/calcGanZhi.ts` 的 getXunKong，
+ * 把 A5 的空亡标记改回吃这份 = 满盘空亡全错，禁止。外部零引用。
+ */
 export function getXunKong(riGan: TianGan, riZhi: DiZhi): DiZhi[] {
   const ganIdx = GANS.indexOf(riGan);
   const zhiIdx = ZHIS.indexOf(riZhi);
@@ -157,9 +174,9 @@ export const DZ_XIU: Record<DiZhi,string[]> = {
 // ============================================================
 // 年月日时转干支
 // ============================================================
-/** 年的天干索引 */
+/** 年的天干索引。⚠ 无立春年界：立春前出生会算成下一年。六爻/八字请用 `lib/liuyao/core/calcGanZhi.ts` 的 getYearGanZhi(date)。零引用 */
 export function yearGan(year: number): number { return (year - 4) % 10; }
-/** 年的地支索引 */
+/** 年的地支索引。⚠ 同上，无立春年界。零引用 */
 export function yearZhi(year: number): number { return (year - 4) % 12; }
 
 // 1900年1月1日 = 甲戌日 (用于日干支计算)
@@ -168,12 +185,18 @@ const BASE_GAN_IDX = 0;  // 甲
 const BASE_ZHI_IDX = 10; // 戌
 
 /**
- * 日期转日干支。锚点 1900-01-01 = 甲戌，1901–2099 全库逐日对 lunar-typescript 实测正确。
+ * 日期转日干支（按公历日历日，不做任何时辰口径）。锚点 1900-01-01 = 甲戌。
  *
- * 但**不要**把这一份当作六爻时间层的统一目标：本文件原先的 `monthToJian(month)` 是按公历月取月建
- * （365/365 天与节气月建差一整月），也没有立春年界，2026-10-17 已删除。
- * 六爻的年月日时口径只有一处真相：`frontend/lib/liuyao/core/calcGanZhi.ts`（委托 lunar-typescript，
- * 年以立春为界、月以「节」为界、日以 23:00 归次日）。
+ * 2026-10-17 逐日实测 1901–2099 共 72676 天，对 lunar-typescript `getDayInGanZhiExact()`：
+ *   - 喂 12:00 → 0 天不符（验收工具就是这么喂的）。
+ *   - 喂 00:00 → **3253 天不符**，全部落在民国/新中国的夏令时年份 1919、1940–1949、1986–1991
+ *     （1919-04-14 → 1991-09-15 之间）。原因：本函数用 `getTime()` 毫秒差 floor 算日数，
+ *     时区一提前一小时，零点那天的余量归零就少算一天。**所以别用 `new Date(y,m,d)` 喂它。**
+ *   - 喂 23:00 后 → 每天都与引擎不符，这是口径差不是 bug：本函数没有 23:00 归次日（夜子时）规则。
+ *
+ * 保留而不删的理由：`tools/liuyao-ganzhi/acceptance.ts:17` 在用它做「后端 `server/src/core/liuyao`
+ * 那份镜像」的双引擎互检，删了验收就断一条腿；而它的输入固定是正午，上面两个坑都碰不到。
+ * 六爻/八字的年月日时口径只有一处真相：`frontend/lib/liuyao/core/calcGanZhi.ts`。
  * 把六爻改回吃这份常量副本 = 把 A2/A3 退回原点，禁止。
  */
 export function dateToGanZhi(date: Date): { gan: TianGan; zhi: DiZhi } {
@@ -193,7 +216,13 @@ export function hourToZhi(hour: number): DiZhi {
 // ============================================================
 // 铜钱模拟
 // ============================================================
-/** 随机生成一爻 (6/7/8/9) */
+/**
+ * 随机生成一爻。⚠ 与站里 live 的起卦不一致，别接到页面上：
+ * `lib/liuyao/methods/coin.ts` 定的是 爻值 = 6 + 花面数（0花→6老阴 1花→7少阳 2花→8少阴 3花→9老阳）。
+ * 本函数按「背」数查表 {0:9,1:7,2:8,3:6}，而背既当花读也当字读都只能对上一半：
+ * 背=花 应是 {0:6,1:7,2:8,3:9}（首尾反了），背=字 应是 {0:9,1:8,2:7,3:6}（中间两个换了）。
+ * 也就是无论怎么解释「背」，四个值里恒有两个与 coin.ts 不符。外部零引用，待裁是否删。
+ */
 export function randomYao(): YaoValue {
   // 三枚铜钱: 每枚0或1背, 共0-3背
   const backs = Math.floor(Math.random() * 2) + Math.floor(Math.random() * 2) + Math.floor(Math.random() * 2);
@@ -201,7 +230,13 @@ export function randomYao(): YaoValue {
   return map[backs];
 }
 
-/** 时间起卦: 取日期时分秒生成六爻 */
+/**
+ * 时间起卦（本文件自带的一份）。⚠ 取数不是传统口径，三处都不对：
+ * 上卦用「公历年支 + 公历月 + 公历日」，而传统梅花用**农历**月日、年支还差立春界；
+ * 下卦加的是 `getHours()` 的 0–23 原值，不是时辰序 1–12；动爻因此也跟着错。
+ * 站点 live 的 `lib/liuyao/methods/time.ts` **没有**用这份，两者是两套算法。
+ * 外部零引用；#48「时间起卦改传统取数」口径未定，先留不作乱删，也别接进页面。
+ */
 export function timeQiGua(date: Date): { yaoData: LiuYaoData; shangGua: number; xiaGua: number; dongYao: number } {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
