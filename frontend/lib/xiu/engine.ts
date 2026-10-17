@@ -1,7 +1,7 @@
 // 本命星宿：以出生当日的「值日二十八宿」为命宿，取通书二十八宿直日之法。
 //
-// 表复用站里六爻内核（XIU28 / WUXING_SHENG / WUXING_KE），宿的五行由宿名中之曜推出
-// （日、月二宿属火），与 lib/core/liuyao/tianpan.ts 的 XIU_WUXING 逐宿实测一致，
+// 表复用站里六爻常量副本（XIU28 / WUXING_SHENG / WUXING_KE），宿的五行由宿名中之曜推出
+// （日、月二宿属火），与已删除的 app/lib/core/liuyao/tianpan.ts 的 XIU_WUXING 逐宿实测一致，
 // 因此不再抄第三份二十八宿表。
 //
 // 结构自检（tools/xiu-acceptance）：1901-2099 共 72684 天，宿名中之曜恒等于该日的

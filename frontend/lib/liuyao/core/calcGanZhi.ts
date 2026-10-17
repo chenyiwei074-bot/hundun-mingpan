@@ -3,6 +3,8 @@ import { GAN, ZHI, LIUSHEN_NAMES } from './constants';
 
 // 干支口径与八字页统一：年柱以立春为界，月柱以「节」为界，日柱以 23:00 归次日（夜子时 ZI_HOUR_23）。
 // 因此年月都必须由具体日期算出，不能只喂公历年/月数字。
+// 六爻时间层只有这一处真相：不要改回吃 app/lib/core/liuyao/constants.ts —— 那份月建按公历月近似，
+// 也没有立春年界与节气覆盖入口，换回去等于同时废掉 A2（月建按节气）与 A3（年柱按立春）。
 // 起卦结果里带上口径版本，老盘（无此字段）只标注、不重算——重跑覆盖历史等于伪造。
 export const GANZHI_BASIS = 'jieqi-lichun-v1';
 

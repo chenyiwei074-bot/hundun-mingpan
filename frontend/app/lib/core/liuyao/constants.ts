@@ -167,7 +167,15 @@ const BASE_DATE = new Date(1900, 0, 1);
 const BASE_GAN_IDX = 0;  // 甲
 const BASE_ZHI_IDX = 10; // 戌
 
-/** 日期转日干支 */
+/**
+ * 日期转日干支。锚点 1900-01-01 = 甲戌，1901–2099 全库逐日对 lunar-typescript 实测正确。
+ *
+ * 但**不要**把这一份当作六爻时间层的统一目标：本文件原先的 `monthToJian(month)` 是按公历月取月建
+ * （365/365 天与节气月建差一整月），也没有立春年界，2026-10-17 已删除。
+ * 六爻的年月日时口径只有一处真相：`frontend/lib/liuyao/core/calcGanZhi.ts`（委托 lunar-typescript，
+ * 年以立春为界、月以「节」为界、日以 23:00 归次日）。
+ * 把六爻改回吃这份常量副本 = 把 A2/A3 退回原点，禁止。
+ */
 export function dateToGanZhi(date: Date): { gan: TianGan; zhi: DiZhi } {
   const msPerDay = 86400000;
   const diffDays = Math.floor((date.getTime() - BASE_DATE.getTime()) / msPerDay);
@@ -175,9 +183,6 @@ export function dateToGanZhi(date: Date): { gan: TianGan; zhi: DiZhi } {
   const zhiIdx = ((BASE_ZHI_IDX + diffDays) % 12 + 12) % 12;
   return { gan: GANS[ganIdx], zhi: ZHIS[zhiIdx] };
 }
-
-/** 月份→月建地支 */
-export function monthToJian(month: number): DiZhi { return ZHIS[(month + 1) % 12]; }
 
 /** 小时→时辰地支 */
 export function hourToZhi(hour: number): DiZhi {
