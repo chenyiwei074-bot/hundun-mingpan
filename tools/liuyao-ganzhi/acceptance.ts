@@ -38,6 +38,16 @@ const LIUSHEN_START: Record<string, string> = {
   己: '螣蛇', 庚: '白虎', 辛: '白虎', 壬: '玄武', 癸: '玄武',
 };
 
+// 六旬旬空的标准表（通书口径，按旬首地支查），独立于被测实现，也独立于 lunar-typescript：
+// 甲子旬空戌亥 / 甲戌旬空申酉 / 甲申旬空午未 / 甲午旬空辰巳 / 甲辰旬空寅卯 / 甲寅旬空子丑。
+// 加这条断言的直接原因：app/lib/core/liuyao/constants.ts 那份 getXunKong 把旬索引写成
+// `xunStart/2` 而不是 `5 - xunStart/2`，六旬整体反转却在 60/60 的错法下无人发现（已于 2026-10-17 删除）。
+const XUNKONG_BY_XUN_HEAD: Record<string, string> = {
+  子: '戌亥', 戌: '申酉', 申: '午未', 午: '辰巳', 辰: '寅卯', 寅: '子丑',
+};
+const GAN_NAMES = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+const ZHI_NAMES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+
 // 旧实现的日柱锚点（2000-01-01 记成 GAN[0]，真值应为 戊午），用来量化「修前错多少」。
 function oldDayGanZhi(date: Date): string {
   const GAN = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
@@ -167,7 +177,7 @@ for (let i = 0; i < 400; i++) {
   const dt = new Date(2020, 0, 1 + i, 12, 0, 0);
   const y = dt.getFullYear(), m = dt.getMonth() + 1, d = dt.getDate();
   const truth = Solar.fromYmdHms(y, m, d, 12, 0, 0).getLunar().getDayInGanZhiExact();
-  const copy = dateToGanZhi(dt);           // app/lib/core 同源副本（后端那份的镜像）
+  const copy = dateToGanZhi(dt);           // app/lib/core 那份（2026-10-17 已修 DST；后端那份同一坑待运维同步）
   const mine = getDayGanZhi(dt);
   ownerDays++;
   if (truth !== copy.gan + copy.zhi) crossBad++;
@@ -178,6 +188,42 @@ for (let i = 0; i < 400; i++) {
 }
 ok('owner-400d/two-engines-agree', crossBad === 0, `两份引擎互检不符 ${crossBad}/${ownerDays} 天`);
 ok('owner-400d/day-pillar', ownerBad === 0, `日柱不符 ${ownerBad}/${ownerDays} 天（运维要求 400/400）${ownerBadList.length ? ' 例:' + ownerBadList.join(' | ') : ''}`);
+
+// ── 6.5 dateToGanZhi（app/lib/core 那份副本）的时区/DST 回归 ──
+// 旧实现用 `Math.floor((date.getTime() - new Date(1900,0,1).getTime()) / 86400000)` 算日序，
+// 零点那天的余量本来就归零，一旦落到夏令时年份（1919 / 1940–49 / 1986–91）时区提前一小时，
+// 日序就被少算一天。2026-10-17 改为用 Date.UTC(y, m-1, d) 组成 UTC 日序，时刻不再参与运算。
+// 这里同时跑「修复前的算法」和「修复后的实现」，两边都必须拿正午与零点各测一遍。
+function dateToGanZhiOld(date: Date): string {
+  const days = Math.floor((date.getTime() - new Date(1900, 0, 1).getTime()) / 86400000);
+  return GAN_NAMES[((0 + days) % 10 + 10) % 10] + ZHI_NAMES[((10 + days) % 12 + 12) % 12];
+}
+let copyDays = 0;
+let copyNoonBad = 0, copyMidBad = 0, oldNoonBad = 0, oldMidBad = 0;
+const copyMidBadList: string[] = [];
+for (let y = 1901; y <= 2099; y++) {
+  for (let m = 1; m <= 12; m++) {
+    const dim = new Date(y, m, 0).getDate();
+    for (let d = 1; d <= dim; d++) {
+      const truth = Solar.fromYmdHms(y, m, d, 12, 0, 0).getLunar().getDayInGanZhiExact();
+      const noon = new Date(y, m - 1, d, 12, 0, 0);
+      const mid = new Date(y, m - 1, d, 0, 0, 0);
+      const cn = dateToGanZhi(noon), cm = dateToGanZhi(mid);
+      copyDays++;
+      if (cn.gan + cn.zhi !== truth) copyNoonBad++;
+      if (cm.gan + cm.zhi !== truth) {
+        copyMidBad++;
+        if (copyMidBadList.length < 5) copyMidBadList.push(`${y}-${m}-${d} ${cm.gan + cm.zhi} != ${truth}`);
+      }
+      if (dateToGanZhiOld(noon) !== truth) oldNoonBad++;
+      if (dateToGanZhiOld(mid) !== truth) oldMidBad++;
+    }
+  }
+}
+ok('copy/day-noon', copyNoonBad === 0, `副本正午日柱不符 ${copyNoonBad}/${copyDays} 天`);
+ok('copy/day-midnight', copyMidBad === 0, `副本零点日柱不符 ${copyMidBad}/${copyDays} 天${copyMidBadList.length ? ' 例:' + copyMidBadList.join(' | ') : ''}`);
+ok('copy/hour-independent', copyNoonBad === copyMidBad, `正午 ${copyNoonBad} 与零点 ${copyMidBad} 必须同值（时刻不该参与日序运算）`);
+say(`BEFORE 旧算法同口径错误率：正午 ${oldNoonBad}/${copyDays}、零点 ${oldMidBad}/${copyDays} 天（零点错的全是夏令时年份）`);
 
 // ── 7. 每爻空亡：标记必须恰好落在旬空地支的爻上 ──
 for (const [label, r] of [
@@ -232,6 +278,23 @@ const hourSolar = getHourGanZhi(gzHr.ganIdx, hr.date.getHours());
 const hourCivil = getHourGanZhi(getDayGanZhi(new Date(2026, 9, 17, 9, 20)).ganIdx, 9);
 ok('solar/hour-pillar-follows', hourSolar !== hourCivil,
   `时柱 校正后 ${hourSolar}（真太阳 ${hr.info.solarText}）≠ 钟表 ${hourCivil}`);
+
+// ── 8.5 live 空亡路径：六十甲子逐一对照标准旬空表（独立权威，不依赖 lunar-typescript）──
+let xk60 = 0, xk60Bad = 0;
+const xk60BadList: string[] = [];
+for (let i = 0; i < 60; i++) {
+  const g = i % 10, z = i % 12;                 // i 就是六十甲子的序号：干 i%10、支 i%12
+  const headZhi = ZHI_NAMES[(i - g) % 12];      // 该日所在旬的旬首地支（甲X）
+  const want = XUNKONG_BY_XUN_HEAD[headZhi];
+  const got = getXunKong(g, z);                 // frontend/lib/liuyao/core/calcGanZhi
+  xk60++;
+  if (got !== want) {
+    xk60Bad++;
+    if (xk60BadList.length < 6) xk60BadList.push(`${GAN_NAMES[g]}${ZHI_NAMES[z]}(旬首甲${headZhi}) 实=${got} 应=${want}`);
+  }
+}
+ok('xunkong/60-jiazi', xk60Bad === 0 && xk60 === 60,
+  `六十甲子旬空对标准表不符 ${xk60Bad}/${xk60}${xk60BadList.length ? ' 例:' + xk60BadList.join(' | ') : ''}`);
 
 // ── 9. 控制台摘要（ASCII）──
 const summary = `liuyao ganzhi acceptance: days=${days} pass=${pass} fail=${fail}`;
