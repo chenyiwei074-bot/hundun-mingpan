@@ -6,12 +6,13 @@
 // （立春年界 / 节月界 / 23:00 归次日）。同目录 dipan/engine/index/najia/qigua/tianpan 六个零引用文件同日删除。
 // live 消费者只有：`frontend/lib/xiu/engine.ts`（XIU28/WUXING_KE/WUXING_SHENG）
 // 与验收工具 `tools/liuyao-ganzhi/acceptance.ts`、`tools/xiu-acceptance/acceptance.ts`（dateToGanZhi/XIU28）。
-// 本文件是个「只剩一张表」的常量副本：36 个导出里被外部点名的只有 4 个（XIU28/WUXING_KE/WUXING_SHENG/dateToGanZhi）。
-// 2026-10-17 按裁定删掉 4 个「导出了但算错」的函数，位置各留 tombstone：
+// 本文件是个「只剩几张表」的常量副本：31 个导出里被外部点名的只有 4 个（XIU28/WUXING_KE/WUXING_SHENG/dateToGanZhi）。
+// 2026-10-17 按裁定删掉 4 个函数 + 1 张孤儿表，位置各留 tombstone：
 //   getXunKong  六十甲子 60/60 错 —— 正确实现见 lib/liuyao/core/calcGanZhi.ts:42 与 server/src/core/liuyao/constants.ts:128
 //   yearGan/yearZhi  公历年近似、无立春界 —— 用 calcGanZhi.ts 的 getYearGanZhi(date)
 //   randomYao   与 methods/coin.ts 的「爻值=6+花数」恒有两个值不符 —— 摇卦走 methods/coin.ts
-//   timeQiGua   没删（#48 口径未定），但已标 @deprecated，禁止用于新代码
+//   XUNKONG_TABLE  消费者只有上面那个错的 getXunKong，一并删 —— 标准旬空表看 acceptance 的 xunkong/60-jiazi
+//   timeQiGua   没删（年界口径仍挂），已标 @deprecated；站点 live 的时间起卦走 methods/time.ts + lib/meihua
 // 活下来的 dateToGanZhi 也修了：旧实现按本地时刻毫秒差算日数，夏令时年份的零点会少算一天。
 
 import { TianGan, DiZhi, WuXing, GuaName, LiuQin, LiuShen, LiuYaoData } from './types';
@@ -130,12 +131,8 @@ export function getLiuShenOrder(riGan: TianGan): LiuShen[] {
   return [...LIUSHEN_NAMES.slice(start), ...LIUSHEN_NAMES.slice(0, start)];
 }
 
-// ============================================================
-// 旬空 (日干支→旬空地支对)
-// ============================================================
-export const XUNKONG_TABLE: [DiZhi,DiZhi][] = [
-  ['子','丑'],['寅','卯'],['辰','巳'],['午','未'],['申','酉'],['戌','亥']
-];
+// 【已删除 2026-10-17】`XUNKONG_TABLE`（与后端 server/src/core/liuyao/constants.ts:123 逐字符相同）曾按旬尾→旬头**反序**存储（index0=子丑 … index5=戌亥），
+// 被本文件那份 `getXunKong` 误用导致六十甲子 60/60 全错，随它一并删除；标准旬空表以 `tools/liuyao-ganzhi/acceptance.ts` 的 `xunkong/60-jiazi` 断言为准。
 
 // 【已删除 2026-10-17】本文件原先的 `getXunKong(riGan, riZhi)` 在六十甲子上逐一对拍**全错**
 // （60/60 与站点 live 引擎不符：旬索引取了 `xunStart/2` 而不是 `5 - xunStart/2`，六旬旬空整体反转，
@@ -216,12 +213,14 @@ export function hourToZhi(hour: number): DiZhi {
 // 所以它连"另一种约定"都算不上。外部零引用，已删；要摇卦请用 methods/coin.ts 那一条。
 
 /**
- * @deprecated 未经口径确认，禁止用于新代码；#48 决定去留。
+ * @deprecated 未经口径确认，禁止用于新代码；年界口径定了就删。
  *
  * 时间起卦（本文件自带的一份）。它现在取的是**公历年 / 公历月 / 公历日 / `getHours()` 的 0–23 原值**，
- * 三处都不是传统口径：梅花易数要的是**农历**月日、年支还要过立春界、时辰要的是时辰序 1–12 而非小时原值，
- * 动爻跟着错。站点 live 的 `frontend/lib/liuyao/methods/time.ts` **没有**用这一份，两者是两套算法。
- * 外部零引用；因为 #48「时间起卦改传统取数」的口径还没定，删掉等于替那条裁定预先否掉答案，所以先留着。
+ * 三处都不是传统口径：要的是**农历**月日、**时辰序** 1–12 而非小时原值，动爻跟着错。
+ * 2026-10-17 站点 live 的 `frontend/lib/liuyao/methods/time.ts` 已改成传统取数，走的是
+ * `frontend/lib/meihua/engine.ts` 里那一份唯一的取数实现（`qiGuaByLunarNumbers` + `lunarQiShu`），
+ * 不是这份副本。年界口径：起卦按**农历年（正月初一）**，若改立春界只动 `lunarQiShu` 的一个参数，
+ * 前后端要同改（D5 仍挂在朋友那儿等口径）。这份副本外部零引用，去留等那条一并裁。
  */
 export function timeQiGua(date: Date): { yaoData: LiuYaoData; shangGua: number; xiaGua: number; dongYao: number } {
   const y = date.getFullYear();
