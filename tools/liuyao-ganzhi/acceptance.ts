@@ -14,6 +14,8 @@ import {
 import { buildCoinResult } from '../../frontend/lib/liuyao/methods/coin';
 import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
+import { analyzeLiuyao } from '../../frontend/lib/liuyao/analysis';
+import { qiGuaByTime } from '../../frontend/lib/meihua/engine';
 import { dateToGanZhi } from '../../frontend/app/lib/core/liuyao/constants';
 import { resolveQiguaMoment } from '../../frontend/lib/liuyao/solar-basis';
 import { lookupGeo } from '../../frontend/app/lib/true-solar/birth-wiring';
@@ -407,6 +409,117 @@ ok('time-qishu/late-zi-uses-next-day',
 
 ok('time-qishu/covers-leap-and-latezi', tsLeap > 0 && tsLateZi > 0,
   `这轮对拍覆盖 闰月 ${tsLeap} 例（闰${[...tsLeapMonths].join('、闰')}）、23 时（晚子时换日）${tsLateZi} 例，两条口径都真被测到了`);
+
+// ── 8.7 时间起卦的变卦与变卦纳甲（裁定 1，2026-10-17）──
+// 有动爻就必须出行变卦与变卦纳甲。独立复算走两条与被测模块不同的路：
+//   ① 梅花那份是另一套实现（buildFromTrigrams，卦形由 GUA_MAP 的键反推），它被 §1 观梅占
+//      「泽火革·初爻动→变泽山咸」钉住；同一时刻两条页面必须出同一张盘。
+//   ② 卦形翻转：变卦爻形 = 本卦爻形把第 dongYao 爻取反，与 bianNaJia 逐爻的 爻值奇偶 对拍。
+{
+  // 已知盘：2026-10-17 14:00 → 坤为地 六二动 → 变 地水师（下卦 000→010 = 坎，师属坎宫归魂卦）
+  ok('bian/known-plate-2026-10-17',
+    tsRes.bianGua.name === '地水师' && tsRes.bianGua.gong === '坎' && tsRes.bianGua.wuxing === '水' &&
+    tsRes.bianNaJia.length === 6 &&
+    tsRes.bianNaJia.map(y => y.value).join() === '8,7,8,8,8,8',
+    `坤为地 动二 → 变${tsRes.bianGua.name}（${tsRes.bianGua.gong}宫${tsRes.bianGua.wuxing}）纳甲${tsRes.bianNaJia.length}爻 爻值[${tsRes.bianNaJia.map(y => y.value)}]，应 地水师 坎/水 6爻 8,7,8,8,8,8`);
+  // 变卦纳甲带着变卦自己那宫的世应：师属坎宫归魂卦 → 世三爻、应六爻（本卦坤为地是坤宫本宫卦，世六应三）
+  ok('bian/known-plate-shiying',
+    tsRes.shiYing.shi === 5 && tsRes.shiYing.ying === 2 &&
+    tsRes.bianNaJia.find(y => y.shiYing === '世')?.position === 3 &&
+    tsRes.bianNaJia.find(y => y.shiYing === '应')?.position === 6,
+    `本卦坤为地 世${tsRes.shiYing.shi + 1}应${tsRes.shiYing.ying + 1}（本宫卦世六应三），变卦地水师纳甲上标出 世${tsRes.bianNaJia.find(y => y.shiYing === '世')?.position}应${tsRes.bianNaJia.find(y => y.shiYing === '应')?.position}（归魂卦世三应六）`);
+
+  const mhRef = qiGuaByTime(tsSample);
+  ok('bian/known-plate-vs-meihua',
+    tsRes.benGua.name === mhRef.ben.name && tsRes.dongYao[0] === mhRef.dongYao && tsRes.bianGua.name === mhRef.bian.name,
+    `同一时刻与梅花对拍：${tsRes.benGua.name} 动${tsRes.dongYao} → ${tsRes.bianGua.name} vs ${mhRef.ben.name} 动${mhRef.dongYao} → ${mhRef.bian.name}`);
+
+  // 扫盘：任一时间起卦只要 dongYao 非空，bianGua.name 必须非 null，且与独立复算一致
+  let bc = 0, bb = 0;
+  const bBad: string[] = [];
+  for (let i = 0; i < 731; i++) {
+    const base = new Date(2025, 0, 1 + i);
+    if (base.getFullYear() > 2026) break;
+    for (const h of [2, 8, 14, 20]) {
+      const dt = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, 30, 0);
+      const r = buildTimeResult({ question: '验收', questionType: '其他', date: dt });
+      const mh = qiGuaByTime(dt);
+      bc++;
+      const dong = r.dongYao[0];
+      const vals = r.yaoRecords.map(y => y.value);
+      // 独立复算的变卦爻值：动爻那一爻老变少、阴阳互易（9→8，6→7），其余原样。
+      const flip = vals.map((v, j) => (j + 1 === dong ? (v === 9 ? 8 : 7) : v));
+      const bad =
+        r.dongYao.length !== 1 || r.bianGua.name === null || r.bianGua.gong === null || r.bianGua.wuxing === null ||
+        r.bianNaJia.length !== 6 ||
+        r.bianGua.name !== mh.bian.name || r.benGua.name !== mh.ben.name || dong !== mh.dongYao ||
+        // 变卦逐爻：只有动爻那一爻变阴阳，其余与本卦同；动爻由老变少
+        !r.bianNaJia.every((y, j) => y.position === j + 1 && y.value === flip[j]) ||
+        !r.bianNaJia.every(y => y.ganZhi.length === 2 && !!y.naZhi && !!y.liuQin);
+      if (bad) {
+        bb++;
+        if (bBad.length < 6) bBad.push(`${base.getMonth() + 1}-${base.getDate()} ${h}:30 → ${r.benGua.name}动${dong} 变[${r.bianGua.name}/${r.bianNaJia.map(y => y.value)}] 梅花[${mh.ben.name}动${mh.dongYao}/${mh.bian.name}]`);
+      }
+    }
+  }
+  ok('bian/time-plate-always-has-bian', bb === 0 && bc > 2900,
+    `2025–2026 ${bc} 个时间起卦盘，动爻唯一且变卦（名/宫/五行/纳甲六爻）齐备、与梅花那份及翻转复算不符 ${bb} 例${bBad.length ? ' 例:' + bBad.join(' | ') : ''}`);
+}
+
+// ── 8.8 世应爻位（裁定 2，2026-10-17）──
+// analysis.shiYing.shiPosition/yingPosition 来自 naJia.position，是 **1-based**；
+// 爻名表 YAO_NAMES 是 0-based。页面必须按 YAO_NAMES[position-1] 取名，否则整张盘的世应结论错位一格。
+// 这份表按《周易》爻位手写，不 import 页面，避免把同一个错误抄进断言。
+const YAO_NAMES_REF = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
+{
+  const mkRecords = (bits: string) => bits.split('').map((b, i) => {
+    const v = b === '1' ? 7 : 8;
+    return { position: i + 1, coins: [] as any, value: v, label: v === 7 ? '少阳' : '少阴', isDong: false };
+  });
+  // 已知盘（京房八宫：本宫世在上爻、三世卦世在三爻、游魂世在四爻、归魂世在三爻；应 = 世 ± 3）
+  // 爻串按 初→上 写，前 3 位是下卦、后 3 位是上卦（乾111 兑110 离101 震100 巽011 坎010 艮001 坤000）
+  const known: [string, string, number, number][] = [
+    ['111111', '乾为天', 6, 3],   // 乾宫本宫卦：上乾下乾
+    ['111000', '地天泰', 3, 6],   // 坤宫三世卦（owner 举例的那张）：上坤下乾
+    ['000101', '火地晋', 4, 1],   // 乾宫游魂卦：上离下坤
+    ['111101', '火天大有', 3, 6], // 乾宫归魂卦：上离下乾
+  ];
+  for (const [bits, name, shiWant, yingWant] of known) {
+    const plate = buildCoinResult({ question: '验收', questionType: '其他', records: mkRecords(bits) as any, now: tsSample });
+    const an = analyzeLiuyao(plate);
+    const p = an.shiYing!;
+    ok(`shiying/known-${name}`,
+      plate.benGua.name === name && p.shiPosition === shiWant && p.yingPosition === yingWant &&
+      YAO_NAMES_REF[p.shiPosition - 1] !== undefined && YAO_NAMES_REF[p.yingPosition - 1] !== undefined,
+      `${name}：世${YAO_NAMES_REF[p.shiPosition - 1]}(${p.shiPosition})、应${YAO_NAMES_REF[p.yingPosition - 1]}(${p.yingPosition})，应 世${shiWant}爻/应${yingWant}爻；旧写法 YAO_NAMES[${p.shiPosition}] 会取到「${YAO_NAMES_REF[p.shiPosition] ?? 'undefined'}」`);
+  }
+  // 64 卦全覆盖：世应名称永不 undefined，且名字对应的爻在盘上确实标着世/应
+  let sc = 0, sBad = 0;
+  const sBadList: string[] = [];
+  for (const shang of XIAN_TIAN_NUM) {
+    for (const xia of XIAN_TIAN_NUM) {
+      const shangBits = XIAN_TIAN_BITS[XIAN_TIAN_NUM.indexOf(shang)];
+      const xiaBits = XIAN_TIAN_BITS[XIAN_TIAN_NUM.indexOf(xia)];
+      const plate = buildCoinResult({ question: '验收', questionType: '其他', records: mkRecords(xiaBits + shangBits) as any, now: tsSample });
+      const an = analyzeLiuyao(plate);
+      const p = an.shiYing!;
+      sc++;
+      const shiMark = plate.naJia.find(y => y.position === p.shiPosition)?.shiYing;
+      const yingMark = plate.naJia.find(y => y.position === p.yingPosition)?.shiYing;
+      const okRow =
+        p.shiPosition >= 1 && p.shiPosition <= 6 && p.yingPosition >= 1 && p.yingPosition <= 6 &&
+        Math.abs(p.shiPosition - p.yingPosition) === 3 &&
+        YAO_NAMES_REF[p.shiPosition - 1] !== undefined && YAO_NAMES_REF[p.yingPosition - 1] !== undefined &&
+        shiMark === '世' && yingMark === '应';
+      if (!okRow) {
+        sBad++;
+        if (sBadList.length < 6) sBadList.push(`${plate.benGua.name} 世${p.shiPosition}(${shiMark ?? '-'}) 应${p.yingPosition}(${yingMark ?? '-'})`);
+      }
+    }
+  }
+  ok('shiying/64-gua-name-mapping', sc === 64 && sBad === 0,
+    `64 卦全扫：世应位置 1-based 落在 1–6、世应相隔三爻、YAO_NAMES_REF[pos-1] 无 undefined、且与盘上标记一致，不符 ${sBad} 例${sBadList.length ? ' 例:' + sBadList.join(' | ') : ''}`);
+}
 
 // ── 9. 控制台摘要（ASCII）──
 const summary = `liuyao ganzhi acceptance: days=${days} pass=${pass} fail=${fail}`;

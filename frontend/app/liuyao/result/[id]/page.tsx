@@ -162,11 +162,11 @@ export default function LiuyaoResultPage() {
           }}>
             <span className="qn-axis" style={{ minWidth: 40 }}>世应</span>
             <span className="qn-body" style={{ fontWeight: 500 }}>
-              世爻 {YAO_NAMES[analysisData.shiYing.shiPosition]} {analysisData.shiYing.shiLiuQin} {analysisData.shiYing.shiWx}
+              世爻 {YAO_NAMES[analysisData.shiYing.shiPosition - 1]} {analysisData.shiYing.shiLiuQin} {analysisData.shiYing.shiWx}
             </span>
             <span className="qn-meta" style={{ color: 'var(--color-text-secondary)' }}>·</span>
             <span className="qn-body" style={{ fontWeight: 500 }}>
-              应爻 {YAO_NAMES[analysisData.shiYing.yingPosition]} {analysisData.shiYing.yingLiuQin} {analysisData.shiYing.yingWx}
+              应爻 {YAO_NAMES[analysisData.shiYing.yingPosition - 1]} {analysisData.shiYing.yingLiuQin} {analysisData.shiYing.yingWx}
             </span>
             <span className="qn-cap" style={{
               color: 'var(--color-accent-gold-text)',
@@ -219,6 +219,26 @@ export default function LiuyaoResultPage() {
           </div>
         )}
       </section>
+
+      {/* ===== 取数过程（时间起卦，与梅花页面同源） ===== */}
+      {result.qiShu && (
+        <section className="qn-card" style={{ marginBottom: 16, padding: '20px 24px' }}>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
+          <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
+            {result.qiShu.steps.map((s, i) => (
+              <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+                <span className="qn-axis" style={{ marginTop: 2 }}>{i + 1}</span>
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{s}</span>
+              </li>
+            ))}
+          </ol>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: 'var(--qn-hairline)' }}>
+            {result.qiShu.basis.map(b => (
+              <p key={b} className="qn-cap" style={{ margin: '4px 0 0', overflowWrap: 'anywhere' }}>{b}</p>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* ===== AI REPORT ===== */}
       {!reportContent && !reportLoading && (

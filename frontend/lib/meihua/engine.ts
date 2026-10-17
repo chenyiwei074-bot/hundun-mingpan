@@ -100,8 +100,10 @@ export interface MeiHuaResult {
   level: string;
   /** 取数过程，逐条可复算。 */
   steps: string[];
-  /** 口径声明，页面上原样列出。 */
+  /** 口径声明，页面上原样列出（含断卦通则）。 */
   basis: string[];
+  /** 只有起卦取数那几条口径，不含断卦通则 —— 六爻盘面引用这份，不会把梅花体用规则带过去。 */
+  qiShuBasis: string[];
   readings: { label: string; text: string }[];
   when?: {
     civil: string;
@@ -209,7 +211,7 @@ function finish(
   return {
     method, dongYao, ben, hu, bian, ti, yong,
     relation, huRelation, bianRelation, huTi, huYong, score, level,
-    steps, basis: ruledBasis, readings, when,
+    steps, basis: ruledBasis, qiShuBasis: basis, readings, when,
   };
 }
 
@@ -261,10 +263,12 @@ export function lunarQiShu(date: Date, yearBasis: YearBasis = 'lunar-new-year') 
 
 /**
  * 时间起卦：年支数 + 农历月 + 农历日 定上卦，再加时支数定下卦与动爻。
- * 取数见 `lunarQiShu`；本页沿站点八字口径按**立春**年界（六爻的时间起卦同一条取数、年界按农历年）。
+ * 取数见 `lunarQiShu`；年界按**农历年（正月初一）**，2026-10-17 裁定 ——
+ * 梅花时间起卦、六爻时间起卦、紫微斗数同属农历体系，立春年界只属四柱/八字。
+ * 要改回立春只改下面这一行的 `yearBasis`，并与 `lib/liuyao/methods/time.ts` 同改。
  */
 export function qiGuaByTime(date: Date): MeiHuaResult {
-  const q = lunarQiShu(date, 'lichun');
+  const q = lunarQiShu(date, 'lunar-new-year');
   const { y, m, d, hh, mi } = q.civil;
   const nianZhi = q.nianZhi, shiZhi = q.shiZhi, lateZi = q.lateZi;
   const nZ = q.nianZhiNum, yue = q.yue, ri = q.ri, hZ = q.shiZhiNum;
@@ -289,7 +293,7 @@ export function qiGuaByTime(date: Date): MeiHuaResult {
       `问事时刻 ${y}-${pad(m)}-${pad(d)} ${pad(hh)}:${pad(mi)}，农历${q.lunarText}${lateZi ? '（晚子时按次日计）' : ''}`,
     ],
     [
-      '年支以立春为界，精确到交立春的时刻，与本站八字年柱同一口径。',
+      '年界=农历年（正月初一）：年支以农历正月初一换年，与六爻时间起卦、紫微斗数同一口径；四柱/八字的年柱另按立春，两者互不影响。',
       '农历月日为问事当时的农历；23 时属晚子时，日按次日计。',
       '闰月按本数月计入，不另作加减。',
       '不作真太阳时校正：起卦取的是问事当下的钟表时刻。',

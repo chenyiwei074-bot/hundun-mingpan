@@ -49,6 +49,8 @@ export interface LiuyaoResult {
   xunKong: string;
   ganzhiBasis?: string;
   solar?: QiguaSolarInfo;
+  /** 时间起卦专属：与梅花同源带回的取数过程与起卦口径，随盘存下来，供盘面逐条复算。 */
+  qiShu?: { steps: string[]; basis: string[] };
   benGua: { name: string; gong: string; wuxing: string; shangGua: string; xiaGua: string };
   bianGua: { name: string | null; gong: string | null; wuxing: string | null };
   yaoRecords: YaoRecord[];

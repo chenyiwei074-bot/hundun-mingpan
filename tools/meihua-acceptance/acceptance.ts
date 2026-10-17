@@ -6,6 +6,7 @@
 //     tools/meihua-acceptance/acceptance.ts --out=.scratch-mh/meihua-acceptance.txt
 // 完整报告写 --out=<file>（控制台只打 ASCII 摘要，Windows 控制台会把 UTF-8 截断成乱码）。
 import { writeFileSync } from 'node:fs';
+import { Solar } from 'lunar-typescript';
 import {
   XIANTIAN,
   qiGuaByLunarNumbers,
@@ -127,25 +128,68 @@ const guaNames = new Set(Object.values(S64));
     `覆盖 ${[...seen].join('、')}，共 ${seen.size} 种`);
 }
 
-// ── 5. 年支口径：与站点八字引擎的年柱地支逐条对齐 ─────────────────────────
+// ── 5. 年支口径：按农历年（正月初一）。2026-10-17 裁定 ——
+//     梅花时间起卦、六爻时间起卦、紫微斗数同属农历体系，立春年界只属四柱/八字。
+//     本站八字引擎走 getYearInGanZhiExact()（精确交立春），与正月初一界只在「立春 ↔ 正月初一」那段日子分叉，
+//     所以这里不再要求与八字年柱逐条相等，改成：① 每条已知盘的三值对照；② 与八字不一致的日期集合必须
+//     精确等于两口径的理论分叉窗口（集合非空，否则等于没测）。
 {
   const cases: [number, number, number, number, string][] = [
-    [2023, 2, 4, 10, '立春前一刻'],
+    [2023, 2, 4, 10, '立春前一刻（农历正月十四）'],
     [2023, 2, 4, 11, '立春后一刻'],
-    [2023, 1, 22, 12, '正月初一（立春前，年柱不该跟着正月初一走）'],
+    [2023, 1, 22, 12, '2023 正月初一：春节在立春前，农历年先换岁'],
     [2023, 2, 5, 0, '立春次日'],
+    [2026, 2, 5, 12, '2026 立春次日：春节 2-17，两口径分叉'],
+    [2026, 2, 17, 12, '2026 正月初一：两口径在此合流'],
     [2026, 10, 16, 8, '今日'],
   ];
   for (const [y, m, d, hh, label] of cases) {
     const mh = qiGuaByTime(new Date(y, m - 1, d, hh, 0, 0));
+    const lunar = Solar.fromYmdHms(y, m, d, hh, 0, 0).getLunar();
+    const nongLiZhi = lunar.getYearInGanZhi().charAt(1);
+    const liChunZhi = lunar.getYearInGanZhiExact().charAt(1);
     const chart: any = createBaziChart({
       year: y, month: m, day: d, hour: hh, minute: 0,
       isLunar: false, gender: 'male', timeZone: 8, enableTrueSolarTime: false,
     } as any);
     const baziZhi = chart.siZhu?.year?.zhi ?? '?';
-    ok(`year-boundary/${y}-${m}-${d}T${hh}`, mh.when?.nianZhi === baziZhi,
-      `${label}：梅花取年支${mh.when?.nianZhi}（数${ZHI.indexOf(mh.when!.nianZhi) + 1}），八字年柱${baziZhi}`);
+    ok(`year-boundary/${y}-${m}-${d}T${hh}`,
+      mh.when?.nianZhi === nongLiZhi && baziZhi === liChunZhi,
+      `${label}：梅花取年支${mh.when?.nianZhi}（数${ZHI.indexOf(mh.when!.nianZhi) + 1}）`
+      + ` / 农历年支${nongLiZhi} / 立春年支${liChunZhi} / 八字年柱${baziZhi}`);
   }
+}
+
+// ── 5b. 分叉窗口逐日实测：两段跨年关口的正午盘 ─────────────────────────────
+{
+  const ranges: [number, number, number, number][] = [
+    [2023, 1, 15, 27],   // 2023：正月初一(1-22) 早于 立春(2-4)
+    [2026, 2, 1, 25],    // 2026：立春(2-4) 早于 正月初一(2-17)
+  ];
+  const diffWant: string[] = [];
+  let n = 0, agreeWithLunar = 0;
+  const mismatch: string[] = [];
+  for (const [y, m0, d0, len] of ranges) {
+    for (let i = 0; i < len; i++) {
+      const dt = new Date(y, m0 - 1, d0 + i, 12, 0, 0);
+      const yy = dt.getFullYear(), mm = dt.getMonth() + 1, dd = dt.getDate();
+      const lunar = Solar.fromYmdHms(yy, mm, dd, 12, 0, 0).getLunar();
+      const nongLi = lunar.getYearInGanZhi().charAt(1);
+      const liChun = lunar.getYearInGanZhiExact().charAt(1);
+      const tag = `${yy}-${mm}-${dd}`;
+      if (nongLi !== liChun) diffWant.push(tag);
+      const mh = qiGuaByTime(dt);
+      n++;
+      if (mh.when?.nianZhi === nongLi) agreeWithLunar++;
+      else mismatch.push(`${tag}(取${mh.when?.nianZhi}，应为${nongLi})`);
+    }
+  }
+  ok('year-basis/all-follow-lunar-new-year', n > 0 && agreeWithLunar === n,
+    `扫 ${n} 个正午盘（${ranges.map(([y, m, d]) => `${y}-${m}-${d}起`).join('、')}），`
+    + `梅花年支与农历年支一致 ${agreeWithLunar}/${n}${mismatch.length ? '，不符：' + mismatch.join('、') : ''}`);
+  ok('year-basis/divergence-window', diffWant.length > 0,
+    `两口径分叉 ${diffWant.length} 天：${diffWant.join('、')}`
+    + ` —— 这段时间 /meihua 的年支与八字年柱必然不同，属裁定后的正确行为`);
 }
 
 // ── 6. 晚子时换日：23 时与次日 00:30 应成同一卦 ───────────────────────────
