@@ -1,0 +1,300 @@
+{
+ "id": "fixture_time_0001",
+ "method": "time",
+ "question": "示例占问 · 合成数据（仅供版式验收）",
+ "questionType": "其他",
+ "date": {
+  "year": 2026,
+  "month": 10,
+  "day": 11,
+  "hour": 23,
+  "minute": 3
+ },
+ "ganZhi": {
+  "year": "丙午",
+  "month": "戊戌",
+  "day": "己未",
+  "hour": "甲子"
+ },
+ "dayGZ": {
+  "gan": "己",
+  "zhi": "未",
+  "ganIdx": 5,
+  "zhiIdx": 7
+ },
+ "monthZhi": "戌",
+ "xunKong": "子丑",
+ "ganzhiBasis": "jieqi-lichun-v1",
+ "najiaBasis": "jingfang-neiwai-v2",
+ "qiShu": {
+  "steps": [
+   "年支午取7，农历9月取9，日取3，相加 = 19",
+   "19 ÷ 8 余 3 → 上卦取3 = 离",
+   "再加时支子1，得 20；÷ 8 余 4 → 下卦取4 = 震",
+   "20 ÷ 6 余 2 → 动爻在第2爻",
+   "问事时刻 2026-10-11 23:03，农历九月初三（晚子时按次日计）"
+  ],
+  "basis": [
+   "年界=农历年（正月初一）：年支以农历正月初一换年，与六爻时间起卦、紫微斗数同一口径；四柱/八字的年柱另按立春，两者互不影响。",
+   "农历月日为问事当时的农历；23 时属晚子时，日按次日计。",
+   "闰月按本数月计入，不另作加减。",
+   "不作真太阳时校正：起卦取的是问事当下的钟表时刻。"
+  ]
+ },
+ "benGua": {
+  "name": "火雷噬嗑",
+  "gong": "巽",
+  "wuxing": "木",
+  "shangGua": "离",
+  "xiaGua": "震"
+ },
+ "bianGua": {
+  "name": "火泽睽",
+  "gong": "艮",
+  "wuxing": "土"
+ },
+ "yaoRecords": [
+  {
+   "position": 1,
+   "coins": [
+    "花",
+    "字",
+    "字"
+   ],
+   "value": 7,
+   "label": "少阳",
+   "isDong": false
+  },
+  {
+   "position": 2,
+   "coins": [
+    "字",
+    "字",
+    "字"
+   ],
+   "value": 6,
+   "label": "老阴",
+   "isDong": true
+  },
+  {
+   "position": 3,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  },
+  {
+   "position": 4,
+   "coins": [
+    "花",
+    "字",
+    "字"
+   ],
+   "value": 7,
+   "label": "少阳",
+   "isDong": false
+  },
+  {
+   "position": 5,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  },
+  {
+   "position": 6,
+   "coins": [
+    "花",
+    "字",
+    "字"
+   ],
+   "value": 7,
+   "label": "少阳",
+   "isDong": false
+  }
+ ],
+ "naJia": [
+  {
+   "position": 1,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "庚",
+   "naZhi": "子",
+   "ganZhi": "庚子",
+   "liuQin": "父母",
+   "shiYing": "",
+   "xunKong": true
+  },
+  {
+   "position": 2,
+   "value": 6,
+   "label": "老阴",
+   "isDong": true,
+   "naGan": "庚",
+   "naZhi": "寅",
+   "ganZhi": "庚寅",
+   "liuQin": "兄弟",
+   "shiYing": "应",
+   "xunKong": false
+  },
+  {
+   "position": 3,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "庚",
+   "naZhi": "辰",
+   "ganZhi": "庚辰",
+   "liuQin": "妻财",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 4,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "己",
+   "naZhi": "酉",
+   "ganZhi": "己酉",
+   "liuQin": "官鬼",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 5,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "己",
+   "naZhi": "未",
+   "ganZhi": "己未",
+   "liuQin": "妻财",
+   "shiYing": "世",
+   "xunKong": false
+  },
+  {
+   "position": 6,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "己",
+   "naZhi": "巳",
+   "ganZhi": "己巳",
+   "liuQin": "子孙",
+   "shiYing": "",
+   "xunKong": false
+  }
+ ],
+ "bianNaJia": [
+  {
+   "position": 1,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "丁",
+   "naZhi": "巳",
+   "ganZhi": "丁巳",
+   "liuQin": "父母",
+   "shiYing": "应",
+   "xunKong": false
+  },
+  {
+   "position": 2,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "丁",
+   "naZhi": "卯",
+   "ganZhi": "丁卯",
+   "liuQin": "官鬼",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 3,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "丁",
+   "naZhi": "丑",
+   "ganZhi": "丁丑",
+   "liuQin": "兄弟",
+   "shiYing": "",
+   "xunKong": true
+  },
+  {
+   "position": 4,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "己",
+   "naZhi": "酉",
+   "ganZhi": "己酉",
+   "liuQin": "子孙",
+   "shiYing": "世",
+   "xunKong": false
+  },
+  {
+   "position": 5,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "己",
+   "naZhi": "未",
+   "ganZhi": "己未",
+   "liuQin": "兄弟",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 6,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "己",
+   "naZhi": "巳",
+   "ganZhi": "己巳",
+   "liuQin": "父母",
+   "shiYing": "",
+   "xunKong": false
+  }
+ ],
+ "dongYao": [
+  2
+ ],
+ "shiYing": {
+  "shi": 4,
+  "ying": 1
+ },
+ "liuShen": [
+  "螣蛇",
+  "白虎",
+  "玄武",
+  "青龙",
+  "朱雀",
+  "勾陈"
+ ],
+ "solar": {
+  "mode": "true-solar",
+  "label": "真太阳时 · 87.62°E（均时差 + 经度时差）",
+  "place": "新疆维吾尔自治区 乌鲁木齐市",
+  "longitude": 87.6168,
+  "clockText": "01:00",
+  "solarText": "23:03",
+  "correctionMinutes": -116.2,
+  "longitudeCorrectionMinutes": -129.5,
+  "equationOfTimeMinutes": 13.3,
+  "crossedHour": true,
+  "crossedDay": true
+ }
+}

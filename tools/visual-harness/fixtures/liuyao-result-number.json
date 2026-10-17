@@ -1,0 +1,285 @@
+{
+ "id": "fixture_number_0001",
+ "method": "number",
+ "question": "示例占问 · 合成数据（仅供版式验收）",
+ "questionType": "其他",
+ "date": {
+  "year": 2026,
+  "month": 10,
+  "day": 11,
+  "hour": 22,
+  "minute": 3
+ },
+ "ganZhi": {
+  "year": "丙午",
+  "month": "戊戌",
+  "day": "戊午",
+  "hour": "癸亥"
+ },
+ "dayGZ": {
+  "gan": "戊",
+  "zhi": "午",
+  "ganIdx": 4,
+  "zhiIdx": 6
+ },
+ "monthZhi": "戌",
+ "xunKong": "子丑",
+ "ganzhiBasis": "jieqi-lichun-v1",
+ "najiaBasis": "jingfang-neiwai-v2",
+ "benGua": {
+  "name": "乾为天",
+  "gong": "乾",
+  "wuxing": "金",
+  "shangGua": "乾",
+  "xiaGua": "乾"
+ },
+ "bianGua": {
+  "name": "地雷复",
+  "gong": "坤",
+  "wuxing": "土"
+ },
+ "yaoRecords": [
+  {
+   "position": 1,
+   "coins": [
+    "字",
+    "字",
+    "字"
+   ],
+   "value": 6,
+   "label": "老阴",
+   "isDong": true
+  },
+  {
+   "position": 2,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  },
+  {
+   "position": 3,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  },
+  {
+   "position": 4,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  },
+  {
+   "position": 5,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  },
+  {
+   "position": 6,
+   "coins": [
+    "花",
+    "花",
+    "字"
+   ],
+   "value": 8,
+   "label": "少阴",
+   "isDong": false
+  }
+ ],
+ "naJia": [
+  {
+   "position": 1,
+   "value": 6,
+   "label": "老阴",
+   "isDong": true,
+   "naGan": "甲",
+   "naZhi": "子",
+   "ganZhi": "甲子",
+   "liuQin": "子孙",
+   "shiYing": "",
+   "xunKong": true
+  },
+  {
+   "position": 2,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "甲",
+   "naZhi": "寅",
+   "ganZhi": "甲寅",
+   "liuQin": "妻财",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 3,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "甲",
+   "naZhi": "辰",
+   "ganZhi": "甲辰",
+   "liuQin": "父母",
+   "shiYing": "应",
+   "xunKong": false
+  },
+  {
+   "position": 4,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "壬",
+   "naZhi": "午",
+   "ganZhi": "壬午",
+   "liuQin": "官鬼",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 5,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "壬",
+   "naZhi": "申",
+   "ganZhi": "壬申",
+   "liuQin": "兄弟",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 6,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "壬",
+   "naZhi": "戌",
+   "ganZhi": "壬戌",
+   "liuQin": "父母",
+   "shiYing": "世",
+   "xunKong": false
+  }
+ ],
+ "bianNaJia": [
+  {
+   "position": 1,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
+   "naGan": "庚",
+   "naZhi": "子",
+   "ganZhi": "庚子",
+   "liuQin": "妻财",
+   "shiYing": "世",
+   "xunKong": true
+  },
+  {
+   "position": 2,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "庚",
+   "naZhi": "寅",
+   "ganZhi": "庚寅",
+   "liuQin": "官鬼",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 3,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "庚",
+   "naZhi": "辰",
+   "ganZhi": "庚辰",
+   "liuQin": "兄弟",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 4,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "癸",
+   "naZhi": "丑",
+   "ganZhi": "癸丑",
+   "liuQin": "兄弟",
+   "shiYing": "应",
+   "xunKong": true
+  },
+  {
+   "position": 5,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "癸",
+   "naZhi": "亥",
+   "ganZhi": "癸亥",
+   "liuQin": "妻财",
+   "shiYing": "",
+   "xunKong": false
+  },
+  {
+   "position": 6,
+   "value": 8,
+   "label": "少阴",
+   "isDong": false,
+   "naGan": "癸",
+   "naZhi": "酉",
+   "ganZhi": "癸酉",
+   "liuQin": "子孙",
+   "shiYing": "",
+   "xunKong": false
+  }
+ ],
+ "dongYao": [
+  1
+ ],
+ "shiYing": {
+  "shi": 5,
+  "ying": 2
+ },
+ "liuShen": [
+  "勾陈",
+  "螣蛇",
+  "白虎",
+  "玄武",
+  "青龙",
+  "朱雀"
+ ],
+ "solar": {
+  "mode": "true-solar",
+  "label": "真太阳时 · 87.62°E（均时差 + 经度时差）",
+  "place": "新疆维吾尔自治区 乌鲁木齐市",
+  "longitude": 87.6168,
+  "clockText": "00:00",
+  "solarText": "22:03",
+  "correctionMinutes": -116.2,
+  "longitudeCorrectionMinutes": -129.5,
+  "equationOfTimeMinutes": 13.3,
+  "crossedHour": true,
+  "crossedDay": true
+ }
+}

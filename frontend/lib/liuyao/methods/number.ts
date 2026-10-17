@@ -1,4 +1,4 @@
-﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GUA_MAP, S64, GANZHI_BASIS } from '../core';
+﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, S64, GANZHI_BASIS, NAJIA_BASIS } from '../core';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType, NaJiaYao } from '@/types/liuyao';
 
 export function buildNumberResult(params: {
@@ -50,10 +50,9 @@ export function buildNumberResult(params: {
   let bianInfo = { name:null as string|null, gong:null as string|null, wuxing:null as string|null };
   if (gua.bian) {
     const bv = recs.map(r => r.isDong ? (r.value===6?7:8) : r.value);
-    const bsBits = bv.slice(3).map(v=>v===7||v===9?'1':'0').join('');
-    const bxBits = bv.slice(0,3).map(v=>v===7||v===9?'1':'0').join('');
-    const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
-    bianNaJia = getNaJia(gua.bian!, bs, bx, bv, xunKong);
+    // 同 coin.ts：变卦上下卦交给 getGua，不要自己按位串拼（GUA_MAP 键是上爻在前，slice(3) 是四爻在前）。
+    const bg = getGua(bv);
+    bianNaJia = getNaJia(gua.bian!, bg.shangGua, bg.xiaGua, bv, xunKong);
     const bianGong = getPalaceGong(gua.bian!);
     bianInfo = { name: gua.bian, gong: bianGong.gong, wuxing: WX[bianGong.gong] };
   }
@@ -74,6 +73,7 @@ export function buildNumberResult(params: {
     monthZhi: monthGZ.slice(-1),
     xunKong,
     ganzhiBasis: GANZHI_BASIS,
+    najiaBasis: NAJIA_BASIS,
     benGua: { name: benName, gong, wuxing: WX[gong], shangGua: shang, xiaGua: xia },
     bianGua: bianInfo,
     yaoRecords: recs,

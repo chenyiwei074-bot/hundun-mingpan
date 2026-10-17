@@ -1,4 +1,4 @@
-import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS } from '../core';
+import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
 import { qiGuaByTime } from '@/lib/meihua/engine';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType } from '@/types/liuyao';
 
@@ -65,6 +65,7 @@ export function buildTimeResult(params: {
     monthZhi: monthGZ.slice(-1),
     xunKong,
     ganzhiBasis: GANZHI_BASIS,
+    najiaBasis: NAJIA_BASIS,
     qiShu: { steps: mh.steps, basis: mh.qiShuBasis },
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: gua.bian && bianPalace

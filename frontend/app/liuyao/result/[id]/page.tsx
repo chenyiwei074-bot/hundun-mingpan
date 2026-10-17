@@ -129,7 +129,9 @@ export default function LiuyaoResultPage() {
         {result.solar && !result.solar.crossedDay && result.solar.crossedHour && (
           <p className="qn-cap" style={{ marginTop: 4 }}>校正后跨时辰，时柱按真太阳时所在时辰取</p>
         )}
-        {!result.ganzhiBasis && (
+        {/* 干支与纳甲各有各的口径版本戳，缺任意一个就是这次收口之前的盘：只标注，不重排
+            （重跑覆盖历史等于伪造，A4 裁定）。文案保持一句，老盘不会因为我们又加了一个戳就多冒一行。 */}
+        {(!result.ganzhiBasis || !result.najiaBasis) && (
           <p className="qn-cap" style={{ marginTop: 6 }}>本盘按起卦时口径生成</p>
         )}
       </header>

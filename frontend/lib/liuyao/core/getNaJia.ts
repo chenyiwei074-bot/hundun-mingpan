@@ -1,6 +1,10 @@
 import { WX, NA_GAN, NA_ZHI, PALACE, SHI_POS } from './constants';
 import type { NaJiaYao } from '@/types/liuyao';
 
+// 纳甲口径版本戳：v1 = 外卦按下标 [0..2] 装支（64 卦四五六爻全错），v2 = 外卦按 [3..5]（京房纳甲正法）。
+// 老盘（无此字段）只在结果页标注「本盘按起卦时口径生成」，不重排——重跑覆盖历史等于伪造（A4）。
+export const NAJIA_BASIS = 'jingfang-neiwai-v2';
+
 export function getPalaceGong(guaName: string): { gong: string; idx: number } {
   for (const [g,gs] of Object.entries(PALACE)) {
     const idx = gs.indexOf(guaName);
@@ -25,7 +29,10 @@ export function getNaJia(guaName: string, shangGua: string, xiaGua: string, valu
   const result: NaJiaYao[] = [];
   for (let i = 0; i < 6; i++) {
     const gan = i < 3 ? naGan.xia : naGan.shang;
-    const zi = i < 3 ? naZhi.xia[i] : naZhi.shang[i-3];
+    // NA_ZHI 那份表是「[内三, 外三]」六支一字排开：内卦用 [0..2]，外卦必须用 [3..5]，
+    // 即下标就是爻位序 i。曾经写成 naZhi.shang[i-3]，把外卦的下三爻（内卦那一支）装到了四五六爻上，
+    // 64 卦的 4/5/6 爻地支全错（金标准见 tools/liuyao-ganzhi/acceptance.ts §8.9）。
+    const zi = i < 3 ? naZhi.xia[i] : naZhi.shang[i];
     const ganZhi = gan + zi;
     const yaoWx = WX[zi];
     let liuQin = '';

@@ -1,4 +1,4 @@
 export { GAN, ZHI, WX, GUA_MAP, S64, PALACE, SHI_POS, NA_GAN, NA_ZHI, LIUSHEN_NAMES, YUE_GAN_START } from './constants';
 export { GANZHI_BASIS, getDayGanZhi, getYearGanZhi, getMonthGanZhi, getHourGanZhi, getXunKong, getLiuShen } from './calcGanZhi';
 export { getGua } from './getGua';
-export { getPalaceGong, getShiYing, getNaJia } from './getNaJia';
+export { getPalaceGong, getShiYing, getNaJia, NAJIA_BASIS } from './getNaJia';

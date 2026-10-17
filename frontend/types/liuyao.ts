@@ -48,6 +48,8 @@ export interface LiuyaoResult {
   monthZhi: string;
   xunKong: string;
   ganzhiBasis?: string;
+  /** 纳甲口径版本戳（additive）：老盘无此字段时结果页只标注、不重排。 */
+  najiaBasis?: string;
   solar?: QiguaSolarInfo;
   /** 时间起卦专属：与梅花同源带回的取数过程与起卦口径，随盘存下来，供盘面逐条复算。 */
   qiShu?: { steps: string[]; basis: string[] };

@@ -1,30 +1,31 @@
 {
- "id": "fixture_synth_0001",
+ "id": "fixture_coin_0001",
  "method": "coin",
  "question": "示例占问 · 合成数据（仅供版式验收）",
  "questionType": "其他",
  "date": {
   "year": 2026,
   "month": 10,
-  "day": 15,
+  "day": 11,
   "hour": 22,
-  "minute": 4
+  "minute": 3
  },
  "ganZhi": {
   "year": "丙午",
   "month": "戊戌",
-  "day": "壬戌",
-  "hour": "辛亥"
+  "day": "戊午",
+  "hour": "癸亥"
  },
  "dayGZ": {
-  "gan": "壬",
-  "zhi": "戌",
-  "ganIdx": 8,
-  "zhiIdx": 10
+  "gan": "戊",
+  "zhi": "午",
+  "ganIdx": 4,
+  "zhiIdx": 6
  },
  "monthZhi": "戌",
  "xunKong": "子丑",
  "ganzhiBasis": "jieqi-lichun-v1",
+ "najiaBasis": "jingfang-neiwai-v2",
  "benGua": {
   "name": "雷火丰",
   "gong": "坎",
@@ -148,11 +149,11 @@
    "label": "少阳",
    "isDong": false,
    "naGan": "庚",
-   "naZhi": "子",
-   "ganZhi": "庚子",
-   "liuQin": "兄弟",
+   "naZhi": "午",
+   "ganZhi": "庚午",
+   "liuQin": "妻财",
    "shiYing": "",
-   "xunKong": true
+   "xunKong": false
   },
   {
    "position": 5,
@@ -160,9 +161,9 @@
    "label": "老阴",
    "isDong": true,
    "naGan": "庚",
-   "naZhi": "寅",
-   "ganZhi": "庚寅",
-   "liuQin": "子孙",
+   "naZhi": "申",
+   "ganZhi": "庚申",
+   "liuQin": "父母",
    "shiYing": "世",
    "xunKong": false
   },
@@ -172,8 +173,8 @@
    "label": "少阴",
    "isDong": false,
    "naGan": "庚",
-   "naZhi": "辰",
-   "ganZhi": "庚辰",
+   "naZhi": "戌",
+   "ganZhi": "庚戌",
    "liuQin": "官鬼",
    "shiYing": "",
    "xunKong": false
@@ -185,22 +186,22 @@
    "value": 7,
    "label": "少阳",
    "isDong": false,
-   "naGan": "丙",
-   "naZhi": "辰",
-   "ganZhi": "丙辰",
-   "liuQin": "妻财",
+   "naGan": "庚",
+   "naZhi": "子",
+   "ganZhi": "庚子",
+   "liuQin": "父母",
    "shiYing": "",
-   "xunKong": false
+   "xunKong": true
   },
   {
    "position": 2,
    "value": 8,
    "label": "少阴",
    "isDong": false,
-   "naGan": "丙",
-   "naZhi": "午",
-   "ganZhi": "丙午",
-   "liuQin": "子孙",
+   "naGan": "庚",
+   "naZhi": "寅",
+   "ganZhi": "庚寅",
+   "liuQin": "兄弟",
    "shiYing": "",
    "xunKong": false
   },
@@ -209,10 +210,10 @@
    "value": 8,
    "label": "少阴",
    "isDong": false,
-   "naGan": "丙",
-   "naZhi": "申",
-   "ganZhi": "丙申",
-   "liuQin": "官鬼",
+   "naGan": "庚",
+   "naZhi": "辰",
+   "ganZhi": "庚辰",
+   "liuQin": "妻财",
    "shiYing": "世",
    "xunKong": false
   },
@@ -221,22 +222,22 @@
    "value": 7,
    "label": "少阳",
    "isDong": false,
-   "naGan": "辛",
-   "naZhi": "丑",
-   "ganZhi": "辛丑",
-   "liuQin": "妻财",
+   "naGan": "丁",
+   "naZhi": "亥",
+   "ganZhi": "丁亥",
+   "liuQin": "父母",
    "shiYing": "",
-   "xunKong": true
+   "xunKong": false
   },
   {
    "position": 5,
    "value": 7,
    "label": "少阳",
    "isDong": false,
-   "naGan": "辛",
-   "naZhi": "亥",
-   "ganZhi": "辛亥",
-   "liuQin": "父母",
+   "naGan": "丁",
+   "naZhi": "酉",
+   "ganZhi": "丁酉",
+   "liuQin": "官鬼",
    "shiYing": "",
    "xunKong": false
   },
@@ -245,10 +246,10 @@
    "value": 8,
    "label": "少阴",
    "isDong": false,
-   "naGan": "辛",
-   "naZhi": "酉",
-   "ganZhi": "辛酉",
-   "liuQin": "官鬼",
+   "naGan": "丁",
+   "naZhi": "未",
+   "ganZhi": "丁未",
+   "liuQin": "妻财",
    "shiYing": "应",
    "xunKong": false
   }
@@ -262,12 +263,12 @@
   "ying": 1
  },
  "liuShen": [
-  "玄武",
-  "青龙",
-  "朱雀",
   "勾陈",
   "螣蛇",
-  "白虎"
+  "白虎",
+  "玄武",
+  "青龙",
+  "朱雀"
  ],
  "solar": {
   "mode": "true-solar",
@@ -275,10 +276,10 @@
   "place": "新疆维吾尔自治区 乌鲁木齐市",
   "longitude": 87.6168,
   "clockText": "00:00",
-  "solarText": "22:04",
-  "correctionMinutes": -115.3,
+  "solarText": "22:03",
+  "correctionMinutes": -116.2,
   "longitudeCorrectionMinutes": -129.5,
-  "equationOfTimeMinutes": 14.3,
+  "equationOfTimeMinutes": 13.3,
   "crossedHour": true,
   "crossedDay": true
  }

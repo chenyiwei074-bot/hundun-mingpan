@@ -6,19 +6,31 @@
 //     "<…>/fate-reverse/bazi-engine/node_modules/.bin/tsx" --tsconfig=frontend/tsconfig.json \
 //     tools/liuyao-ganzhi/acceptance.ts --out=.liuyao-ganzhi.txt
 // 完整报告写 --out=<file>（控制台只打 ASCII 摘要，Windows 控制台会把 UTF-8 截断成乱码）。
+//
+// §8.9 之后同时 import 后端 server/src/core/liuyao/najia 做双引擎对拍。那条链只用相对导入、
+// 不依赖 server/node_modules，所以在 frontend/tsconfig.json 下可以直接混着跑。
 import { writeFileSync } from 'node:fs';
 import { Solar } from 'lunar-typescript';
 import {
   getDayGanZhi, getYearGanZhi, getMonthGanZhi, getHourGanZhi, getXunKong, getLiuShen,
 } from '../../frontend/lib/liuyao/core/calcGanZhi';
+import { getNaJia, NAJIA_BASIS } from '../../frontend/lib/liuyao/core/getNaJia';
+import { S64, GUA_MAP } from '../../frontend/lib/liuyao/core/constants';
+import {
+  NAJIA_GOLD, YANG_GUA, goldLiuQin, goldShiYing, gongBits,
+  TRIGRAM_BITS, TRIGRAM_BY_BITS, TRIGRAMS, goldFor, goldOld, guaNameToTrigrams,
+  goldPlate, WX_BY_ZHI,
+} from './gold';
 import { buildCoinResult } from '../../frontend/lib/liuyao/methods/coin';
 import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { analyzeLiuyao } from '../../frontend/lib/liuyao/analysis';
+import { buildReportContext } from '../../frontend/lib/liuyao/report/contextBuilder';
 import { qiGuaByTime } from '../../frontend/lib/meihua/engine';
 import { dateToGanZhi } from '../../frontend/app/lib/core/liuyao/constants';
 import { resolveQiguaMoment } from '../../frontend/lib/liuyao/solar-basis';
 import { lookupGeo } from '../../frontend/app/lib/true-solar/birth-wiring';
+import { paiPan } from '../../server/src/core/liuyao/najia';
 
 const out = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -519,6 +531,328 @@ const YAO_NAMES_REF = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻
   }
   ok('shiying/64-gua-name-mapping', sc === 64 && sBad === 0,
     `64 卦全扫：世应位置 1-based 落在 1–6、世应相隔三爻、YAO_NAMES_REF[pos-1] 无 undefined、且与盘上标记一致，不符 ${sBad} 例${sBadList.length ? ' 例:' + sBadList.join(' | ') : ''}`);
+}
+
+// ── 8.9 纳甲金标准（#66 裁定，2026-10-17）──
+// 金标准表本体在 tools/liuyao-ganzhi/gold.ts（手写《京氏易传》京房纳甲表 + 五行生克 + 八宫变爻规则），
+// 与本文件 §8.10 make-fixture 共用同一份：两处各抄一份就会长出第二个真相。
+// 既不 import 前端 core/constants 的 NA_GAN+NA_ZHI，也不抄后端 core/liuyao/constants 的 NAJIA。
+// 金标准必须独立于被测实现：#66 的错不在表（两份表都对），而在取数的下标，
+// 拿任何一份实现当参照都会把同一个错洗成"正确"。
+const GOLD_DATE = new Date(2026, 9, 17, 12, 0);
+{
+  // 金标准自检：爻数、地支不重复、乾坤分纳内外、阳顺阴逆等差 2。
+  const shapeBad: string[] = [];
+  for (const g of TRIGRAMS) {
+    const t = NAJIA_GOLD[g];
+    if (!t || t.nei.length !== 3 || t.wai.length !== 3) { shapeBad.push(`${g}爻数`); continue; }
+    const six = [...t.nei, ...t.wai];
+    if (six.some(x => x.length !== 2)) shapeBad.push(`${g}字长`);
+    if (new Set(six.map(x => x[1])).size !== 6) shapeBad.push(`${g}地支重复`);
+    const oneGan = new Set(six.map(x => x[0])).size === 1;
+    if ((g === '乾' || g === '坤') === oneGan) shapeBad.push(`${g}内外天干`);   // 只有乾坤分纳两干
+    const step = YANG_GUA.includes(g) ? 2 : 10;                                // −2 ≡ +10 (mod 12)
+    for (let i = 1; i < 6; i++) {
+      if ((ZHI_NAMES.indexOf(six[i][1]) - ZHI_NAMES.indexOf(six[i - 1][1]) + 12) % 12 !== step) shapeBad.push(`${g}第${i + 1}爻顺逆`);
+    }
+    // 八个经卦的内外三支必须两两不同 —— 这条决定 #66 的覆盖面是 64/64 而不是某几宫。
+    if (t.nei.map(x => x[1]).join('') === t.wai.map(x => x[1]).join('')) shapeBad.push(`${g}内外三支相同`);
+  }
+  // 卦形表自检：gold.ts 那份是按「八口卦诀」手写的，本文件 §8.6 另有一份按先天数二进制
+  // 推出来的（乾1=111 … 坤8=000）。两份来源互相独立，对得上才算钉死 ——
+  // 拿 gold 自己的表比自己的表是恒真式，没有牙齿。
+  const jueBad = TRIGRAMS.filter(g => {
+    const i = XIAN_TIAN_NUM.indexOf(g);
+    return i < 0 || TRIGRAM_BITS[g] !== XIAN_TIAN_BITS[i];
+  });
+  // 卦名反查表自检：make-fixture 用「前两字 = 上象名+下象名」把盘面存的卦名读回上下卦，
+  // 这张手写象名表必须与 64 卦名一一对得上，否则 fixture 的断言值会从错的卦上取。
+  const revBad: string[] = [];
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) {
+    const nm = S64[shang + xia];
+    if (!nm) { revBad.push(`S64 缺 ${shang}${xia}`); continue; }
+    const t = guaNameToTrigrams(nm);
+    if (t.shang !== shang || t.xia !== xia) revBad.push(`${nm} 反查 上${t.shang}/下${t.xia} ≠ 上${shang}/下${xia}`);
+  }
+  // 八宫生成规则自检：乾宫、坤宫八卦名手写（京房八宫本宫卦序），用来证明 gongBits() 的变爻规则没推错。
+  const GONG8_REF: Record<string, string[]> = {
+    乾: ['乾为天', '天风姤', '天山遁', '天地否', '风地观', '山地剥', '火地晋', '火天大有'],
+    坤: ['坤为地', '地雷复', '地泽临', '地天泰', '雷天大壮', '泽天夬', '水天需', '水地比'],
+  };
+  const gongBad: string[] = [];
+  for (const [g, names] of Object.entries(GONG8_REF)) {
+    names.forEach((n, k) => {
+      const b = gongBits(g, k);
+      const got = S64[TRIGRAM_BY_BITS[b.slice(3, 6)] + TRIGRAM_BY_BITS[b.slice(0, 3)]] || '?';
+      if (got !== n) gongBad.push(`${g}宫${k}世 推出「${got}」≠手抄「${n}」`);
+    });
+  }
+  ok('najia/golden-table-selfcheck', shapeBad.length === 0 && jueBad.length === 0 && gongBad.length === 0,
+    `手写金标准自检：8 卦纳甲齐、内外各 3 爻、地支不重、唯乾坤分纳内外干、阳顺阴逆（等差 2）、卦形与 §8.6 先天数二进制两份手写表互检，八宫变爻规则推出乾/坤两宫 16 卦名与手抄一致${shapeBad.length ? ' 结构不符:' + shapeBad.join(',') : ''}${jueBad.length ? ' 卦形不符:' + jueBad.join(',') : ''}${gongBad.length ? ' 宫序不符:' + gongBad.join(' | ') : ''}`);
+  ok('najia/gua-name-reverse-map', revBad.length === 0,
+    `64 卦名 → 上下卦 反查（手写象名表 天地雷风水火山泽 + 纯卦「X为Y」，供 make-fixture 独立复算金标准）：不符 ${revBad.length} 例${revBad.length ? ' 例:' + revBad.slice(0, 6).join(' | ') : ''}`);
+}
+{
+  // 64 卦（按京房八宫枚举）× 6 爻：钉 纳甲干支 + 六亲 + 世应，前端与后端各对一遍金标准，再逐爻互检。
+  // 纳甲错一格，六亲跟着错、每爻空亡跟着错 —— 所以钉的不能只是干支。
+  let cmp = 0, feBad = 0, beBad = 0, engBad = 0, nameBad = 0, scanned = 0;
+  const feBadList: string[] = [], beBadList: string[] = [], engBadList: string[] = [], nameBadList: string[] = [];
+  for (const gong of TRIGRAMS) for (let k = 0; k < 8; k++) {
+    scanned++;
+    const bits = gongBits(gong, k);                                   // 初→上
+    const xia = TRIGRAM_BY_BITS[bits.slice(0, 3)], shang = TRIGRAM_BY_BITS[bits.slice(3, 6)];
+    const vals = bits.split('').map(b => (b === '1' ? 7 : 8));
+    const want = goldFor(shang, xia);
+    const wantQin = want.map(z => goldLiuQin(gong, z[1]));
+    const { shi, ying } = goldShiYing(k);
+    const feName = S64[shang + xia] || `?${shang}${xia}`;
+    const fe = getNaJia(feName, shang, xia, vals);
+    const pan = paiPan(vals as any, GOLD_DATE);
+    if (feName !== pan.benGua.name) {
+      nameBad++;
+      if (nameBadList.length < 6) nameBadList.push(`${gong}宫${k}世 上${shang}下${xia} 前端「${feName}」/ 后端「${pan.benGua.name}」`);
+    }
+    for (let i = 0; i < 6; i++) {
+      cmp++;
+      const beGz = pan.yaoList[i].naGan + pan.yaoList[i].naZhi;
+      const feMark = fe[i].shiYing || '', beMark = pan.yaoList[i].shiYing || '';
+      const wantMark = i + 1 === shi ? '世' : i + 1 === ying ? '应' : '';
+      if (fe[i].ganZhi !== want[i] || fe[i].liuQin !== wantQin[i] || feMark !== wantMark) {
+        feBad++;
+        if (feBadList.length < 8) feBadList.push(`${feName}(${gong}宫)${YAO_NAMES_REF[i]} 前端${fe[i].ganZhi}${fe[i].liuQin}${feMark || '-'}≠金标准${want[i]}${wantQin[i]}${wantMark || '-'}`);
+      }
+      if (beGz !== want[i] || pan.yaoList[i].liuQin !== wantQin[i] || beMark !== wantMark) {
+        beBad++;
+        if (beBadList.length < 8) beBadList.push(`${pan.benGua.name}(${gong}宫)${YAO_NAMES_REF[i]} 后端${beGz}${pan.yaoList[i].liuQin}${beMark || '-'}≠金标准${want[i]}${wantQin[i]}${wantMark || '-'}`);
+      }
+      if (fe[i].ganZhi !== beGz || fe[i].liuQin !== pan.yaoList[i].liuQin || feMark !== beMark) {
+        engBad++;
+        if (engBadList.length < 8) engBadList.push(`${feName}${YAO_NAMES_REF[i]} 前端${fe[i].ganZhi}${fe[i].liuQin}${feMark || '-'} / 后端${beGz}${pan.yaoList[i].liuQin}${beMark || '-'}`);
+      }
+    }
+    if (feName === '乾为天' || feName === '坤为地') {
+      say(`BEFORE/AFTER ${feName} 六爻纳甲：修前复算[${goldOld(shang, xia).join(' ')}] → 金标准[${want.join(' ')}]（实测 4/5/6 爻 = ${fe.slice(3).map(y => y.ganZhi).join(' ')}）`);
+    }
+  }
+  ok('najia/frontend-64x6-vs-golden', scanned === 64 && feBad === 0,
+    `前端 getNaJia 对金标准（${scanned} 卦 × 6 爻 = ${cmp} 处，钉干支+六亲+世应）：不符 ${feBad} 处${feBadList.length ? ' 例:' + feBadList.join(' | ') : ''}`);
+  ok('najia/backend-64x6-vs-golden', beBad === 0,
+    `后端 paiPan 对同一份金标准（同样钉干支+六亲+世应）：${cmp} 处，不符 ${beBad} 处${beBadList.length ? ' 例:' + beBadList.join(' | ') : ''}`);
+  ok('najia/two-engines-per-yao', engBad === 0,
+    `两引擎逐爻互检（干支+六亲+世应）：${cmp} 处，不符 ${engBad} 处${engBadList.length ? ' 例:' + engBadList.join(' | ') : ''}`);
+  ok('najia/gua-name-two-engines', nameBad === 0,
+    `64 卦卦名两引擎一致（八宫变爻规则推出的卦 vs 前端 S64 键 / 后端 GUA64 码）：不符 ${nameBad} 例${nameBadList.length ? ' 例:' + nameBadList.join(' | ') : ''}`);
+  // 修前后同一张已知盘的 4/5/6 爻对比表（验收要求 五）。「修前」按 goldOld 复算，「修后」取 live 实测，
+  // 三列必须 实测 == 金标准 != 修前，防止哪天表被改塌成「修前=修后」或两张表自证。
+  const live456 = (shang: string, xia: string) => getNaJia(S64[shang + xia] || '?', shang, xia, [7, 8, 7, 8, 7, 8]).slice(3).map(y => y.ganZhi).join('/');
+  const cmpRows: Array<[string, string, string]> = [['乾', '乾', '乾为天'], ['坤', '坤', '坤为地'], ['震', '离', '雷火丰'], ['兑', '震', '泽雷随']];
+  let cmpTableBad = 0;
+  for (const [shang, xia, name] of cmpRows) {
+    const before = goldOld(shang, xia).slice(3).join('/'), after = live456(shang, xia), gold = goldFor(shang, xia).slice(3).join('/');
+    if (after !== gold || before === after || before === gold) cmpTableBad++;
+    say(`对比表 4/5/6 爻 | ${name} 修前[${before}] → 修后·实测[${after}] → 金标准[${gold}]`);
+  }
+  ok('najia/compare-table-456', cmpTableBad === 0,
+    `对比表四行（乾为天/坤为地/雷火丰/泽雷随）自证：实测 4/5/6 爻 == 金标准 且 != 修前复算，异常 ${cmpTableBad} 行`);
+  const qianNow = getNaJia('乾为天', '乾', '乾', [7, 7, 7, 7, 7, 7]).map(y => y.ganZhi).join(' ');
+  const kunNow = getNaJia('坤为地', '坤', '坤', [8, 8, 8, 8, 8, 8]).map(y => y.ganZhi).join(' ');
+  ok('najia/known-plate-qian-kun',
+    qianNow === goldFor('乾', '乾').join(' ') && kunNow === goldFor('坤', '坤').join(' ')
+    && goldOld('乾', '乾').join(' ') === '甲子 甲寅 甲辰 壬子 壬寅 壬辰' && goldOld('坤', '坤').join(' ') === '乙未 乙巳 乙卯 癸未 癸巳 癸卯',
+    `已知盘逐爻：乾为天 修前[甲子 甲寅 甲辰 壬子 壬寅 壬辰]→现值[${qianNow}]（金标准 4/5/6 = 壬午/壬申/壬戌）；坤为地 修前[乙未 乙巳 乙卯 癸未 癸巳 癸卯]→现值[${kunNow}]（金标准 4/5/6 = 癸丑/癸亥/癸酉）`);
+}
+
+// ── 8.10 变卦纳甲对拍（#67 裁定，2026-10-17）──
+// 摇卦/报数那份 变卦 上下卦 是自己按位串拼的：bsBits = bv.slice(3) 直接当上卦查 GUA_MAP，
+// 但 GUA_MAP 的键是「上→下」读法，slice(3) 是「四→上」初爻在前，两处反了。
+// 这里独立复算：本卦爻值 → 动爻翻转 → 下卦=初..三、上卦=四..五..上 → 金标准纳甲，不走被测模块。
+function mkDongRecords(bits: string, dong: number) {
+  return bits.split('').map((b, i) => {
+    const yang = b === '1';
+    const v = i + 1 === dong ? (yang ? 9 : 6) : (yang ? 7 : 8);
+    return { position: i + 1, coins: [] as any, value: v, label: v === 7 ? '少阳' : v === 8 ? '少阴' : v === 9 ? '老阳' : '老阴', isDong: i + 1 === dong };
+  });
+}
+/** 爻值数组 → 变卦的金标准纳甲（初→上）；翻转位由调用方给定。 */
+function goldBianFromBits(bits: string, dong: number) {
+  const flip = bits.split(''); flip[dong - 1] = flip[dong - 1] === '1' ? '0' : '1';
+  const joined = flip.join('');
+  const bXia = TRIGRAM_BY_BITS[joined.slice(0, 3)], bShang = TRIGRAM_BY_BITS[joined.slice(3, 6)];
+  return { gz: goldFor(bShang, bXia), name: S64[bShang + bXia] || `?${bShang}${bXia}`, xia: bXia, shang: bShang };
+}
+{
+  let cnt = 0, bad = 0; const badList: string[] = [];
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) for (let dong = 1; dong <= 6; dong++) {
+    const bits = TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang];
+    const want = goldBianFromBits(bits, dong);
+    const r = buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(bits, dong) as any, now: GOLD_DATE });
+    cnt++;
+    const got = r.bianNaJia.map(y => y.ganZhi);
+    const at = got.findIndex((g, i) => g !== want.gz[i]);
+    if (got.length !== 6 || at >= 0 || r.bianGua.name !== want.name) {
+      bad++;
+      if (badList.length < 6) badList.push(`${r.benGua.name}动${dong}→${want.name} 四五六 得[${got.slice(3).join(' ')}] 应[${want.gz.slice(3).join(' ')}]${r.bianGua.name !== want.name ? ` 变卦名${r.bianGua.name}` : ''}`);
+    }
+  }
+  ok('bian-naJia/coin-384-vs-golden', cnt === 384 && bad === 0,
+    `摇卦 64 卦 × 6 动爻 = ${cnt} 例变卦纳甲对金标准：不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
+}
+{
+  // 报数那份：爻值由取数生成（取数另有待裁问题，见下方 MEASURED 行），这里只验「由盘上爻值推出的变卦纳甲」是否与金标准一致。
+  let cnt = 0, bad = 0; const badList: string[] = [];
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (let d = 1; d <= 6; d++) {
+    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, d], now: GOLD_DATE });
+    const vals = r.yaoRecords.map(y => y.value);
+    const bits = vals.map(v => (v % 2 === 1 ? '1' : '0')).join('');
+    const dong = r.yaoRecords.findIndex(y => y.isDong) + 1;
+    const want = goldBianFromBits(bits, dong);
+    cnt++;
+    const got = r.bianNaJia.map(y => y.ganZhi);
+    if (got.length !== 6 || got.some((g, i) => g !== want.gz[i]) || r.bianGua.name !== want.name) {
+      bad++;
+      if (badList.length < 6) badList.push(`nums[${a},${b},${d}] 动${dong}→${want.name} 四五六 得[${got.slice(3).join(' ')}] 应[${want.gz.slice(3).join(' ')}]`);
+    }
+  }
+  ok('bian-naJia/number-384-vs-golden', cnt === 384 && bad === 0,
+    `报数 8×8×6 = ${cnt} 例变卦纳甲对金标准（按盘上爻值独立复算）：不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
+}
+{
+  // 三种起卦法共用同一个 getNaJia：盘上六爻纳甲必须等于金标准(该盘自己标的上下卦)。
+  // 这就是浏览器里要肉眼核对的那件事 —— 同一时刻三张盘，4/5/6 爻的地支得是同一套。
+  let cnt = 0, bad = 0; const badList: string[] = [];
+  const one = (tag: string, r: { benGua: { name: string; shangGua: string; xiaGua: string }; naJia: { ganZhi: string }[] }) => {
+    cnt++;
+    const want = goldFor(r.benGua.shangGua, r.benGua.xiaGua);
+    const at = r.naJia.findIndex((y, i) => y.ganZhi !== want[i]);
+    if (r.naJia.length !== 6 || at >= 0) {
+      bad++;
+      if (badList.length < 6) badList.push(`${tag}${r.benGua.name} 四五六 得[${r.naJia.slice(3).map(y => y.ganZhi).join(' ')}] 应[${want.slice(3).join(' ')}]`);
+    }
+  };
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) {
+    one('摇卦', buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang], 0) as any, now: GOLD_DATE }));
+  }
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) {
+    one('报数', buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, 1], now: GOLD_DATE }));
+  }
+  for (let d = 0; d < 24; d++) {
+    const dt = new Date(2026, 9, 17); dt.setHours(dt.getHours() + d);
+    one('时间', buildTimeResult({ question: '验收', questionType: '其他', date: dt }));
+  }
+  ok('najia/three-methods-vs-golden', cnt === 152 && bad === 0,
+    `三种起卦（摇卦 64 + 报数 64 + 时间连扫 24 小时 = ${cnt} 张盘）盘上纳甲对金标准(本盘上下卦)：不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
+  let stampBad = 0; const stampList: string[] = [];
+  const stampOf = (tag: string, v?: string) => { if (v !== NAJIA_BASIS) { stampBad++; if (stampList.length < 3) stampList.push(`${tag}=${v ?? '缺失'}`); } };
+  stampOf('coin', buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords('111111', 1) as any, now: GOLD_DATE }).najiaBasis);
+  stampOf('number', buildNumberResult({ question: '验收', questionType: '其他', nums: [1, 1, 1], now: GOLD_DATE }).najiaBasis);
+  stampOf('time', buildTimeResult({ question: '验收', questionType: '其他', date: GOLD_DATE }).najiaBasis);
+  ok('najia/basis-stamp-three-methods', stampBad === 0,
+    `三种起卦都写口径版本戳 najiaBasis=${NAJIA_BASIS}（additive，老盘缺此字段只标注不重排）：${stampBad ? '缺/错 ' + stampList.join(',') : '三条路径齐'}`);
+}
+{
+  // #74：纳甲只该由「卦」决定，不该由起卦方式决定。
+  // 同一时刻把三种起卦的本卦 + 变卦全部摊开，按卦名聚合：同一个卦名无论从哪种方式、
+  // 作为本卦还是变卦出现，盘上的 六亲+干支+五行+世应 必须是同一套，而且这套等于金标准
+  // （金标准一侧的上下卦由卦名反查，不看盘自己标的上下卦字段）。
+  // 牙齿在「跨方式」这一半：#67 那种位序反转只错在摇卦/报数的变卦上，同一个卦名作为另一张盘
+  // 的本卦时是对的 —— 上面各方法各验各的抓不到它，按卦名聚合才抓得到。
+  // 空亡不进这个 key：同一时刻旬空相同，跨方式比对里它是常数，钉它得靠 make-fixture 那份推导断言。
+  type Row74 = { liuQin: string; ganZhi: string; naZhi: string; shiYing: string };
+  const key = (rows: Row74[]) => rows.map(y => `${y.liuQin}${y.ganZhi}${WX_BY_ZHI[y.naZhi]}${y.shiYing || '-'}`).join(' ');
+  const byName = new Map<string, Set<string>>();
+  const add = (name: string | null, rows: Row74[]) => {
+    if (!name || rows.length !== 6) return;
+    if (!byName.has(name)) byName.set(name, new Set());
+    byName.get(name)!.add(key(rows));
+  };
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) for (let dong = 1; dong <= 6; dong++) {
+    const r = buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang], dong) as any, now: GOLD_DATE });
+    add(r.benGua.name, r.naJia); add(r.bianGua.name, r.bianNaJia);
+  }
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (let d = 1; d <= 6; d++) {
+    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, d], now: GOLD_DATE });
+    add(r.benGua.name, r.naJia); add(r.bianGua.name, r.bianNaJia);
+  }
+  for (let d = 0; d < 24; d++) {
+    const dt = new Date(2026, 9, 17); dt.setHours(dt.getHours() + d);
+    const r = buildTimeResult({ question: '验收', questionType: '其他', date: dt });
+    add(r.benGua.name, r.naJia); add(r.bianGua.name, r.bianNaJia);
+  }
+  const splitBad: string[] = [], goldBad: string[] = [];
+  for (const [name, set] of byName) {
+    if (set.size > 1) { if (splitBad.length < 4) splitBad.push(`${name} 有 ${set.size} 套值: ${[...set].join(' || ')}`); continue; }
+    const t = guaNameToTrigrams(name), gp = goldPlate(t.shang, t.xia);
+    const want = key(gp.ganZhi.map((z, i) => ({
+      liuQin: gp.liuQin[i], ganZhi: z, naZhi: z[1],
+      shiYing: i + 1 === gp.shi ? '世' : i + 1 === gp.ying ? '应' : '',
+    })));
+    if ([...set][0] !== want && goldBad.length < 4) goldBad.push(`${name} 盘上[${[...set][0]}] ≠ 金标准[${want}]`);
+  }
+  ok('najia/name-keyed-cross-method', byName.size === 64 && splitBad.length === 0 && goldBad.length === 0,
+    `按卦名聚合（摇卦 384 + 报数 384 + 时间 24 张盘的本卦与变卦）：覆盖 ${byName.size}/64 卦，同名跨方式给出多套值的 ${splitBad.length} 例，与金标准(上下卦由卦名反查)不符的 ${goldBad.length} 例${splitBad.length ? ' 分裂:' + splitBad.join(' | ') : ''}${goldBad.length ? ' 对不上:' + goldBad.join(' | ') : ''}`);
+}
+{
+  // 待裁（本批不修、不断言，只留测量）：报数那份 allBits 取的是「先天数序号的二进制」
+  // （乾 idx0→000、坤 idx7→111），既不是该卦的爻象也没跟着 allBits[5-i] 反转，
+  // 于是 报名 与 画出来的爻 整批对不上。它与 D8 数字起卦取数在同一条链上，等裁。
+  let nmBad = 0; const nmEx: string[] = [];
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) {
+    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, 1], now: GOLD_DATE });
+    const bits = r.yaoRecords.map(y => (y.value % 2 === 1 ? '1' : '0')).join('');
+    const drawn = S64[TRIGRAM_BY_BITS[bits.slice(3, 6)] + TRIGRAM_BY_BITS[bits.slice(0, 3)]] || '?';
+    if (drawn !== r.benGua.name) { nmBad++; if (nmEx.length < 4) nmEx.push(`nums[${a},${b}] 报名「${r.benGua.name}」画成「${drawn}」`); }
+  }
+  say(`MEASURED 数字起卦 卦名与爻象不一致 ${nmBad}/64（新报待裁，本批未修未断言）${nmEx.length ? ' 例:' + nmEx.join(' | ') : ''}`);
+}
+{
+  // #67 单独计数（不含 #66 的叠算），回答「288 还是 384」：按旧写法 bv.slice(3) 直查 GUA_MAP 复算一遍上下卦。
+  // 乾111/坤000/离101/坎010 位序反转后等于自己，兑110↔巽011、震100↔艮001 会互换 —— 所以只有一半不到的例数认错。
+  let cnt = 0, oldBad = 0; const ex: string[] = [];
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) for (let dong = 1; dong <= 6; dong++) {
+    const bits = TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang];
+    const vals = bits.split('').map((b, i) => (i + 1 === dong ? (b === '1' ? 9 : 6) : (b === '1' ? 7 : 8)));
+    const bv = vals.map(v => (v === 9 ? 8 : v === 6 ? 7 : v));
+    const asc = bv.map(v => (v % 2 === 1 ? '1' : '0'));
+    const oldShang = GUA_MAP[asc.slice(3).join('')] || '?';        // 旧写法：四爻在前的串拿去查「上爻在前」的键
+    const oldXia = GUA_MAP[asc.slice(0, 3).join('')] || '?';
+    const want = goldBianFromBits(bits, dong);
+    cnt++;
+    if (oldShang !== want.shang || oldXia !== want.xia) {
+      oldBad++;
+      if (ex.length < 4) ex.push(`${S64[shang + xia]}动${dong} 旧认作 上${oldShang}/下${oldXia}，应是 上${want.shang}/下${want.xia}`);
+    }
+  }
+  say(`MEASURED #67 认错上下卦单独计数：${oldBad}/${cnt}（与 #66 叠算后变卦纳甲不符 384/${cnt}）${ex.length ? ' 例:' + ex.join(' | ') : ''}`);
+}
+
+// ── 8.11 报告层世应（#68 裁定，2026-10-17）──
+// 改前的前置检查结果（写进报告，不动手改之前先给证据）：
+//   git grep -ln "contextBuilder|buildReportContext" -- 'tools/**' → 空，即 #43/A5 那套验收从未覆盖这条 builder；
+//   live 路径 = frontend/app/api/liuyao/report/route.ts:21 buildReportContext(result, analysis)，由结果页 fetch 调用；
+//   真实文件 = frontend/lib/liuyao/report/contextBuilder.ts（不是 frontend/lib/report/）。
+{
+  let cnt = 0, bad = 0; const badList: string[] = [];
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) {
+    const bits = TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang];
+    const plate = buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(bits, 0) as any, now: GOLD_DATE });
+    const an = analyzeLiuyao(plate);
+    const ctx = buildReportContext(plate, an);
+    const p = an.shiYing!;
+    const sYao = plate.naJia.find(y => y.position === p.shiPosition)!;
+    const yYao = plate.naJia.find(y => y.position === p.yingPosition)!;
+    cnt++;
+    const badRow =
+      !ctx.shiYing.shiGanZhi || !ctx.shiYing.yingGanZhi ||
+      ctx.shiYing.shiGanZhi !== sYao.ganZhi || ctx.shiYing.yingGanZhi !== yYao.ganZhi ||
+      ctx.shiYing.shiLabel !== YAO_NAMES_REF[p.shiPosition - 1] || ctx.shiYing.yingLabel !== YAO_NAMES_REF[p.yingPosition - 1] ||
+      ctx.shiYing.shiPosition !== p.shiPosition || ctx.shiYing.yingPosition !== p.yingPosition;
+    if (badRow) {
+      bad++;
+      if (badList.length < 6) badList.push(`${plate.benGua.name} 世${p.shiPosition} 报[${ctx.shiYing.shiPosition}/${ctx.shiYing.shiLabel || '空'}/${ctx.shiYing.shiGanZhi || '空'}] 盘[${p.shiPosition}/${YAO_NAMES_REF[p.shiPosition - 1]}/${sYao.ganZhi}]`);
+    }
+  }
+  ok('report/shiying-ganzhi-nonempty', cnt === 64 && bad === 0,
+    `报告层 64 卦：世/应干支非空且与盘面逐爻相等、爻名按 position-1、position 透传不再 +1，不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
 }
 
 // ── 9. 控制台摘要（ASCII）──

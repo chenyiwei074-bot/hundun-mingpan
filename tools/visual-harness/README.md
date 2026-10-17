@@ -21,9 +21,11 @@ node tools/visual-harness/census.mjs \
   --base=https://hundunmp.vip \
   --out=/tmp/vh-live \
   --chart-id=<已完成命盘 id> \
-  --report-id=<报告订单 id> \
-  --liuyao-fixture=tools/visual-harness/fixtures/liuyao-result.json
+  --report-id=<报告订单 id>
 ```
+
+六爻结果态不需要任何 flag：四张 fixture 已随仓库提交，路径有默认值
+（`tools/visual-harness/fixtures/`），不带参数也测得到。
 
 浏览器找不到时显式给路径，支持逗号分隔候选表（第一个存在的胜出），也可用 `QN_CHROME`：
 
@@ -38,7 +40,8 @@ node tools/visual-harness/census.mjs \
 | `--chart-id` / `--report-id` | 动态路由用的真实 id |
 | `--stub` | 本地无 API 时用 fixture 顶替 fetch |
 | `--chart-fixture=<file>` | `--stub` 下渲染 `/chart/result` 所需的 `chart_preview` dump |
-| `--liuyao-fixture=<file>` | 渲染 `/liuyao/result` 的 `liuyao_result` dump（仓库里已带一份合成的） |
+| `--liuyao-fixtures=<dir>` | 六爻四张盘所在目录，默认 `tools/visual-harness/fixtures` |
+| `--liuyao-fixture=<file>` | 只覆盖摇卦那一张（临时拿另一张盘调试用） |
 | `--only=home,legal` | 按 tag 或 url 片段过滤 |
 | `--no-shots` | 不截图，只出 census.json |
 | `--port` | CDP 端口，默认 9399，需空闲 |
@@ -55,30 +58,58 @@ sessionStorage 的 `chart_preview`。本地要测这个态，先在浏览器里�
 DevTools 执行 `copy(sessionStorage.getItem('chart_preview'))` 存成文件再传进来。
 仓库里不放任何命盘数据（含示例），所以这一步必须现场做。
 
-`--liuyao-fixture`：`/liuyao/result/[id]` 同构——盘只从 sessionStorage 的
-`liuyao_result` 读，**不请求 API**，所以 `--liuyao-id` 从来画不出结果态（它落到
-「未找到卦象数据」空态，然后被「正文 ≥100 字」判负）。这条路由因此改成注入制，
-live 模式也一样。仓库里带一份**纯合成**的盘
-（`fixtures/liuyao-result.json`，问题文案是占位符、时刻与地点写死，无真实客户资料），
-由 `tools/liuyao-ganzhi/make-fixture.ts` 生成：
+`--liuyao-fixtures`：`/liuyao/result/[id]` 的盘只从 sessionStorage 的 `liuyao_result` 读，
+**不请求 API**，所以 `--liuyao-id` 从来画不出结果态（它落到「未找到卦象数据」空态，然后被
+「正文 ≥100 字」判负）。这条路由因此改成注入制，live 模式也一样。仓库里带四份**纯合成**的盘
+（问题文案是占位符、时刻与地点写死，无真实客户资料），全部由
+`tools/liuyao-ganzhi/make-fixture.ts` 生成：
+
+| tag | 文件 | 钉的是 |
+| --- | --- | --- |
+| `liuyao-result` | `fixtures/liuyao-result.json` | 摇卦：雷火丰／坎宫 → 泽雷随，空亡 2 爻 |
+| `liuyao-result-time` | `fixtures/liuyao-result-time.json` | 时间起卦：火雷噬嗑／巽宫 → 火泽睽，另有取数过程 |
+| `liuyao-result-number` | `fixtures/liuyao-result-number.json` | 报数：乾为天／乾宫 → 地雷复，空亡 3 爻 |
+| `liuyao-result-legacy` | `fixtures/liuyao-result-legacy.json` | 老盘 = 摇卦那张去掉两个口径版本戳 → A4 那句标注 |
 
 ```bash
-cd <repo root> && NODE_PATH="<…>/fate-reverse/reproduce/node_modules" \
-  "<…>/fate-reverse/bazi-engine/node_modules/.bin/tsx" --tsconfig=frontend/tsconfig.json \
-  tools/liuyao-ganzhi/make-fixture.ts
+cd <repo root> && NODE_PATH="$PWD/frontend/node_modules" \
+  node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
+  tools/liuyao-ganzhi/make-fixture.ts              # 重新生成四张盘 + 覆盖报告
+  # 同一个命令加 --check：只验不写。committed 盘与「现在重跑引擎」逐字节比对，
+  # 不一致就 STALE + exit 1 —— 「fixture 过期」本身变成检得出来的状态。
 ```
 
-它不是「随手存一份盘」：脚本在 3 天 × 24 时 × 2 分 × 5 组摇卦 × 2 个地点里扫出第一个
-让四个状态同时出现的组合，缺任何一个就 exit 1，并把覆盖清单写进
-`fixtures/liuyao-coverage.txt`。当前那份是 2026-10-16 00:00 钟表 + 乌鲁木齐
-→ 真太阳时 10-15 22:04（−115.3 分钟，跨时辰且跨日），四柱 丙午年 戊戌月 壬戌日 辛亥时
-· 子丑旬空，3 个爻带空亡。重生成后 `census.mjs` 里的 `MUST_SHOW` 要一起改。
+两条硬规矩（2026-10-17 #66 事故的直接后果：引擎改了、盘还留着修前的值，
+绿灯于是认证了一份过期数据）：
 
-## 注入态必须真的在屏上
+1. **不许手改 fixture 文件。** 盘上存的是引擎算出来的纳甲，手改等于把错值焊进绿灯 gate。
+2. **生成前先断言。** 脚本把每张盘逐爻对上 `tools/liuyao-ganzhi/gold.ts` 那份手写京房纳甲
+   金标准（干支／六亲／世应／宫；每爻空亡按「已钉死的干支 + 当日旬空」推导，不另立第二份表），
+   对不上就 exit 1、一个文件都不写。它同时要求「修前那种取法复算出来的四五六爻必须与金标准
+   不同」，防止断言自己退化成恒真。
 
-`MUST_SHOW` / `MUST_COUNT` 对注入进来的态做断言（文本 token + `[data-ly-kong]` 计数）。
-理由：空态也有 nav、footer 和合规阶梯，光看「正文够长」会把「fixture 没被读到」
-审成通过——与首页那次假绿同一类。断言不过直接判负。
+五个必需状态（四柱+旬空行、每爻空亡、口径与经度行、跨时辰、跨日）是**扫**出来的：
+3 天 × 24 时 × 2 分 × 5 组摇卦 × 2 个地点，缺任何一个就 exit 1，清单印在
+`fixtures/liuyao-coverage.txt`。当前摇卦那张是 2026-10-12 00:00 钟表 + 乌鲁木齐
+→ 真太阳时 10-11 22:03（−116.2 分钟，跨时辰且跨日），四柱 丙午年 戊戌月 戊午日 癸亥时
+· 子丑旬空，2 个爻带空亡。
+
+## 注入态必须真的在屏上，而且必须逐爻对得上
+
+六爻这一半用的是 `LIUYAO_PINS`（不是整页 `includes`）：读 `.liuyao-plate` 的行结构，
+每爻比「六亲＋干支＋五行」整串 + 世应标记，`[data-ly-kong]` 只对**精确**计数，
+再比盘头卦名／宫／变卦，并断言老盘独有的 A4 标注在、其余三张盘上它**不在**。
+token 编号 `n01–n48`（每张盘 12 个：本卦 6 + 变卦 6），值全部取自
+`gold.ts` 那份金标准（`make-fixture.ts` 的 PINS 段落印的就是同一份），
+没有一个字从 fixture 抄——从 fixture 抄等于让盘面自己证明自己对。
+
+理由：本 harness **没有 golden-pixel 比对**，只有文本 token 与结构计数。所以「绿」的含义
+必须靠钉得足够细来支撑。空态也有 nav、footer 和合规阶梯，光看「正文够长」会把
+「fixture 没被读到」审成通过——与首页那次假绿同一类。断言不过直接判负。
+
+证伪跑过两次：把某一张盘的第 4 爻改成修前的错值 → 只有 `d1/m1-liuyao-result` 那两条
+`n04` 报 `屏上「兄弟庚子水」不含金标准「妻财庚午火」`，其余 47 个 token 照旧绿；
+把 `getNaJia.ts` 的下标退回 #66 写法 → acceptance 里 8 条断言一起红。两头都有牙齿。
 
 ## 溢出必须自己说清楚
 
@@ -115,7 +146,8 @@ cd <repo root> && NODE_PATH="<…>/fate-reverse/reproduce/node_modules" \
 五行五个值与冻结十六进制逐个相等；nav/footer 内 0 个 <44px 可点目标；
 `prefers-reduced-motion: reduce` 下 0 个仍在动的动画；orphan 路由不抛异常、不渲染 404 体；
 被 `overflow-x` 兜住的横向内容必须自带可滚动标记（见「溢出必须自己说清楚」）；
-注入进来的态必须在屏上（见「注入态必须真的在屏上」）。
+注入进来的态必须在屏上，六爻那四张还要逐爻对得上金标准（见「注入态必须真的在屏上，
+而且必须逐爻对得上」）。
 
 只上报不判负：`COLLIDE`（数据色与文字色解析出同一个值，例如
 `shen-baihu == text-muted`，属调色板决策不是 bug，但它使「按值比对」不可用，

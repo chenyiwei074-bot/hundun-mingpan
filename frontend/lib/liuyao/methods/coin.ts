@@ -1,4 +1,4 @@
-﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GUA_MAP, GANZHI_BASIS } from '../core';
+﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType, NaJiaYao } from '@/types/liuyao';
 
 export function coinToss(): CoinFace[] {
@@ -31,10 +31,11 @@ export function buildCoinResult(params: {
   let bianNaJia: NaJiaYao[] = [];
   if (gua.bian) {
     const bv = records.map(r => r.isDong ? (r.value === 6 ? 7 : 8) : r.value);
-    const bsBits = bv.slice(3).map(v => v===7||v===9?'1':'0').join('');
-    const bxBits = bv.slice(0,3).map(v => v===7||v===9?'1':'0').join('');
-    const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
-    bianNaJia = getNaJia(gua.bian!, bs, bx, bv, xunKong);
+    // 变卦的上下卦要由同一份 getGua 从变卦爻值推出，不能自己按位串拼：
+    // GUA_MAP 的键是「上爻在前」的读法，slice(3) 却是「四爻在前」，两处相反，
+    // 64 卦 × 6 动爻里有 288 例把变卦的上下卦认反（对拍见 tools/liuyao-ganzhi/acceptance.ts §8.10）。
+    const bg = getGua(bv);
+    bianNaJia = getNaJia(gua.bian!, bg.shangGua, bg.xiaGua, bv, xunKong);
   }
   const bianGong = gua.bian ? getPalaceGong(gua.bian) : null;
 
@@ -54,6 +55,7 @@ export function buildCoinResult(params: {
     monthZhi: monthGZ.slice(-1),
     xunKong,
     ganzhiBasis: GANZHI_BASIS,
+    najiaBasis: NAJIA_BASIS,
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: gua.bian ? { name: gua.bian, gong: bianGong?.gong||null, wuxing: bianGong ? WX[bianGong.gong] : null } : { name:null, gong:null, wuxing:null },
     yaoRecords: records,

@@ -8,8 +8,9 @@
 //   node tools/visual-harness/census.mjs --base=http://localhost:3001 --out=/tmp/vh
 //
 // Against the real backend, pass live ids so the dynamic routes render real content:
-//   ... --chart-id=<id> --report-id=<id> --liuyao-fixture=<file>
-// Without ids those routes are skipped and the run says so out loud.
+//   ... --chart-id=<id> --report-id=<id>
+// Without ids those routes are skipped and the run says so out loud. 六爻结果态不看 id：
+// 它读 sessionStorage，fixture 目录有默认值（tools/visual-harness/fixtures），四种盘各测一张。
 //
 // --stub exists for local dev where the Express/Postgres API is not running; it
 // replaces window.fetch with fixtures. Never use it to judge a live deploy: every
@@ -56,8 +57,24 @@ const IDS = {
 const CHART_FIXTURE = arg('chart-fixture') ? readFileSync(arg('chart-fixture'), 'utf8') : null;
 // Same idea for 六爻: /liuyao/result/[id] reads its plate out of sessionStorage key
 // "liuyao_result" and has no fetch fallback, so a route id alone can never render it.
-// Generated, committed, synthetic: tools/liuyao-ganzhi/make-fixture.ts.
-const LIUYAO_FIXTURE = arg('liuyao-fixture') ? readFileSync(arg('liuyao-fixture'), 'utf8') : null;
+// Generated, committed, synthetic: tools/liuyao-ganzhi/make-fixture.ts —— 三种起卦各一张，
+// 外加一张「老盘」（同一张摇卦盘去掉两个口径版本戳），用来测结果页 A4 那句标注。
+// 路径有默认值：不带任何参数也测得到结果态，不会再退化成「忘了传就静默跳过」。
+const LIUYAO_DIR = arg('liuyao-fixtures') || 'tools/visual-harness/fixtures';
+const LIUYAO_ROUTES = {
+  'liuyao-result': ['fixture_coin_0001', `${LIUYAO_DIR}/liuyao-result.json`],
+  'liuyao-result-time': ['fixture_time_0001', `${LIUYAO_DIR}/liuyao-result-time.json`],
+  'liuyao-result-number': ['fixture_number_0001', `${LIUYAO_DIR}/liuyao-result-number.json`],
+  'liuyao-result-legacy': ['fixture_legacy_0001', `${LIUYAO_DIR}/liuyao-result-legacy.json`],
+};
+// --liuyao-fixture=<file> 保留给单张盘（只覆盖摇卦那一张），其余仍走默认目录。
+if (arg('liuyao-fixture')) LIUYAO_ROUTES['liuyao-result'] = ['fixture_synth_0001', arg('liuyao-fixture')];
+const LIUYAO_BY_PATH = {};
+for (const [tag, [id, file]] of Object.entries(LIUYAO_ROUTES)) {
+  if (!existsSync(file)) { console.log(`\nSKIP ${tag}: fixture 不存在 ${file}（生成：tools/liuyao-ganzhi/make-fixture.ts）`); continue; }
+  LIUYAO_BY_PATH[`/liuyao/result/${id}`] = readFileSync(file, 'utf8');
+}
+const HAS_LIUYAO = Object.keys(LIUYAO_BY_PATH).length > 0;
 
 mkdirSync(OUT, { recursive: true });
 
@@ -97,7 +114,7 @@ const DYNAMIC_PAGES = [
   ['chart-loading', '/chart/loading/', 'chart'],
   ['chart-result', '/chart/result/', 'chart'],
   // liuyao-result deliberately not here: it takes its plate from sessionStorage, not
-  // from the API, so an id cannot make it render. See the LIUYAO_FIXTURE block below.
+  // from the API, so an id cannot make it render. See the LIUYAO_ROUTES block below.
   ['report', '/report/', 'report'],
 ];
 // Orphan routes: out of scope for the redesign, they only have to not error.
@@ -141,15 +158,73 @@ const AFTER = {
 // Injected states must actually land on screen. A fixture the app silently fails to
 // read leaves the page on its empty state, and an empty state is also "a page with a
 // nav, a footer and a ladder" — so bodyText alone can pass it while the real delivery
-// (四柱行、每爻空亡、口径行、跨日提示) was never measured. These tokens are read out of
-// the committed fixture; if you regenerate the fixture you must update them too.
-const MUST_SHOW = {
-  'liuyao-result': ['壬戌日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日'],
+// (四柱行、每爻空亡、口径行、跨日提示) was never measured.
+//
+// 2026-10-17 #66/#67 收口后改成按 method 分组、逐爻钉死：
+//  · 每爻钉的是「六亲+干支+五行」整串，不是单独的干支 —— 纳甲错一格六亲跟着错，只比干支会漏。
+//  · 值全部取自 tools/liuyao-ganzhi/gold.ts 那份手写京房纳甲金标准（make-fixture.ts 的 PINS 段落
+//    就是把同一份金标准印出来），没有一个字是从 fixture 抄的：从 fixture 抄等于让盘面自己证明自己对。
+//  · 爻位序一律 初→上；盘面上是 上爻在顶，探针读回来以后再翻。
+//  · 每爻空亡不另立表：kong 那个数是从已钉死的干支 + 当日旬空推出来的产物，只对精确值，不对「至少有」。
+//  · 重生成 fixture 时这些 token 必须跟着改（改的是 make-fixture.ts 重跑以后的 PINS 段落），
+//    手改 fixture 文件是禁止的。
+const LIUYAO_PINS = {
+  'liuyao-result': {
+    base: 1, gua: '雷火丰', gong: '坎宫', bianName: '泽雷随', kong: 2,
+    text: ['戊午日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日'],
+    absent: ['本盘按起卦时口径生成'],
+    ben: ['子孙己卯木', '官鬼己丑土', '兄弟己亥水', '妻财庚午火', '父母庚申金', '官鬼庚戌土'],
+    bian: ['父母庚子水', '兄弟庚寅木', '妻财庚辰土', '父母丁亥水', '官鬼丁酉金', '妻财丁未土'],
+  },
+  'liuyao-result-time': {
+    base: 13, gua: '火雷噬嗑', gong: '巽宫', bianName: '火泽睽', kong: 2,
+    text: ['己未日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日', '取数过程'],
+    absent: ['本盘按起卦时口径生成'],
+    ben: ['父母庚子水', '兄弟庚寅木', '妻财庚辰土', '官鬼己酉金', '妻财己未土', '子孙己巳火'],
+    bian: ['父母丁巳火', '官鬼丁卯木', '兄弟丁丑土', '子孙己酉金', '兄弟己未土', '父母己巳火'],
+  },
+  'liuyao-result-number': {
+    base: 25, gua: '乾为天', gong: '乾宫', bianName: '地雷复', kong: 3,
+    text: ['戊午日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日'],
+    absent: ['本盘按起卦时口径生成'],
+    ben: ['子孙甲子水', '妻财甲寅木', '父母甲辰土', '官鬼壬午火', '兄弟壬申金', '父母壬戌土'],
+    bian: ['妻财庚子水', '官鬼庚寅木', '兄弟庚辰土', '兄弟癸丑土', '妻财癸亥水', '子孙癸酉金'],
+  },
+  // 老盘：摇卦那张去掉两个口径戳。盘面内容仍是金标准值（要测的是标注分支，
+  // 不是把修前的错纳甲再认证一遍），但 A4 那句必须冒出来，且与上面三张反过来。
+  'liuyao-result-legacy': {
+    base: 37, gua: '雷火丰', gong: '坎宫', bianName: '泽雷随', kong: 2,
+    text: ['本盘按起卦时口径生成', '戊午日', '子丑旬空'],
+    absent: [],
+    ben: ['子孙己卯木', '官鬼己丑土', '兄弟己亥水', '妻财庚午火', '父母庚申金', '官鬼庚戌土'],
+    bian: ['父母庚子水', '兄弟庚寅木', '妻财庚辰土', '父母丁亥水', '官鬼丁酉金', '妻财丁未土'],
+  },
 };
-const MUST_COUNT = {
-  // 每爻空亡 renders one 空 per 旬空 branch, in both the 本卦 and 变卦 columns.
-  'liuyao-result': [['[data-ly-kong]', 1]],
-};
+// 读盘面用结构探针而不是整页 bodyText：整页 includes('庚午') 会被别的行、别的卡片撞中，
+// 而「第 4 爻那一格写的就是 妻财庚午火」才是这次交付的东西。比较全在页内做完再回传，
+// 免得把整页文本搬过 CDP。
+const liuyaoProbe = p => `(() => {
+  const out = [];
+  const plate = document.querySelector('.liuyao-plate');
+  if (!plate) return { miss: ['plate: .liuyao-plate 不存在（sessionStorage 没被读进盘面）'] };
+  const rows = [...plate.children].filter(d => d.children.length === 5);
+  if (rows.length !== 6) return { miss: ['plate: 爻行数=' + rows.length + '（应为 6）'] };
+  const txt = el => ((el && el.textContent) || '').replace(/\\s+/g, '');
+  const yao = rows.map(r => txt(r.children[1])).reverse();   // 盘面上爻在顶，翻回 初→上
+  const bian = rows.map(r => txt(r.children[4])).reverse();
+  (${JSON.stringify(p.ben)}).forEach((want, i) => { if (yao[i].indexOf(want) < 0)
+    out.push('n' + String(${p.base} + i).padStart(2, '0') + ' 本卦第' + (i + 1) + '爻 屏上「' + yao[i] + '」不含金标准「' + want + '」'); });
+  (${JSON.stringify(p.bian)}).forEach((want, i) => { if (bian[i].indexOf(want) < 0)
+    out.push('n' + String(${p.base} + 6 + i).padStart(2, '0') + ' 变卦第' + (i + 1) + '爻 屏上「' + bian[i] + '」不含金标准「' + want + '」'); });
+  const kong = plate.querySelectorAll('[data-ly-kong]').length;
+  if (kong !== ${p.kong}) out.push('空亡标记数=' + kong + '（干支+旬空推导应为 ${p.kong}）');
+  const head = txt(plate);
+  (${JSON.stringify([p.gua, p.gong, p.bianName])}).forEach(x => { if (head.indexOf(x) < 0) out.push('盘头缺「' + x + '」'); });
+  const page = (document.body.innerText || '').replace(/\\s+/g, '');
+  (${JSON.stringify(p.text)}).forEach(x => { if (page.indexOf(x) < 0) out.push('text:' + x); });
+  (${JSON.stringify(p.absent)}).forEach(x => { if (page.indexOf(x) >= 0) out.push('不该出现:' + x); });
+  return { miss: out, kong, yao, bian };
+})()`;
 
 // ---------------------------------------------------------------- chrome + cdp
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-first-run',
@@ -250,8 +325,14 @@ await send('Page.addScriptToEvaluateOnNewDocument', { source: STUB ? OBSERVERS +
 if (CHART_FIXTURE) {
   await send('Page.addScriptToEvaluateOnNewDocument', { source: 'try{sessionStorage.setItem("chart_preview",' + JSON.stringify(CHART_FIXTURE) + ')}catch(e){}' });
 }
-if (LIUYAO_FIXTURE) {
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: 'try{sessionStorage.setItem("liuyao_result",' + JSON.stringify(LIUYAO_FIXTURE) + ')}catch(e){}' });
+if (HAS_LIUYAO) {
+  // 一张 Chrome 跑四张盘：注入按 pathname 选，选不中就把键清掉 —— 否则上一页那张盘会
+  // 顺着 sessionStorage 活到下一页，四张截图其实是同一张盘，census 看不出来。
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: 'try{const m=' + JSON.stringify(LIUYAO_BY_PATH) + ';const k=m[location.pathname];' +
+      'if(k)sessionStorage.setItem("liuyao_result",k);' +
+      'else if(/^\\/liuyao\\/result\\//.test(location.pathname))sessionStorage.removeItem("liuyao_result");}catch(e){}',
+  });
 }
 
 const consoleErrors = [];
@@ -680,15 +761,13 @@ async function measure(tag, url) {
   }
   // The injected state has to be provably on screen before anything else here means
   // anything: an empty-state fallback is also "a page with nav, footer and ladder".
-  if (MUST_SHOW[base] || MUST_COUNT[base]) {
-    const miss = await evl(`(() => { const t = document.body.innerText || ''; const m = [];
-      (${JSON.stringify(MUST_SHOW[base] || [])}).forEach(x => { if (!t.includes(x)) m.push('text:' + x); });
-      (${JSON.stringify(MUST_COUNT[base] || [])}).forEach(([sel, min]) => {
-        const n = document.querySelectorAll(sel).length; if (n < min) m.push('count:' + sel + '=' + n + '<' + min); });
-      return m; })()`);
-    if (Array.isArray(miss)) for (const x of miss) fail.push(tag + ': fixture state not rendered, missing ' + x);
-    else fail.push(tag + ': fixture state probe failed ' + JSON.stringify(miss));
-    console.log(Array.isArray(miss) && miss.length ? '    MISSING fixture state: ' + miss.join(', ') : '    fixture state confirmed on screen');
+  if (LIUYAO_PINS[base]) {
+    const got = await evl(liuyaoProbe(LIUYAO_PINS[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 盘面探针跑不起来 ' + JSON.stringify(got).slice(0, 120));
+    else for (const x of miss) fail.push(tag + ': 盘面不等于金标准 — ' + x);
+    console.log(miss && miss.length ? '    PIN MISMATCH ' + miss.join(' | ')
+      : `    pins n${String(LIUYAO_PINS[base].base).padStart(2, '0')}–n${String(LIUYAO_PINS[base].base + 11).padStart(2, '0')} 全中，空亡 ${got.kong} 处`);
   }
   const v = await evl(CENSUS);
   if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; }
@@ -745,10 +824,11 @@ if (!STUB) {
 }
 
 // 六爻结果态：只有注入 fixture 才画得出来，live 模式也一样 —— 这个页面不请求 API。
-if (keep('liuyao-result', '/liuyao/result')) {
-  if (LIUYAO_FIXTURE) pages.push(['liuyao-result', '/liuyao/result/fixture_synth_0001', false]);
-  else console.log('\nSKIP liuyao-result: its plate comes from sessionStorage, not the API, so --liuyao-id ' +
-    'cannot render it. Pass --liuyao-fixture=tools/visual-harness/fixtures/liuyao-result.json');
+// 四种盘各测一遍：三种起卦方式（摇卦 / 时间 / 报数）+ 一张去掉口径版本戳的老盘。
+for (const [tag, [id]] of Object.entries(LIUYAO_ROUTES)) {
+  if (!keep(tag, '/liuyao/result')) continue;
+  if (LIUYAO_BY_PATH['/liuyao/result/' + id]) pages.push([tag, '/liuyao/result/' + id, false]);
+  else console.log(`\nSKIP ${tag}: 盘面来自 sessionStorage，--liuyao-id 渲染不出它，缺 fixture 就是缺 fixture`);
 }
 
 console.log(`\nbase=${BASE}  out=${OUT}  stub=${STUB}  chrome=${CHROME}`);

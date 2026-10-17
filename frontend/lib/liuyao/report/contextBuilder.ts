@@ -10,14 +10,17 @@ const METHOD_LABELS: Record<string,string> = { coin:'铜钱摇卦', time:'时间
 /** 世应关系增强文本 */
 function describeRelation(data: LiuyaoAnalysisData['shiYing']): ReportShiYing | null {
   if (!data) return null;
+  // analysis.shiYing 的 shiPosition/yingPosition 直接取自 naJia.position，本来就是 1-based（1=初爻）。
+  // 这里曾经再 +1，等于把世应整体抬高一个爻位，YAO_LABELS[6] 还会取到 undefined，
+  // 于是世在上爻的盘报给 AI 的爻名是空的（对拍见 tools/liuyao-ganzhi/acceptance.ts §8.11）。
   return {
-    shiPosition: data.shiPosition + 1,
-    shiLabel: YAO_LABELS[data.shiPosition],
+    shiPosition: data.shiPosition,
+    shiLabel: YAO_LABELS[data.shiPosition - 1],
     shiLiuQin: data.shiLiuQin,
     shiWuxing: data.shiWx,
     shiGanZhi: '', // 从 naJia 补充
-    yingPosition: data.yingPosition + 1,
-    yingLabel: YAO_LABELS[data.yingPosition],
+    yingPosition: data.yingPosition,
+    yingLabel: YAO_LABELS[data.yingPosition - 1],
     yingLiuQin: data.yingLiuQin,
     yingWuxing: data.yingWx,
     yingGanZhi: '',
@@ -59,10 +62,10 @@ export function buildReportContext(
     relation: '', chongHe: '—',
   };
 
-  // 补充世应干支
+  // 补充世应干支（position 同为 1-based，不再 +1）
   if (analysis.shiYing) {
-    const sYao = result.naJia.find(y => y.position === analysis.shiYing!.shiPosition + 1);
-    const yYao = result.naJia.find(y => y.position === analysis.shiYing!.yingPosition + 1);
+    const sYao = result.naJia.find(y => y.position === analysis.shiYing!.shiPosition);
+    const yYao = result.naJia.find(y => y.position === analysis.shiYing!.yingPosition);
     if (sYao) shiYing.shiGanZhi = sYao.ganZhi;
     if (yYao) shiYing.yingGanZhi = yYao.ganZhi;
   }
