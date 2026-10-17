@@ -216,16 +216,23 @@ function finish(
 /** 地支序数：子 1 … 亥 12，起卦取数用。 */
 const zhiNumber = (zhi: string) => ZHI.indexOf(zhi) + 1;
 
+/** 时间起卦的年界口径：农历正月初一，或交立春时刻。 */
+export type YearBasis = 'lunar-new-year' | 'lichun';
+
 /**
- * 时间起卦：年支数 + 农历月 + 农历日 定上卦，再加时支数定下卦与动爻。
+ * Date → 时间起卦的四个取数（年支序 / 农历月 / 农历日 / 时辰序）。
+ * 梅花 `qiGuaByTime` 与六爻 `methods/time.ts` 共用这一份，两条页面的取数不会各说各话，
+ * 年界要改也只改传进来的 `yearBasis`。
  *
- * 口径与站点命盘引擎对齐（实测 lunar-typescript@1.8.6）：
- * - 年支走 getYearInGanZhiExact()，即精确到立春时刻；getYearInGanZhi() 走正月初一，
- *   getYearInGanZhiByLiChun() 走立春当日零点，两者都和八字页显示的年柱不一致。
- * - 23 时按晚子时换日，与 bazi.ts 的 ZI_HOUR_23 同一条规则，取次日的农历月日。
- * - 不作真太阳时校正：起卦用的是问事当下钟表时刻，没有出生地可用。
+ * 实测 lunar-typescript@1.8.6：
+ * - 'lichun' 走 getYearInGanZhiExact()（精确到交立春时刻，与八字页年柱同口径）；
+ *   'lunar-new-year' 走 getYearInGanZhi()（正月初一为界）。两个口径只在「立春已过、正月初一未到」那段日子差一支，
+ *   例：2026-02-05 正午 → 'lichun' 取午，'lunar-new-year' 取巳（2026 立春 2-04，春节 2-17）。
+ * - 23 时按晚子时换日，与 bazi.ts 的 ZI_HOUR_23 同一条规则，取次日的农历月日；时支本身已是子。
+ * - 闰月 `getMonth()` 返回负数，按本数月计入（取绝对值），不另作加减。
+ * - 不作真太阳时校正：取的是问事当下的钟表时刻；调用方若已按地点校正过，传进来的就是校正后的时刻。
  */
-export function qiGuaByTime(date: Date): MeiHuaResult {
+export function lunarQiShu(date: Date, yearBasis: YearBasis = 'lunar-new-year') {
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   const d = date.getDate();
@@ -234,15 +241,33 @@ export function qiGuaByTime(date: Date): MeiHuaResult {
 
   const solar = Solar.fromYmdHms(y, m, d, hh, mi, 0);
   const lunar = solar.getLunar();
-  const nianZhi = lunar.getYearInGanZhiExact().charAt(1);
+  const nianZhi = (yearBasis === 'lichun' ? lunar.getYearInGanZhiExact() : lunar.getYearInGanZhi()).charAt(1);
   const shiZhi = lunar.getTimeZhi();
   const lateZi = hh === 23;
   const dayLunar = lateZi ? solar.next(1).getLunar() : lunar;
 
-  const nZ = zhiNumber(nianZhi);
-  const yue = Math.abs(dayLunar.getMonth());
-  const ri = dayLunar.getDay();
-  const hZ = zhiNumber(shiZhi);
+  return {
+    nianZhi,
+    shiZhi,
+    lateZi,
+    nianZhiNum: zhiNumber(nianZhi),
+    shiZhiNum: zhiNumber(shiZhi),
+    yue: Math.abs(dayLunar.getMonth()),
+    ri: dayLunar.getDay(),
+    lunarText: `${dayLunar.getMonthInChinese()}月${dayLunar.getDayInChinese()}`,
+    civil: { y, m, d, hh, mi },
+  };
+}
+
+/**
+ * 时间起卦：年支数 + 农历月 + 农历日 定上卦，再加时支数定下卦与动爻。
+ * 取数见 `lunarQiShu`；本页沿站点八字口径按**立春**年界（六爻的时间起卦同一条取数、年界按农历年）。
+ */
+export function qiGuaByTime(date: Date): MeiHuaResult {
+  const q = lunarQiShu(date, 'lichun');
+  const { y, m, d, hh, mi } = q.civil;
+  const nianZhi = q.nianZhi, shiZhi = q.shiZhi, lateZi = q.lateZi;
+  const nZ = q.nianZhiNum, yue = q.yue, ri = q.ri, hZ = q.shiZhiNum;
 
   const upper = nZ + yue + ri;
   const total = upper + hZ;
@@ -261,7 +286,7 @@ export function qiGuaByTime(date: Date): MeiHuaResult {
       `${upper} ÷ 8 余 ${remainder(upper, 8)} → 上卦取${shangNum} = ${XIANTIAN[shangNum - 1]}`,
       `再加时支${shiZhi}${hZ}，得 ${total}；÷ 8 余 ${remainder(total, 8)} → 下卦取${xiaNum} = ${XIANTIAN[xiaNum - 1]}`,
       `${total} ÷ 6 余 ${remainder(total, 6)} → 动爻在第${dongYao}爻`,
-      `问事时刻 ${y}-${pad(m)}-${pad(d)} ${pad(hh)}:${pad(mi)}，农历${dayLunar.getMonthInChinese()}月${dayLunar.getDayInChinese()}${lateZi ? '（晚子时按次日计）' : ''}`,
+      `问事时刻 ${y}-${pad(m)}-${pad(d)} ${pad(hh)}:${pad(mi)}，农历${q.lunarText}${lateZi ? '（晚子时按次日计）' : ''}`,
     ],
     [
       '年支以立春为界，精确到交立春的时刻，与本站八字年柱同一口径。',
@@ -271,7 +296,7 @@ export function qiGuaByTime(date: Date): MeiHuaResult {
     ],
     {
       civil: `${y}-${pad(m)}-${pad(d)} ${pad(hh)}:${pad(mi)}`,
-      lunar: `${dayLunar.getMonthInChinese()}月${dayLunar.getDayInChinese()}`,
+      lunar: q.lunarText,
       nianZhi,
       shiZhi,
       advancedForLateZi: lateZi,

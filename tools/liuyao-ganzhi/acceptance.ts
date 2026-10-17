@@ -296,6 +296,118 @@ for (let i = 0; i < 60; i++) {
 ok('xunkong/60-jiazi', xk60Bad === 0 && xk60 === 60,
   `六十甲子旬空对标准表不符 ${xk60Bad}/${xk60}${xk60BadList.length ? ' 例:' + xk60BadList.join(' | ') : ''}`);
 
+// ── 8.6 时间起卦取数（D9，2026-10-17 裁定口径）──
+// 上卦 =（年支序 + 农历月 + 农历日）mod 8，下卦 = 再加时辰序 mod 8，动爻 = 同一个和 mod 6；
+// 余 0 不作 0 按满数计（卦 8、爻 6）；年支按**农历年（正月初一）**；23 时农历日按次日计；闰月按本数月计（取绝对值）。
+// 下面这份 qiShuIndependent 只调 lunar-typescript，不走被测模块，用来把 methods/time.ts 的盘独立复算出来。
+const XIAN_TIAN_NUM = ['乾', '兑', '离', '震', '巽', '坎', '艮', '坤'];   // 先天八卦数 1..8
+// 卦形表按「初爻在最左」写死，与先天数自洽：二进制读法恒等于 8 − 先天数
+// （乾1=111=7 … 坤8=000=0），即宋人「自下而上、阳爻记 1」的二元计数。
+const XIAN_TIAN_BITS = ['111', '110', '101', '100', '011', '010', '001', '000'];
+const ZHI_ORDER = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const fullMod = (n: number, m: number) => { const r = n % m; return r === 0 ? m : r; };
+
+function qiShuIndependent(date: Date) {
+  const solar = Solar.fromYmdHms(date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), 0);
+  const lunar = solar.getLunar();
+  const nianZhi = lunar.getYearInGanZhi().charAt(1);                       // 正月初一界
+  const nianZhiLiChun = lunar.getYearInGanZhiExact().charAt(1);            // 立春界（只为对照）
+  const shiZhi = lunar.getTimeZhi();
+  const dayLunar = date.getHours() === 23 ? solar.next(1).getLunar() : lunar;
+  const n = ZHI_ORDER.indexOf(nianZhi) + 1, h = ZHI_ORDER.indexOf(shiZhi) + 1;
+  const yue = Math.abs(dayLunar.getMonth()), ri = dayLunar.getDay();
+  const upper = n + yue + ri, total = upper + h;
+  return {
+    nianZhi, nianZhiLiChun, shiZhi, n, h, yue, ri, upper, total,
+    leap: dayLunar.getMonth() < 0,
+    shang: fullMod(upper, 8), xia: fullMod(total, 8), dong: fullMod(total, 6),
+    shangIfLiChun: fullMod(ZHI_ORDER.indexOf(nianZhiLiChun) + 1 + yue + ri, 8),
+  };
+}
+
+// 样例（owner 给的实测数）：2026-10-17 14:00 → 农历九月初八、年支午(7)、时辰序未(8) → 上8/下8/动2
+const tsSample = new Date(2026, 9, 17, 14, 0, 0);
+const tsInd = qiShuIndependent(tsSample);
+const tsRes = buildTimeResult({ question: '验收', questionType: '其他', date: tsSample });
+ok('time-qishu/sample-2026-10-17',
+  tsInd.nianZhi === '午' && tsInd.n === 7 && tsInd.yue === 9 && tsInd.ri === 8 && tsInd.h === 8 &&
+  tsInd.upper === 24 && tsInd.total === 32 && tsInd.shang === 8 && tsInd.xia === 8 && tsInd.dong === 2,
+  `取数 年支${tsInd.nianZhi}${tsInd.n} + ${tsInd.yue}月 + ${tsInd.ri}日 = ${tsInd.upper}，加时支${tsInd.shiZhi}${tsInd.h} = ${tsInd.total} → 上${tsInd.shang}/下${tsInd.xia}/动${tsInd.dong}（应 午7/9/8/未8 → 24/32 → 8/8/2）`);
+ok('time-qishu/sample-plate',
+  tsRes.benGua.name === '坤为地' && tsRes.benGua.shangGua === '坤' && tsRes.benGua.xiaGua === '坤' &&
+  tsRes.dongYao.join() === '2' && tsRes.yaoRecords.map(y => y.value).join() === '8,6,8,8,8,8',
+  `盘面 本卦${tsRes.benGua.name} 上${tsRes.benGua.shangGua}/下${tsRes.benGua.xiaGua} 动爻[${tsRes.dongYao}] 爻值[${tsRes.yaoRecords.map(y => y.value)}]（应 坤为地 坤/坤 动二 8,6,8,8,8,8：六爻皆阴、二爻动取老阴 6）`);
+
+// 年界判别：2026 立春 2-04、正月初一 2-17，中间这段两个口径差一支，盘面必须跟着正月初一那份走
+const tsBoundary = new Date(2026, 1, 5, 12, 0, 0);
+const tbInd = qiShuIndependent(tsBoundary);
+const tbRes = buildTimeResult({ question: '验收', questionType: '其他', date: tsBoundary });
+ok('time-qishu/year-boundary',
+  tbInd.nianZhi === '巳' && tbInd.nianZhiLiChun === '午' && tbInd.shang !== tbInd.shangIfLiChun &&
+  tbRes.benGua.shangGua === XIAN_TIAN_NUM[tbInd.shang - 1],
+  `2026-02-05：正月初一取${tbInd.nianZhi}(上卦${tbInd.shang}=${XIAN_TIAN_NUM[tbInd.shang - 1]}) vs 立春取${tbInd.nianZhiLiChun}(上卦${tbInd.shangIfLiChun}=${XIAN_TIAN_NUM[tbInd.shangIfLiChun - 1]})，盘面取${tbRes.benGua.shangGua}，两口径必须可分辨且实盘跟正月初一`);
+
+// 逐年逐日 × 14 个时辰，与独立复算对拍（卦名、卦形、动爻、爻值结构）。
+// 跨 2025–2026 两个公历年而不是只跑 2026：闰月落在 2025 的闰六月（2025-07-25～08-22，29 天），
+// 2026 整年没有闰月，只跑 2026 会让「闰月按本数月计」这条口径 0 例通过。
+let tsCases = 0, tsBad = 0, tsLeap = 0, tsLateZi = 0;
+const tsLeapMonths = new Set<string>();
+const tsBadList: string[] = [];
+for (let i = 0; i < 731; i++) {
+  const base = new Date(2025, 0, 1 + i);
+  if (base.getFullYear() > 2026) break;
+  for (const h of [0, 1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 23]) {
+    const dt = new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, 30, 0);
+    const ind = qiShuIndependent(dt);
+    const r = buildTimeResult({ question: '验收', questionType: '其他', date: dt });
+    tsCases++;
+    if (ind.leap) { tsLeap++; tsLeapMonths.add(`${ind.yue}月`); }
+    if (h === 23) tsLateZi++;
+    const vals = r.yaoRecords.map(y => y.value);
+    const dongList = r.yaoRecords.filter(y => y.isDong).map(y => y.position);
+    // 爻值还原成卦形：7/9 阳、6/8 阴，初爻在下 → 0-2 位是下卦、3-5 位是上卦。
+    const bits = vals.map(v => (v === 7 || v === 9 ? '1' : '0')).join('');
+    const structural =
+      r.benGua.shangGua === XIAN_TIAN_NUM[ind.shang - 1] &&
+      r.benGua.xiaGua === XIAN_TIAN_NUM[ind.xia - 1] &&
+      r.dongYao.length === 1 && r.dongYao[0] === ind.dong && dongList.join() === String(ind.dong) &&
+      vals.every((v, j) => (j + 1 === ind.dong ? (v === 6 || v === 9) : (v === 7 || v === 8))) &&
+      vals.every(v => [6, 7, 8, 9].includes(v)) &&
+      bits.slice(0, 3) === XIAN_TIAN_BITS[ind.xia - 1] &&
+      bits.slice(3, 6) === XIAN_TIAN_BITS[ind.shang - 1];
+    if (!structural) {
+      tsBad++;
+      if (tsBadList.length < 6) tsBadList.push(`${dt.getMonth() + 1}-${dt.getDate()} ${h}:30 → ${r.benGua.name}(上${r.benGua.shangGua}/下${r.benGua.xiaGua} 形${bits}) 应 上${XIAN_TIAN_NUM[ind.shang - 1]}(${XIAN_TIAN_BITS[ind.shang - 1]})/下${XIAN_TIAN_NUM[ind.xia - 1]}(${XIAN_TIAN_BITS[ind.xia - 1]}) 动${ind.dong}`);
+    }
+  }
+}
+ok('time-qishu/matches-independent', tsBad === 0 && tsCases > 9000,
+  `2025–2026 ${tsCases} 个「日 × 时辰」盘与独立复算不符 ${tsBad} 例${tsBadList.length ? ' 例:' + tsBadList.join(' | ') : ''}`);
+// 闰月单独钉一条：lunar-typescript 把闰月记成负数（2025 闰六月 → getMonth() = -6），
+// 传统「闰月按本数月计」= 取绝对值 6，既不另起一月、也不并入下月。
+// 这条不走 qiShuIndependent 的 abs，直接把库里的原始符号钉住，免得两份实现同时把负号读错。
+const tlDay = new Date(2025, 7, 1, 12, 0, 0);
+const tlLunar = Solar.fromYmdHms(2025, 8, 1, 12, 0, 0).getLunar();
+const tlRaw = tlLunar.getMonth();
+const tlInd = qiShuIndependent(tlDay);
+const tlRes = buildTimeResult({ question: '验收', questionType: '其他', date: tlDay });
+ok('time-qishu/leap-month-counted',
+  tlRaw === -6 && tlInd.leap && tlInd.yue === 6 &&
+  tlRes.benGua.shangGua === XIAN_TIAN_NUM[tlInd.shang - 1] && tlRes.benGua.xiaGua === XIAN_TIAN_NUM[tlInd.xia - 1],
+  `2025-08-01 农历${tlLunar.getMonthInChinese()}月${tlLunar.getDayInChinese()}：库里 getMonth()=${tlRaw}（负号=闰），取数按本数月 ${tlInd.yue} → 上${tlInd.shang}=${XIAN_TIAN_NUM[tlInd.shang - 1]}/下${tlInd.xia}=${XIAN_TIAN_NUM[tlInd.xia - 1]}，盘面 ${tlRes.benGua.name}`);
+
+// 晚子时（23 时）单独钉一条：同一日的 22:30 与 23:30 分属两个农历日，23:30 与次日 00:30 同属一日。
+const tzPrev = qiShuIndependent(new Date(2026, 9, 17, 22, 30));
+const tzLate = qiShuIndependent(new Date(2026, 9, 17, 23, 30));
+const tzEarly = qiShuIndependent(new Date(2026, 9, 18, 0, 30));
+ok('time-qishu/late-zi-uses-next-day',
+  tzLate.ri === tzPrev.ri + 1 && tzPrev.shiZhi === '亥' && tzLate.shiZhi === '子' &&
+  tzLate.shang === tzEarly.shang && tzLate.xia === tzEarly.xia && tzLate.dong === tzEarly.dong,
+  `2026-10-17 ${tzPrev.ri}日亥时(${tzPrev.shang}/${tzPrev.xia}/动${tzPrev.dong}) → 23:30 已是${tzLate.ri}日子时(${tzLate.shang}/${tzLate.xia}/动${tzLate.dong})，与 10-18 00:30(${tzEarly.shang}/${tzEarly.xia}/动${tzEarly.dong}) 同盘`);
+
+ok('time-qishu/covers-leap-and-latezi', tsLeap > 0 && tsLateZi > 0,
+  `这轮对拍覆盖 闰月 ${tsLeap} 例（闰${[...tsLeapMonths].join('、闰')}）、23 时（晚子时换日）${tsLateZi} 例，两条口径都真被测到了`);
+
 // ── 9. 控制台摘要（ASCII）──
 const summary = `liuyao ganzhi acceptance: days=${days} pass=${pass} fail=${fail}`;
 try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
