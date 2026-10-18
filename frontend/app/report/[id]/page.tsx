@@ -7,6 +7,7 @@ import { REPORT_TYPE_LABELS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS } from '
 import { getProductByType } from '@/lib/product/product';
 import { checkReportAccess } from '@/lib/report/access';
 import type { ReportRecord } from '@/lib/report/types';
+import { getVisitorId } from '@/lib/auth/visitor';
 
 /** 返回链接要撑到 44px 命中区，否则手机上只有 17px 高 */
 const BACK: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 44 };
@@ -59,7 +60,8 @@ export default function ReportDetailPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`/api/reports/${id}`)
+    const vid = getVisitorId();
+      fetch(`/api/reports/${id}?visitorId=${encodeURIComponent(vid)}`)
       .then(r => r.json())
       .then(d => { if (d.success) setReport(d.data); else setError(d.error || '报告不存在'); })
       .catch(() => setError('加载失败'))
