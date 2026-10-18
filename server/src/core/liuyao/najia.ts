@@ -6,10 +6,16 @@ import {
   GANS, ZHIS, GUA_NAMES, GUA_YAOS, GUA_WUXING, GUA_YINYANG, GUA64,
   NAJIA, GONG8, GONG_TYPE, SHI_YAO_POS, YING_YAO_POS,
   ZHI_WUXING, DZ_XIU, CHONG_ZHI, getLiuQin, getLiuShenOrder, getXunKong,
-  monthToJian, dateToGanZhi, hourToZhi,
+  dateToGanZhi, hourToZhi,
 } from './constants';
 import { JINGFANG_STARS } from './jingfang_stars';
+import { Solar } from 'lunar-typescript';
 
+
+/** 节气月支：如 2026-10-17 → 戌（用 lunar-typescript 的 getMonthZhi） */
+function solarMonthZhi(date: Date): DiZhi {
+  return Solar.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate()).getLunar().getMonthZhi() as DiZhi;
+}
 // ============================================================
 // 根据6爻二进制编码查找本卦信息
 // ============================================================
@@ -112,7 +118,8 @@ export function paiPan(yaoData: LiuYaoData, date: Date = new Date(), opts: PaiPa
   
   // 日辰月建 (opts 可覆盖, 与 engine.py day_gz/month_zhi 对应)
   const riGanZhi = opts.riChen || dateToGanZhi(date);
-  const yueJian = opts.yueJian || monthToJian(date.getMonth() + 1);
+  // 2026-10-17 修：月建改按节气（旧实现用公历月近似，365/365 天与节气月建差一整月）
+  const yueJian = opts.yueJian || solarMonthZhi(date);
   const xunKongZhi = getXunKong(riGanZhi.gan, riGanZhi.zhi);
   const yuePoZhi = [CHONG_ZHI[yueJian]];
   

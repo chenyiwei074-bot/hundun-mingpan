@@ -6,6 +6,8 @@ export const CreateChartSchema = z.object({
   gender: z.enum(['男', '女']),
   calendar: z.enum(['公历', '农历']).default('农历'),
   birthday: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
+  /** 农历闰月位。additive：老客户端不传 → 按平月；birthday 字段本身放不下闰月。 */
+  isLeapMonth: z.boolean().optional().default(false),
   birthPlace: z.string().optional().default(''),
   currentPlace: z.string().optional().default(''),
   persona: z.enum(['standard', 'casual']).optional().default('standard'),

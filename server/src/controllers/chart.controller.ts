@@ -3,6 +3,7 @@ import prisma from '../database';
 import { generateChart, extractFreeSummary } from '../services/chart.service';
 import { runPipeline } from '../services/pipeline.service';
 import { CreateChartSchema } from '../utils/types';
+import { toCivilInput } from '../core/yiqi-core/lunar-input';
 
 const DAILY_FREE_LIMIT = 3; // 每日免费3次
 
@@ -30,10 +31,25 @@ export async function createChart(req: Request, res: Response) {
     const [datePart, timePart] = input.birthday.split(' ');
     const [year, month, day] = datePart.split('-').map(Number);
     const [hour, minute] = timePart.split(':').map(Number);
+    // birth_data 存的一直是「用户原始输入」：calendar 表示用户选的历法，
+    // birthday 里的数字可能是农历数字。这个语义不能改（历史行就是这个口径）。
+    // 换算属于引擎职责，这里只把换算结果一并存档，方便复核排盘口径；
+    // 换算失败（该年没有这个闰月 / 日数超出该月）时只留原始输入，不挡创建流程，
+    // 让排盘层用同一套换算去报错比在这里返回 500 更好解释。
+    let conversion: ReturnType<typeof toCivilInput>['conversion'];
+    try {
+      conversion = toCivilInput({
+        year, month, day, hour, minute,
+        isLunar: input.calendar === '农历',
+        isLeapMonth: input.isLeapMonth === true,
+      }).conversion;
+    } catch { /* 非法农历日期：交给排盘层报错 */ }
     const birthData = JSON.stringify({
       year, month, day, hour, minute,
       isLunar: input.calendar === '农历',
+      isLeapMonth: input.isLeapMonth === true,
       calendar: input.calendar,
+      conversion,
     });
 
     // 创建记录

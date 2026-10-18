@@ -1,5 +1,7 @@
 import { createChart, enrichBazi, getZhiCangGanFull } from '../core';
 import type { BirthInfo, ChartResult } from '../core';
+import { buildTrueSolarWiring } from '../lib/true-solar/birth-wiring';
+import { toCivilInput } from '../core/yiqi-core/lunar-input';
 import type { CreateChartInput } from '../utils/types';
 
 /**
@@ -10,6 +12,31 @@ function parseBirthInfo(input: CreateChartInput): BirthInfo {
   const [year, month, day] = datePart.split('-').map(Number);
   const [hour, minute] = timePart.split(':').map(Number);
 
+  // ── 农历先换算成公历，再拿这个公历去接真太阳时 ─────────────────────────
+  // buildTrueSolarWiring 按【公历日期】判定 1986–1991 的历史夏令时；把农历数字
+  // 当公历喂进去，DST 判定会在边界上翻错（农历与公历最大差一个多月）。换算在
+  // 引擎里也会做一次（前后端同一套实现），这里只是让接线拿到正确的公历日期。
+  const hourSafe = Number.isNaN(hour) ? 12 : hour;
+  const minuteSafe = Number.isNaN(minute) ? 0 : minute;
+  const civil = toCivilInput({
+    year, month, day, hour: hourSafe, minute: minuteSafe,
+    isLunar: input.calendar === '农历',
+    isLeapMonth: input.isLeapMonth === true,
+  });
+
+  // ── 真太阳时（2026-10-16 后端接入）────────────────────────────────────
+  // 契约不变：复用请求里已有的 birthPlace（"省 市 区"）解析经度，
+  // 再用内置 IANA 数据补历史夏令时；出生地缺失时 longitude 为 undefined，
+  // 引擎行为与旧版完全一致（applied=false）。
+  const [province, city, district] = String(input.birthPlace || '').trim().split(/\s+/);
+  const tst = buildTrueSolarWiring(
+    { province, city, district },
+    {
+      year: civil.year, month: civil.month, day: civil.day,
+      hour: civil.hour, minute: civil.minute,
+    },
+  );
+
   return {
     year,
     month,
@@ -17,8 +44,12 @@ function parseBirthInfo(input: CreateChartInput): BirthInfo {
     hour,
     minute,
     isLunar: input.calendar === '农历',
+    isLeapMonth: input.isLeapMonth === true,
     gender: input.gender === '男' ? 'male' as const : 'female' as const,
-    timeZone: 8,
+    timeZone: tst.timeZone,
+    longitude: tst.longitude,
+    dstOffset: tst.dstOffset,
+    enableTrueSolarTime: true,
   };
 }
 

@@ -8,8 +8,47 @@ export interface BirthInfo {
   hour: number;
   minute: number;
   isLunar: boolean; // 是否为农历
+  /** 农历闰月位（true 表示 month 那个月是该年的闰月）。公历时忽略。 */
+  isLeapMonth?: boolean;
   gender: 'male' | 'female';
   timeZone: number; // 时区偏移，默认为8（北京时间）
+
+  // ── 真太阳时（2026-10 新增）───────────────────────────────────────────
+  // 中国统一用东八区(120°E)，但喀什(75.99°E)与上海(121.47°E)相差 45.5°，
+  // 经度时差约 182 分钟；加均时差后最大可超 3 小时，足以跨 1–2 个时辰，
+  // 改变时柱进而改变整个命盘。
+  /** 出生地经度（东经为正）。缺省时不校正，行为与旧版完全一致。 */
+  longitude?: number;
+  /** 夏令时偏移（小时），默认 0。历史夏令时需显式给出（前端不打包 IANA 时区库）。 */
+  dstOffset?: number;
+  /** 是否启用真太阳时校正，默认 true（但需 longitude 才实际生效）。 */
+  enableTrueSolarTime?: boolean;
+}
+
+// 真太阳时校正结果（供 UI 展示与结果存档）
+export interface TrueSolarTimeInfo {
+  applied: boolean;
+  civilTime: string;
+  trueSolarTime: string;
+  longitudeCorrectionMinutes: number;
+  equationOfTimeMinutes: number;
+  dstOffsetMinutes: number;
+  totalCorrectionMinutes: number;
+  standardMeridian: number;
+  longitude: number | null;
+  timezone: number;
+  crossed: { hour: boolean; day: boolean };
+  algorithm: string;
+}
+
+// 农历输入的换算记录（与前端同名同结构，便于两盘口径对齐）
+export interface CalendarConversion {
+  inputType: 'lunar';
+  /** 用户原始输入的农历时刻（月恒为正，闰与否看 isLeapMonth），如 2023-02-01 09:30 */
+  lunar: string;
+  isLeapMonth: boolean;
+  /** 换算出的公历时刻，引擎真正用于排盘的时刻 */
+  civilSolar: string;
 }
 
 // 保存的案例
@@ -87,6 +126,11 @@ export interface BaziChart {
   };
   dayunStart: number; // 大运起运岁数
   dayun: DayunDetail[]; // 大运详情列表，通常显示前10步
+  cangGan?: { year: { gan: string; tenGod?: string }[]; month: { gan: string; tenGod?: string }[]; day: { gan: string; tenGod?: string }[]; hour: { gan: string; tenGod?: string }[] }
+    // 真太阳时校正明细（2026-10 接入）：bazi.ts 赋值，供展示与存档
+    trueSolarTime?: TrueSolarTimeInfo;
+    // 农历输入的换算记录（07 同步）：非农历输入时 undefined
+    calendarConversion?: CalendarConversion;
 }
 
 // 紫微斗数十二宫

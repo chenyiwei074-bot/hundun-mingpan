@@ -2,6 +2,7 @@
 // Ported from 混沌六爻 skill engine.py v2.0
 
 import { TianGan, DiZhi, WuXing, GuaName, LiuQin, LiuShen, YaoValue, LiuYaoData } from './types';
+import { Solar } from 'lunar-typescript';
 
 // ============================================================
 // 天干地支
@@ -171,13 +172,15 @@ export function yearZhi(year: number): number { return (year - 4) % 12; }
 
 // 1900年1月1日 = 甲戌日 (用于日干支计算)
 const BASE_DATE = new Date(1900, 0, 1);
+const BASE_UTC_DAY = Math.floor(Date.UTC(1900, 0, 1) / 86400000);
 const BASE_GAN_IDX = 0;  // 甲
 const BASE_ZHI_IDX = 10; // 戌
 
 /** 日期转日干支 */
 export function dateToGanZhi(date: Date): { gan: TianGan; zhi: DiZhi } {
-  const msPerDay = 86400000;
-  const diffDays = Math.floor((date.getTime() - BASE_DATE.getTime()) / msPerDay);
+  // 日序用公历 Y/M/D 的 UTC 日序，时刻不参与运算。
+  // 旧实现用 getTime() 毫秒差再 floor：夏令时年份（1919/1940-49/1986-91）零点会少算一天。
+  const diffDays = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000) - BASE_UTC_DAY;
   const ganIdx = ((BASE_GAN_IDX + diffDays) % 10 + 10) % 10;
   const zhiIdx = ((BASE_ZHI_IDX + diffDays) % 12 + 12) % 12;
   return { gan: GANS[ganIdx], zhi: ZHIS[zhiIdx] };
@@ -199,22 +202,24 @@ export function hourToZhi(hour: number): DiZhi {
 export function randomYao(): YaoValue {
   // 三枚铜钱: 每枚0或1背, 共0-3背
   const backs = Math.floor(Math.random() * 2) + Math.floor(Math.random() * 2) + Math.floor(Math.random() * 2);
-  const map: Record<number,YaoValue> = { 0:9, 1:7, 2:8, 3:6 };
+  // 2026-10-17 修：旧映射把两个极端值搞反了（0背→9、3背→6）。
+  // 标准（一背为单、二背为拆、三背为重）：0背=老阴6、1背=少阳7、2背=少阴8、3背=老阳9。
+  const map: Record<number,YaoValue> = { 0:6, 1:7, 2:8, 3:9 };
   return map[backs];
 }
 
-/** 时间起卦: 取日期时分秒生成六爻 */
+/** 时间起卦（传统梅花取数法）：年支序+农历月+农历日 取上卦，再加时辰序 取下卦，总数取动爻。
+ *  2026-10-17 修：旧实现用公历月/日 + getHours() 原值（0–23），与传统取数法不符。
+ *  现取：农历年支序（子=1…亥=12）、农历月（闰月按本月计）、农历日、时辰序（子=1…亥=12）。 */
 export function timeQiGua(date: Date): { yaoData: LiuYaoData; shangGua: number; xiaGua: number; dongYao: number } {
-  const y = date.getFullYear();
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  const h = date.getHours();
-  
-  // 农历年地支序数
-  const nianZhi = (y - 4) % 12 + 1;
+  const lunar = Solar.fromYmd(date.getFullYear(), date.getMonth() + 1, date.getDate()).getLunar();
+  const nianZhi = ZHIS.indexOf(lunar.getYearZhi() as DiZhi) + 1;      // 农历年支序 1..12
+  const m = Math.abs(lunar.getMonth());                                // 闰月按本月计
+  const d = lunar.getDay();
+  const shichen = Math.floor(((date.getHours() + 1) % 24) / 2) + 1;    // 时辰序：子=1 … 亥=12
   const shang = (nianZhi + m + d) % 8 || 8;
-  const xia = (nianZhi + m + d + h) % 8 || 8;
-  const dong = (nianZhi + m + d + h) % 6 || 6;
+  const xia = (nianZhi + m + d + shichen) % 8 || 8;
+  const dong = (nianZhi + m + d + shichen) % 6 || 6;
   
   // 根据上下卦和动爻位生成六爻
   const shangCode = GUA_YAOS[shang - 1];  // 上卦三爻

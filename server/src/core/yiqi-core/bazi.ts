@@ -5,6 +5,8 @@ import { Lunar, Solar } from 'lunar-typescript';
 import { getSiZhuChangSheng } from './zhangsheng';
 import { getSiZhuNaYin } from './nayin';
 import { getAccurateMonthGanZhi } from './jieqi';
+import { calculateTrueSolarTime } from './true-solar-time';
+import { toCivilInput } from './lunar-input';
 
 /**
  * 十神关系映射
@@ -102,15 +104,50 @@ function getAdjustedSolarForZiShi(solar: Solar): Solar {
  * @param birthInfo 生辰信息
  * @returns 八字排盘结果
  */
+function safeGetGanZhi(obj: any): string {
+  try {
+    const v = obj.getGanZhi();
+    return typeof v === 'string' ? v : String(v || '');
+  } catch { return ''; }
+}
+
+function safeSubGan(s: string) { return (s && s.length >= 1 ? s[0] : '?') as any; }
+function safeSubZhi(s: string) { return (s && s.length >= 2 ? s[1] : '?') as any; }
+
 export function createBaziChart(birthInfo: BirthInfo): BaziChart {
   try {
-    // 创建Solar对象（公历日期）
+    // ── 农历 → 公历（必须在真太阳时之前）─────────────────────────────────
+    // 四柱的年/月/日界都挂在公历轴上（立春、十二节、干支纪日连续序列），
+    // 所以农历只能先换算成公历再排盘。把农历的数字直接当公历用，会得到一个
+    // 完全静默的错误盘面 —— 这正是 isLunar 之前无人读取时的行为。
+    const civil = toCivilInput(birthInfo);
+
+    // ── 真太阳时校正（2026-10 接入）───────────────────────────────────────
+    // 必须在建 Solar 之前，也必须在「晚子时换日」之前。
+    // 顺序理由：晚子时判断的是「出生地真太阳时是否已过 23:00」；
+    // 若先换日再校正，日柱会基于错误的钟表时间错位（双重偏移）。
+    // 未提供 longitude 时 applied=false，行为与旧版逐字节一致。
+    const tst = calculateTrueSolarTime({
+      year: civil.year,
+      month: civil.month,
+      day: civil.day,
+      hour: civil.hour,
+      minute: civil.minute,
+      second: 0,
+      longitude: birthInfo.longitude,
+      timezone: birthInfo.timeZone ?? 8,
+      dstOffset: birthInfo.dstOffset ?? 0,
+      enable: birthInfo.enableTrueSolarTime !== false,
+    });
+    const t = tst.trueSolarDateTime;
+
+    // 创建Solar对象（公历日期）—— 用校正后的真太阳时
     const solar = Solar.fromYmdHms(
-      birthInfo.year, 
-      birthInfo.month, 
-      birthInfo.day, 
-      birthInfo.hour, 
-      birthInfo.minute, 
+      t.year,
+      t.month,
+      t.day,
+      t.hour,
+      t.minute,
       0
     );
 
@@ -131,20 +168,20 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
     // 获取四柱干支
     const siZhu: SiZhu = {
       year: {
-        gan: baZi.getYear().substring(0, 1) as Tiangan,
-        zhi: baZi.getYear().substring(1, 2) as any
+        gan: baZi.getYearGan() as Tiangan,
+        zhi: baZi.getYearZhi() as any
       },
       month: {
-        gan: accurateMonthGZ.gan,  // 使用精确节气计算的月柱
-        zhi: accurateMonthGZ.zhi,  // 使用精确节气计算的月柱
+        gan: accurateMonthGZ.gan,
+        zhi: accurateMonthGZ.zhi,
       },
       day: {
-        gan: baZiForDay.getDay().substring(0, 1) as Tiangan,  // 使用调整后的日柱（处理晚子时）
-        zhi: baZiForDay.getDay().substring(1, 2) as any       // 使用调整后的日柱（处理晚子时）
+        gan: baZiForDay.getDayGan() as Tiangan,  // 使用调整后的日柱（处理晚子时）
+        zhi: baZiForDay.getDayZhi() as any       // 使用调整后的日柱（处理晚子时）
       },
       hour: {
-        gan: baZi.getTime().substring(0, 1) as Tiangan,
-        zhi: baZi.getTime().substring(1, 2) as any
+        gan: baZi.getTimeGan() as Tiangan,
+        zhi: baZi.getTimeZhi() as any
       }
     };
 
@@ -160,17 +197,16 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
 
     // 获取大运（使用lunar-javascript库）
     const yun = baZi.getYun(birthInfo.gender === 'male' ? 1 : 0);
-    const dayunStartRaw = yun.getStartYear();
-    const dayunStart = Math.round(dayunStartRaw * 10) / 10; // 保留1位小数，四舍五入
+    const dayunStart = Math.floor(yun.getStartYear());
     
     // 获取大运列表（跳过第一个，因为它是起运前的状态）
     const dayunList = yun.getDaYun().slice(1, 11); // 取第2-11个，共10步大运
     
     const dayun: DayunDetail[] = dayunList.map((d: any) => {
-      const ganZhiStr = d.getGanZhi();
+      const ganZhiStr = safeGetGanZhi(d);
       const ganZhi: GanZhi = {
-        gan: ganZhiStr.substring(0, 1) as Tiangan,
-        zhi: ganZhiStr.substring(1, 2) as any
+        gan: safeSubGan(ganZhiStr) as Tiangan,
+        zhi: safeSubZhi(ganZhiStr) as any
       };
       
       // 计算天干十神
@@ -183,13 +219,13 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
       // 获取该大运内的流年
       const liuNianList = d.getLiuNian();
       const liuNian: LiuNian[] = liuNianList.map((ln: any) => {
-        const lnGanZhiStr = ln.getGanZhi();
+        const lnGanZhiStr = safeGetGanZhi(ln);
         return {
           year: ln.getYear(),
           age: ln.getAge(),
           ganZhi: {
-            gan: lnGanZhiStr.substring(0, 1) as Tiangan,
-            zhi: lnGanZhiStr.substring(1, 2) as any
+            gan: safeSubGan(lnGanZhiStr) as Tiangan,
+            zhi: safeSubZhi(lnGanZhiStr) as any
           }
         };
       });
@@ -215,6 +251,13 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
 
     // 计算纳音
     const naYin = getSiZhuNaYin(siZhu);
+    // 计算藏干
+    const cangGan = {
+      year: getZhiCangGanFull(siZhu.year.zhi, dayMaster),
+      month: getZhiCangGanFull(siZhu.month.zhi, dayMaster),
+      day: getZhiCangGanFull(siZhu.day.zhi, dayMaster),
+      hour: getZhiCangGanFull(siZhu.hour.zhi, dayMaster),
+    };
 
     console.error('🔍 八字计算结果 - zhangSheng:', zhangSheng);
     console.error('🔍 八字计算结果 - naYin:', naYin);
@@ -227,7 +270,12 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
       zhangSheng,
       naYin,
       dayunStart,
-      dayun
+      dayun,
+      cangGan,
+      // 真太阳时校正明细：UI 应展示它，让用户能核对"钟表时间 → 计算时间"，
+      // 并据此决定盘面是否可信；跨时辰/跨日时必须提示。
+      trueSolarTime: tst,
+      calendarConversion: civil.conversion,
     };
   } catch (error) {
     console.error('创建八字排盘失败:', error);
