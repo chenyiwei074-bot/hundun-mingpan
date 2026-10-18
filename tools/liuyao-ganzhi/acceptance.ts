@@ -26,6 +26,7 @@ import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { analyzeLiuyao } from '../../frontend/lib/liuyao/analysis';
 import { buildReportContext } from '../../frontend/lib/liuyao/report/contextBuilder';
+import { buildReportPrompt } from '../../frontend/lib/liuyao/report/promptBuilder';
 import { qiGuaByTime, qiGuaByNumbers, QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { dateToGanZhi } from '../../frontend/app/lib/core/liuyao/constants';
 import { resolveQiguaMoment } from '../../frontend/lib/liuyao/solar-basis';
@@ -894,6 +895,56 @@ const NUM_OFF = [0, 8, 16];
   }
   ok('report/shiying-ganzhi-nonempty', cnt === 64 && bad === 0,
     `报告层 64 卦：世/应干支非空且与盘面逐爻相等、爻名按 position-1、position 透传不再 +1，不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
+}
+
+// ── 8.12 报告层五行（裁定 2，2026-10-18）──
+// 改前实况：contextBuilder.ts 的 wangShuai[].wuxing 填的是 nj?.naZhi，也就是地支本身；
+// 同时 promptBuilder 的「旺衰」块只渲染 "地支" 不渲染 "五行"，所以这个错值既没进 AI 上下文、
+// 也没有任何断言守着 —— 属于「字段名承诺五行、值里装地支」这一类，不是个案。断言因此做两层：
+//   a) 逐爻：wuxing 必须 ∈ 五行枚举、必须等于金标准 WX_BY_ZHI[该爻地支]、且不得等于地支本身；
+//   b) 整份 prompt：凡 "五行":"…" 的位置（本卦/变卦/世/应/用神/旺衰）都不许出现地支或空值，
+//      这样换个字段复发同一类缺陷也会被抓住。裁判表用 gold.ts 的 WX_BY_ZHI（手写，不 import 被测的 core WX）。
+{
+  const WUXING = ['木', '火', '土', '金', '水'];
+  const ZHI = Object.keys(WX_BY_ZHI);
+  let cnt = 0, bad = 0; const badList: string[] = [];
+  let pCnt = 0, pBad = 0; const pList: string[] = [];
+  const feed = (tag: string, plate: ReturnType<typeof buildCoinResult>) => {
+    const ctx = buildReportContext(plate, analyzeLiuyao(plate));
+    ctx.wangShuai.forEach((w, i) => {
+      const y = plate.naJia[i];
+      cnt++;
+      if (!y || w.position !== y.position || w.zhi !== y.naZhi ||
+          !ZHI.includes(w.zhi) || !WUXING.includes(w.wuxing) ||
+          w.wuxing !== WX_BY_ZHI[w.zhi] || w.wuxing === w.zhi) {
+        bad++;
+        if (badList.length < 6) badList.push(`${tag}${plate.benGua.name}/${w.label} 报[支=${w.zhi}行=${w.wuxing}] 应[支=${y?.naZhi}行=${y ? WX_BY_ZHI[y.naZhi] : '?'}]`);
+      }
+    });
+    for (const m of buildReportPrompt(ctx).matchAll(/"五行":"([^"]*)"/g)) {
+      pCnt++;
+      if (!WUXING.includes(m[1])) {
+        pBad++;
+        if (pList.length < 6) pList.push(`${tag}${plate.benGua.name} 五行="${m[1]}"`);
+      }
+    }
+  };
+  for (const shang of TRIGRAMS) for (const xia of TRIGRAMS) {
+    const bits = TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang];
+    feed('摇', buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(bits, 0) as any, now: GOLD_DATE }));
+    feed('摇动', buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(bits, 3) as any, now: GOLD_DATE }));
+  }
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) {
+    feed('数', buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b], now: GOLD_DATE }));
+  }
+  for (let d = 0; d < 24; d++) {
+    const dt = new Date(2026, 9, 17); dt.setHours(dt.getHours() + d);
+    feed('时', buildTimeResult({ question: '验收', questionType: '其他', date: dt }));
+  }
+  ok('report/wangshuai-wuxing-vs-golden', cnt === 6 * (64 * 2 + 64 + 24) && bad === 0,
+    `报告层旺衰逐爻五行对金标准 WX_BY_ZHI：${cnt} 爻（摇卦 64 静 + 64 动三爻 + 报数 64 + 时间 24），不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
+  ok('report/prompt-wuxing-all-in-enum', pCnt > 0 && pBad === 0,
+    `整份 AI prompt 里 ${pCnt} 处 "五行" 取值全部 ∈ 五行枚举（本卦/变卦/世/应/用神/旺衰一起查）：违例 ${pBad} 处${pList.length ? ' 例:' + pList.join(' | ') : ''}`);
 }
 
 // ── 9. 控制台摘要（ASCII）──

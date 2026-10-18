@@ -2,6 +2,7 @@
 
 import type { LiuyaoResult } from '@/types/liuyao';
 import type { LiuyaoAnalysisData } from '@/lib/liuyao/analysis';
+import { WX } from '@/lib/liuyao/core';
 import type { LiuyaoReportContext, ReportShiYing, ReportYongShen, ReportDongYaoItem, ReportWangShuaiItem, ReportRelationSummary, FuShenSummary } from './types';
 
 const YAO_LABELS = ['初爻','二爻','三爻','四爻','五爻','上爻'];
@@ -106,7 +107,8 @@ export function buildReportContext(
       label: YAO_LABELS[i],
       liuQin: nj?.liuQin || '',
       zhi: nj?.naZhi || '',
-      wuxing: nj?.naZhi || '?',
+      // 五行由地支查 core 的 WX 表得到，不能把地支本身当五行报给 AI（裁定 2）。
+      wuxing: WX[nj?.naZhi || ''] || '?',
       level: ws.wangShuai,
       monthInfluence: ws.monthInfluence,
       dayInfluence: ws.dayInfluence,

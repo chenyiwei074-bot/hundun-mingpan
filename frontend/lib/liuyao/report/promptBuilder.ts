@@ -57,7 +57,7 @@ ${dongYaoBlock}
   ],
 
   "旺衰": [
-${ctx.wangShuai.map(w => `    { "爻":"${w.label}", "六亲":"${w.liuQin}", "地支":"${w.zhi}", "旺衰":"${w.level}", "月":"${w.monthInfluence}", "日":"${w.dayInfluence}" }`).join(',\n')}
+${ctx.wangShuai.map(w => `    { "爻":"${w.label}", "六亲":"${w.liuQin}", "地支":"${w.zhi}", "五行":"${w.wuxing}", "旺衰":"${w.level}", "月":"${w.monthInfluence}", "日":"${w.dayInfluence}" }`).join(',\n')}
   ],
 
   "冲合关系": [
