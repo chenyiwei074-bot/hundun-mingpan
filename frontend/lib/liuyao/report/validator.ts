@@ -9,6 +9,11 @@ const REQUIRED_KEYWORDS: string[] = [
   '建议',
 ];
 
+// 章节标题别名：prompt 输出「卦象总览」，旧校验要求「整体卦象」→ 二者都算通过
+const KEYWORD_ALIASES: Record<string, string[]> = {
+  '整体卦象': ['整体卦象', '卦象总览', '卦象总断', '总体卦象'],
+};
+
 export interface ValidateResult {
   valid: boolean;
   missing: string[];
@@ -21,7 +26,8 @@ export function validateReport(report: string): ValidateResult {
   const warnings: string[] = [];
 
   for (const kw of REQUIRED_KEYWORDS) {
-    if (!report.includes(kw)) {
+    const alts = KEYWORD_ALIASES[kw] || [kw];
+    if (!alts.some(a => report.includes(a))) {
       missing.push(kw);
     }
   }
