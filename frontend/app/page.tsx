@@ -381,7 +381,7 @@ const ENGINES: Engine[] = [
   { title: '梅花易数', desc: '年月日时、报数成卦。体用为纲，本卦互卦变卦一气看完，即时取断。', href: '/meihua', go: '即物起卦', pv: 'meihua' },
   { title: '二十八宿', desc: '生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。', href: '/xiu', go: '查本命宿', pv: 'xiu' },
   { title: '姓名合盘', desc: '二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。', pv: 'hepan' },
-  { title: '择日', desc: '黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。', pv: 'zeri' },
+  { title: '黄历宜忌', desc: '逐日宜忌、吉神凶煞、冲煞胎神、建除黄黑道。通书原样转录，一日一换。', href: '/huangli', go: '查今日', pv: 'zeri' },
 ];
 
 const SOON = [
@@ -584,7 +584,7 @@ export default function HomePage() {
                   { href:"/meihua", zi:"梅", title:"梅花易数", desc:"年月日时或报数成卦，体用生克为纲，本互变三卦一气看完。" },
                   { href:"/xiu", zi:"宿", title:"二十八宿", desc:"生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。" },
                   { href:"#", zi:"合", title:"姓名合盘", desc:"二人姓名，五行适配。五格剖象，深析缘分。", tag:"即将上线" },
-                  { href:"#", zi:"吉", title:"择日", desc:"黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。", tag:"即将上线" },
+                  { href:"/huangli", zi:"历", title:"黄历宜忌", desc:"逐日宜忌、吉神凶煞、冲煞胎神、建除黄黑道。通书原样转录，一日一换。" },
                 ].map((item, i) => (
                   <Link key={i} href={item.href}
                     onClick={() => item.tag ? null : setShowLauncher(false)}

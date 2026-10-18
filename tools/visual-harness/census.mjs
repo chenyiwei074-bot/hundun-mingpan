@@ -104,6 +104,7 @@ const STATIC_PAGES = [
   ['liuyao-create', '/liuyao/create'],
   ['meihua', '/meihua'],
   ['xiu', '/xiu'],
+  ['huangli', '/huangli'],
   ['dashboard', '/dashboard'],
   ['contact', '/contact'],
   ['privacy', '/privacy'],
