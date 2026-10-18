@@ -45,7 +45,7 @@ jobs:
             tar -czf "$BK/opt-src-$STAMP.tar.gz" \
               --exclude=.git --exclude=node_modules --exclude=.next --exclude=.next.prev* \
               --exclude=logs --exclude='*.tar.gz' --exclude='*.tar' --exclude='*.log' \
-              --exclude=hermes-python --exclude=eval-tools --exclude=.venv --exclude=venv-ots \
+              --exclude=hermes-python --exclude=hermes-venv --exclude=eval-tools --exclude=.venv --exclude=venv-ots \
               --exclude=uploads --exclude=dist --exclude=.cache --exclude=node \
               -C /opt . 2>/dev/null || true
             # 保留最近 5 份部署备份，避免磁盘被快照堆满
