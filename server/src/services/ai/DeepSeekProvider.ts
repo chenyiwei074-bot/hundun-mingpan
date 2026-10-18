@@ -42,6 +42,8 @@ export class DeepSeekProvider implements AIProvider {
         temperature: 0.7,
         max_tokens: request.type === 'comprehensive' ? 16384 : 4096,
         response_format: { type: 'json_object' },
+        // DeepSeek 默认 thinking：token 会先用在思考上（实测 content 为空），分析不需要思考链 → 关闭。
+        thinking: { type: 'disabled' },
       }),
     });
 

@@ -1,5 +1,6 @@
 ﻿import { NextResponse } from 'next/server';
 import { analyzeLiuyao } from '@/lib/liuyao/analysis';
+import fs from 'fs';
 import { buildReportContext, buildReportPrompt, validateReport } from '@/lib/liuyao/report';
 import type { LiuyaoResult } from '@/types/liuyao';
 
@@ -41,6 +42,9 @@ export async function POST(req: Request) {
         ],
         temperature: 0.7,
         max_tokens: 4096,
+          // DeepSeek 默认 thinking：4096 token 会被思考占满导致 content 为空（实测 completion=4094、report=""）。
+          // 报告不需要思考链 → 显式关闭，同时省 5× 成本。
+          ...(/deepseek/i.test(AI_MODEL) ? { thinking: { type: 'disabled' } } : {}),
       }),
     });
 
@@ -51,6 +55,17 @@ export async function POST(req: Request) {
     }
 
     const aiData = await aiRes.json();
+    // AI 用量记账（全免费站点的成本护栏；失败不影响返回）
+    try {
+      fs.appendFileSync('/srv/chaos/logs/ai-usage.jsonl', JSON.stringify({
+        ts: new Date().toISOString(),
+        model: AI_MODEL,
+        purpose: 'liuyao-report-route',
+        promptTokens: aiData.usage?.prompt_tokens ?? null,
+        completionTokens: aiData.usage?.completion_tokens ?? null,
+        totalTokens: aiData.usage?.total_tokens ?? null,
+      }) + '\n');
+    } catch {}
     const report = aiData.choices?.[0]?.message?.content || '';
 
     // 5. 质量检查

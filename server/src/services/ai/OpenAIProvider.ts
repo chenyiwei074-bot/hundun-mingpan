@@ -1,4 +1,5 @@
 import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
+import fs from 'fs';
 
 /**
  * OpenAI AI Provider
@@ -58,6 +59,17 @@ export class OpenAIProvider implements AIProvider {
     } catch {
       result = { raw: content };
     }
+
+    try {
+      fs.appendFileSync('/srv/chaos/logs/ai-usage.jsonl', JSON.stringify({
+        ts: new Date().toISOString(),
+        model: modelName,
+        purpose: 'openai-provider',
+        promptTokens: data.usage?.prompt_tokens ?? null,
+        completionTokens: data.usage?.completion_tokens ?? null,
+        totalTokens: data.usage?.total_tokens ?? null,
+      }) + '\n');
+    } catch { /* ignore */ }
 
     return {
       result,
