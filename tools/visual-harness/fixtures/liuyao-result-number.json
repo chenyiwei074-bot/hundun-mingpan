@@ -26,6 +26,19 @@
  "xunKong": "子丑",
  "ganzhiBasis": "jieqi-lichun-v1",
  "najiaBasis": "jingfang-neiwai-v2",
+ "qiShu": {
+  "steps": [
+   "1 ÷ 8 余 1 → 上卦取1 = 乾",
+   "1 ÷ 8 余 1 → 下卦取1 = 乾",
+   "1 + 1 = 2；÷ 6 余 2 → 动爻在第2爻"
+  ],
+  "basis": [
+   "先天八卦数取数：乾一 兑二 离三 震四 巽五 坎六 艮七 坤八。",
+   "除尽（余数为 0）按满数计，卦作 8、爻作 6。",
+   "数法不看农历、不看时刻，只看报进来的数。"
+  ],
+  "version": "meihua-qishu-v1"
+ },
  "benGua": {
   "name": "乾为天",
   "gong": "乾",
@@ -34,84 +47,84 @@
   "xiaGua": "乾"
  },
  "bianGua": {
-  "name": "地雷复",
-  "gong": "坤",
-  "wuxing": "土"
+  "name": "天火同人",
+  "gong": "离",
+  "wuxing": "火"
  },
  "yaoRecords": [
   {
    "position": 1,
    "coins": [
-    "字",
+    "花",
     "字",
     "字"
    ],
-   "value": 6,
-   "label": "老阴",
-   "isDong": true
+   "value": 7,
+   "label": "少阳",
+   "isDong": false
   },
   {
    "position": 2,
    "coins": [
     "花",
     "花",
-    "字"
+    "花"
    ],
-   "value": 8,
-   "label": "少阴",
-   "isDong": false
+   "value": 9,
+   "label": "老阳",
+   "isDong": true
   },
   {
    "position": 3,
    "coins": [
     "花",
-    "花",
+    "字",
     "字"
    ],
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false
   },
   {
    "position": 4,
    "coins": [
     "花",
-    "花",
+    "字",
     "字"
    ],
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false
   },
   {
    "position": 5,
    "coins": [
     "花",
-    "花",
+    "字",
     "字"
    ],
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false
   },
   {
    "position": 6,
    "coins": [
     "花",
-    "花",
+    "字",
     "字"
    ],
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false
   }
  ],
  "naJia": [
   {
    "position": 1,
-   "value": 6,
-   "label": "老阴",
-   "isDong": true,
+   "value": 7,
+   "label": "少阳",
+   "isDong": false,
    "naGan": "甲",
    "naZhi": "子",
    "ganZhi": "甲子",
@@ -121,9 +134,9 @@
   },
   {
    "position": 2,
-   "value": 8,
-   "label": "少阴",
-   "isDong": false,
+   "value": 9,
+   "label": "老阳",
+   "isDong": true,
    "naGan": "甲",
    "naZhi": "寅",
    "ganZhi": "甲寅",
@@ -133,8 +146,8 @@
   },
   {
    "position": 3,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
    "naGan": "甲",
    "naZhi": "辰",
@@ -145,8 +158,8 @@
   },
   {
    "position": 4,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
    "naGan": "壬",
    "naZhi": "午",
@@ -157,8 +170,8 @@
   },
   {
    "position": 5,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
    "naGan": "壬",
    "naZhi": "申",
@@ -169,8 +182,8 @@
   },
   {
    "position": 6,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
    "naGan": "壬",
    "naZhi": "戌",
@@ -186,76 +199,76 @@
    "value": 7,
    "label": "少阳",
    "isDong": false,
-   "naGan": "庚",
-   "naZhi": "子",
-   "ganZhi": "庚子",
-   "liuQin": "妻财",
-   "shiYing": "世",
-   "xunKong": true
+   "naGan": "己",
+   "naZhi": "卯",
+   "ganZhi": "己卯",
+   "liuQin": "父母",
+   "shiYing": "",
+   "xunKong": false
   },
   {
    "position": 2,
    "value": 8,
    "label": "少阴",
    "isDong": false,
-   "naGan": "庚",
-   "naZhi": "寅",
-   "ganZhi": "庚寅",
-   "liuQin": "官鬼",
+   "naGan": "己",
+   "naZhi": "丑",
+   "ganZhi": "己丑",
+   "liuQin": "子孙",
    "shiYing": "",
-   "xunKong": false
+   "xunKong": true
   },
   {
    "position": 3,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
-   "naGan": "庚",
-   "naZhi": "辰",
-   "ganZhi": "庚辰",
-   "liuQin": "兄弟",
-   "shiYing": "",
+   "naGan": "己",
+   "naZhi": "亥",
+   "ganZhi": "己亥",
+   "liuQin": "官鬼",
+   "shiYing": "世",
    "xunKong": false
   },
   {
    "position": 4,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
-   "naGan": "癸",
-   "naZhi": "丑",
-   "ganZhi": "癸丑",
+   "naGan": "壬",
+   "naZhi": "午",
+   "ganZhi": "壬午",
    "liuQin": "兄弟",
-   "shiYing": "应",
-   "xunKong": true
+   "shiYing": "",
+   "xunKong": false
   },
   {
    "position": 5,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
-   "naGan": "癸",
-   "naZhi": "亥",
-   "ganZhi": "癸亥",
+   "naGan": "壬",
+   "naZhi": "申",
+   "ganZhi": "壬申",
    "liuQin": "妻财",
    "shiYing": "",
    "xunKong": false
   },
   {
    "position": 6,
-   "value": 8,
-   "label": "少阴",
+   "value": 7,
+   "label": "少阳",
    "isDong": false,
-   "naGan": "癸",
-   "naZhi": "酉",
-   "ganZhi": "癸酉",
+   "naGan": "壬",
+   "naZhi": "戌",
+   "ganZhi": "壬戌",
    "liuQin": "子孙",
-   "shiYing": "",
+   "shiYing": "应",
    "xunKong": false
   }
  ],
  "dongYao": [
-  1
+  2
  ],
  "shiYing": {
   "shi": 5,

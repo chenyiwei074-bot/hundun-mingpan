@@ -175,7 +175,7 @@ export default function LiuyaoCreatePage() {
 
   const doNumGua = useCallback(() => {
     const nums=numInput.trim().split(/[,，\s]+/).map(Number).filter(n=>!isNaN(n)&&n>0);
-    if(nums.length<3){setError('请输入至少3个正整数，用逗号隔开');return;}
+    if(nums.length!==2){setError('请输入 2 个正整数，用逗号隔开');return;}
     setError('');
     const m = resolveQiguaMoment(new Date(), placeRef.current);
     const result = { ...buildNumberResult({ question, questionType, nums, now: m.date }), solar: m.info };
@@ -310,7 +310,7 @@ export default function LiuyaoCreatePage() {
   const METHODS = [
     {id:'coin',num:'壹',title:'铜钱摇卦',tag:'推荐',desc:'三枚铜钱自动摇六次，最传统的起卦方式。'},
     {id:'time',num:'贰',title:'时间起卦',desc:'以当前年月日时自动成卦，方便快捷。'},
-    {id:'number',num:'叁',title:'报数起卦',desc:'您报3个正整数，系统以此推算卦象。'},
+    {id:'number',num:'叁',title:'报数起卦',desc:'您报 2 个正整数，第一数定上卦、第二数定下卦，动爻取两数之和。'},
   ] as const;
 
   return (<main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
@@ -384,8 +384,8 @@ export default function LiuyaoCreatePage() {
 
       {method==='number'&&(
         <div className="qn-card" style={{marginTop:12}}>
-          <label className="qn-label" htmlFor="ly-nums">请输入3个正整数（逗号分隔）</label>
-          <input id="ly-nums" className="qn-input" value={numInput} placeholder="例如：3, 8, 15"
+          <label className="qn-label" htmlFor="ly-nums">请输入 2 个正整数（逗号分隔）</label>
+          <input id="ly-nums" className="qn-input" value={numInput} placeholder="例如：3, 8"
             onChange={e=>setNumInput(e.target.value)}/>
           {error&&<p className="qn-alert" role="alert" style={{marginTop:12}}>{error}</p>}
         </div>

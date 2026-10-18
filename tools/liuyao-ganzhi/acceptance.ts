@@ -26,7 +26,7 @@ import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { analyzeLiuyao } from '../../frontend/lib/liuyao/analysis';
 import { buildReportContext } from '../../frontend/lib/liuyao/report/contextBuilder';
-import { qiGuaByTime } from '../../frontend/lib/meihua/engine';
+import { qiGuaByTime, qiGuaByNumbers, QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { dateToGanZhi } from '../../frontend/app/lib/core/liuyao/constants';
 import { resolveQiguaMoment } from '../../frontend/lib/liuyao/solar-basis';
 import { lookupGeo } from '../../frontend/app/lib/true-solar/birth-wiring';
@@ -175,7 +175,7 @@ const plate = `丙午年 戊戌月 癸亥日 癸亥时 · 子丑旬空`;
 for (const [label, r] of [
   ['coin', buildCoinResult({ question: '验收', questionType: '其他', records, now })],
   ['time', buildTimeResult({ question: '验收', questionType: '其他', date: now })],
-  ['number', buildNumberResult({ question: '验收', questionType: '其他', nums: [3, 5, 2], now })],
+  ['number', buildNumberResult({ question: '验收', questionType: '其他', nums: [3, 5], now })],
 ] as const) {
   const shown = `${r.ganZhi.year}年 ${r.ganZhi.month}月 ${r.ganZhi.day}日 ${r.ganZhi.hour}时 · ${r.xunKong}旬空`;
   ok(`result/${label}-ganZhi`, shown === plate, `${label} 盘面「${shown}」应等于「${plate}」`);
@@ -243,7 +243,7 @@ say(`BEFORE 旧算法同口径错误率：正午 ${oldNoonBad}/${copyDays}、零
 for (const [label, r] of [
   ['coin', buildCoinResult({ question: '验收', questionType: '其他', records, now })],
   ['time', buildTimeResult({ question: '验收', questionType: '其他', date: now })],
-  ['number', buildNumberResult({ question: '验收', questionType: '其他', nums: [3, 5, 2], now })],
+  ['number', buildNumberResult({ question: '验收', questionType: '其他', nums: [3, 5], now })],
 ] as const) {
   const want = r.naJia.map(y => r.xunKong.includes(y.naZhi));
   const got = r.naJia.map(y => y.xunKong);
@@ -697,11 +697,14 @@ function goldBianFromBits(bits: string, dong: number) {
   ok('bian-naJia/coin-384-vs-golden', cnt === 384 && bad === 0,
     `摇卦 64 卦 × 6 动爻 = ${cnt} 例变卦纳甲对金标准：不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
 }
+// 报数是「两数之和定动爻」：固定一组上下卦后，给任一数加 8 的整倍数不改卦、只把和挪 0/2/4，
+// 所以同一卦可达的动爻只有与 (n1+n2) 同奇偶的那三个。六个动爻全覆盖由摇卦那 384 例负责，
+// 这里把报数可达的 64×3=192 例全部摊开，别让人以为报数也测到了六个动爻。
+const NUM_OFF = [0, 8, 16];
 {
-  // 报数那份：爻值由取数生成（取数另有待裁问题，见下方 MEASURED 行），这里只验「由盘上爻值推出的变卦纳甲」是否与金标准一致。
   let cnt = 0, bad = 0; const badList: string[] = [];
-  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (let d = 1; d <= 6; d++) {
-    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, d], now: GOLD_DATE });
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (const off of NUM_OFF) {
+    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b + off], now: GOLD_DATE });
     const vals = r.yaoRecords.map(y => y.value);
     const bits = vals.map(v => (v % 2 === 1 ? '1' : '0')).join('');
     const dong = r.yaoRecords.findIndex(y => y.isDong) + 1;
@@ -710,11 +713,11 @@ function goldBianFromBits(bits: string, dong: number) {
     const got = r.bianNaJia.map(y => y.ganZhi);
     if (got.length !== 6 || got.some((g, i) => g !== want.gz[i]) || r.bianGua.name !== want.name) {
       bad++;
-      if (badList.length < 6) badList.push(`nums[${a},${b},${d}] 动${dong}→${want.name} 四五六 得[${got.slice(3).join(' ')}] 应[${want.gz.slice(3).join(' ')}]`);
+      if (badList.length < 6) badList.push(`nums[${a},${b + off}] 动${dong}→${want.name} 四五六 得[${got.slice(3).join(' ')}] 应[${want.gz.slice(3).join(' ')}]`);
     }
   }
-  ok('bian-naJia/number-384-vs-golden', cnt === 384 && bad === 0,
-    `报数 8×8×6 = ${cnt} 例变卦纳甲对金标准（按盘上爻值独立复算）：不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
+  ok('bian-naJia/number-192-vs-golden', cnt === 192 && bad === 0,
+    `报数 8×8×3 = ${cnt} 例变卦纳甲对金标准（按盘上爻值独立复算）：不符 ${bad} 例${badList.length ? ' 例:' + badList.join(' | ') : ''}`);
 }
 {
   // 三种起卦法共用同一个 getNaJia：盘上六爻纳甲必须等于金标准(该盘自己标的上下卦)。
@@ -733,7 +736,7 @@ function goldBianFromBits(bits: string, dong: number) {
     one('摇卦', buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang], 0) as any, now: GOLD_DATE }));
   }
   for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) {
-    one('报数', buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, 1], now: GOLD_DATE }));
+    one('报数', buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b], now: GOLD_DATE }));
   }
   for (let d = 0; d < 24; d++) {
     const dt = new Date(2026, 9, 17); dt.setHours(dt.getHours() + d);
@@ -744,7 +747,7 @@ function goldBianFromBits(bits: string, dong: number) {
   let stampBad = 0; const stampList: string[] = [];
   const stampOf = (tag: string, v?: string) => { if (v !== NAJIA_BASIS) { stampBad++; if (stampList.length < 3) stampList.push(`${tag}=${v ?? '缺失'}`); } };
   stampOf('coin', buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords('111111', 1) as any, now: GOLD_DATE }).najiaBasis);
-  stampOf('number', buildNumberResult({ question: '验收', questionType: '其他', nums: [1, 1, 1], now: GOLD_DATE }).najiaBasis);
+  stampOf('number', buildNumberResult({ question: '验收', questionType: '其他', nums: [1, 1], now: GOLD_DATE }).najiaBasis);
   stampOf('time', buildTimeResult({ question: '验收', questionType: '其他', date: GOLD_DATE }).najiaBasis);
   ok('najia/basis-stamp-three-methods', stampBad === 0,
     `三种起卦都写口径版本戳 najiaBasis=${NAJIA_BASIS}（additive，老盘缺此字段只标注不重排）：${stampBad ? '缺/错 ' + stampList.join(',') : '三条路径齐'}`);
@@ -769,8 +772,8 @@ function goldBianFromBits(bits: string, dong: number) {
     const r = buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords(TRIGRAM_BITS[xia] + TRIGRAM_BITS[shang], dong) as any, now: GOLD_DATE });
     add(r.benGua.name, r.naJia); add(r.bianGua.name, r.bianNaJia);
   }
-  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (let d = 1; d <= 6; d++) {
-    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, d], now: GOLD_DATE });
+  for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) for (const off of NUM_OFF) {
+    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b + off], now: GOLD_DATE });
     add(r.benGua.name, r.naJia); add(r.bianGua.name, r.bianNaJia);
   }
   for (let d = 0; d < 24; d++) {
@@ -789,20 +792,58 @@ function goldBianFromBits(bits: string, dong: number) {
     if ([...set][0] !== want && goldBad.length < 4) goldBad.push(`${name} 盘上[${[...set][0]}] ≠ 金标准[${want}]`);
   }
   ok('najia/name-keyed-cross-method', byName.size === 64 && splitBad.length === 0 && goldBad.length === 0,
-    `按卦名聚合（摇卦 384 + 报数 384 + 时间 24 张盘的本卦与变卦）：覆盖 ${byName.size}/64 卦，同名跨方式给出多套值的 ${splitBad.length} 例，与金标准(上下卦由卦名反查)不符的 ${goldBad.length} 例${splitBad.length ? ' 分裂:' + splitBad.join(' | ') : ''}${goldBad.length ? ' 对不上:' + goldBad.join(' | ') : ''}`);
+    `按卦名聚合（摇卦 384 + 报数 192 + 时间 24 张盘的本卦与变卦）：覆盖 ${byName.size}/64 卦，同名跨方式给出多套值的 ${splitBad.length} 例，与金标准(上下卦由卦名反查)不符的 ${goldBad.length} 例${splitBad.length ? ' 分裂:' + splitBad.join(' | ') : ''}${goldBad.length ? ' 对不上:' + goldBad.join(' | ') : ''}`);
 }
 {
-  // 待裁（本批不修、不断言，只留测量）：报数那份 allBits 取的是「先天数序号的二进制」
-  // （乾 idx0→000、坤 idx7→111），既不是该卦的爻象也没跟着 allBits[5-i] 反转，
-  // 于是 报名 与 画出来的爻 整批对不上。它与 D8 数字起卦取数在同一条链上，等裁。
+  // D8 裁定（2026-10-18）：报名与爻象必须同源，不许名一套象一套。
+  // 修前这份把「先天数序号的二进制」当爻象（乾 idx0→000、坤 idx7→111），既不是该卦的爻形
+  // 也没跟着 allBits[5-i] 反转，于是 64/64 全不一致 —— 当时只留 MEASURED 行没敢断言。
+  // 现在拿三方对照：卦名经 gold.ts 那张手写象名表读出的上下卦、盘面存的上下卦字段、盘上真画出来的六条爻。
+  // 不用 S64 参与判定，否则「名对不对」又变成自己证明自己。
   let nmBad = 0; const nmEx: string[] = [];
+  let dongBad = 0; const dongEx: string[] = [];
+  let parityBad = 0; const parityEx: string[] = [];
   for (let a = 1; a <= 8; a++) for (let b = 1; b <= 8; b++) {
-    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b, 1], now: GOLD_DATE });
-    const bits = r.yaoRecords.map(y => (y.value % 2 === 1 ? '1' : '0')).join('');
-    const drawn = S64[TRIGRAM_BY_BITS[bits.slice(3, 6)] + TRIGRAM_BY_BITS[bits.slice(0, 3)]] || '?';
-    if (drawn !== r.benGua.name) { nmBad++; if (nmEx.length < 4) nmEx.push(`nums[${a},${b}] 报名「${r.benGua.name}」画成「${drawn}」`); }
+    const r = buildNumberResult({ question: '验收', questionType: '其他', nums: [a, b], now: GOLD_DATE });
+    const bits = r.yaoRecords.map(y => (y.value % 2 === 1 ? '1' : '0')).join('');   // 初→上
+    const t = guaNameToTrigrams(r.benGua.name);
+    const wantBits = TRIGRAM_BITS[t.xia] + TRIGRAM_BITS[t.shang];
+    if (t.shang !== r.benGua.shangGua || t.xia !== r.benGua.xiaGua || bits !== wantBits) {
+      nmBad++;
+      if (nmEx.length < 4) nmEx.push(`nums[${a},${b}] 报名「${r.benGua.name}」应为[${wantBits}]（上${t.shang}下${t.xia}），盘面标[${r.benGua.shangGua}/${r.benGua.xiaGua}] 实画[${bits}]`);
+    }
+    // 取数口径单独钉一遍：动爻 = 两数之和 mod 6（余 0 作 6），不跟着盘上的 isDong 走。
+    const want = fullMod(a + b, 6);
+    const dong = r.yaoRecords.findIndex(y => y.isDong) + 1;
+    if (dong !== want || r.dongYao.length !== 1 || r.dongYao[0] !== want) {
+      dongBad++;
+      if (dongEx.length < 4) dongEx.push(`nums[${a},${b}] 和${a + b} 应动第${want}爻，盘上动第${dong}爻(dongYao=[${r.dongYao}])`);
+    }
+    // 「改一处即可」的可证伪版本：六爻盘与本仓库梅花 engine 同一次取数必须给同一张盘。
+    const mh = qiGuaByNumbers([a, b], 'number');
+    if (r.benGua.name !== mh.ben.name || r.bianGua.name !== mh.bian.name || dong !== mh.dongYao) {
+      parityBad++;
+      if (parityEx.length < 4) parityEx.push(`nums[${a},${b}] 六爻盘[${r.benGua.name}→${r.bianGua.name} 动${dong}] ≠ 梅花[${mh.ben.name}→${mh.bian.name} 动${mh.dongYao}]`);
+    }
   }
-  say(`MEASURED 数字起卦 卦名与爻象不一致 ${nmBad}/64（新报待裁，本批未修未断言）${nmEx.length ? ' 例:' + nmEx.join(' | ') : ''}`);
+  ok('number/name-vs-image-64', nmBad === 0,
+    `报数 8×8 = 64 张盘 名与象同源（卦名读出的上下卦 == 盘面上下卦字段 == 盘上爻形）：不符 ${nmBad}/64${nmEx.length ? ' 例:' + nmEx.join(' | ') : ''}`);
+  ok('number/dong-from-sum-64', dongBad === 0,
+    `报数 64 张盘 动爻 = (第一数 + 第二数) mod 6、余 0 作 6（独立复算，不读引擎）：不符 ${dongBad}/64${dongEx.length ? ' 例:' + dongEx.join(' | ') : ''}`);
+  ok('number/qishu-parity-with-meihua', parityBad === 0,
+    `报数 64 张盘与本仓库梅花 engine 同源（本卦/变卦/动爻三项全等）：不符 ${parityBad}/64${parityEx.length ? ' 例:' + parityEx.join(' | ') : ''}`);
+  // 取数版本戳：吃梅花取数的两条路径（时间 / 报数）都要写，摇卦不吃取数所以不该有。
+  // 老盘不重排（A4）靠这个戳认口径：修前的报数盘两个干支/纳甲戳齐全，只有它认得出来。
+  const qishuOf = (r: { qiShu?: { version?: string } }) => r.qiShu?.version ?? '缺失';
+  const stampBad: string[] = [];
+  const numQs = buildNumberResult({ question: '验收', questionType: '其他', nums: [1, 1], now: GOLD_DATE });
+  const timeQs = buildTimeResult({ question: '验收', questionType: '其他', date: GOLD_DATE });
+  if (qishuOf(numQs) !== QISHU_BASIS) stampBad.push(`number=${qishuOf(numQs)}`);
+  if (qishuOf(timeQs) !== QISHU_BASIS) stampBad.push(`time=${qishuOf(timeQs)}`);
+  const coinNoQiShu = buildCoinResult({ question: '验收', questionType: '其他', records: mkDongRecords('111111', 1) as any, now: GOLD_DATE }).qiShu;
+  if (coinNoQiShu) stampBad.push('coin 不该有 qiShu（摇卦无取数）');
+  ok('qishu/stamp-number-time', stampBad.length === 0,
+    `两条吃梅花取数的路径都写取数版本戳 qiShu.version=${QISHU_BASIS}（摇卦不吃取数，无此字段）：${stampBad.length ? stampBad.join(' | ') : '齐'}`);
 }
 {
   // #67 单独计数（不含 #66 的叠算），回答「288 还是 384」：按旧写法 bv.slice(3) 直查 GUA_MAP 复算一遍上下卦。

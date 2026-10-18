@@ -5,6 +5,7 @@ import LiuYaoPlate from '../../create/LiuYaoPlate';
 import { analyzeLiuyao } from '@/lib/liuyao/analysis';
 import type { LiuyaoAnalysisData } from '@/lib/liuyao/analysis';
 import { WX } from '@/lib/liuyao/core';
+import { QISHU_BASIS } from '@/lib/meihua/engine';
 import type { LiuyaoResult } from '@/types/liuyao';
 import Link from 'next/link';
 import { saveReport } from '@/lib/report/saveReport';
@@ -130,8 +131,12 @@ export default function LiuyaoResultPage() {
           <p className="qn-cap" style={{ marginTop: 4 }}>校正后跨时辰，时柱按真太阳时所在时辰取</p>
         )}
         {/* 干支与纳甲各有各的口径版本戳，缺任意一个就是这次收口之前的盘：只标注，不重排
-            （重跑覆盖历史等于伪造，A4 裁定）。文案保持一句，老盘不会因为我们又加了一个戳就多冒一行。 */}
-        {(!result.ganzhiBasis || !result.najiaBasis) && (
+            （重跑覆盖历史等于伪造，A4 裁定）。文案保持一句，老盘不会因为我们又加了一个戳就多冒一行。
+            报数那条还要看取数戳：D8 之前它把「先天数序号的二进制」当爻象，卦名与爻象是两套，
+            那种盘的干支/纳甲两个戳齐全、光看它们认不出来，只有 qiShu.version 对得上才说明取数也是新口径。
+            摇卦与时间的取数这一批没动，不拿这个戳去虚报它们的盘。 */}
+        {(!result.ganzhiBasis || !result.najiaBasis ||
+          (result.method === 'number' && result.qiShu?.version !== QISHU_BASIS)) && (
           <p className="qn-cap" style={{ marginTop: 6 }}>本盘按起卦时口径生成</p>
         )}
       </header>

@@ -12,6 +12,13 @@ export type MeiHuaMethod = 'time' | 'number' | 'report';
 /** 先天八卦数：乾一 兑二 离三 震四 巽五 坎六 艮七 坤八。 */
 export const XIANTIAN = ['乾', '兑', '离', '震', '巽', '坎', '艮', '坤'];
 
+/**
+ * 取数口径版本戳（additive）。改本文件里任何一条取法公式（时间 / 数字 / 报数）就升一位：
+ * 六爻盘把它写进 `qiShu.version`，缺这个字段的盘就是升位之前起的，结果页只标注不重排（A4 裁定）。
+ * 与 `GANZHI_BASIS` / `NAJIA_BASIS` 同一套历史盘处理方式，只是这份跟着取数公式走，所以放在公式旁边。
+ */
+export const QISHU_BASIS = 'meihua-qishu-v1';
+
 /** 卦名 → [初,中,上]。从 GUA_MAP 的「上中初」键反推，省掉一份手抄表，也抄不错。 */
 const TRIGRAM_LINES: Record<string, [number, number, number]> = {};
 for (const [bits, name] of Object.entries(GUA_MAP)) {

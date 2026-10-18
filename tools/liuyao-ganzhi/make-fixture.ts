@@ -30,6 +30,7 @@ import { buildCoinResult } from '../../frontend/lib/liuyao/methods/coin';
 import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { resolveQiguaMoment } from '../../frontend/lib/liuyao/solar-basis';
+import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { goldPlate, guaNameToTrigrams } from './gold';
 import type { CoinFace, GanZhiInfo, LiuyaoResult, QiguaSolarInfo, QuestionType, YaoRecord } from '../../frontend/types/liuyao';
 
@@ -219,27 +220,28 @@ if (!timeHit) { console.log('FAIL  no time candidate moment yields all required 
 assertGold(timeHit);
 
 // ── 搜索：报数起卦。时刻与地点沿用摇卦那张，五个状态里只有「每爻空亡」随报数变，
-//    于是只扫 8×8×6=384 组报数。──
+//    于是只扫 8×8=64 组报数（D8 之后动爻由两数之和决定，第三数不再是输入）。──
 let numberHit: Hit | null = null;
 scanNumber:
-for (const n1 of [1, 2, 3, 4, 5, 6, 7, 8]) for (const n2 of [1, 2, 3, 4, 5, 6, 7, 8]) for (const n3 of [1, 2, 3, 4, 5, 6]) {
-  const nums = [n1, n2, n3];
+for (const n1 of [1, 2, 3, 4, 5, 6, 7, 8]) for (const n2 of [1, 2, 3, 4, 5, 6, 7, 8]) {
+  const nums = [n1, n2];
   const result = buildWith('number', coinHit!.now, coinHit!.place, [], nums);
   const hit: Hit = { method: 'number', result, place: coinHit!.place, now: coinHit!.now, values: [], nums };
   if (REQUIRED.number.every(k => checks(hit)[k])) { numberHit = hit; break scanNumber; }
 }
-if (!numberHit) { console.log('FAIL  no number triple yields all required states at the coin moment'); process.exit(1); }
+if (!numberHit) { console.log('FAIL  no number pair yields all required states at the coin moment'); process.exit(1); }
 assertGold(numberHit);
-// 数字起卦那份已知缺陷（待裁，与 D8 同一个根因）：报数取的是「先天数序号的二进制」当卦形，
-// 于是盘上画的爻象与卦名读出的上下卦不一致。这里只量化、不改代码 —— 断言值来自金标准，
-// 盘面干支/六亲按卦名（上下卦）装，那一部分是对的，爻象那一列才是错的。
+// D8 裁定：报名与爻象必须同源。这里独立复算一遍 —— 卦名用 gold.ts 的手写象名表读回上下卦，
+// 再按八口卦诀拼出应有的爻形，与盘面 yaoRecords 真画的那六条爻逐位对照。
+// 修前 64/64 全不一致（爻象取的是先天数序号的二进制），这条就是防止它回退的牙齿。
 {
   const r = numberHit!.result;
   const t = guaNameToTrigrams(r.benGua.name);
-  const bits = (t: string) => ({ 乾: '111', 兑: '110', 离: '101', 震: '100', 巽: '011', 坎: '010', 艮: '001', 坤: '000' }[t]);
-  const want = bits(t.xia) + bits(t.shang);                              // 卦名应有的 初→上 爻形
+  const want = (g: string) => ({ 乾: '111', 兑: '110', 离: '101', 震: '100', 巽: '011', 坎: '010', 艮: '001', 坤: '000' }[g] || '?');
+  const wantBits = want(t.xia) + want(t.shang);                              // 卦名应有的 初→上 爻形
   const drawn = r.yaoRecords.map(y => (y.value === 7 || y.value === 9 ? '1' : '0')).join('');
-  say.push(`MEASURED number ${r.benGua.name} 名对爻象错：按卦名应画[${want}]，盘面实画[${drawn}]（ nums=${numberHit!.nums!.join(',')}，384/384 那条老缺陷，未修，等裁定）`);
+  if (wantBits !== drawn) bad(`number: 名与象不同源 —— 报名「${r.benGua.name}」应画[${wantBits}]，盘面实画[${drawn}]（ nums=${numberHit!.nums!.join(',')}）`);
+  if (r.qiShu?.version !== QISHU_BASIS) bad(`number: 取数版本戳 ${String(r.qiShu?.version)} ≠ ${QISHU_BASIS}`);
 }
 
 // ── 老盘：摇卦那张去掉两个口径戳，测结果页 A4 标注分支。纳甲内容仍是金标准值。──

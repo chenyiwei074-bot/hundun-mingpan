@@ -6,7 +6,6 @@
   PASS  basis_longitude  口径与经度行
   PASS  cross_hour  跨时辰提示
   PASS  cross_day  跨日提示
-  FAIL  legacy_no_stamp  老盘无口径版本戳
        地点     新疆维吾尔自治区 乌鲁木齐市
        四柱     丙午年 戊戌月 戊午日 癸亥时 · 子丑旬空（干支戳 jieqi-lichun-v1 / 纳甲戳 jingfang-neiwai-v2）
        每爻空亡 2 爻
@@ -31,13 +30,12 @@ PINS coin  本卦「雷火丰」坎宫 / 变卦「泽雷随」
   day   戊午
   head  雷火丰｜坎宫｜校正后跨日
 
-── time  tools/visual-harness/fixtures/liuyao-result-time.json（5342 字节）
+── time  tools/visual-harness/fixtures/liuyao-result-time.json（5374 字节）
   PASS  sizhu_xunkong  四柱+旬空行
   PASS  yao_kongwang  每爻空亡
   PASS  basis_longitude  口径与经度行
   PASS  cross_hour  跨时辰提示
   PASS  cross_day  跨日提示
-  FAIL  legacy_no_stamp  老盘无口径版本戳
        地点     新疆维吾尔自治区 乌鲁木齐市
        四柱     丙午年 戊戌月 己未日 甲子时 · 子丑旬空（干支戳 jieqi-lichun-v1 / 纳甲戳 jingfang-neiwai-v2）
        每爻空亡 2 爻
@@ -61,34 +59,33 @@ PINS time  本卦「火雷噬嗑」巽宫 / 变卦「火泽睽」
   day   己未
   head  火雷噬嗑｜巽宫｜校正后跨日
 
-── number  tools/visual-harness/fixtures/liuyao-result-number.json（4595 字节）
+── number  tools/visual-harness/fixtures/liuyao-result-number.json（5033 字节）
   PASS  sizhu_xunkong  四柱+旬空行
   PASS  yao_kongwang  每爻空亡
   PASS  basis_longitude  口径与经度行
   PASS  cross_hour  跨时辰提示
   PASS  cross_day  跨日提示
-  FAIL  legacy_no_stamp  老盘无口径版本戳
        地点     新疆维吾尔自治区 乌鲁木齐市
        四柱     丙午年 戊戌月 戊午日 癸亥时 · 子丑旬空（干支戳 jieqi-lichun-v1 / 纳甲戳 jingfang-neiwai-v2）
-       每爻空亡 3 爻
+       每爻空亡 2 爻
        口径     真太阳时 · 87.62°E（均时差 + 经度时差）：钟表 00:00 → 真太阳时 22:03（-116.2 分钟，经度 87.6168°E，经度项 -129.5 / 均时差 13.3）
        跨界     crossedHour=true crossedDay=true
-       报数     1 / 1 / 1
-PINS number  本卦「乾为天」乾宫 / 变卦「地雷复」
+       报数     1 / 1
+PINS number  本卦「乾为天」乾宫 / 变卦「天火同人」
   n01  本卦 第1爻  子孙甲子水
   n02  本卦 第2爻  妻财甲寅木
   n03  本卦 第3爻  父母甲辰土
   n04  本卦 第4爻  官鬼壬午火
   n05  本卦 第5爻  兄弟壬申金
   n06  本卦 第6爻  父母壬戌土
-  n07  变卦 第1爻  妻财庚子水
-  n08  变卦 第2爻  官鬼庚寅木
-  n09  变卦 第3爻  兄弟庚辰土
-  n10  变卦 第4爻  兄弟癸丑土
-  n11  变卦 第5爻  妻财癸亥水
-  n12  变卦 第6爻  子孙癸酉金
+  n07  变卦 第1爻  父母己卯木
+  n08  变卦 第2爻  子孙己丑土
+  n09  变卦 第3爻  官鬼己亥水
+  n10  变卦 第4爻  兄弟壬午火
+  n11  变卦 第5爻  妻财壬申金
+  n12  变卦 第6爻  子孙壬戌土
   （本卦 n01–n06、变卦 n07–n12，位序一律 初→上；census 里按 method 分组抄死）
-  kong  3   // [data-ly-kong] 精确数，从已钉干支 + 子丑 旬空推导
+  kong  2   // [data-ly-kong] 精确数，从已钉干支 + 子丑 旬空推导
   day   戊午
   head  乾为天｜乾宫｜校正后跨日
 
@@ -121,4 +118,3 @@ PINS legacy  本卦「雷火丰」坎宫 / 变卦「泽雷随」
   day   戊午
   head  雷火丰｜坎宫｜校正后跨日
 
-MEASURED number 乾为天 名对爻象错：按卦名应画[111111]，盘面实画[000000]（ nums=1,1,1，384/384 那条老缺陷，未修，等裁定）
