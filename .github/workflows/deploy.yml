@@ -44,7 +44,9 @@ jobs:
             # 快照保留源码即可：排除 .git（体积最大且无需快照）、.next*、node_modules、日志与大 tar
             tar -czf "$BK/opt-src-$STAMP.tar.gz" \
               --exclude=.git --exclude=node_modules --exclude=.next --exclude=.next.prev* \
-              --exclude=logs --exclude='*.tar.gz' --exclude='*.tar' \
+              --exclude=logs --exclude='*.tar.gz' --exclude='*.tar' --exclude='*.log' \
+              --exclude=hermes-python --exclude=eval-tools --exclude=.venv --exclude=venv-ots \
+              --exclude=uploads --exclude=dist --exclude=.cache --exclude=node \
               -C /opt . 2>/dev/null || true
             # 保留最近 5 份部署备份，避免磁盘被快照堆满
             ls -dt /srv/chaos/export/deploy-* 2>/dev/null | tail -n +6 | xargs -r rm -rf
