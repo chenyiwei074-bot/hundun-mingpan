@@ -1,4 +1,5 @@
 import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
+import fs from 'fs';
 
 /**
  * DeepSeek AI Provider
@@ -60,6 +61,18 @@ export class DeepSeekProvider implements AIProvider {
     } catch {
       result = { raw: content };
     }
+
+    // AI 用量记账（预算告警用；任何异常都不影响主流程）
+    try {
+      fs.appendFileSync('/srv/chaos/logs/ai-usage.jsonl', JSON.stringify({
+        ts: new Date().toISOString(),
+        model: modelName,
+        purpose: (process.env.AI_USAGE_TAG || '').slice(0, 40),
+        promptTokens: data.usage?.prompt_tokens ?? null,
+        completionTokens: data.usage?.completion_tokens ?? null,
+        totalTokens: data.usage?.total_tokens ?? null,
+      }) + '\n');
+    } catch { /* ignore */ }
 
     return {
       result,
