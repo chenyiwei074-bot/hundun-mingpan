@@ -40,7 +40,7 @@ export class OpenAIProvider implements AIProvider {
         model: modelName,
         messages,
         temperature: 0.7,
-        max_tokens: 4096,
+        max_tokens: request.maxTokens ?? (4096),
         response_format: { type: 'json_object' },
       }),
     });
@@ -55,7 +55,10 @@ export class OpenAIProvider implements AIProvider {
 
     let result: Record<string, unknown>;
     try {
-      result = JSON.parse(content);
+      let clean = String(content).replace(/^\s*```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      const first = clean.indexOf('{'), last = clean.lastIndexOf('}');
+      if (first >= 0 && last > first) clean = clean.slice(first, last + 1);
+      result = JSON.parse(clean);
     } catch {
       result = { raw: content };
     }

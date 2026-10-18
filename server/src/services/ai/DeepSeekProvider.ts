@@ -40,7 +40,7 @@ export class DeepSeekProvider implements AIProvider {
         model: modelName,
         messages,
         temperature: 0.7,
-        max_tokens: request.type === 'comprehensive' ? 16384 : 4096,
+        max_tokens: request.maxTokens ?? (request.type === 'comprehensive' ? 16384 : 4096),
         response_format: { type: 'json_object' },
         // DeepSeek 默认 thinking：token 会先用在思考上（实测 content 为空），分析不需要思考链 → 关闭。
         thinking: { type: 'disabled' },
@@ -58,7 +58,12 @@ export class DeepSeekProvider implements AIProvider {
     let result: Record<string, unknown>;
     try {
       // Strip markdown code blocks if present
-      let clean = content.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "");
+      let clean = String(content).replace(/^\s*```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+      // 再兜一层：截取首个 { 到最后一个 }（有些模型会在 JSON 前后加说明文字）
+      const first = clean.indexOf('{'), last = clean.lastIndexOf('}');
+      if (first > 0 || (last >= 0 && last < clean.length - 1)) {
+        if (first >= 0 && last > first) clean = clean.slice(first, last + 1);
+      }
       result = JSON.parse(clean);
     } catch {
       result = { raw: content };

@@ -70,9 +70,19 @@ export async function runPipeline(input: CreateChartInput, chartId: string): Pro
               AND created_at > now() - interval '90 days'
             ORDER BY created_at DESC LIMIT 1`;
           if (dup && dup.length > 0) {
-            aiJson = dup[0].ai_analysis;
-            reused = true;
-            console.log('[AI] 命中同生辰缓存，复用解读（0 成本）');
+            // 只复用「合法结构化分析」；历史坏数据（含 raw / 无 meta）不复用
+            try {
+              const cached = JSON.parse(dup[0].ai_analysis);
+              if (cached && typeof cached === 'object' && !(cached as any).raw && (cached as any).meta) {
+                aiJson = dup[0].ai_analysis;
+                reused = true;
+                console.log('[AI] 命中同生辰缓存，复用解读（0 成本）');
+              } else {
+                console.warn('[AI] 缓存不是合法分析（raw/无 meta），忽略并重新生成');
+              }
+            } catch {
+              console.warn('[AI] 缓存解析失败，忽略并重新生成');
+            }
           }
         }
         if (!reused) {
@@ -86,8 +96,16 @@ export async function runPipeline(input: CreateChartInput, chartId: string): Pro
             console.warn(`[AI] 访客今日已生成 ${n} 份解读（上限 ${AI_DAILY_VISITOR_CAP}），跳过`);
           } else {
             const res = await generateAIAnalysis(chart as any, input.name || '', undefined, 'brief');
-            aiJson = JSON.stringify(res);
-            console.log('[AI] 自动解读完成，tokens:', (res as any)?.tokensUsed ?? '?');
+            if (res && typeof res === 'object' && !(res as any).raw && (res as any).meta) {
+              aiJson = JSON.stringify(res);
+              console.log('[AI] 自动解读完成');
+            } else if (res && typeof res === 'object' && (res as any).raw) {
+              // 输出被截断/非 JSON：丢弃，避免把脏数据写进缓存
+              console.warn('[AI] 输出非 JSON（可能被截断），本次不落库');
+            } else {
+              aiJson = JSON.stringify(res);
+              console.log('[AI] 自动解读完成（结构未校验）');
+            }
           }
         }
       }

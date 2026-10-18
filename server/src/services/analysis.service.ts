@@ -1,13 +1,22 @@
 import { DeepSeekProvider } from './ai/DeepSeekProvider';
+import { FreeModelProvider } from './ai/FreeModelProvider';
 import type { ChartResult } from '../core';
 import * as path from 'path';
 import * as fs from 'fs';
 
-const provider = new DeepSeekProvider();
+const deepseekProvider = new DeepSeekProvider();
+const freeModelProvider = new FreeModelProvider();
 
-function getPrompt(): string {
-  const promptPath = path.join(__dirname, '..', 'prompts', 'comprehensive-analysis.txt');
-  return fs.readFileSync(promptPath, 'utf-8');
+/** 免费模型优先（A 方案）；未配置 FREE_AI_* 时回落 DeepSeek，行为与之前一致 */
+async function pickProvider() {
+  if (await freeModelProvider.isAvailable()) return freeModelProvider;
+  return deepseekProvider;
+}
+
+function getPrompt(depth?: string): string {
+  // B 方案：brief 用精简 prompt（2KB，同 JSON 结构）；detail 用完整版（6.7KB）
+  const file = depth === 'detail' ? 'comprehensive-analysis.txt' : 'brief-analysis.txt';
+  return fs.readFileSync(path.join(__dirname, '..', 'prompts', file), 'utf-8');
 }
 
 function buildChartSummary(chart: ChartResult): Record<string, unknown> {
@@ -82,7 +91,8 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
   const chartSummary = buildChartSummary(chart);
   chartSummary.name = name;
 
-  const prompt = getPrompt();
+  const isDetail = depth === 'detail';
+  const prompt = getPrompt(isDetail ? 'detail' : 'brief');
 
   console.log('Calling DeepSeek for comprehensive analysis...');
   const startTime = Date.now();
@@ -100,11 +110,14 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
     styleInstruction += '\n【深度要求：简要】请提炼核心要点，每个方面用一两句话概括。输出控制在1000字以内。';
   }
 
+  const provider = await pickProvider();
 const response = await provider.generateAnalysis({
     chartData: chartSummary,
     type: 'comprehensive',
     name,
-    promptOverride: prompt + '\n\n请基于以下命盘数据生成分析 JSON：'
+    promptOverride: prompt + '\n\n请基于以下命盘数据生成分析 JSON：',
+    // C 方案：brief 收紧输出上限（2k），detail 才给 16k
+    maxTokens: isDetail ? 16384 : 4096,
   });
 
   const elapsed = Date.now() - startTime;
