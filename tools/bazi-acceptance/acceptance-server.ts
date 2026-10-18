@@ -1,9 +1,11 @@
 // 同一套 bazi-validation-v1.json 用例，打在【后端引擎副本】上。
-// 放在仓库根 tools/bazi-acceptance/ 下（与前端那个同名 runner 并排），
-// 从仓库根跑（tsx 在 fate-reverse/bazi-engine/node_modules/.bin 下）：
-//   tsx tools/bazi-acceptance/acceptance-server.ts --cases=<bazi-validation-v1.json 路径>
+// 放在仓库根 tools/bazi-acceptance/ 下（与前端那个同名 runner 并排），用例默认读旁边
+// cases/ 那份（已入仓，不再依赖仓库外路径）：
+//   NODE_PATH="$PWD/frontend/node_modules" node server/node_modules/tsx/dist/cli.mjs \
+//     --tsconfig=frontend/tsconfig.json tools/bazi-acceptance/acceptance-server.ts
 // 已知：后端没有 dayBoundaryMode（那是前端能力），所以
 // late-zi-midnight-boundary 这例必然 7/8，其余 7 例应当全过。
+import { join } from 'node:path';
 import { createBaziChart } from '../../server/src/core/yiqi-core/bazi';
 import { resolveZoneInfo } from '../../server/src/lib/true-solar/dst-resolver';
 
@@ -12,11 +14,7 @@ const arg = (name: string) => {
   return hit ? hit.slice(name.length + 3) : null;
 };
 
-const casesPath = arg('cases');
-if (!casesPath) {
-  console.error('缺少 --cases=<bazi-validation-v1.json 路径>');
-  process.exit(2);
-}
+const casesPath = arg('cases') || join(__dirname, 'cases', 'bazi-validation-v1.json');
 const cases = require(casesPath).cases;
 
 interface Row { id: string; expect: string; got: string; ok: boolean; note: string }

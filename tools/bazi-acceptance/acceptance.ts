@@ -1,7 +1,11 @@
 // 四柱验收：拿 bazi-validation-v1.json 的期望四柱逐条比对站点引擎。
-// 用法（tsx 在 fate-reverse/bazi-engine/node_modules/.bin 下）：
-//   tsx tools/bazi-acceptance/acceptance.ts --cases=<bazi-validation-v1.json 路径>
+// 用例已入仓（tools/bazi-acceptance/cases/，MIT，来自 github.com/openfate-ai/bazi-engine v1.1.1，
+// 合成用例、无真人出生数据），默认直接读旁边那份，不再依赖仓库外的路径；
+// 要换一份仍可用 --cases=<路径> 覆盖。
+//   NODE_PATH="$PWD/frontend/node_modules" node server/node_modules/tsx/dist/cli.mjs \
+//     --tsconfig=frontend/tsconfig.json tools/bazi-acceptance/acceptance.ts
 // 交接 §四 要求的验收就是这一条：lunar-leap-month-conversion 必须过。
+import { join } from 'node:path';
 import { createBaziChart } from '../../frontend/app/lib/core/yiqi-core/bazi';
 import { resolveZoneInfo } from '../../frontend/app/lib/true-solar/dst-resolver';
 
@@ -10,11 +14,8 @@ const arg = (name: string) => {
   return hit ? hit.slice(name.length + 3) : null;
 };
 
-const casesPath = arg('cases');
-if (!casesPath) {
-  console.error('缺少 --cases=<bazi-validation-v1.json 路径>');
-  process.exit(2);
-}
+// __dirname 而不是仓库根相对路径：这份 fixture 就躺在 runner 旁边，从哪个 cwd 跑都不该找错。
+const casesPath = arg('cases') || join(__dirname, 'cases', 'bazi-validation-v1.json');
 const cases = require(casesPath).cases;
 
 interface Row { id: string; expect: string; got: string; ok: boolean; note: string }
