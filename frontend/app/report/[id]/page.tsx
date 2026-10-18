@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { REPORT_TYPE_LABELS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS } from '@/lib/report/types';
-import { getProductByType } from '@/lib/product/product';
 import { checkReportAccess } from '@/lib/report/access';
 import type { ReportRecord } from '@/lib/report/types';
+import { getVisitorId } from '@/lib/auth/visitor';
 
 /** 返回链接要撑到 44px 命中区，否则手机上只有 17px 高 */
 const BACK: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 44 };
@@ -59,7 +59,8 @@ export default function ReportDetailPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetch(`/api/reports/${id}`)
+    const vid = getVisitorId();
+      fetch(`/api/reports/${id}?visitorId=${encodeURIComponent(vid)}`)
       .then(r => r.json())
       .then(d => { if (d.success) setReport(d.data); else setError(d.error || '报告不存在'); })
       .catch(() => setError('加载失败'))
@@ -88,7 +89,6 @@ export default function ReportDetailPage() {
 
   const access = checkReportAccess(report.status);
   const displayText = access.canViewFull ? (report.reportText || report.previewText || '') : (report.previewText || '');
-  const product = access.showUnlockPrompt ? getProductByType(report.type) : null;
 
   return (
     <main className="qn-shell qn-shell--wide" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
@@ -108,26 +108,6 @@ export default function ReportDetailPage() {
         </div>
       </header>
 
-      {access.showUnlockPrompt && product && (
-        <section className="qn-ink" style={{ padding: '32px 26px 30px', textAlign: 'center', marginBottom: 20 }}>
-          <p className="qn-eyebrow" style={{ marginBottom: 12 }}>完整报告需解锁</p>
-          <h2 className="qn-title" style={{ marginBottom: 8 }}>{product.name}</h2>
-          <p className="qn-meta" style={{ marginBottom: 22 }}>{product.description}</p>
-
-          <div style={{ maxWidth: 360, margin: '0 auto 24px', textAlign: 'left' }}>
-            {product.features.map((f, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 0', borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-                <span className="qn-body" style={{ color: 'var(--color-accent-gold-light)', lineHeight: 1.6 }}>✓</span>
-                <span className="qn-body" style={{ flex: '1 1 auto', lineHeight: 1.6 }}>{f}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* 解锁按钮暂不出：支付链路未接（无 onClick，点了没有反应），先隐藏避免死按钮；
-              支付接通后随 backlog 一起恢复。 */}
-          <div className="qn-title" style={{ color: 'var(--color-accent-gold-light)', marginTop: 4 }}>¥{product.price}</div>
-        </section>
-      )}
 
       <article className="qn-card">
         {displayText ? renderReport(displayText) : (

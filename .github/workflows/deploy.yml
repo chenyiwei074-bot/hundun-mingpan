@@ -25,6 +25,10 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
+            # 部署互斥：CI 与运维手工部署不能同时构建（.next 会被两个进程写坏 → 站点短暂 000）
+            mkdir -p /srv/chaos/state
+            exec 9>/srv/chaos/state/deploy.lock
+            if ! flock -w 600 9; then echo "ERROR: 另一部署正在运行，等待超时"; exit 1; fi
             STAMP=$(date +%Y%m%d-%H%M%S)
             BK=/srv/chaos/export/deploy-$STAMP
             mkdir -p "$BK"

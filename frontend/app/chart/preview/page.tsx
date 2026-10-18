@@ -277,13 +277,11 @@ export default function ChartPreviewPage() {
         {/* Footer */}
         <div className="max-w-5xl mx-auto px-4 pb-12">
           <div className="rounded-xl bg-gradient-to-br from-accent-gold/10 to-accent-gold/5 border border-accent-gold/20 p-6 text-center">
-            <div className="text-2xl mb-3">🔐</div>
-            <h3 className="font-serif text-lg text-text-primary mb-2">解锁完整命理报告</h3>
-            <p className="text-sm text-text-secondary/60 mb-2 max-w-sm mx-auto">八字深度分析 · 紫微十二宫详解 · 十年大运 · 流年合参</p>
-            <p className="text-xl text-accent-gold font-bold mb-5">&yen;199</p>
+            <div className="text-2xl mb-3">✦</div>
+            <h3 className="font-serif text-lg text-text-primary mb-2">全部功能免费</h3>
+            <p className="text-sm text-text-secondary/60 mb-2 max-w-sm mx-auto">八字 · 紫微 · 六爻 · 梅花 · 宿曜，无需付费、无需解锁</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button className="qn-btn qn-btn--sm !bg-accent-gold !text-white !shadow-none" style={{ padding: '0 24px', height: '40px', fontSize: '14px' }}>获取完整报告</button>
-              <button className="qn-btn qn-btn--sm border-black/10 !text-text-muted" style={{ padding: '0 24px', height: '40px', fontSize: '14px' }}>添加微信 Hundunge01</button>
+              <a href="/create" className="qn-btn qn-btn--sm !bg-accent-gold !text-white !shadow-none" style={{ padding: '0 24px', height: '40px', fontSize: '14px' }}>开始排盘</a>
             </div>
           </div>
         </div>

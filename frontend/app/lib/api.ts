@@ -32,10 +32,6 @@ export async function getChartResult(id: string) {
   return { ...json, httpStatus: res.status };
 }
 
-export async function getQuota(visitorId: string) {
-  const res = await fetch(API_BASE + "/chart/quota?visitor_id=" + visitorId);
-  return res.json();
-}
 
 export async function trackEvent(event_name: string, visitor_id: string, chart_id?: string) {
   try {
@@ -47,27 +43,6 @@ export async function trackEvent(event_name: string, visitor_id: string, chart_i
   } catch {}
 }
 
-// ===== 报告订单 API =====
 
-export async function createReportOrder(chartId: string, email: string) {
-  const res = await fetch(API_BASE + "/report/create", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chartId, email }),
-  });
-  return res.json();
-}
 
-export async function getReportStatus(orderId: string) {
-  const res = await fetch(API_BASE + "/report/status/" + orderId);
-  return res.json();
-}
 
-export async function confirmReportPayment(orderId: string) {
-  const res = await fetch(API_BASE + "/report/confirm-payment", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orderId }),
-  });
-  return res.json();
-}

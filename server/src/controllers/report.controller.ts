@@ -94,11 +94,19 @@ export async function listReports(req: Request, res: Response) {
 export async function getReport(req: Request, res: Response) {
   try {
     const id = req.params.id as string;
+    const visitorId = String((req.query.visitorId as string) || req.header('x-visitor-id') || '').trim();
 
     const report = await prisma.report.findUnique({ where: { id } });
-    if (!report) {
-      return res.status(404).json({ success: false, error: '报告不存在' });
+
+    // 隐私修复（2026-10-18）：报告含姓名/生辰/分析原文，必须校验归属。
+    // 用 404 而非 403：不确认报告是否存在，避免被枚举。
+    if (!report || !visitorId || report.visitorId !== visitorId) {
+      return res.status(404).json({ success: false, error: '报告不存在或无权访问' });
     }
+
+    // 只下发页面需要的字段；inputJson / resultJson / analysisJson 一律不下发
+    const FULL_STATUSES = ['free', 'unlocked', 'paid', 'generated'];
+    const canViewFull = FULL_STATUSES.includes(String(report.status || '').toLowerCase());
 
     res.json({
       success: true,
@@ -106,15 +114,13 @@ export async function getReport(req: Request, res: Response) {
         id: report.id,
         type: report.type,
         title: report.title,
-        inputJson: report.inputJson,
-        resultJson: report.resultJson,
-        analysisJson: report.analysisJson,
-        reportText: report.reportText,
         status: report.status,
         createdAt: report.createdAt.toISOString(),
+        reportText: canViewFull ? report.reportText : null,
+        previewText: null,
       },
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || '查询失败' });
+    return res.status(500).json({ success: false, error: err.message || '查询失败' });
   }
 }

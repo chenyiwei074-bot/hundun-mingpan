@@ -1,30 +1,21 @@
-﻿// 报告访问权限控制
+// 报告访问控制（2026-10-18 方向修正：站点全免费，无付费墙、无解锁）
+// 只有「生成中 / 失败」不可查看，其余一律可看全文。
 
 import type { ReportStatus } from './types';
 
-const FREE_STATUSES: ReportStatus[] = ['FREE', 'UNLOCKED'];
-const BLOCKED_STATUSES: ReportStatus[] = ['LOCKED'];
-const PREVIEW_STATUSES: ReportStatus[] = ['LOCKED'];
-
 export interface AccessResult {
-  canView: boolean;         // 是否可查看
-  canViewFull: boolean;     // 是否可看完整版
-  reason: string;           // 不可查看的原因
-  showUnlockPrompt: boolean; // 是否显示解锁入口
+  canView: boolean;
+  canViewFull: boolean;
+  reason: string;
+  showUnlockPrompt: boolean; // 保留字段以兼容调用方，恒为 false
 }
 
 export function checkReportAccess(status: ReportStatus): AccessResult {
-  if (status === 'FREE' || status === 'UNLOCKED') {
-    return { canView: true, canViewFull: true, reason: '', showUnlockPrompt: false };
-  }
-  if (status === 'LOCKED') {
-    return { canView: true, canViewFull: false, reason: '本报告需要解锁后查看完整内容', showUnlockPrompt: true };
-  }
   if (status === 'GENERATING') {
     return { canView: false, canViewFull: false, reason: '报告正在生成中，请稍候', showUnlockPrompt: false };
   }
   if (status === 'FAILED') {
     return { canView: false, canViewFull: false, reason: '报告生成失败，请重新生成', showUnlockPrompt: false };
   }
-  return { canView: false, canViewFull: false, reason: '未知状态', showUnlockPrompt: false };
+  return { canView: true, canViewFull: true, reason: '', showUnlockPrompt: false };
 }

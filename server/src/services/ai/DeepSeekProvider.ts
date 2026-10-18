@@ -1,4 +1,5 @@
 import type { AIProvider, AIAnalysisRequest, AIAnalysisResponse } from './AIProvider';
+import fs from 'fs';
 
 /**
  * DeepSeek AI Provider
@@ -41,6 +42,8 @@ export class DeepSeekProvider implements AIProvider {
         temperature: 0.7,
         max_tokens: request.type === 'comprehensive' ? 16384 : 4096,
         response_format: { type: 'json_object' },
+        // DeepSeek 默认 thinking：token 会先用在思考上（实测 content 为空），分析不需要思考链 → 关闭。
+        thinking: { type: 'disabled' },
       }),
     });
 
@@ -60,6 +63,18 @@ export class DeepSeekProvider implements AIProvider {
     } catch {
       result = { raw: content };
     }
+
+    // AI 用量记账（预算告警用；任何异常都不影响主流程）
+    try {
+      fs.appendFileSync('/srv/chaos/logs/ai-usage.jsonl', JSON.stringify({
+        ts: new Date().toISOString(),
+        model: modelName,
+        purpose: (process.env.AI_USAGE_TAG || '').slice(0, 40),
+        promptTokens: data.usage?.prompt_tokens ?? null,
+        completionTokens: data.usage?.completion_tokens ?? null,
+        totalTokens: data.usage?.total_tokens ?? null,
+      }) + '\n');
+    } catch { /* ignore */ }
 
     return {
       result,
