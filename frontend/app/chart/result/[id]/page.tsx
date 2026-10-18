@@ -7,7 +7,6 @@ import ChartOverview from '@/components/chart/ChartOverview';
 import BaziCard from '@/components/chart/BaziCard';
 import ZiweiCard from '@/components/chart/ZiweiCard';
 import DoubleVerify from '@/components/chart/DoubleVerify';
-import ReportUnlock from '@/components/chart/ReportUnlock';
 import { saveReport } from '@/lib/report/saveReport';
 
 export default function ChartResultPage() {
@@ -145,7 +144,6 @@ export default function ChartResultPage() {
         <DoubleVerify chartData={enrichedChartData} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
         <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />
-        <ReportUnlock chartId={id} />
       </div>
     </main>
   );

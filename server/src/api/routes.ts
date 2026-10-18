@@ -9,9 +9,6 @@ import {
   getQuota,
   trackEvent,
   getStats,
-  createReportOrder,
-  confirmPayment,
-  getReportStatus,
 } from '../controllers/chart.controller';
 
 const router = Router();
@@ -25,10 +22,7 @@ router.post('/event', trackEvent);
 router.post('/liuyao/create', createLiuYao);
 router.get('/admin/stats', getStats);
 
-router.post('/report/create', createReportOrder);
 // 2026-10-16 安全下线：该路由仍注册，但 controller 已改为 503 且不写库（见 confirmPayment）
-router.post('/report/confirm-payment', confirmPayment);
-router.get('/report/status/:id', getReportStatus);
 
 router.post('/reports', saveReport);
 router.get('/reports', listReports);

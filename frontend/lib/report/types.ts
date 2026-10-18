@@ -52,15 +52,15 @@ export const REPORT_TYPE_ICONS: Record<ReportType, string> = {
 export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   FREE: '免费查看',
   GENERATING: '生成中',
-  LOCKED: '待解锁',
-  UNLOCKED: '已解锁',
+  LOCKED: '免费',
+  UNLOCKED: '免费',
   FAILED: '生成失败',
 };
 
 export const REPORT_STATUS_COLORS: Record<ReportStatus, string> = {
   FREE: '#4a9e6e',
   GENERATING: '#c9a84c',
-  LOCKED: '#86868b',
-  UNLOCKED: '#b2955d',
+  LOCKED: '免费',
+  UNLOCKED: '免费',
   FAILED: '#d4544a',
 };

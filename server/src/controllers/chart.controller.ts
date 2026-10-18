@@ -5,22 +5,8 @@ import { runPipeline } from '../services/pipeline.service';
 import { CreateChartSchema } from '../utils/types';
 import { toCivilInput } from '../core/yiqi-core/lunar-input';
 
-const DAILY_FREE_LIMIT = 3; // 每日免费3次
-
-function getTodayRange() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-  return { start, end };
-}
-
-async function checkDailyUsage(visitorId: string): Promise<{ used: number; remaining: number }> {
-  const { start, end } = getTodayRange();
-  const count = await prisma.usageLog.count({
-    where: { visitorId, createdAt: { gte: start, lte: end } },
-  });
-  return { used: count, remaining: Math.max(0, DAILY_FREE_LIMIT - count) };
-}
+// 全免费（2026-10-18 方向修正）：站点不设付费墙、不限次数。
+// 防滥用靠网关层限速（不叫"免费次数"，也不暴露给用户）。
 
 // POST /api/chart/create
 export async function createChart(req: Request, res: Response) {
@@ -78,7 +64,7 @@ export async function createChart(req: Request, res: Response) {
       data: {
         id: chart.id,
         status: 'processing',
-        quota: { used: 0, remaining: 999, limit: 999 },
+        quota: { used: 0, remaining: null, limit: null, unlimited: true },
       },
     });
   } catch (error: any) {
@@ -255,7 +241,7 @@ export async function getQuota(req: Request, res: Response) {
     if (!vid) return res.status(400).json({ success: false, error: '缺少 visitor_id' });
     return res.json({
       success: true,
-      data: { used: 0, remaining: 999, limit: 999 },
+      data: { used: 0, remaining: null, limit: null, unlimited: true },
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
