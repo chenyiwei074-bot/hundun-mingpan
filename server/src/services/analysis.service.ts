@@ -111,14 +111,25 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
   }
 
   const provider = await pickProvider();
-const response = await provider.generateAnalysis({
+  const req = {
     chartData: chartSummary,
-    type: 'comprehensive',
+    type: 'comprehensive' as const,
     name,
     promptOverride: prompt + '\n\n请基于以下命盘数据生成分析 JSON：',
-    // C 方案：brief 收紧输出上限（2k），detail 才给 16k
+    // C 方案：brief 收紧输出上限（4k），detail 才给 16k
     maxTokens: isDetail ? 16384 : 4096,
-  });
+  };
+  let response;
+  try {
+    response = await provider.generateAnalysis(req);
+  } catch (e) {
+    if (provider !== deepseekProvider) {
+      console.warn('[AI] 免费模型失败，回落 DeepSeek:', e instanceof Error ? e.message : e);
+      response = await deepseekProvider.generateAnalysis(req);
+    } else {
+      throw e;
+    }
+  }
 
   const elapsed = Date.now() - startTime;
   console.log('DeepSeek analysis completed in ' + elapsed + 'ms, tokens: ' + (response.tokensUsed || '?'));
