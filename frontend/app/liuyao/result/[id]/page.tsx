@@ -8,6 +8,7 @@ import { WX } from '@/lib/liuyao/core';
 import { QISHU_BASIS } from '@/lib/meihua/engine';
 import type { LiuyaoResult } from '@/types/liuyao';
 import Link from 'next/link';
+import ReceiptPanel from './ReceiptPanel';
 import { saveReport } from '@/lib/report/saveReport';
 
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
@@ -302,6 +303,8 @@ export default function LiuyaoResultPage() {
           </div>
         </section>
       )}
+
+      {result && <ReceiptPanel result={result} reportText={reportContent} />}
 
       {/* ===== BOTTOM ACTIONS ===== */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
