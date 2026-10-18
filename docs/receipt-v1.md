@@ -57,6 +57,8 @@ ReceiptAnchor { date, root, prevRoot, manifestPath, otsPath }
 - `subjectHash = sha256:hex(canonical({ salt, question, questionType }))`（盐不进台账、不公开）
 - `recordHash = sha256:hex(canonical(core))`
 - 统一前缀 `sha256:`，便于台账侧识别算法。
+**前缀与台账的换算（重要）**：回执 JSON 内展示统一带 `sha256:` 前缀；但 `anchor_ledger.py` 的 leaf 是 `sha256(canonical(record))` 的**裸 hex**，`manifest.leaves` 也是 32 字节裸 hex（如 `2c052a9f…`）。
+因此：**提交台账时一律去前缀存裸 hex**；`POST /api/receipts` 接受带/不带前缀并归一化；`GET /api/receipts/:recordHash` 两种写法都接受；验真页展示时自行补前缀。**严禁在台账内写入带前缀的字符串**（会让 manifest 与既有账本格式不一致）。
 
 ## 5. 锚定状态机
 
@@ -90,6 +92,14 @@ ReceiptAnchor { date, root, prevRoot, manifestPath, otsPath }
 ```
 
 存储：`/srv/chaos/output/receipts/YYYY-MM-DD.jsonl`，一行一条规范化 JSON（含提交时间与 visitor 关联，**不含问题、姓名、生辰**）。
+JSONL 单行结构（哈希一律**裸 hex**）：
+```json
+{"schemaVersion":"hundun-receipt-v1","kind":"liuyao-plate","method":"coin",
+ "castAtUTC":"2026-10-18T12:00:00.000Z","tzOffsetMinutes":480,
+ "recordHash":"<64 hex>","plateHash":"<64 hex>","reportHash":null,"parentHash":null,
+ "subjectHash":"<64 hex>","basis":{"ganzhiBasis":"…"},"submittedAtUTC":"…"}
+```
+幂等键：`recordHash`。同一 recordHash 重复提交返回 `already:true`，不追加第二行。
 
 ### GET /api/receipts/:recordHash
 
