@@ -122,6 +122,13 @@ export async function getChartResult(req: Request, res: Response) {
     // 返回模块化数据
     const chartData = chart.chartJson ? JSON.parse(chart.chartJson) : null;
     const analysisData = chart.analysisJson ? JSON.parse(chart.analysisJson) : null;
+    // AI 解读（2026-10-18 全免费：建盘时自动生成；raw 读，避免改 prisma schema）
+    let aiAnalysis: unknown = null;
+    try {
+      const aiRows = await prisma.$queryRaw<any[]>`SELECT ai_analysis FROM charts WHERE id = ${chart.id}`;
+      const rawAi = aiRows?.[0]?.ai_analysis ?? null;
+      if (rawAi) aiAnalysis = JSON.parse(rawAi);
+    } catch { /* 忽略 */ }
 
     return res.json({
       success: true,
@@ -131,6 +138,7 @@ export async function getChartResult(req: Request, res: Response) {
         status: 'complete',
         chartData,
         analysisData,
+        aiAnalysis,
       },
     });
   } catch (error) {

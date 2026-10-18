@@ -15,6 +15,7 @@ export default function ChartResultPage() {
   const id = params?.id as string;
 
   const [chartData, setChartData] = useState<any>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [chartName, setChartName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +62,7 @@ export default function ChartResultPage() {
         } else if (res.success && res.data) {
           setChartData(graftLocalMeta(res.data.chartData || null));
           setChartName(res.data.name || '');
+          setAiAnalysis(res.data.aiAnalysis || null);
           setLoading(false);
         } else if (count < 60) { setTimeout(poll, 1000); }
         else {
@@ -144,6 +146,26 @@ export default function ChartResultPage() {
         <DoubleVerify chartData={enrichedChartData} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
         <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />
+
+          {aiAnalysis && (
+            <section className="qn-card">
+              <p className="qn-cap" style={{ marginBottom: 8 }}>AI 解读 · 免费生成</p>
+              {Object.entries(aiAnalysis as Record<string, any>).map(([k, v]) => (
+                <div key={k} style={{ marginTop: 16 }}>
+                  <h3 className="qn-title" style={{ fontSize: 16, marginBottom: 6 }}>{k}</h3>
+                  {typeof v === 'string' ? (
+                    <p className="qn-body" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85 }}>{v}</p>
+                  ) : Array.isArray(v) ? (
+                    <ul className="qn-body" style={{ paddingLeft: 20, lineHeight: 1.85 }}>
+                      {v.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}
+                    </ul>
+                  ) : (
+                    <pre className="qn-body" style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.7 }}>{JSON.stringify(v, null, 2)}</pre>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
       </div>
     </main>
   );
