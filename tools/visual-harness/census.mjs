@@ -104,6 +104,9 @@ const STATIC_PAGES = [
   ['liuyao-create', '/liuyao/create'],
   ['meihua', '/meihua'],
   ['xiu', '/xiu'],
+  ['huangli', '/huangli'],
+  ['tools', '/tools'],
+  ['verify', '/verify'],
   ['dashboard', '/dashboard'],
   ['contact', '/contact'],
   ['privacy', '/privacy'],
@@ -150,6 +153,16 @@ const AFTER = {
       b.click();
       for (let n = 0; n < 24; n++) {
         if ((document.body.innerText || '').includes('取数过程')) return true;
+        await new Promise(r => setTimeout(r, 25));
+      }
+      return false; })()`,
+  // 回执面板要点一下才存在。不点，「结果回执」这块版式（三行摘要 + 三个按钮）就从未被测量过，
+  // 与 /meihua、/xiu 那次「只审到输入态」是同一类假绿。
+  'liuyao-result': `(async () => { const b = [...document.querySelectorAll('button')]
+      .find(x => (x.textContent || '').trim() === '生成本盘回执'); if (!b) return false;
+      b.click();
+      for (let n = 0; n < 24; n++) {
+        if ((document.body.innerText || '').includes('回执编号')) return true;
         await new Promise(r => setTimeout(r, 25));
       }
       return false; })()`,

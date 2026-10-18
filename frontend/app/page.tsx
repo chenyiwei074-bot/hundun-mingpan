@@ -380,8 +380,21 @@ const ENGINES: Engine[] = [
   { title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。', href: '/liuyao', go: '开始问卦', pv: 'liuyao' },
   { title: '梅花易数', desc: '年月日时、报数成卦。体用为纲，本卦互卦变卦一气看完，即时取断。', href: '/meihua', go: '即物起卦', pv: 'meihua' },
   { title: '二十八宿', desc: '生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。', href: '/xiu', go: '查本命宿', pv: 'xiu' },
-  { title: '姓名合盘', desc: '二人姓名，五行适配。天格地格人格外格总格，五格剖象，深析缘分。', pv: 'hepan' },
-  { title: '择日', desc: '黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。', pv: 'zeri' },
+  { title: '姓名合盘', desc: '未做。五格剖象与站内引擎不同源，口径与来源未定；右侧只是版式示意，不是结果。', pv: 'hepan' },
+  { title: '黄历宜忌', desc: '逐日宜忌、吉神凶煞、冲煞胎神、建除黄黑道。通书原样转录，一日一换。', href: '/huangli', go: '查今日', pv: 'zeri' },
+];
+
+/** 启动器轨道：没有 href 的卡片就是未开放，按目录页同一套做法渲染（无链接、无按钮、写明原因）。 */
+type LauncherCard = { href?: string; zi: string; title: string; desc: string; tag?: string };
+
+const LAUNCHER: LauncherCard[] = [
+  { href: '/create', zi: '命', title: '八字 & 紫微', desc: '四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。' },
+  { href: '/liuyao', zi: '爻', title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。' },
+  { href: '/meihua', zi: '梅', title: '梅花易数', desc: '年月日时或报数成卦，体用生克为纲，本互变三卦一气看完。' },
+  { href: '/xiu', zi: '宿', title: '二十八宿', desc: '生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。' },
+  { href: '/huangli', zi: '历', title: '黄历宜忌', desc: '逐日宜忌、吉神凶煞、冲煞胎神、建除黄黑道。通书原样转录，一日一换。' },
+  { href: '/tools', zi: '箱', title: '玄学百宝箱', desc: '按「问什么」找工具：每个工具写明方法、取数口径与结果怎么读。' },
+  { zi: '合', title: '姓名合盘', desc: '未做。五格剖象与站内引擎不同源，口径与来源未定，不留假入口。', tag: '未开放' },
 ];
 
 const SOON = [
@@ -520,11 +533,15 @@ export default function HomePage() {
                   <p className="body muted">{e.desc}</p>
                   {e.href
                     ? <Link href={e.href} className="text-link">{e.go} <span aria-hidden="true">→</span></Link>
-                    : <span className="tag">即将上线</span>}
+                    : <span className="tag">未开放</span>}
                 </div>
               </div>
             ))}
           </div>
+
+          <p style={{ margin: '18px 0 0' }}>
+            <Link href="/tools" className="text-link">全部工具与取数口径 <span aria-hidden="true">→</span></Link>
+          </p>
 
           <div className="tools">
             <p className="eyebrow">更多即将上线</p>
@@ -575,33 +592,29 @@ export default function HomePage() {
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M10 3l-5 5 5 5"/></svg>
               </button>
 
-              {/* data-vh-scroll：这条横向轨永远溢出容器（6 张卡 × 100%），显式声明它的可滚动
+              {/* data-vh-scroll：这条横向轨永远溢出容器（7 张卡 × 100%），显式声明它的可滚动
                   凭据是左右两个箭头按钮，视觉验收 harness 据此放行；没有声明的溢出会被判失败。 */}
               <div id="ls" className="sheet-track" data-vh-scroll="arrows">
-                {[
-                  { href:"/create", zi:"命", title:"八字 & 紫微", desc:"四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。" },
-                  { href:"/liuyao", zi:"爻", title:"六爻问卦", desc:"金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。" },
-                  { href:"/meihua", zi:"梅", title:"梅花易数", desc:"年月日时或报数成卦，体用生克为纲，本互变三卦一气看完。" },
-                  { href:"/xiu", zi:"宿", title:"二十八宿", desc:"生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。" },
-                  { href:"#", zi:"合", title:"姓名合盘", desc:"二人姓名，五行适配。五格剖象，深析缘分。", tag:"即将上线" },
-                  { href:"#", zi:"吉", title:"择日", desc:"黄道吉日，天时地利。嫁娶开业搬家出行，择最优时日，趋吉避凶。", tag:"即将上线" },
-                ].map((item, i) => (
-                  <Link key={i} href={item.href}
-                    onClick={() => item.tag ? null : setShowLauncher(false)}
-                    className={item.tag ? 'sheet-item is-soon' : 'sheet-item'}>
-                    <svg viewBox="0 0 72 72" className="sheet-zi">
-                      <rect x="1" y="1" width="70" height="70" rx="8" fill="none" stroke={gold} strokeWidth="1.2" opacity="0.35" />
-                      <text x="36" y="50" textAnchor="middle" fill={goldDeep} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
-                    </svg>
-                    <h3 className="h3 sheet-name">{item.title}</h3>
-                    {item.tag ? <span className="tag">{item.tag}</span> : <span className="sheet-rule" />}
-                    <p className="body muted sheet-desc">{item.desc}</p>
-                    <span className={item.tag ? 'sheet-go is-dim' : 'sheet-go'}>
-                      {item.tag ? '敬请期待' : '进入'}
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
-                    </span>
-                  </Link>
-                ))}
+                {LAUNCHER.map((item, i) => {
+                  const body = (
+                    <>
+                      <svg viewBox="0 0 72 72" className="sheet-zi">
+                        <rect x="1" y="1" width="70" height="70" rx="8" fill="none" stroke={gold} strokeWidth="1.2" opacity="0.35" />
+                        <text x="36" y="50" textAnchor="middle" fill={goldDeep} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
+                      </svg>
+                      <h3 className="h3 sheet-name">{item.title}</h3>
+                      {item.tag ? <span className="tag">{item.tag}</span> : <span className="sheet-rule" />}
+                      <p className="body muted sheet-desc">{item.desc}</p>
+                      <span className={item.href ? 'sheet-go' : 'sheet-go is-dim'}>
+                        {item.href ? '进入' : '未开放'}
+                        {item.href && <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>}
+                      </span>
+                    </>
+                  );
+                  return item.href
+                    ? <Link key={i} href={item.href} onClick={() => setShowLauncher(false)} className="sheet-item">{body}</Link>
+                    : <div key={i} className="sheet-item is-soon" aria-disabled="true">{body}</div>;
+                })}
               </div>
 
               <button onClick={() => { const el=document.getElementById('ls'); if(el) el.scrollBy({left:340,behavior: prefersReduced() ? 'auto' : 'smooth'}) }}
