@@ -105,6 +105,7 @@ const STATIC_PAGES = [
   ['meihua', '/meihua'],
   ['xiu', '/xiu'],
   ['huangli', '/huangli'],
+  ['tools', '/tools'],
   ['dashboard', '/dashboard'],
   ['contact', '/contact'],
   ['privacy', '/privacy'],

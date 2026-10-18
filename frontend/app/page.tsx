@@ -526,6 +526,10 @@ export default function HomePage() {
             ))}
           </div>
 
+          <p style={{ margin: '18px 0 0' }}>
+            <Link href="/tools" className="text-link">全部工具与取数口径 <span aria-hidden="true">→</span></Link>
+          </p>
+
           <div className="tools">
             <p className="eyebrow">更多即将上线</p>
             <div className="tools-grid">
