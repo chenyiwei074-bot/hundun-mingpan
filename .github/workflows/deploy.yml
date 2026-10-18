@@ -38,7 +38,18 @@ jobs:
               echo "处理方式：先把这些改动并入仓库（或由运维手工部署），再触发部署。"
               exit 1
             fi
-            OLD=$(git rev-parse HEAD)
+            # OLD 用「上一次成功部署的版本」而非 HEAD：/opt 是运维与 CI 共用的仓库，
+            # 运维在服务器上 merge/pull 之后 HEAD 会提前指向新版本，用 HEAD 当基线会导致增量为 0、静默跳过构建。
+            STATE_DIR=/srv/chaos/state
+            mkdir -p "$STATE_DIR"
+            OLD=$(cat "$STATE_DIR/deployed-rev" 2>/dev/null || true)
+            if [ -z "$OLD" ] || ! git cat-file -e "$OLD^{commit}" 2>/dev/null; then
+              OLD=$(git rev-parse HEAD)
+            fi
+            if ! git merge-base --is-ancestor "$OLD" origin/main 2>/dev/null; then
+              echo "    WARN: 已部署版本 $OLD 不是 origin/main 的祖先，按全量重建处理"
+              OLD=$(git rev-parse origin/main^ 2>/dev/null || git rev-parse HEAD)
+            fi
 
             echo "===== [2/6] 快照 + 拉取（$OLD）====="
             # 快照保留源码即可：排除 .git（体积最大且无需快照）、.next*、node_modules、日志与大 tar
@@ -105,4 +116,5 @@ jobs:
               pm2 restart hundun-web || true
               exit 1
             fi
+            echo "$NEW" > "$STATE_DIR/deployed-rev"
             echo "===== [6/6] DEPLOY DONE ($NEW) ====="
