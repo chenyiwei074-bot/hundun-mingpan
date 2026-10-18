@@ -27,7 +27,7 @@ export class DeepSeekProvider implements AIProvider {
     const startTime = Date.now();
 
     const messages = this.buildMessages(request);
-    const modelName = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+    const modelName = process.env.DEEPSEEK_MODEL || 'deepseek-flash';
 
     const response = await fetch(this.baseUrl + '/v1/chat/completions', {
       method: 'POST',

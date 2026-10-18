@@ -1,9 +1,16 @@
-﻿name: Deploy to Alibaba Cloud
+name: Deploy to Alibaba Cloud (frontend-first, fail-safe)
+
+# 2026-10-16 加固（运维侧）：原版有三个硬伤
+#   ① 无条件 `git reset --hard origin/main` → 冲掉 /opt 上所有未提交的生产改动（Qoder 视觉重构、真太阳时、安全修复都曾在此状态）
+#   ② 无条件 `pm2 restart hundun-api` → 后端没变也重启，违反"只换皮不碰后端"
+#   ③ 前端**先 pm2 stop 后 build** → build 失败网站就停在停止态、无自动回滚
+# 现在：先做未提交改动守卫（有则中止）→ 快照 → 按变更范围重建 → 前端先构建成功再切换 → 健康检查失败自动回滚。
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch: {}
 
 jobs:
   deploy:
@@ -17,40 +24,79 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
-            echo "===== [1/5] Git Pull ====="
+            set -euo pipefail
+            STAMP=$(date +%Y%m%d-%H%M%S)
+            BK=/srv/chaos/export/deploy-$STAMP
+            mkdir -p "$BK"
             cd /opt
-            if [ ! -d .git ]; then
-              echo "ERROR: /opt is not a git repository"
+
+            echo "===== [1/6] 守卫：拒绝覆盖未提交的已跟踪改动 ====="
+            DIRTY=$(git status --porcelain --untracked-files=no)
+            if [ -n "$DIRTY" ]; then
+              echo "ERROR: /opt 存在未提交的已跟踪改动，拒绝部署（reset --hard 会冲掉它们）"
+              echo "$DIRTY" | sed 's/^/    /'
+              echo "处理方式：先把这些改动并入仓库（或由运维手工部署），再触发部署。"
               exit 1
             fi
+            OLD=$(git rev-parse HEAD)
+
+            echo "===== [2/6] 快照 + 拉取（$OLD）====="
+            tar -czf "$BK/opt-src-$STAMP.tar.gz" \
+              --exclude=node_modules --exclude=.next --exclude=logs \
+              -C /opt . 2>/dev/null || true
             git fetch origin
             git reset --hard origin/main
-            echo "OK: $(git log -1 --oneline)"
+            NEW=$(git rev-parse HEAD)
+            echo "    $OLD -> $NEW"
 
-            echo "===== [2/5] Backend Build ====="
-            cd /opt/server
-            npm ci --production=false
-            npx prisma generate
-            npm run build
-            echo "OK: backend built"
+            BACKEND_CHANGED=$(git diff --name-only "$OLD" "$NEW" -- server/ | wc -l | tr -d ' ')
+            FRONTEND_CHANGED=$(git diff --name-only "$OLD" "$NEW" -- frontend/ | wc -l | tr -d ' ')
+            LOCK_CHANGED=$(git diff --name-only "$OLD" "$NEW" -- server/package-lock.json frontend/package-lock.json | wc -l | tr -d ' ')
+            echo "    变更文件：后端 $BACKEND_CHANGED / 前端 $FRONTEND_CHANGED / lock $LOCK_CHANGED"
 
-            echo "===== [3/5] Restart API ====="
-            pm2 restart hundun-api
-            echo "OK: API restarted"
+            if [ "$BACKEND_CHANGED" -gt 0 ]; then
+              echo "===== [3/6] 后端构建并重启（有变更）====="
+              cd /opt/server
+              if [ "$LOCK_CHANGED" -gt 0 ]; then npm ci --production=false; fi
+              npx prisma generate
+              npm run build
+              pm2 restart hundun-api
+              echo "    OK: API restarted"
+            else
+              echo "===== [3/6] 后端无变更，跳过构建与重启 ====="
+            fi
 
-            echo "===== [4/5] Frontend Build ====="
-            cd /opt/frontend
-            pm2 stop hundun-web 2>/dev/null || true
-            npm ci --production=false
-            rm -rf .next
-            npm run build
-            pm2 start hundun-web
-            echo "OK: frontend built & started"
+            if [ "$FRONTEND_CHANGED" -eq 0 ]; then
+              echo "===== [4/6] 前端无变更，跳过 ====="
+            else
+              echo "===== [4/6] 前端：先构建，成功后才切换 ====="
+              cd /opt/frontend
+              if [ "$LOCK_CHANGED" -gt 0 ]; then npm ci --production=false; fi
+              rm -rf .next.prev
+              if [ -d .next ]; then mv .next .next.prev; fi
+              if npm run build; then
+                echo "    build OK"
+                pm2 restart hundun-web
+              else
+                echo "ERROR: 前端构建失败 → 回滚到上一版构建"
+                rm -rf .next
+                if [ -d .next.prev ]; then mv .next.prev .next; fi
+                pm2 restart hundun-web || true
+                exit 1
+              fi
+            fi
 
-            echo "===== [5/5] Health Check ====="
-            sleep 3
-            echo -n "API: "; curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health
-            echo ""
-            echo -n "Web: "; curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/
-            echo ""
-            echo "===== DEPLOY DONE ====="
+            echo "===== [5/6] 健康检查 ====="
+            sleep 5
+            API=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health || true)
+            WEB=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3001/ || true)
+            echo "    API=$API  WEB=$WEB"
+            if [ "$API" != "200" ] || [ "$WEB" != "200" ]; then
+              echo "ERROR: 健康检查未通过 → 前端回滚到上一版构建"
+              cd /opt/frontend
+              rm -rf .next
+              if [ -d .next.prev ]; then mv .next.prev .next; fi
+              pm2 restart hundun-web || true
+              exit 1
+            fi
+            echo "===== [6/6] DEPLOY DONE ($NEW) ====="

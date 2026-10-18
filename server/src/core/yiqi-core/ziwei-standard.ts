@@ -4,6 +4,7 @@ import { BirthInfo, ZiweiChart, ZiweiGongInfo, GanZhi } from './types';
 import { Solar, Lunar } from 'lunar-typescript';
 import { addBenMingSiHua, getLaiYinGong, detectZiHua, getSiHuaOverview } from './sihua';
 import { calculateDaXian, calculateXuSui } from './daxian';
+import { toCivilInput } from './lunar-input';
 
 /**
  * 天干数组
@@ -441,12 +442,16 @@ function installKuiYue(yearGan: string): Map<string, number> {
 export function createZiweiChart(birthInfo: BirthInfo): ZiweiChart {
   try {
     // 1. 转换为农历
+    // 入参可能是农历（表单允许选农历），必须先归一化成公历再走这条正向换算；
+    // 否则下面读到的 lunarMonth / lunarDay 是「把农历数字当公历再换算」的二次错误，
+    // 安星与命宫全错。与 bazi.ts 用同一个 helper，两盘不会因换算口径不同而分叉。
+    const civil = toCivilInput(birthInfo);
     const solar = Solar.fromYmdHms(
-      birthInfo.year,
-      birthInfo.month,
-      birthInfo.day,
-      birthInfo.hour,
-      birthInfo.minute,
+      civil.year,
+      civil.month,
+      civil.day,
+      civil.hour,
+      civil.minute,
       0
     );
     const lunar: Lunar = solar.getLunar();
