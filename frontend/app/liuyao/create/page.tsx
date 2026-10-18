@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { buildCoinResult } from '@/lib/liuyao/methods/coin';
+import { buildCoinResult, coinToss, calcYao } from '@/lib/liuyao/methods/coin';
 import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
 import { getGua, getNaJia, getDayGanZhi, getXunKong, GUA_MAP } from '@/lib/liuyao/core';
@@ -26,13 +26,8 @@ type NaJiaYao = {
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
 const GUA_SYMBOL: Record<string, string> = { '乾': '☰', '兑': '☱', '离': '☲', '震': '☳', '巽': '☴', '坎': '☵', '艮': '☶', '坤': '☷' };
 
-function calcYao(coins: CoinFace[]) {
-  const hua = coins.filter(c => c === '花').length;
-  if (hua === 0) return { value: 6, label: '老阴', isDong: true };
-  if (hua === 1) return { value: 7, label: '少阳', isDong: false };
-  if (hua === 2) return { value: 8, label: '少阴', isDong: false };
-  return { value: 9, label: '老阳', isDong: true };
-}
+// 掷钱与花数→爻值都用 methods/coin 那一份；这里曾复制过一份 calcYao（与 coin.ts 逐字相同），
+// 两份实现会各自漂移，删掉。
 
 
 // ── 3D铜钱翻转（字面/花面交替）──
@@ -187,7 +182,7 @@ export default function LiuyaoCreatePage() {
   const executeTossRound = useCallback((rnd: number, recs: YaoRecord[]) => {
     if (!mounted.current) return;
     
-    const cs: CoinFace[] = [Math.random()>.5?'字':'花',Math.random()>.5?'字':'花',Math.random()>.5?'字':'花'];
+    const cs: CoinFace[] = coinToss();
     setRound(rnd);
     setAnim('spinning');
     setCoins(cs);

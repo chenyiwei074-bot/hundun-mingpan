@@ -1,11 +1,14 @@
 ﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
+import { randomBits } from '@/lib/crypto/random';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType, NaJiaYao } from '@/types/liuyao';
 
+/** 三枚各取 1 bit：1 = 花，0 = 字。站里唯一的掷钱实现，页面不得再自己拼一遍。 */
 export function coinToss(): CoinFace[] {
-  return [Math.random()>.5?'字':'花', Math.random()>.5?'字':'花', Math.random()>.5?'字':'花'];
+  return randomBits(3).map(b => (b ? '花' : '字') as CoinFace);
 }
 
-function calcYao(coins: CoinFace[]): { value: number; label: string; isDong: boolean } {
+/** 花数 → 爻值（0 花老阴动、1 少阳、2 少阴、3 花老阳动）。同样只此一份。 */
+export function calcYao(coins: CoinFace[]): { value: number; label: string; isDong: boolean } {
   const hua = coins.filter(c => c === '花').length;
   if (hua === 0) return { value: 6, label: '老阴', isDong: true };
   if (hua === 1) return { value: 7, label: '少阳', isDong: false };

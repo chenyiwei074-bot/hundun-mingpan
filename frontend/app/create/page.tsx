@@ -7,12 +7,13 @@ import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
 import { toCivilInput, lunarDayCount, leapMonthOfYear } from '@/app/lib/core/yiqi-core/lunar-input';
+import { randomToken } from '@/lib/crypto/random';
 
 function getVisitorId(): string {
   if (typeof window === 'undefined') return '';
   let id = localStorage.getItem('hundun_visitor_id');
   if (!id) {
-    id = 'visitor_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    id = 'visitor_' + Date.now().toString(36) + randomToken(6);
     localStorage.setItem('hundun_visitor_id', id);
   }
   return id;

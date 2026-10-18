@@ -82,7 +82,7 @@ export const INTENTS: IntentGroup[] = [
         reading: '先看用神与世应，再看动爻变出什么；盘面逐爻给六亲、干支、纳音、旬空与六神，并显示取数过程。',
         status: '可用',
         href: '/liuyao/create',
-        note: '铜钱摇卦的随机源目前是 Math.random，只能复验记录下来的爻值，不声称验证了随机过程本身；实体掷钱同理。',
+        note: '铜钱摇卦的随机源是 crypto.getRandomValues（三枚各 1 bit，无取模偏差）；回执能复验「记录下来的爻值与摘要自洽」，但不声称验证了随机过程本身 —— 随机源承诺（commit-reveal）另批做，实体掷钱同理。',
       },
       {
         name: '梅花易数',
