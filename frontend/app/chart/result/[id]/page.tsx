@@ -175,7 +175,7 @@ export default function ChartResultPage() {
                     {v.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}
                   </ul>
                 ) : (
-                  <pre className="qn-body" style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.7 }}>{JSON.stringify(v, null, 2)}</pre>
+                  <pre className="qn-body" style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.7 }}>{JSON.stringify(v, null, 2)}</pre>
                 )}
               </div>
             ))
