@@ -137,9 +137,11 @@ const liveFiles = ['app', 'lib', 'components', 'types'].flatMap(d => walk(join(F
   ok('token/uses-full-alphabet', chars.size >= 30, `400 字符里出现 ${chars.size} 种字符（36 种里接近全用，说明不是低熵截断）`);
   const v = readFileSync(join(FRONTEND, 'lib', 'auth', 'visitor.ts'), 'utf8');
   const cr = readFileSync(join(FRONTEND, 'app', 'create', 'page.tsx'), 'utf8');
-  ok('token/both-sites-shared-helper', /randomToken\(8\)/.test(v) && /randomToken\(6\)/.test(cr) &&
-    /from '@\/lib\/crypto\/random'/.test(v) && /from '@\/lib\/crypto\/random'/.test(cr),
-    '两处游客 id（cookie 的 v_ 与 localStorage 的 visitor_）都走同一个 randomToken，格式不变、只换熵源');
+  // 2026-10-18 ① 起：游客 id 只有一处生成（lib/auth/visitor）。create 页不再自己生成 visitor_ 前缀的 id，
+  // 而是 import getVisitorId —— 断言随之改成「单源」，而不是「两处都用同一 helper」。
+  ok('token/single-id-source', /randomToken\(8\)/.test(v) && /from '@\/lib\/crypto\/random'/.test(v) &&
+    /getVisitorId/.test(cr) && !/randomToken\(/.test(cr) && !/'visitor_/.test(cr),
+    '游客 id 只在 lib/auth/visitor 生成（randomToken 单源）；create 页只 import getVisitorId，不再自己生成 visitor_ 前缀 id');
   say('MEASURED 游客 id 现在同时是报告归属凭据（main 的 ab16eab 用它校验 GET /api/reports/:id），所以这一处的 Math.random 与摇卦同等重要');
 }
 
