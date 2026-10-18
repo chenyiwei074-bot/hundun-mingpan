@@ -36,17 +36,33 @@ export class FreeModelProvider implements AIProvider {
       { role: 'user', content: JSON.stringify(request.chartData) },
     ];
 
+    // 超时（B 方案）：免费模型太慢时中止，交由 analysis.service 回落 DeepSeek
+    const timeoutMs = Number(process.env.FREE_AI_TIMEOUT_MS || 60000);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     // 不传 response_format：部分免费模型不支持该参数，靠 prompt 约束 + 容错解析
-    const response = await fetch(this.baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-      body: JSON.stringify({
-        model: modelName,
-        messages,
-        temperature: 0.6,
-        max_tokens: request.maxTokens ?? 2048,
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.baseUrl + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+        body: JSON.stringify({
+          model: modelName,
+          messages,
+          temperature: 0.6,
+          max_tokens: request.maxTokens ?? 2048,
+        }),
+        signal: controller.signal,
+      });
+    } catch (e) {
+      if ((e as any)?.name === 'AbortError') {
+        throw new Error('Free model timeout after ' + timeoutMs + 'ms');
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
