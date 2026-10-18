@@ -9,7 +9,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
-import { CATALOG_STAMPS, CLOSED_TOOLS, INTENTS, LIUYAO_BASIS_TEXT, LIVE_HREFS } from '../../frontend/lib/tools/catalog';
+import { CATALOG_STAMPS, CLOSED_TOOLS, INTENT_ENTRIES, INTENTS, LIUYAO_BASIS_TEXT, LIVE_HREFS } from '../../frontend/lib/tools/catalog';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -138,6 +138,27 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const statusLabels = ['可用', '部分可用', '未开放'];
   ok('dir/status-vocabulary', statusLabels.every(s => page.includes(s) || ALL_TOOLS.some(t => t.status === s)),
     `状态只允许 ${statusLabels.join('/')} 三档，且页面给出定义（读者能据此判断标签含义）`);
+}
+
+// ── 7. 首屏四类意图与游客 id 单源（裁定 ① 的数据侧；视觉侧由 harness 的 first-screen 探针测）──
+{
+  const want = ['认识自己', '问一件事', '择时看周期', '看关系'];
+  const got = INTENT_ENTRIES.map(e => e.intent);
+  ok('home/intent-entries-complete', JSON.stringify(got) === JSON.stringify(want) && INTENT_ENTRIES.every(e => routeExists(e.href)),
+    `首页首屏的四类意图入口齐备且可达：${INTENT_ENTRIES.map(e => `${e.intent}→${e.href}`).join('  ')}`);
+  const home = readFileSync(join(APP, 'page.tsx'), 'utf8');
+  ok('home/intents-come-from-catalog', /import\s*\{\s*INTENT_ENTRIES\s*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
+    /INTENT_ENTRIES\.map/.test(home),
+    '首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是首页里再抄一份）');
+  const lists = ['const ENGINES', 'const LAUNCHER', 'INTENT_ENTRIES'].filter(k => home.includes(k));
+  say(`MEASURED 首页目前还并存 ${lists.length} 份工具清单（${lists.join('、')}）：本批只把首屏四类接到 catalog 上，` +
+    `核心引擎区与启动器轨道仍是各自硬编码，三者会各自漂移 —— 统一成一份是下一批的事，不当已完成`);
+  const visitor = readFileSync(join(APP, '..', 'lib', 'auth', 'visitor.ts'), 'utf8');
+  const create = readFileSync(join(APP, 'create', 'page.tsx'), 'utf8');
+  ok('visitor/id-single-source', /export function getVisitorId/.test(visitor) &&
+    /import\s*\{\s*getVisitorId\s*\}\s*from '@\/lib\/auth\/visitor'/.test(create) &&
+    !/function getVisitorId/.test(create) && !/hundun_visitor_id/.test(create),
+    '游客 id 只有 lib/auth/visitor 一份生成器，create 页 import 它（它是报告归属凭据，不该有两个出处）');
 }
 
 const summary = `directory acceptance: tools=${ALL_TOOLS.length} open=${OPEN.length} pass=${pass} fail=${fail}`;

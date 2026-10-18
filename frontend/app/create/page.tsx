@@ -7,17 +7,10 @@ import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
 import { toCivilInput, lunarDayCount, leapMonthOfYear } from '@/app/lib/core/yiqi-core/lunar-input';
-import { randomToken } from '@/lib/crypto/random';
+import { getVisitorId } from '@/lib/auth/visitor';
 
-function getVisitorId(): string {
-  if (typeof window === 'undefined') return '';
-  let id = localStorage.getItem('hundun_visitor_id');
-  if (!id) {
-    id = 'visitor_' + Date.now().toString(36) + randomToken(6);
-    localStorage.setItem('hundun_visitor_id', id);
-  }
-  return id;
-}
+// 游客 id 只有 lib/auth/visitor 那一份：它先读 cookie、回落 localStorage、两边都写。
+// 这里以前自己又生成一遍（同一个 key、另一套前缀），归属凭据不该有两个出处。
 
 const currentYear = new Date().getFullYear();
 const YEARS = Array.from({ length: currentYear - 1899 }, (_, i) => String(currentYear - i));

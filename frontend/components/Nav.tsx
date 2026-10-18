@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// 导航 ≤5 项（裁定 ①）。梅花/星宿/黄历不再各占一格：它们由「百宝箱」这一格统一带进去，
+// 首屏的四类意图入口也指向同一份 lib/tools/catalog，不靠导航位数硬撑。
 const LINKS = [
   { href: '/create', label: '八字 & 紫微', short: '命盘' },
   { href: '/liuyao', label: '六爻', short: '六爻' },
-  { href: '/meihua', label: '梅花易数', short: '梅花' },
-  { href: '/xiu', label: '二十八宿', short: '星宿' },
-  { href: '/huangli', label: '黄历宜忌', short: '黄历' },
+  { href: '/tools', label: '玄学百宝箱', short: '百宝' },
   // narrow 变体在 375px 放五个词，「我的报告」四字会折行（实测把「命盘」一起挤成两行），
   // 窄屏只留两字，宽屏仍写全称。
   { href: '/dashboard', label: '我的报告', short: '报告' },

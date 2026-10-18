@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { INTENT_ENTRIES } from '@/lib/tools/catalog';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -472,6 +473,17 @@ export default function HomePage() {
                 开始使用 <span aria-hidden="true">→</span>
               </button>
             </div>
+            {/* 首屏四类意图。入口全部来自 lib/tools/catalog 的 INTENT_ENTRIES ——
+                首页不再维护第二份工具清单，未开放的术数也不会在这里被伪装成入口。
+                文字用墨色：13px 次要灰压在这张浅底上只有 4.48:1，过不了 AA。 */}
+            <nav className="intent-nav fx fx-cta" aria-label="按你想问的事查找">
+              {INTENT_ENTRIES.map(it => (
+                <Link key={it.intent} href={it.href} className="intent-item">
+                  <span className="intent-name">{it.intent}</span>
+                  <span className="intent-tool">{it.tool}</span>
+                </Link>
+              ))}
+            </nav>
           </div>
         </div>
 
@@ -653,6 +665,19 @@ export default function HomePage() {
         .hp .pan { display: block; width: 100%; height: auto; overflow: visible; }
         .hp .hero-copy { text-align: center; }
         .hp .hero-actions { margin-top: clamp(1.25rem, 3svh, 2rem); }
+        /* 四类意图入口：两列，窄屏也放得下；每项 ≥44px 可点高度。 */
+        .hp .intent-nav {
+          display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px; margin-top: clamp(0.9rem, 2.4svh, 1.5rem);
+        }
+        .hp .intent-item {
+          display: grid; gap: 2px; align-content: center; text-align: left;
+          min-height: 44px; padding: 8px 12px; border-radius: 10px; text-decoration: none;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.09);
+        }
+        .hp .intent-item:hover { box-shadow: inset 0 0 0 1px rgba(178, 149, 93, 0.55); }
+        .hp .intent-name { font-size: var(--qn-fs-body); font-weight: 600; letter-spacing: 0.06em; color: var(--color-text-primary); }
+        .hp .intent-tool { font-size: var(--qn-fs-meta); color: var(--color-text-primary); opacity: 0.78; }
         .hp .hero-foot {
           position: relative; z-index: 1; width: 100%; max-width: 1180px; margin: 0 auto;
           padding-top: 0.75rem; border-top: var(--qn-hairline);

@@ -672,6 +672,26 @@ async function goto(url) {
   await sleep(2600);
 }
 
+// 首屏探针。必须在 AFTER 点击之前跑 —— 首页那个「开始使用」会把页面滚走，而「首屏」的定义
+// 就是滚动位置为 0 时能看到什么。裁定 ① 的四条里有三条在这里测：四类意图各 ≥1 个可点入口、
+// 导航 ≤5 项、首屏不塞营销话。
+const INTENTS_EXPECT = ['认识自己', '问一件事', '择时看周期', '看关系'];
+const MARKETING_WORDS = ['限时', '立即', '爆款', '专属', '超值', '急速', '一键测算', '准确率', '最准', '权威', '大师', '开运'];
+const FIRST_SCREEN = `(() => {
+  const vh = window.innerHeight;
+  const inFold = el => { const r = el.getBoundingClientRect(); return r.top < vh && r.bottom > 0 && r.width > 0 && r.height > 0; };
+  const links = [...document.querySelectorAll('a[href]')].filter(inFold);
+  const texts = [...document.querySelectorAll('h1,h2,h3,p,span,a,button')].filter(inFold).map(e => (e.innerText || '')).join(' ');
+  const hit = {};
+  for (const t of ${JSON.stringify(INTENTS_EXPECT)}) hit[t] = links.some(a => (a.innerText || '').includes(t));
+  return { scrollY: window.scrollY, vh, links: links.length, intents: hit,
+    marketing: ${JSON.stringify(MARKETING_WORDS)}.filter(w => texts.includes(w)),
+    // 「导航 ≤5 项」= 站头那一条里**实际可见**的入口：宽屏全名与窄屏两字简称同时在 DOM 里，
+    // 靠 CSS 切换，所以必须按可见性数；品牌 logo 链接也不算导航项。
+    navItems: [...document.querySelectorAll('.qn-nav__links a')].filter(a => a.offsetParent !== null && a.getClientRects().length)
+      .map(a => (a.innerText || '').trim()).filter(Boolean) };
+})()`;
+
 function check(tag, v) {
   const base = tag.replace(/^(d1|m1)-/, '');
   const ex = EXEMPT[base];
@@ -740,6 +760,22 @@ function check(tag, v) {
     if (got && hexOf(got) && hexOf(got).toLowerCase() !== want) bad(`sihua-${k} renders ${got}, frozen value is ${want}`);
   }
 
+  // 裁定 ①：首页首屏四类意图各 ≥1 个可点入口、导航 ≤5 项、首屏不塞营销话。
+  // 探针没跑起来也算失败 —— 否则这条要求会静默变成「没人测过」。
+  if (/-home$/.test(tag)) {
+    const f = v.firstScreen;
+    if (!f) bad('first-screen probe did not run — 首页四类意图的要求没被测量过');
+    else {
+      for (const t of INTENTS_EXPECT) {
+        if (!f.intents || !f.intents[t]) bad(`首屏没有「${t}」的可点入口（scrollY=${f.scrollY}、首屏内 ${f.links} 个链接）`);
+      }
+      if (!f.navItems || !f.navItems.length) bad('导航探针一个都没数到 —— 选择器失效时这条要求会静默通过');
+      else if (f.navItems.length > 5) bad(`导航 ${f.navItems.length} 项，超过裁定的 ≤5：${f.navItems.join('/')}`);
+      if (f.marketing && f.marketing.length) bad(`首屏出现营销话：${f.marketing.join('、')}`);
+      console.log(`   FIRST-SCREEN intents=${f.intents ? Object.values(f.intents).filter(Boolean).length : '?'}/4 nav=${(f.navItems || []).length} marketing=${(f.marketing || []).length} links=${f.links}`);
+    }
+  }
+
   // Ruling 2026-10-17: 不接受靠 overflow 兜住不报. The 卦盘's 五行/干支 columns were being
   // cut off at 375px with nothing telling the user the rest exists.
   for (const c of (v.overflowClips || [])) {
@@ -762,6 +798,8 @@ async function measure(tag, url) {
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
   const base = tag.replace(/^(d1|m1)-/, '');
+  // 首屏必须在任何点击/滚动之前抓，晚了测的就不是首屏了。
+  const fold = await evl(FIRST_SCREEN);
   if (AFTER[base]) {
     // A programmatic .click() does not set hadRecentInput, so the expansion shift
     // would land in CLS and look like a load regression. Mark both load values first:
@@ -783,7 +821,7 @@ async function measure(tag, url) {
       : `    pins n${String(LIUYAO_PINS[base].base).padStart(2, '0')}–n${String(LIUYAO_PINS[base].base + 11).padStart(2, '0')} 全中，空亡 ${got.kong} 处`);
   }
   const v = await evl(CENSUS);
-  if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; }
+  if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; v.firstScreen = fold; }
   results[tag] = v;
   const perf = await evl(`({ lcp: window.__lcpAtLoad === undefined ? (window.__lcp && Math.round(window.__lcp)) : (window.__lcpAtLoad && Math.round(window.__lcpAtLoad)),
     lcpInteract: window.__lcpAtLoad === undefined || !window.__lcp || window.__lcp === window.__lcpAtLoad ? undefined : Math.round(window.__lcp),
