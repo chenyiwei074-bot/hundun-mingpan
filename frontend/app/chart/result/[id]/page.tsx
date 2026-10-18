@@ -8,6 +8,8 @@ import BaziCard from '@/components/chart/BaziCard';
 import ZiweiCard from '@/components/chart/ZiweiCard';
 import DoubleVerify from '@/components/chart/DoubleVerify';
 import { saveReport } from '@/lib/report/saveReport';
+import { aiWaitMessage, decideAiWait } from '@/lib/chart/ai-wait';
+import type { AiWaitState } from '@/lib/chart/ai-wait';
 
 export default function ChartResultPage() {
   const params = useParams();
@@ -16,6 +18,7 @@ export default function ChartResultPage() {
 
   const [chartData, setChartData] = useState<any>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [aiState, setAiState] = useState<AiWaitState>('chart-pending');
   const [chartName, setChartName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +27,6 @@ export default function ChartResultPage() {
   useEffect(() => {
     if (!id) { setError('缺少命盘ID'); setLoading(false); return; }
     let cancelled = false;
-    let count = 0;
     // 后端的 chartData 是权威结果，说明字段优先用它。本会话的客户端预览只在
     // 后端还没吐某个字段时补位（农历换算那半边后端尚未同步），而且必须四柱逐字
     // 相同才敢补——四柱不同就不是同一次排盘，宁可不说，也不能说错。
@@ -49,30 +51,41 @@ export default function ChartResultPage() {
       } catch {}
       return false;
     };
+    const startedAt = Date.now();
+    let plateShown = false;
     const poll = async () => {
       if (cancelled) return;
+      const elapsed = Date.now() - startedAt;
+      let res: any;
       try {
-        const res: any = await getChartResult(id);
-        if (cancelled) return;
-        count++;
-        if (res.httpStatus === 202 || res.data?.status === 'processing') {
-          if (count < 60) { setTimeout(poll, 1000); return; }
-          if (fallbackToSession()) return;
-          setError('排盘超时，请返回重试'); setLoading(false);
-        } else if (res.success && res.data) {
-          setChartData(graftLocalMeta(res.data.chartData || null));
-          setChartName(res.data.name || '');
-          setAiAnalysis(res.data.aiAnalysis || null);
-          setLoading(false);
-        } else if (count < 60) { setTimeout(poll, 1000); }
-        else {
-          if (fallbackToSession()) return;
-          setError('排盘超时，请返回重试'); setLoading(false);
-        }
+        res = await getChartResult(id);
       } catch {
-        if (!cancelled && count < 60) { setTimeout(poll, 1000); return; }
+        // 网络抖动不该被读成「排盘失败」：按仍在处理走，到 210s 才收。
+        res = { httpStatus: 202, data: { status: 'processing' } };
+      }
+      if (cancelled) return;
+      const data = res?.data || {};
+      const d = decideAiWait({
+        httpStatus: res?.httpStatus ?? 0,
+        status: data.status,
+        chartData: data.chartData,
+        aiAnalysis: data.aiAnalysis,
+      }, elapsed);
+      // 盘面已经画出来了就不该退回「正在排盘」，AI 那一栏继续按等待处理。
+      setAiState(plateShown && d.state === 'chart-pending' ? 'ai-waiting' : d.state);
+      if (d.showPlate && !plateShown && data.chartData) {
+        plateShown = true;
+        setChartData(graftLocalMeta(data.chartData));
+        setChartName(data.name || '');
+        setError(null);
+        setLoading(false);
+      }
+      if (data.aiAnalysis) setAiAnalysis(data.aiAnalysis);
+      if (d.keepPolling) { setTimeout(poll, d.nextDelayMs); return; }
+      if (!plateShown) {
         if (fallbackToSession()) return;
-        setError('网络异常，请检查连接后重试'); setLoading(false);
+        setError(d.state === 'chart-failed' ? '排盘未完成，请返回重试' : '网络异常，请检查连接后重试');
+        setLoading(false);
       }
     };
     poll();
@@ -147,25 +160,41 @@ export default function ChartResultPage() {
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
         <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />
 
-          {aiAnalysis && (
-            <section className="qn-card">
-              <p className="qn-cap" style={{ marginBottom: 8 }}>AI 解读 · 免费生成</p>
-              {Object.entries(aiAnalysis as Record<string, any>).map(([k, v]) => (
-                <div key={k} style={{ marginTop: 16 }}>
-                  <h3 className="qn-title" style={{ fontSize: 16, marginBottom: 6 }}>{k}</h3>
-                  {typeof v === 'string' ? (
-                    <p className="qn-body" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85 }}>{v}</p>
-                  ) : Array.isArray(v) ? (
-                    <ul className="qn-body" style={{ paddingLeft: 20, lineHeight: 1.85 }}>
-                      {v.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}
-                    </ul>
-                  ) : (
-                    <pre className="qn-body" style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.7 }}>{JSON.stringify(v, null, 2)}</pre>
-                  )}
-                </div>
-              ))}
-            </section>
+        {/* AI 解读卡：盘面先出，这一栏按状态机给话。没有百分比、没有「预计 X 秒」——
+            免费模型的耗时实测 94–116 秒但随负载浮动，编一个进度条就是撒谎。 */}
+        <section className="qn-card">
+          <p className="qn-cap" style={{ marginBottom: 8 }}>AI 解读 · 免费生成</p>
+          {aiAnalysis ? (
+            Object.entries(aiAnalysis as Record<string, any>).map(([k, v]) => (
+              <div key={k} style={{ marginTop: 16 }}>
+                <h3 className="qn-title" style={{ marginBottom: 6 }}>{k}</h3>
+                {typeof v === 'string' ? (
+                  <p className="qn-body" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.85 }}>{v}</p>
+                ) : Array.isArray(v) ? (
+                  <ul className="qn-body" style={{ paddingLeft: 20, lineHeight: 1.85 }}>
+                    {v.map((x, i) => <li key={i}>{typeof x === 'string' ? x : JSON.stringify(x)}</li>)}
+                  </ul>
+                ) : (
+                  <pre className="qn-body" style={{ whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.7 }}>{JSON.stringify(v, null, 2)}</pre>
+                )}
+              </div>
+            ))
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {aiState !== 'ai-ready' && (
+                <span aria-hidden="true" style={{ display: 'inline-flex', gap: 4 }}>
+                  {[0, 0.3, 0.6].map(d => (
+                    <span key={d} style={{
+                      width: 6, height: 6, borderRadius: '50%', background: 'var(--color-accent-gold)',
+                      animation: `glow-breathe 1.5s ease-in-out ${d}s infinite`,
+                    }} />
+                  ))}
+                </span>
+              )}
+              <p className="qn-body" style={{ margin: 0, minWidth: 0, overflowWrap: 'anywhere' }}>{aiWaitMessage(aiState)}</p>
+            </div>
           )}
+        </section>
       </div>
     </main>
   );
