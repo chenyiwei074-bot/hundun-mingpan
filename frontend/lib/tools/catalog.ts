@@ -156,7 +156,16 @@ export const INTENTS: IntentGroup[] = [
   },
 ];
 
-/** 目录里所有可点入口的去重列表，供首页与验收共用。 */
+/** 每类意图的代表入口（首页首屏用这一份，页面不再自己列第二套工具清单）。
+ *  取的是该类里第一个已开放且有 href 的条目 —— 没有可去之处的意图不会伪装出一个入口。 */
+export const INTENT_ENTRIES: { intent: string; lead: string; href: string; tool: string }[] = INTENTS
+  .map(g => {
+    const first = g.tools.find(t => t.status !== '未开放' && t.href);
+    return first ? { intent: g.intent, lead: g.lead, href: first.href as string, tool: first.name } : null;
+  })
+  .filter((x): x is { intent: string; lead: string; href: string; tool: string } => !!x);
+
+/** 目录页上所有可点入口的去重列表，供首页与验收共用。 */
 export const LIVE_HREFS: string[] = Array.from(
   new Set(INTENTS.flatMap(g => g.tools.filter(t => t.status !== '未开放' && t.href).map(t => t.href as string))),
 );
