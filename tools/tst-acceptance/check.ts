@@ -1,9 +1,12 @@
 // 真太阳时上线前对拍：同一个出生输入，三条链路各算一次四柱。
 //   A) 前端表单实际链路：buildTrueSolarWiring -> frontend createChart（带经度/夏令时）
-//   B) 仓库后端实际链路：chart.service.ts parseBirthInfo（timeZone 写死 8，无经度）-> server createChart
+//   B) 仓库后端实际链路：generateChart -> chart.service.ts parseBirthInfo -> server createChart
+//      （走 service 导出的那个函数，不自己拼 BirthInfo —— 接线就在 parseBirthInfo 里，
+//       手拼等于绕过被测对象。0b94f5d 之前它 timeZone 写死 8、无经度，那是当时的真实后端。）
 //   C) 把 A 算出的真太阳时时刻喂给后端引擎（「后端只要接上同一份时刻就能对上吗」）
-// A==C 是引擎层一致性（可以硬失败）；A==B 取决于后端有没有接 TST（05/08 同步补丁并进 git 之前
-// 必然是 false，所以只报不判，要判就加 --require-backend）。
+// A==C 是引擎层一致性；A==B 是接线一致性。05/08 后端补丁已随 ops/backend-tst-lunar-liuyao
+// 并入 git（0b94f5d），所以 A==B 从「只报不判」改成默认硬判 —— 加 --no-require-backend 才降级。
+// B 红而 C 绿 = 后端引擎没问题、是接线/传输层不一致，这两列就是为了分这两种情况而存在。
 //
 // 用法：
 //   cd <repo root> && NODE_PATH="$PWD/frontend/node_modules" \
@@ -15,12 +18,13 @@ import { createChart as feCreateChart, BirthInfo } from '../../frontend/app/lib/
 import { buildTrueSolarWiring } from '../../frontend/app/lib/true-solar/birth-wiring';
 import { toCivilInput } from '../../frontend/app/lib/core/yiqi-core/lunar-input';
 import { createChart as beCreateChart } from '../../server/src/core/yiqi-core';
+import { generateChart as beGenerateChart } from '../../server/src/services/chart.service';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
   return hit ? hit.slice(name.length + 3) : null;
 };
-const REQUIRE_BACKEND = process.argv.includes('--require-backend');
+const REQUIRE_BACKEND = !process.argv.includes('--no-require-backend');
 
 const CASES: { label: string; y: number; mo: number; d: number; h: number; mi: number; province: string; city: string; control?: boolean }[] = [
   // 运维给的验收案例：乌鲁木齐，1988 年（中国夏令时 1986–1991 内）
@@ -54,8 +58,16 @@ for (const cs of CASES) {
   } as BirthInfo);
   const tst = (fe.bazi as any).trueSolarTime;
 
-  // 后端 transport 层的真实入参（chart.service.ts parseBirthInfo 就是这个形状）
-  const be = beCreateChart({ year: cs.y, month: cs.mo, day: cs.d, hour: cs.h, minute: cs.mi, isLunar: false, gender: 'male', timeZone: 8 } as any);
+  // 后端 transport 层的真实入参：走 service 导出的 generateChart，让 parseBirthInfo 自己
+  // 做「农历换算 + 按 birthPlace 解析经度 + 补历史夏令时」。birthPlace 的「省 市 区」空格
+  // 分隔就是 API 契约里的形状，不是对拍脚本的发明。
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const be = beGenerateChart({
+    visitor_id: 'tst-check', name: '对拍', gender: '男' as const, calendar: '公历' as const,
+    birthday: `${cs.y}-${pad(cs.mo)}-${pad(cs.d)} ${pad(cs.h)}:${pad(cs.mi)}`,
+    isLeapMonth: false, birthPlace: `${cs.province} ${cs.city}`, currentPlace: '',
+    persona: 'standard' as const, depth: 'brief' as const,
+  });
 
   const t = tst?.trueSolarDateTime;
   const beGivenClock = t ? beCreateChart({ year: t.year, month: t.month, day: t.day, hour: t.hour, minute: t.minute, isLunar: false, gender: 'male', timeZone: 8 } as any) : null;
@@ -79,7 +91,7 @@ say('');
 say(`ENGINE PARITY A==C : ${CASES.length - engineBad}/${CASES.length} ${engineBad ? 'FAIL' : 'PASS'}`);
 say(`CONTROL A==B       : ${controlBad ? 'FAIL (the comparison itself is wrong)' : 'PASS'}`);
 say(`BACKEND WIRING A==B: ${CASES.length - backendBad}/${CASES.length} measured` +
-  (REQUIRE_BACKEND ? (backendBad ? ' FAIL' : ' PASS') : ' (informational; --require-backend to gate)'));
+  (REQUIRE_BACKEND ? (backendBad ? ' FAIL' : ' PASS') : ' (informational; --no-require-backend to relax)'));
 
 if (arg('out')) writeFileSync(arg('out')!, lines.join('\n') + '\n', 'utf8');
 process.exit(engineBad || controlBad || (REQUIRE_BACKEND && backendBad) ? 1 : 0);
