@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 1,
+  "suiteVersion": "2026-09-03",
+  "title": "OpenFate Bazi public validation cases",
+  "description": "Synthetic, versioned conformance examples for selected deterministic Bazi calculations.",
+  "engine": {
+    "package": "@openfate/bazi-engine",
+    "version": "1.1.1",
+    "entrypoint": "calculateBaziChart"
+  },
+  "methodology": "https://openfate.ai/en/editorial-methodology/calculation-validation",
+  "source": "https://github.com/openfate-ai/bazi-engine",
+  "claimBoundary": "These first-party cases check reproducibility under the declared inputs and conventions. They are not an independent audit, not a scientific validation of Bazi, and not a comparative accuracy ranking.",
+  "cases": [
+    {
+      "id": "civil-time-baseline",
+      "purpose": "Civil-time calculation without True Solar Time.",
+      "input": {
+        "year": 2024,
+        "month": 7,
+        "day": 15,
+        "hour": 14,
+        "minute": 20,
+        "gender": "female",
+        "timezoneId": "Asia/Shanghai",
+        "calendarType": "solar",
+        "enableTrueSolarTime": false,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "甲辰",
+          "month": "辛未",
+          "day": "庚辰",
+          "hour": "癸未"
+        },
+        "dayMaster": "庚",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "2024-07-15 14:20:00",
+          "calculationSolar": "2024-07-15 14:20:00",
+          "lunar": "2024-06-10 14:20:00",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": "Asia/Shanghai",
+          "dstOffset": 0,
+          "trueSolarTimeApplied": false,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": null,
+        "daYun": {
+          "direction": "backward",
+          "startDate": "2027-06-04 14:20:00",
+          "startOffset": {
+            "years": 2,
+            "months": 10,
+            "days": 20,
+            "hours": 0
+          },
+          "firstCycle": "庚午"
+        }
+      }
+    },
+    {
+      "id": "fractional-zone-true-solar-time",
+      "purpose": "Fractional IANA time zone plus longitude and equation-of-time correction.",
+      "input": {
+        "year": 2024,
+        "month": 1,
+        "day": 1,
+        "hour": 12,
+        "minute": 0,
+        "gender": "male",
+        "timezoneId": "Asia/Kathmandu",
+        "longitude": 85.324,
+        "calendarType": "solar",
+        "enableTrueSolarTime": true,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "癸卯",
+          "month": "甲子",
+          "day": "甲子",
+          "hour": "庚午"
+        },
+        "dayMaster": "甲",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "2024-01-01 12:00:00",
+          "calculationSolar": "2024-01-01 11:53:04",
+          "lunar": "2023-11-20 11:53:04",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": "Asia/Kathmandu",
+          "dstOffset": 0,
+          "trueSolarTimeApplied": true,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": {
+          "trueSolarTime": "11:53",
+          "trueSolarDateTime": "2024-01-01 11:53:04",
+          "standardMeridian": 86.25,
+          "longitudeCorrectionMinutes": -3.704,
+          "equationOfTimeMinutes": -3.216426,
+          "algorithm": "meeus"
+        },
+        "daYun": {
+          "direction": "backward",
+          "startDate": "2032-04-01 11:53:04",
+          "startOffset": {
+            "years": 8,
+            "months": 3,
+            "days": 0,
+            "hours": 0
+          },
+          "firstCycle": "癸亥"
+        }
+      }
+    },
+    {
+      "id": "historical-dst-iana",
+      "purpose": "Historical daylight-saving resolution from an IANA time-zone identifier.",
+      "input": {
+        "year": 1988,
+        "month": 7,
+        "day": 15,
+        "hour": 15,
+        "minute": 20,
+        "gender": "male",
+        "timezoneId": "Asia/Shanghai",
+        "longitude": 116.4074,
+        "calendarType": "solar",
+        "enableTrueSolarTime": true,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "戊辰",
+          "month": "己未",
+          "day": "辛未",
+          "hour": "乙未"
+        },
+        "dayMaster": "辛",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "1988-07-15 15:20:00",
+          "calculationSolar": "1988-07-15 13:59:42",
+          "lunar": "1988-06-02 13:59:42",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": "Asia/Shanghai",
+          "dstOffset": 1,
+          "trueSolarTimeApplied": true,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": {
+          "trueSolarTime": "13:59",
+          "trueSolarDateTime": "1988-07-15 13:59:42",
+          "standardMeridian": 120,
+          "longitudeCorrectionMinutes": -14.3704,
+          "equationOfTimeMinutes": -5.925317,
+          "algorithm": "meeus"
+        },
+        "daYun": {
+          "direction": "forward",
+          "startDate": "1996-03-25 13:59:42",
+          "startOffset": {
+            "years": 7,
+            "months": 8,
+            "days": 10,
+            "hours": 0
+          },
+          "firstCycle": "庚申"
+        }
+      }
+    },
+    {
+      "id": "late-zi-23-boundary",
+      "purpose": "Late Zi hour with the day pillar rolling at 23:00.",
+      "input": {
+        "year": 2024,
+        "month": 6,
+        "day": 15,
+        "hour": 23,
+        "minute": 45,
+        "gender": "female",
+        "timezone": 8,
+        "longitude": 112,
+        "calendarType": "solar",
+        "enableTrueSolarTime": true,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "甲辰",
+          "month": "庚午",
+          "day": "辛亥",
+          "hour": "戊子"
+        },
+        "dayMaster": "辛",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "2024-06-15 23:45:00",
+          "calculationSolar": "2024-06-15 23:12:20",
+          "lunar": "2024-05-10 23:12:20",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": 8,
+          "dstOffset": 0,
+          "trueSolarTimeApplied": true,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": {
+          "trueSolarTime": "23:12",
+          "trueSolarDateTime": "2024-06-15 23:12:20",
+          "standardMeridian": 120,
+          "longitudeCorrectionMinutes": -32,
+          "equationOfTimeMinutes": -0.655918,
+          "algorithm": "meeus"
+        },
+        "daYun": {
+          "direction": "backward",
+          "startDate": "2027-12-05 23:12:20",
+          "startOffset": {
+            "years": 3,
+            "months": 5,
+            "days": 20,
+            "hours": 0
+          },
+          "firstCycle": "己巳"
+        }
+      }
+    },
+    {
+      "id": "late-zi-midnight-boundary",
+      "purpose": "The same late-Zi input with the day pillar rolling at 00:00.",
+      "input": {
+        "year": 2024,
+        "month": 6,
+        "day": 15,
+        "hour": 23,
+        "minute": 45,
+        "gender": "female",
+        "timezone": 8,
+        "longitude": 112,
+        "calendarType": "solar",
+        "enableTrueSolarTime": true,
+        "dayBoundaryMode": "MIDNIGHT_00"
+      },
+      "expected": {
+        "pillars": {
+          "year": "甲辰",
+          "month": "庚午",
+          "day": "庚戌",
+          "hour": "戊子"
+        },
+        "dayMaster": "庚",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "2024-06-15 23:45:00",
+          "calculationSolar": "2024-06-15 23:12:20",
+          "lunar": "2024-05-10 23:12:20",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": 8,
+          "dstOffset": 0,
+          "trueSolarTimeApplied": true,
+          "dayBoundaryMode": "MIDNIGHT_00"
+        },
+        "solarTime": {
+          "trueSolarTime": "23:12",
+          "trueSolarDateTime": "2024-06-15 23:12:20",
+          "standardMeridian": 120,
+          "longitudeCorrectionMinutes": -32,
+          "equationOfTimeMinutes": -0.655918,
+          "algorithm": "meeus"
+        },
+        "daYun": {
+          "direction": "backward",
+          "startDate": "2027-12-05 23:12:20",
+          "startOffset": {
+            "years": 3,
+            "months": 5,
+            "days": 20,
+            "hours": 0
+          },
+          "firstCycle": "己巳"
+        }
+      }
+    },
+    {
+      "id": "lunar-leap-month-conversion",
+      "purpose": "Leap-lunar-month input converted to the civil solar calendar before pillar calculation.",
+      "input": {
+        "year": 2023,
+        "month": 2,
+        "day": 1,
+        "hour": 9,
+        "minute": 30,
+        "gender": "female",
+        "timezoneId": "Asia/Shanghai",
+        "calendarType": "lunar",
+        "isLeapMonth": true,
+        "enableTrueSolarTime": false,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "癸卯",
+          "month": "乙卯",
+          "day": "己卯",
+          "hour": "己巳"
+        },
+        "dayMaster": "己",
+        "calendar": {
+          "inputType": "lunar",
+          "civilSolar": "2023-03-22 09:30:00",
+          "calculationSolar": "2023-03-22 09:30:00",
+          "lunar": "2023-02-01 09:30:00",
+          "lunarLeapMonth": true
+        },
+        "metadata": {
+          "timezoneBasis": "Asia/Shanghai",
+          "dstOffset": 0,
+          "trueSolarTimeApplied": false,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": null,
+        "daYun": {
+          "direction": "forward",
+          "startDate": "2027-11-22 09:30:00",
+          "startOffset": {
+            "years": 4,
+            "months": 8,
+            "days": 0,
+            "hours": 0
+          },
+          "firstCycle": "丙辰"
+        }
+      }
+    },
+    {
+      "id": "li-chun-before-boundary",
+      "purpose": "A civil time immediately before the 2024 Li Chun year and month boundary window.",
+      "input": {
+        "year": 2024,
+        "month": 2,
+        "day": 4,
+        "hour": 16,
+        "minute": 20,
+        "gender": "male",
+        "timezoneId": "Asia/Shanghai",
+        "calendarType": "solar",
+        "enableTrueSolarTime": false,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "癸卯",
+          "month": "乙丑",
+          "day": "戊戌",
+          "hour": "庚申"
+        },
+        "dayMaster": "戊",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "2024-02-04 16:20:00",
+          "calculationSolar": "2024-02-04 16:20:00",
+          "lunar": "2023-12-25 16:20:00",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": "Asia/Shanghai",
+          "dstOffset": 0,
+          "trueSolarTimeApplied": false,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": null,
+        "daYun": {
+          "direction": "backward",
+          "startDate": "2033-12-04 16:20:00",
+          "startOffset": {
+            "years": 9,
+            "months": 10,
+            "days": 0,
+            "hours": 0
+          },
+          "firstCycle": "甲子"
+        }
+      }
+    },
+    {
+      "id": "li-chun-after-boundary",
+      "purpose": "A civil time immediately after the 2024 Li Chun year and month boundary window.",
+      "input": {
+        "year": 2024,
+        "month": 2,
+        "day": 4,
+        "hour": 16,
+        "minute": 30,
+        "gender": "male",
+        "timezoneId": "Asia/Shanghai",
+        "calendarType": "solar",
+        "enableTrueSolarTime": false,
+        "dayBoundaryMode": "ZI_HOUR_23"
+      },
+      "expected": {
+        "pillars": {
+          "year": "甲辰",
+          "month": "丙寅",
+          "day": "戊戌",
+          "hour": "庚申"
+        },
+        "dayMaster": "戊",
+        "calendar": {
+          "inputType": "solar",
+          "civilSolar": "2024-02-04 16:30:00",
+          "calculationSolar": "2024-02-04 16:30:00",
+          "lunar": "2023-12-25 16:30:00",
+          "lunarLeapMonth": false
+        },
+        "metadata": {
+          "timezoneBasis": "Asia/Shanghai",
+          "dstOffset": 0,
+          "trueSolarTimeApplied": false,
+          "dayBoundaryMode": "ZI_HOUR_23"
+        },
+        "solarTime": null,
+        "daYun": {
+          "direction": "forward",
+          "startDate": "2034-01-04 16:30:00",
+          "startOffset": {
+            "years": 9,
+            "months": 11,
+            "days": 0,
+            "hours": 0
+          },
+          "firstCycle": "丁卯"
+        }
+      }
+    }
+  ]
+}
