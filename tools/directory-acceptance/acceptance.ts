@@ -124,7 +124,8 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('shell/no-broken-entry', broken.length === 0,
     `首页与导航的 ${literals.length} 个字面 href 全部可达（${literals.sort().join(' ')}）：断链 ${broken.join(' | ') || '0 个'}`);
   const hashEntries = (home.match(/href\s*:\s*["']#["']/g) || []).length;
-  say(`MEASURED 首页仍有 ${hashEntries} 处 href="#" 的「即将上线」占位卡（启动器轨道内，渲染为不可点的 is-soon 态）：目录页未开放条目走的是「无 href + 无按钮」，两种做法不一致，待裁`);
+  ok('shell/no-hash-placeholder', hashEntries === 0,
+    `首页与导航不得留 href="#" 的占位入口（未开放一律走「无 href + 无按钮 + 写明原因」，与目录页同一做法）：残留 ${hashEntries} 处`);
   ok('shell/tools-entry-linked', /href\s*=\s*["']\/tools["']/.test(home) || /href\s*:\s*['"]\/tools['"]/.test(home),
     '目录页必须从首页可达（否则「二级页面按术数查找」落不到实处）');
 }
