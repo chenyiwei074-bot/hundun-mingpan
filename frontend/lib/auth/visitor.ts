@@ -1,10 +1,14 @@
 ﻿// 游客身份管理 — Cookie 持久化
 
+import { randomToken } from '@/lib/crypto/random';
+
 const COOKIE_NAME = 'hundun_vid';
 const COOKIE_DAYS = 365;
 
+// 这个 id 现在同时是报告的归属凭据（GET /api/reports/:id 按它校验归属），
+// 所以随机源必须是 CSPRNG：Math.random 的 128 bit 状态可被少量观测反推。
 function generateId(): string {
-  return 'v_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+  return 'v_' + Date.now().toString(36) + randomToken(8);
 }
 
 function getCookie(name: string): string | null {
