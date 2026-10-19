@@ -126,7 +126,9 @@ export interface BaziChart {
   };
   dayunStart: number; // 大运起运岁数
   dayun: DayunDetail[]; // 大运详情列表，通常显示前10步
-  cangGan?: { year: { gan: string; tenGod?: string }[]; month: { gan: string; tenGod?: string }[]; day: { gan: string; tenGod?: string }[]; hour: { gan: string; tenGod?: string }[] }
+  // 藏干十神的键名以产出方为准：bazi.ts:74 getZhiCangGanFull 返回 { gan, shiShen }。
+  // 原声明写作 tenGod?（全站无人产出、无人读取）——2026-10-19 与前端同源声明一并对齐。
+  cangGan?: { year: { gan: string; shiShen?: string }[]; month: { gan: string; shiShen?: string }[]; day: { gan: string; shiShen?: string }[]; hour: { gan: string; shiShen?: string }[] }
     // 真太阳时校正明细（2026-10 接入）：bazi.ts 赋值，供展示与存档
     trueSolarTime?: TrueSolarTimeInfo;
     // 农历输入的换算记录（07 同步）：非农历输入时 undefined
