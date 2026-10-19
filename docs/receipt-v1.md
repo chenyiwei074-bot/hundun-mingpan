@@ -92,13 +92,13 @@ ReceiptAnchor { date, root, prevRoot, manifestPath, otsPath }
 幂等: 同 recordHash 重复提交 → { ok: true, already: true }，不重复追加
 ```
 
-存储：`/srv/chaos/output/receipts/YYYY-MM-DD.jsonl`，一行一条规范化 JSON（含提交时间与 visitor 关联，**不含问题、姓名、生辰**）。
+存储：`/srv/chaos/output/receipts/YYYY-MM/YYYY-MM-DD.jsonl`（按提交 UTC 日的**月度分片 + 日文件名**），一行一条规范化 JSON（含提交时间，**不含问题、姓名、生辰、盐**）。
 JSONL 单行结构（哈希一律**裸 hex**）：
 ```json
 {"schemaVersion":"hundun-receipt-v1","kind":"liuyao-plate","method":"coin",
  "castAtUTC":"2026-10-18T12:00:00.000Z","tzOffsetMinutes":480,
  "recordHash":"<64 hex>","plateHash":"<64 hex>","reportHash":null,"parentHash":null,
- "subjectHash":"<64 hex>","basis":{"ganzhiBasis":"…"},"submittedAtUTC":"…"}
+ "subjectHash":"<64 hex>","basis":{...},"submittedAtUTC":"…"}
 ```
 幂等键：`recordHash`。同一 recordHash 重复提交返回 `already:true`，不追加第二行。
 
@@ -106,13 +106,31 @@ JSONL 单行结构（哈希一律**裸 hex**）：
 
 ```
 响应 200: {
-  state: 'unanchored' | 'pending' | 'anchored',
-  day?, root?, prevRoot?, manifestPath?, otsPath?, blockHeight?
+  ok: true, state: 'unanchored' | 'pending',
+  day, leaf, reason, root?, prevRoot?, manifestPath?, otsPath?
 }
-未找到 → 404 { ok: false }
+未找到 → 404 { ok: false, error: '回执摘要未提交或已过期（仅保留 45 天查询窗口；台账永久有效）' }
+recordHash 非法 → 400
 ```
 
-**两个端点都不返回报告内容**，验真页不得按报告 ID 取原文。
+**`anchored` 目前不会下发**：服务端本机无 bitcoind，`ots verify` 无法独立确认，所以已进 Merkle 也只报 `pending`。
+客户端（`frontend/lib/receipt/anchor.ts`）因此只认两态，界面措辞固定为：
+
+| 来源 | 界面 |
+| --- | --- |
+| 404（未提交过） | 未提交 |
+| `state: 'unanchored'` | 未锚定 |
+| `state: 'pending'` | 等待锚定 |
+| 其它（含将来可能的 `anchored`） | 状态未知 |
+
+**「状态未知」不是偷懒**：本站不替运维宣布链上事实。将来运维真下发 `anchored` 时，改措辞要连着改
+`tools/receipt-acceptance` §13 的 `anchor/state-vocabulary` 与 `anchor/no-chain-wording` 两条断言，
+不是一行 if 的事。台账状态是**独立读取**，不写回回执本体 —— 回执里的 `anchor` 恒为 `null`、
+`anchorState` 恒为「未锚定」，否则同一份文件会因查询时点不同而得到不同摘要。
+
+**两个端点都不返回报告内容**，验真页不得按报告 ID 取原文；结果页只允许打 `/api/receipts`，
+提交体是白名单摘要（`schemaVersion/kind/method/castAtUTC/tzOffsetMinutes/recordHash/plateHash/
+reportHash?/parentHash?/subjectHash/basis`），**不含 `subjectSalt`** —— 摘要抗字典反查靠的就是盐不外泄。
 
 ## 7. 台账集成（anchor_ledger.py）
 
