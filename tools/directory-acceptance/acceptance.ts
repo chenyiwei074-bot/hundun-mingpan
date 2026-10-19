@@ -10,7 +10,9 @@ import { join } from 'node:path';
 import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { COIN_COMMIT_SCHEMA } from '../../frontend/lib/receipt/receipt';
+import { FENGSHUI_BASIS } from '../../frontend/lib/fengshui/analysis';
 import { CATALOG_STAMPS, CLOSED_TOOLS, HOME_FEATURED_SLUGS, INTENT_ENTRIES, INTENTS, LAUNCHER_SLUGS, LIUYAO_BASIS_TEXT, LIVE_HREFS, TOOLS_INDEX, TOOL_BY_SLUG, homeCard } from '../../frontend/lib/tools/catalog';
+import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS } from '../../frontend/lib/tools/western-catalog';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -18,6 +20,12 @@ const arg = (name: string) => {
 };
 const OUT = arg('out') || '.directory.txt';
 const APP = join(__dirname, '../../frontend/app');
+const FE = join(__dirname, '../../frontend');
+// #双体系：/ 收成"选体系"的门廊，原来那张首页整体搬到 components/home/OrientalBody.tsx。
+// 因此下面每条钉"首页"的断言都必须明确自己钉的是哪一个文件 —— 指错了要么空过
+// （门廊里当然没有工具清单），要么永远红（内容搬走了但断言还蹲在老位置）。
+const GATE = join(FE, 'app', 'page.tsx');
+const ORIENTAL = join(FE, 'components', 'home', 'OrientalBody.tsx');
 
 const lines: string[] = [];
 let pass = 0;
@@ -93,8 +101,9 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     [NAJIA_BASIS]: 'NAJIA_BASIS',
     [QISHU_BASIS]: 'QISHU_BASIS',
     [COIN_COMMIT_SCHEMA]: 'COIN_COMMIT_SCHEMA',
+    [FENGSHUI_BASIS]: 'FENGSHUI_BASIS',
   };
-  const engine = { ganzhi: GANZHI_BASIS, najia: NAJIA_BASIS, qishu: QISHU_BASIS, commit: COIN_COMMIT_SCHEMA };
+  const engine = { ganzhi: GANZHI_BASIS, najia: NAJIA_BASIS, qishu: QISHU_BASIS, commit: COIN_COMMIT_SCHEMA, fengshui: FENGSHUI_BASIS };
   const drift = (Object.keys(CATALOG_STAMPS) as (keyof typeof CATALOG_STAMPS)[])
     .map(k => `${k}: 目录 ${CATALOG_STAMPS[k]} vs 引擎 ${engine[k]}`)
     .filter(line => {
@@ -113,9 +122,9 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     `六爻条目的口径串三项齐备（戳是目录里的字面量，其正确性由 dir/stamps-equal-engine 钉住）：${LIUYAO_BASIS_TEXT}`);
 }
 
-// ── 5. 首页与导航：入口位不许指向不存在的路由 ──
+// ── 5. 门廊、东方工作页与导航：入口位不许指向不存在的路由 ──
 {
-  const home = readFileSync(join(APP, 'page.tsx'), 'utf8');
+  const home = [GATE, ORIENTAL].map(f => readFileSync(f, 'utf8')).join('\n');
   const nav = readFileSync(join(APP, '..', 'components', 'Nav.tsx'), 'utf8');
   const literals = Array.from(new Set([
     ...home.match(/href\s*[:=]\s*"\/[^"]*"/g) || [],
@@ -125,12 +134,12 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ].map(s => s.replace(/^.*[:=]\s*["']/, '').replace(/["']$/, ''))));
   const broken = literals.filter(h => !routeExists(h));
   ok('shell/no-broken-entry', broken.length === 0,
-    `首页与导航的 ${literals.length} 个字面 href 全部可达（${literals.sort().join(' ')}）：断链 ${broken.join(' | ') || '0 个'}`);
+    `门廊 + 东方工作页 + 导航的 ${literals.length} 个字面 href 全部可达（${literals.sort().join(' ')}）：断链 ${broken.join(' | ') || '0 个'}`);
   const hashEntries = (home.match(/href\s*:\s*["']#["']/g) || []).length;
   ok('shell/no-hash-placeholder', hashEntries === 0,
-    `首页与导航不得留 href="#" 的占位入口（未开放一律走「无 href + 无按钮 + 写明原因」，与目录页同一做法）：残留 ${hashEntries} 处`);
-  ok('shell/tools-entry-linked', /href\s*=\s*["']\/tools["']/.test(home) || /href\s*:\s*['"]\/tools['"]/.test(home),
-    '目录页必须从首页可达（否则「二级页面按术数查找」落不到实处）');
+    `门廊与工作页不得留 href="#" 的占位入口（未开放一律走「无 href + 无按钮 + 写明原因」，与目录页同一做法）：残留 ${hashEntries} 处`);
+  ok('shell/tools-entry-linked', /href\s*=\s*["']\/tools["']/.test(readFileSync(GATE, 'utf8')),
+    '目录页必须从门廊可达（钉门廊那一个文件，不是"三个文件里随便哪个有就行"）');
 }
 
 // ── 6. 目录页自身：未开放条目不渲染链接 ──
@@ -147,12 +156,12 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 {
   const want = ['认识自己', '问一件事', '择时看周期', '看关系'];
   const got = INTENT_ENTRIES.map(e => e.intent);
-  ok('home/intent-entries-complete', JSON.stringify(got) === JSON.stringify(want) && INTENT_ENTRIES.every(e => routeExists(e.href)),
+  ok('oriental/intent-entries-complete', JSON.stringify(got) === JSON.stringify(want) && INTENT_ENTRIES.every(e => routeExists(e.href)),
     `首页首屏的四类意图入口齐备且可达：${INTENT_ENTRIES.map(e => `${e.intent}→${e.href}`).join('  ')}`);
-  const home = readFileSync(join(APP, 'page.tsx'), 'utf8');
-  ok('home/intents-come-from-catalog', /import\s*\{[^}]*\bINTENT_ENTRIES\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
+  const home = readFileSync(ORIENTAL, 'utf8');
+  ok('oriental/intents-come-from-catalog', /import\s*\{[^}]*\bINTENT_ENTRIES\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
     /INTENT_ENTRIES\.map/.test(home),
-    '首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是首页里再抄一份）；import 里允许并列其它 catalog 名字，@/lib/tools/catalog 之外不许再有第二个来源');
+    '东方工作页首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是页面里再抄一份）；import 里允许并列其它 catalog 名字，@/lib/tools/catalog 之外不许再有第二个来源');
   const visitor = readFileSync(join(APP, '..', 'lib', 'auth', 'visitor.ts'), 'utf8');
   const create = readFileSync(join(APP, 'create', 'page.tsx'), 'utf8');
   ok('visitor/id-single-source', /export function getVisitorId/.test(visitor) &&
@@ -161,12 +170,14 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     '游客 id 只有 lib/auth/visitor 一份生成器，create 页 import 它（它是报告归属凭据，不该有两个出处）');
 }
 
-// ── 8. 首页三份清单合成一份（裁定 (a)）：核心引擎区与启动器轨道只准按 slug 引用目录 ──
+// ── 8. 东方工作页三份清单合成一份（裁定 (a)）：核心引擎区与启动器轨道只准按 slug 引用目录 ──
+// 这批断言原本钉 app/page.tsx；#双体系 把那张页面搬到 OrientalBody.tsx，读的文件跟着换，
+// 断言内容一条没删（清单合成这一条与页面在哪个路由下无关）。
 {
-  const raw = readFileSync(join(APP, 'page.tsx'), 'utf8');
+  const raw = readFileSync(ORIENTAL, 'utf8');
   const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
 
-  ok('home/lists-import-catalog',
+  ok('oriental/lists-import-catalog',
     /import\s*\{[^}]*HOME_FEATURED_SLUGS[^}]*LAUNCHER_SLUGS[^}]*homeCard[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code) &&
     /HOME_FEATURED_SLUGS\s*\n?\s*\.map/.test(code) && /LAUNCHER_SLUGS\s*\n?\s*\.map/.test(code),
     '首页两份清单必须是「slug 列表 → homeCard(slug)」的形状，名字/说明/入口不能自己写');
@@ -174,7 +185,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const hrefLits = code.match(/href\s*:\s*['"]\/[^'"]*['"]/g) || [];
   const titleLits = code.match(/title\s*:\s*['"][^'"]*['"]/g) || [];
   const descLits = code.match(/desc\s*:\s*['"][^'"]*['"]/g) || [];
-  ok('home/no-second-tool-list', hrefLits.length === 0 && titleLits.length === 0 && descLits.length === 0,
+  ok('oriental/no-second-tool-list', hrefLits.length === 0 && titleLits.length === 0 && descLits.length === 0,
     `首页不留第二份工具清单：硬编码的 href/title/desc 字段必须为 0 处（实得 ${[...hrefLits, ...titleLits, ...descLits].length} 处：${[...hrefLits, ...titleLits, ...descLits].join(' | ') || '无'}）`);
 
   const slugs = ALL_TOOLS.map(t => t.slug);
@@ -183,21 +194,21 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 
   const cards = [...new Set([...HOME_FEATURED_SLUGS, ...LAUNCHER_SLUGS])].map(s => [s, homeCard(s)] as const);
   const unresolved = cards.filter(([, c]) => c === null).map(([s]) => s);
-  ok('home/slug-lists-resolve', unresolved.length === 0 && HOME_FEATURED_SLUGS.length > 0 && LAUNCHER_SLUGS.length > 0,
+  ok('oriental/slug-lists-resolve', unresolved.length === 0 && HOME_FEATURED_SLUGS.length > 0 && LAUNCHER_SLUGS.length > 0,
     `首页两份 slug 清单逐条解析得到卡片（解析不到的会被 .filter 静默丢掉，页面只是少一张卡，所以只能在这里红）：解析失败 ${unresolved.join('、') || '0 个'}；核心 ${HOME_FEATURED_SLUGS.length} 行 / 启动器 ${LAUNCHER_SLUGS.length} 格`);
 
   const badHref = cards.filter(([, c]) => c && c.href && !routeExists(c.href)).map(([s, c]) => `${s}→${c!.href}`);
-  ok('home/cards-route', badHref.length === 0,
+  ok('oriental/cards-route', badHref.length === 0,
     `首页每一张卡的入口都指向 app/**/page.tsx 真实存在的路由：断链 ${badHref.join(' | ') || '0 个'}`);
 
   const leaked = HOME_FEATURED_SLUGS.filter(s => homeCard(s)?.href && TOOL_BY_SLUG[s]?.status === '未开放')
     .concat(LAUNCHER_SLUGS.filter(s => homeCard(s)?.href && TOOL_BY_SLUG[s]?.status === '未开放'));
-  ok('home/unopen-never-linked', leaked.length === 0,
+  ok('oriental/unopen-never-linked', leaked.length === 0,
     `未开放条目经 homeCard 之后一律拿不到 href（首页的「无链接、无按钮」靠的是这一道闸门，不是页面里再判一次状态）：违规 ${leaked.join('、') || '0 个'}`);
 
   const thin = cards.filter(([, c]) => c && (c.title.length > 10 || c.teaser.length < 12 || c.teaser.length > 64))
     .map(([s, c]) => `${s}(题 ${c!.title.length} 字 / 说 ${c!.teaser.length} 字)`);
-  ok('home/short-fields-fit', thin.length === 0,
+  ok('oriental/short-fields-fit', thin.length === 0,
     `标题 ≤10 字、说明 12–64 字：卡片标题位与 375px 窄屏放不下目录页那种全名，超限会把行折坏 —— 该用短名，不是把字号调小：${thin.join(' | ') || '全部合格'}`);
 
   const skinStart = raw.indexOf('const SKIN');
@@ -207,15 +218,65 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const noZi = [...new Set([...HOME_FEATURED_SLUGS, ...LAUNCHER_SLUGS])].filter(s => !/zi\s*:/.test(skins[s] || ''));
   const openFeatured = HOME_FEATURED_SLUGS.filter(s => homeCard(s)?.href);
   const noGo = openFeatured.filter(s => !/go\s*:/.test(skins[s] || ''));
-  ok('home/skin-covers-lists', noZi.length === 0 && noGo.length === 0,
+  ok('oriental/skin-covers-lists', noZi.length === 0 && noGo.length === 0,
     `展示层每个被引用的 slug 都要有刻字，已开放的核心行还要有按钮文案（缺了会渲染成空格子或空链接文字）：缺字 ${noZi.join('、') || '0 个'} / 缺按钮文案 ${noGo.join('、') || '0 个'}`);
 
   const soonNames = (code.match(/\{\s*t:\s*["']([^"']+)["']/g) || []).map(s => s.replace(/.*t:\s*["']/, '').replace(/["']$/, ''));
   const overlap = soonNames.filter(n => ALL_TOOLS.some(t => t.name.includes(n) || t.title === n));
-  ok('home/soon-no-overlap', soonNames.length > 0 && overlap.length === 0,
+  ok('oriental/soon-no-overlap', soonNames.length > 0 && overlap.length === 0,
     `「更多即将上线」只能预告目录里没有的东西：目录只描述已实现，未开放的术数不许在这里当预告卖，已开放的也不许在这里再列一遍（重叠 ${overlap.join('、') || '0 个'}；预告 ${soonNames.join('、')}）`);
   say(`MEASURED 「即将上线」那一格（${soonNames.join('、')}）仍是首页自己写的路线声明，不属于本批统一范围 —— ` +
     `它不与任何目录条目重叠，所以既不会与目录漂移，也不会给未做的功能留假入口`);
+}
+
+// ── 9. 门廊与西方目录（#双体系）：门廊只准有两个入口，数字必须现算 ──
+{
+  const raw = readFileSync(GATE, 'utf8');
+  const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const hrefs = [...new Set([
+    ...(code.match(/href\s*=\s*["']\/[^"']*["']/g) || []),
+    ...(code.match(/href\s*:\s*['"]\/[^'"]*['"]/g) || []),
+  ].map(s => s.replace(/^.*[:=]\s*["']/, '').replace(/["']$/, '')))];
+  const allowed = ['/oriental', '/western', '/tools'];
+  const offside = hrefs.filter(h => !allowed.includes(h));
+  ok('gate/only-two-entries', hrefs.filter(h => h === '/oriental' || h === '/western').length === 2 && offside.length === 0,
+    `门廊上只准出现 /oriental、/western 两个体系入口（外加指向目录那一条 /tools）：实得 ${hrefs.sort().join(' ')}，越界 ${offside.join(' | ') || '无'}`);
+  ok('gate/entries-resolve', ['/oriental', '/western'].every(h => routeExists(h)),
+    '两个体系入口都必须有真的 page.tsx（门廊是全站第一跳，这里断链等于整站进不去）');
+  ok('gate/no-second-tool-list', !/HOME_FEATURED_SLUGS|LAUNCHER_SLUGS|homeCard|TOOL_BY_SLUG/.test(code)
+    && !/title\s*:\s*['"]/.test(code) && !/desc\s*:\s*['"]/.test(code),
+    '门廊不许维护第二份工具清单（一份抄本就会与目录漂移）：目录符号引用命中 '
+    + `${['HOME_FEATURED_SLUGS', 'LAUNCHER_SLUGS', 'homeCard', 'TOOL_BY_SLUG'].filter(s => code.includes(s)).join('、') || '无'}`);
+  ok('gate/counts-derived-from-catalogs',
+    /import\s*\{[^}]*INTENTS[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code)
+    && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(code)
+    && !/已开放\s*[0-9]/.test(code),
+    '门廊卡片上的数必须由两套目录现算（写死一个数字，目录一改它就开始说谎）：硬编码计数命中 '
+    + `${(code.match(/已开放\s*[0-9]+/g) || []).join('、') || '无'}`);
+
+  const wTools = WESTERN_INTENTS.flatMap(g => g.tools);
+  ok('west/status-vocabulary', wTools.every(t => ['可用', '部分可用', '未开放'].includes(t.status)),
+    `西方目录与东方共用同一套状态词，不另立枚举：越界 ${wTools.filter(t => !['可用', '部分可用', '未开放'].includes(t.status)).map(t => `${t.slug}:${t.status}`).join('、') || '无'}`);
+  ok('west/closed-has-no-entry', wTools.every(t => t.status === '未开放' ? !t.href : !!t.href),
+    '未开放的西方条目一律不许带 href（带了就等于给了一条走不通的门）');
+  ok('west/closed-explains-why', wTools.filter(t => t.status === '未开放').every(t => (t.note || '').length >= 8
+    && (t.basis || '').includes('缺')),
+    '西方每一项未开放都要在 basis 里写"缺什么"、在 note 里给读者一句解释（与东方 dir/closed-explains-why 同一条纪律）');
+  ok('west/live-hrefs-resolve', WESTERN_LIVE_HREFS.every(h => routeExists(h)),
+    `西方已开放项的入口都要存在：断链 ${WESTERN_LIVE_HREFS.filter(h => !routeExists(h)).join(' | ') || '0 个'}`);
+  const collide = wTools.map(t => t.slug).filter(s => TOOL_BY_SLUG[s]);
+  ok('west/slug-no-collision', new Set(wTools.map(t => t.slug)).size === wTools.length && collide.length === 0
+    && wTools.every(t => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(t.slug)),
+    `两套目录共用 slug 空间做路由键，撞名会让 TOOL_BY_SLUG 查错表：撞名 ${collide.join('、') || '无'}`);
+  // 版本戳形状：东方那套靠"目录里的戳 == 引擎导出的戳"钉住。西方现在一个引擎都没有，
+  // 所以这里钉的是"不许先写一个看起来像版本戳的东西"——写了就必须在某处真的导出它。
+  const wStamps = [...new Set((wTools.flatMap(t => [t.name, t.basis, t.note ?? '']).join(' ')
+    .match(/[a-z]+-[a-z]+-v\d+/g) || []))];
+  ok('west/no-stamp-without-engine', wStamps.length === 0,
+    `西方目录里出现了引擎并不存在的版本戳形状（${wStamps.join('、') || '无'}）：口径没裁定就不该有版本号，`
+    + '有了就得同时有导出它的引擎与 dir/stamps-equal-engine 那一类对拍');
+  say(`MEASURED 西方目录：${wTools.length} 项，已开放 ${WESTERN_LIVE_HREFS.length} 项，未开放 ${WESTERN_CLOSED_TOOLS.length} 项`
+    + `（${WESTERN_CLOSED_TOOLS.join('、')}）—— 门廊卡片上那个数就是从这里现算的`);
 }
 
 const summary = `directory acceptance: tools=${ALL_TOOLS.length} open=${OPEN.length} pass=${pass} fail=${fail}`;

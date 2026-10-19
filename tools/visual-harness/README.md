@@ -186,6 +186,30 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 `border-radius: 999px` 的药丸，浏览器把命中测试裁进圆角里，探它的包围盒角会得到一个
 用户永远点不到的 miss（实测过，不是推测）。
 
+## 双体系：门廊、两套工作页与"答完之后"那一态
+
+`/` 只剩两个入口，原来的首页搬到 `/oriental`。于是 tag 的归属也换了：
+
+| tag | 路由 | 钉的是哪一态 |
+| --- | --- | --- |
+| `home` | `/` | 门廊：恰好两张体系卡、都在首屏、卡上那行「已开放 N / M 项」形状正确且 N ≤ M |
+| `oriental` | `/oriental` | 原首页那一整套（首屏四类意图、启动器、核心引擎）—— `AFTER['oriental']` 点的是「开始使用」 |
+| `western` | `/western` | 西方工作页（目录全未开放那一态） |
+| `oriental-ask` / `western-ask` | 同上两条 | **问事框提交之后**那一帧：回答卡、来源标注、该给的入口 / 不该给的入口 |
+| `fengshui` / `fengshui-filled` | `/fengshui` | 空表单，以及勾了确认、点了"算一遍"之后的规则层输出 |
+
+两条纪律写在这里：
+
+1. **门廊的数不许写死。** 卡片上「已开放 N / M 项」是页面从两套目录现算出来的，harness 只读
+   回来验形状与 N ≤ M；数与目录是否相等由 `directory-acceptance` 的 `gate/*` 在源码侧钉。
+2. **问事框必须测"答完之后"。** 只测空输入框等于什么都没测 —— 路由对不对、未开放有没有被
+   伪装成可进、来源有没有明写"本机目录匹配、未经模型"，全在提交之后那一帧。
+   `western-ask` 的期望是**零个入口**（西方一项都没开放），它防的正是"AI 说有个工具，页面就给了个按钮"。
+
+React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
+点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
+的关键词表人工推出来的，与 kline 那 144 组成对表同一做法。
+
 ## 产物
 
 - `census.json` — `{ base, stub, fail, warns, exempts, results }`，逐态全部测量值

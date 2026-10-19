@@ -654,6 +654,47 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   border: 0.5px solid rgba(178, 58, 46, 0.18);
 }
 
+/* ---- 双体系门廊与工作页（#双体系）----
+   两套主题各自只覆盖"这一系的强调色"，页面底色与文字 token 不动：
+   整站文字对比度是按现有 token 量过的（13px 次要灰压卡底 4.51:1），
+   换一套深紫底就要重测每一处；等两套首屏的设计稿定了再动底色，
+   现在先把体系归属做出来，不趁夜改全站配色。 */
+:root {
+  --color-domain-oriental: var(--color-accent-gold-text);
+  --color-domain-western: #5b4a86;   /* 西方系的深紫，只作强调与描边，不作正文色 */
+}
+
+/* 返回门廊那条链接：做成 44 高，别给可点尺寸扫描添新账。 */
+.domain-back {
+  display: inline-flex; align-items: center; min-height: 44px;
+  font-size: var(--qn-fs-meta); letter-spacing: 0.04em;
+  color: var(--color-text-primary); text-decoration: none;
+}
+.domain-back:hover { text-decoration: underline; }
+
+.gate-grid {
+  display: grid; gap: 12px; margin-top: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.domain-card {
+  display: block; text-decoration: none; color: inherit;
+  border-left: 3px solid var(--color-domain-oriental);
+}
+.domain-card[data-mode="western"] { border-left-color: var(--color-domain-western); }
+.domain-card:hover { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.07); }
+.domain-card .qn-title { color: var(--color-text-primary); }
+.domain-card .qn-axis { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.domain-card__tally { color: var(--color-text-secondary); font-weight: 400; letter-spacing: 0.04em; }
+
+/* ---- 问事框 ---- */
+.qa-examples {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  /* 会换行的 .qn-chip 容器行距必须 >10：chip 的 44px 命中带上下各伸出 5px，
+     8 的行距会让下一行盖掉上一行的可点区（globals.css 顶部那条老规矩）。 */
+  row-gap: 12px;
+}
+.qa-examples .qn-chip { max-width: 100%; }
+
 /* ---- 动效：一次性入场 + 全站降级 ---- */
 @keyframes qn-rise {
   0% { opacity: 0; transform: translateY(14px); }
