@@ -336,7 +336,18 @@ const KLINE_PINS = {
     cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
     cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
     text: ['人生K线 · 类别轴', 'kline-category-v1', '本图不构成吉凶评分',
-      '流年干支按立春换年', '本批未接', '无事件（未由你标注）'],
+      '流年干支按立春换年', '无事件（未由你标注）', '落点取的是流年支'],
+    // 落点的逐字期望（手工推，不跑代码）：默认展示首段 1996 丙子，日主辛，四柱 戊辰 己未 辛未 乙未。
+    //   子 × 未 = 六害（月／日／时三柱各一条）；子藏癸 × 辰藏戊 = 戊癸合 → 暗合（年柱一条）；
+    //   运支 申 与 辰／未：申藏庚壬戊，辰藏戊乙癸、未藏己丁乙，天干五合是来回都算的一张对称表
+    //   → 庚乙合（辰、未都有乙）、壬丁合（未有丁）、戊癸合（辰有癸），四柱各出一条。
+    //   另一张盘上 1997 丁丑：丑×未 同时是六冲与无恩之刑(半)，成对入口两条都报 —— 这里默认
+    //   展示的是 1996，六冲/相刑那两条由 kline-acceptance 的 144 组手推表钉住。
+    land: {
+      has: ['流年支 子 × 月柱 未 → 六害', '流年支 子 × 年柱 辰 → 暗合·癸戊合',
+        '运支 申 × 年柱 辰 → 暗合·庚乙合、戊癸合', '运支 申 × 日柱 未 → 暗合·庚乙合、壬丁合'],
+      counts: { '→ 六害': 3, '→ 暗合': 5 },
+    },
   },
   // 无四柱但大运仍在：矩阵降级，K线照排 —— 两节各判各的盘，这个组合本身就是被测的事实。
   'chart-result-empty': {
@@ -345,10 +356,11 @@ const KLINE_PINS = {
     lanes: ['比肩', '劫财', '食神', '伤官', '偏财', '正财', '七杀', '正官', '偏印', '正印'],
     cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
     cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
-    text: ['人生K线 · 类别轴', '本图不构成吉凶评分'],
+    land: null,
+    text: ['人生K线 · 类别轴', '本图不构成吉凶评分', '这份数据里没有完整四柱'],
   },
   'chart-result-barren': {
-    mode: 'empty', segments: 0, years: [], lanes: [], cells: {}, cellText: {},
+    mode: 'empty', segments: 0, years: [], lanes: [], cells: {}, cellText: {}, land: null,
     text: ['人生K线', '没有可用的岁运序列', '不预置示例盘', '先去排一张盘'],
   },
 };
@@ -452,6 +464,20 @@ const klineProbe = p => `(() => {
       out.push('grid: 每条泳道 ' + perLane + ' 格，年份刻度却有 ' + ticks.length + ' 个（列不对齐）');
   }
   const secTxt = (sec.innerText || '').replace(/\\s+/g, '');
+  // 落点的期望值是手工推的（写在 KLINE_PINS 上面的注释里），且是"屏上这一帧真的印出了
+  // 这几行、各几行"—— 不是拿 kline.ts 的输出比它自己。
+  const LAND = ${p.land ? 'true' : 'false'};
+  if (LAND) {
+    const flat = (sec.innerText || '').replace(/\\s+/g, '');
+    (${JSON.stringify((p.land && p.land.has) || [])}).forEach(x => {
+      if (flat.indexOf(x.replace(/\\s+/g, '')) < 0) out.push('落点缺条：' + x);
+    });
+    const lcounts = ${JSON.stringify((p.land && p.land.counts) || {})};
+    for (const lkey of Object.keys(lcounts)) {
+      const lgot = flat.split(lkey.replace(/\\s+/g, '')).length - 1;
+      if (lgot !== lcounts[lkey]) out.push('落点数「' + lkey + '」=' + lgot + '（手工推应为 ' + lcounts[lkey] + '）');
+    }
+  }
   (${JSON.stringify(p.text)}).forEach(x => { if (secTxt.indexOf(x.replace(/\\s+/g, '')) < 0) out.push('text:' + x); });
   if (EMPTY) {
     const a = [...sec.querySelectorAll('a')].find(x => (x.getAttribute('href') || '').indexOf('/create') === 0);
@@ -1069,8 +1095,8 @@ async function measure(tag, url) {
     // 真盘（--chart-id）下没有 fixture 的手工钉值可言：换成 live 模式，只测结构与声明句。
     // 与运维 5a4edb4 对 CHART_PINS 四柱钉值的处理同一条路，否则真盘回归永远红、就没人跑。
     if (LIVE_CHART && base === 'chart-result') {
-      kp.mode = 'live'; kp.segments = 0; kp.years = []; kp.cells = {}; kp.cellText = {};
-      kp.text = ['人生K线 · 类别轴', '本图不构成吉凶评分', '本批未接'];
+      kp.mode = 'live'; kp.segments = 0; kp.years = []; kp.cells = {}; kp.cellText = {}; kp.land = null;
+      kp.text = ['人生K线 · 类别轴', '本图不构成吉凶评分', '落点取的是流年支'];
     }
     const got = await evl(klineProbe(kp));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;

@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { BaziChart } from '@/app/lib/core/yiqi-core/types';
-import { buildKline, KLINE_BASIS, KLINE_LICHUN_NOTE, KLINE_RELATION_NOTE } from '@/lib/bazi/kline';
+import { buildKline, KLINE_BASIS } from '@/lib/bazi/kline';
 import type { KlineSegment } from '@/lib/bazi/kline';
 
 const STORE_PREFIX = 'kline-events-v1:';
@@ -132,12 +132,24 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
         {seg.段序} {seg.干支}（{seg.区间}，{seg.起岁} 起）：运干见{seg.运干十神}、运支主气见{seg.运支主气十神}。
         这两级是盘面已发的事实，整段都在，不逐格重复画。
       </p>
+      {seg.落点.length > 0 && (
+        <ul className="qn-meta" style={{ margin: '6px 0 0', paddingLeft: '1.1em' }}>
+          {seg.落点.map(x => <li key={x}>{x}</li>)}
+        </ul>
+      )}
 
       <div style={{ marginTop: 12, display: 'grid', gap: 6 }}>
         <p className="qn-meta" style={{ margin: 0 }}>
           {mark.年纪} 年 · {mark.岁纪} · {mark.干支}：
           天干见{mark.干十神}；地支藏干见 {mark.支藏十神.join('、') || '（无藏干）'}。
         </p>
+        {mark.落点.length > 0 ? (
+          <ul className="qn-meta" style={{ margin: 0, paddingLeft: '1.1em' }}>
+            {mark.落点.map(x => <li key={x}>{x}</li>)}
+          </ul>
+        ) : (
+          <p className="qn-meta" style={{ margin: 0 }}>这一年那一支与四柱各支之间没有成对关系可报。</p>
+        )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <label className="qn-label" htmlFor="kline-event" style={{ margin: 0 }}>你给这一年标注的事（只存本机）</label>
           <input id="kline-event" className="qn-input" style={{ flex: '1 1 200px', minWidth: 0 }}
@@ -157,11 +169,14 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
         )}
       </div>
 
-      <p className="qn-note" style={{ marginTop: 12 }}>
-        {KLINE_LICHUN_NOTE}
-        {' '}标注只存在这台浏览器的 localStorage（键 {STORE_PREFIX}＋四柱与日主），不进任何接口、不进回执、不进链上存证。
-      </p>
-      <p className="qn-note" style={{ marginTop: 6 }}>{KLINE_RELATION_NOTE}</p>
+      {/* 边界声明由数据那一侧给（view.边界），页面只负责照读 ——
+          两处各写一份就必然漂移，而"页面上说的"与"算的"对不上正是这批最贵的错法。 */}
+      <div style={{ marginTop: 12, display: 'grid', gap: 4 }}>
+        {view.边界.map(x => <p className="qn-note" key={x} style={{ margin: 0 }}>{x}</p>)}
+        <p className="qn-note" style={{ margin: 0 }}>
+          标注只存在这台浏览器的 localStorage（键 {STORE_PREFIX}＋四柱与日主），不进任何接口、不进回执、不进链上存证。
+        </p>
+      </div>
     </section>
   );
 }

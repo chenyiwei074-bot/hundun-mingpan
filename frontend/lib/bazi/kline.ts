@@ -12,16 +12,21 @@
 //   大运两级直接用盘面已发的 ganShiShen/zhiShiShen —— 本模块不写第三张十神表；
 // - 事件标注只能来自用户输入；没有输入就是「无事件」，不预置、不推测。
 //
-// 一处诚实的缺口：流年与四柱的合冲刑害（「落点」）本批**不接**。站点现有的地支关系函数
-// detectZhiRelations（bazi-enrich/zhi-relations.ts:59）只遍历命局自身四柱的六对，
-// 没有任何可复用的「任意两支一对」入口，表也全是 module-private。要接落点就得在算法层
-// 就地开一个导出函数（前后端两份同源拷贝一起改），而不是在这里再抄一份表 ——
-// 抄表就是本项目明令禁止的「第四份引擎拷贝」。落点字段因此恒为待裁说明，不是空着骗人。
+// 落点（流年支、大运支与命局四柱支的成对关系）走 bazi-enrich/zhi-relations.ts 新导出的
+// zhiPairRelations —— 那张表原来全是 module-private，detectZhiRelations 只遍历命局自身四柱
+// 的六对，结构上表达不出"流年 vs 日柱"（ZhiRelation.pillars 只能装 年/月/日/时）。
+// 2026-10-19 裁定就地开一个成对入口、让现有 detectZhiRelations 改调它，因此本模块既不抄表、
+// 也不新建第二套关系逻辑；改前那一次全枚举 12^4=20736 组四柱的输出摘要已钉成
+// tools/zhi-relations/zhi-relations-golden.json，导出的 digest 与改前逐字节相同。
+// 成对入口只报成对成立的关系（六冲/六合/六害/相刑/自刑/暗合）；三合三会拱合拱会是三支族，
+// 一支对一支报出去就是假的三合，所以不在这里报。相破本站不存在，也不往页面上写。
 
 import type { BaziChart, DayunDetail, ShiShen } from '@/app/lib/core/yiqi-core/types';
 import { getZhiCangGanFull } from '@/app/lib/core/yiqi-core/bazi';
 import { getShiShen } from '@/app/lib/core/bazi-enrich/tables';
+import { zhiPairRelations } from '@/app/lib/core/bazi-enrich/zhi-relations';
 import type { Tiangan } from '@/app/lib/core/bazi-enrich/tables';
+import type { Dizhi } from '@/app/lib/core/bazi-enrich/tables';
 
 export const KLINE_BASIS = 'kline-category-v1';
 
@@ -37,7 +42,15 @@ export const KLINE_GROUPS: Record<ShiShen, '比劫' | '食伤' | '财' | '官杀
 
 export const KLINE_NO_SCORE = '不构成吉凶评分';
 export const KLINE_LICHUN_NOTE = '流年干支按立春换年：公历 1 月 1 日至立春之间，盘面干支仍属上一年。';
-export const KLINE_RELATION_NOTE = '落点（流年与四柱的合冲刑害）本批未接：现有函数只遍历命局自身四柱，无「任意两支一对」入口，本站不另抄一张表（待裁）。';
+export const KLINE_RELATION_NOTE = '落点取的是流年支（以及大运支）与命局四柱支的成对关系，'
+  + '查的是本站已有那张关系表（bazi-enrich/zhi-relations.ts 导出的成对函数），不另立一套、不改权重。';
+export const KLINE_RELATION_MISSING = '这份数据里没有完整四柱，落点无从配对，因此只报十神引动。';
+
+/** 四柱支的轴名，用于落点回指到"哪一柱"。 */
+const PILLAR_LABEL: Record<'year' | 'month' | 'day' | 'hour', string> = {
+  year: '年柱', month: '月柱', day: '日柱', hour: '时柱',
+};
+const PILLAR_KEYS = ['year', 'month', 'day', 'hour'] as const;
 
 export interface KlineMark {
   年纪: string;      // 公历「1996」
@@ -45,6 +58,7 @@ export interface KlineMark {
   干支: string;      // 「丙子」
   干十神: string;    // 流年天干对日主的十神
   支藏十神: string[];// 流年地支藏干（本气/中气/余气）各自的十神
+  落点: string[];    // 「流年支 丑 × 日柱 未 → 六冲」这样的一条条成对关系
 }
 
 export interface KlineLane {
@@ -60,6 +74,7 @@ export interface KlineSegment {
   起岁: string;        // 「虚岁 9」
   运干十神: string;    // 盘面已发
   运支主气十神: string;// 盘面已发
+  落点: string[];      // 大运支与四柱支的成对关系（整段共同，不逐年重复）
   流年: KlineMark[];
   泳道: KlineLane[];
 }
@@ -73,7 +88,25 @@ export interface KlineView {
 
 const CANGGAN_ROLES = ['本气', '中气', '余气'];
 
-function yearMarks(d: DayunDetail, dayMaster: string): KlineMark[] {
+/**
+ * 落点：一支（流年的、或大运的）与命局四柱各支的成对关系。
+ * 逐柱各报一条，谁跟谁、什么关系，全写在串里 —— 不汇总、不数条数、不排强弱，
+ * 因为"这一年被几柱冲"一旦成为数字，它就又是评分了。
+ */
+function landingOf(zhi: string, siZhu: BaziChart['siZhu'] | undefined, 主体: string): string[] {
+  if (!siZhu) return [];
+  const out: string[] = [];
+  for (const k of PILLAR_KEYS) {
+    const other = siZhu[k]?.zhi;
+    if (!other) continue;
+    for (const r of zhiPairRelations(zhi as Dizhi, other as Dizhi)) {
+      out.push(`${主体} ${zhi} × ${PILLAR_LABEL[k]} ${other} → ${r.type}${r.detail ? '·' + r.detail : ''}`);
+    }
+  }
+  return out;
+}
+
+function yearMarks(d: DayunDetail, dayMaster: string, siZhu: BaziChart['siZhu'] | undefined): KlineMark[] {
   return (d.liuNian || []).map(ln => {
     const gan = ln.ganZhi.gan, zhi = ln.ganZhi.zhi;
     // 藏干十神取自引擎自己那份 getZhiCangGanFull —— 与四柱藏干同一张表、同一个日主。
@@ -86,6 +119,7 @@ function yearMarks(d: DayunDetail, dayMaster: string): KlineMark[] {
       // dayMaster: Tiangan），这里只做类型层的收口，不含任何换算或兜底。
       干十神: getShiShen(dayMaster as Tiangan, gan as Tiangan),
       支藏十神: cang.map(c => c.shiShen),
+      落点: landingOf(zhi, siZhu, '流年支'),
     };
   });
 }
@@ -109,8 +143,9 @@ export function buildKline(chart: BaziChart | undefined | null): KlineView | nul
   const dayMaster = chart?.dayMaster;
   const dayun = chart?.dayun;
   if (!dayMaster || !Array.isArray(dayun) || dayun.length === 0) return null;
+  const siZhu = chart?.siZhu && PILLAR_KEYS.every(k => chart.siZhu?.[k]?.zhi) ? chart.siZhu : undefined;
   const 段 = dayun.map((d, i) => {
-    const marks = yearMarks(d, dayMaster);
+    const marks = yearMarks(d, dayMaster, siZhu);
     return {
       段序: `第 ${i + 1} 步大运`,
       干支: `${d.ganZhi.gan}${d.ganZhi.zhi}`,
@@ -118,6 +153,7 @@ export function buildKline(chart: BaziChart | undefined | null): KlineView | nul
       起岁: `虚岁 ${d.startAge}`,
       运干十神: d.ganShiShen,
       运支主气十神: d.zhiShiShen,
+      落点: landingOf(d.ganZhi.zhi, siZhu, '运支'),
       流年: marks,
       泳道: lanesFor(marks),
     };
@@ -125,7 +161,7 @@ export function buildKline(chart: BaziChart | undefined | null): KlineView | nul
   return {
     日主: dayMaster,
     口径戳: KLINE_BASIS,
-    边界: [KLINE_NO_SCORE, KLINE_LICHUN_NOTE, KLINE_RELATION_NOTE],
+    边界: [KLINE_NO_SCORE, KLINE_LICHUN_NOTE, KLINE_RELATION_NOTE].concat(siZhu ? [] : [KLINE_RELATION_MISSING]),
     段,
   };
 }
