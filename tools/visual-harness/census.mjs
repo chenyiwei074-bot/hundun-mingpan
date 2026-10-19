@@ -71,6 +71,11 @@ for (const [tag, [id, file]] of Object.entries(CHART_ROUTES)) {
 }
 const HAS_CHART = Object.keys(CHART_BY_PATH).length > 0;
 const CHART_FIXTURE = HAS_CHART;
+
+// 真盘模式：用 --chart-id 打真实后端时，页面四柱来自实时数据，不可能等于 fixture 的钉值。
+// 那种情况下跳过「四柱必须等于 fixtures/chart-result.json」，其余结构断言（11 行/4 约定/
+// 藏干/禁断语/文案）照旧 —— 否则真盘回归永远红 6 条，等于没人跑它。
+const LIVE_CHART = !STUB && Boolean(IDS.chart) && !arg('chart-fixture');
 // Same idea for 六爻: /liuyao/result/[id] reads its plate out of sessionStorage key
 // "liuyao_result" and has no fetch fallback, so a route id alone can never render it.
 // Generated, committed, synthetic: tools/liuyao-ganzhi/make-fixture.ts —— 三种起卦各一张，
@@ -934,7 +939,9 @@ async function measure(tag, url) {
       : `    pins n${String(LIUYAO_PINS[base].base).padStart(2, '0')}–n${String(LIUYAO_PINS[base].base + 11).padStart(2, '0')} 全中，空亡 ${got.kong} 处`);
   }
   if (CHART_PINS[base]) {
-    const got = await evl(chartProbe(CHART_PINS[base]));
+    const pins = { ...CHART_PINS[base] };
+    if (LIVE_CHART && base === 'chart-result') pins.pillars = []; // 真盘：四柱钉值不适用
+    const got = await evl(chartProbe(pins));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
     if (!miss) fail.push(tag + ': 场景矩阵探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 场景矩阵不等于钉值 — ' + x);
