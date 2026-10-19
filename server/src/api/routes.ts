@@ -1,6 +1,7 @@
 ﻿import { Router } from 'express';
 import { createLiuYao } from '../controllers/liuyao.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
+import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
 import {
   createChart,
   getChartStatus,
@@ -12,6 +13,9 @@ import {
 } from '../controllers/chart.controller';
 
 const router = Router();
+
+router.post('/receipts', submitReceipt);
+router.get('/receipts/:recordHash', getReceiptStatus);
 
 router.post('/chart/create', createChart);
 router.get('/chart/status/:id', getChartStatus);
