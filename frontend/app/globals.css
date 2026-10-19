@@ -18,6 +18,10 @@
   --color-accent-gold: #b2955d;
   --color-accent-gold-light: #d4b87a;
   --color-accent-gold-dark: #8b6d3b;
+  /* 墨底上的金漆文字专用。#d4b87a 压在白/浅卡底上没问题，但在 .qn-ink 那面金雾里
+     合成出的棕底（lit 行实测 rgb(95,80,51)）只有 4.08:1，11–13px 不达 AA；
+     这一支 5.01:1（同底）、未点亮那档 5.82:1。加深是反方向：#b2955d 同底只剩 2.74:1。 */
+  --color-accent-gold-on-ink: #e3cd96;
 
   /* ===== 五行 · 数据编码色，S92-97 高彩度，值冻结不可改 ===== */
   --color-wx-jin: #ef9104;

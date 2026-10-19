@@ -99,6 +99,17 @@ const HAS_LIUYAO = Object.keys(LIUYAO_BY_PATH).length > 0;
 
 mkdirSync(OUT, { recursive: true });
 
+// 已知、已裁定本轮不修（P2）的对比度问题。为什么单开一张表而不塞进 EXEMPT：
+// EXEMPT 是按设计裁定把整条放过，而对比度被明令不许走那张表 —— 这里只把"同一对
+// 前景/背景"降级成一条会打印、会计数、会在末尾点名的 KNOWN-CONTRAST，既不静默，
+// 也不混进 FAIL 让人误读成本批引入。命中条件是前景+背景都等值（归一化空白后比），
+// 所以换了色值就是新的一条红，这张表替不了别的问题挡刀。
+// 修掉之后条目必须删干净 —— 现在就是一张空表。留着条目 = 给一个已修的问题发免死牌。
+// 登记过并已了结：liuyao-done 的 13px/11px 金漆压棕 4.08:1（2026-10-19 裁定 ②，
+// 改 --color-accent-gold-on-ink #e3cd96 后同底 5.01:1，条目随即删除）。
+const KNOWN_CONTRAST = {};
+const normColor = c => String(c || '').replace(/\s+/g, '');
+
 // Deliberate, tracked violations — each entry names why it is not an accident and
 // what would clear it. Anything not listed here still fails, so a page cannot buy
 // silence by falling outside an audited region. Contrast never consults this table.
@@ -844,7 +855,13 @@ function check(tag, v) {
   const m = v.regions.main || {}, nv = v.regions.nav || {}, ft = v.regions.footer || {};
   // Contrast is never exempted, so a page cannot hide low-contrast copy by
   // sitting outside <main>.
-  if ((m.aaCount || 0) > 0) for (const a of m.aa.slice(0, 8)) bad(`AA ${a.ratio} ${a.size}px/${a.weight} ${a.color} on ${a.on} "${a.text}"`);
+  if ((m.aaCount || 0) > 0) for (const a of m.aa.slice(0, 8)) {
+    const known = (KNOWN_CONTRAST[base] || []).find(e => normColor(e.fg) === normColor(a.color) && normColor(e.bg) === normColor(a.on));
+    const line = `AA ${a.ratio} ${a.size}px/${a.weight} ${a.color} on ${a.on} "${a.text}"`;
+    // 已知条目走 warns（打印 + 进 census.json + 末尾点名），其余照旧直接红。
+    if (known) { warns.push(tag + ': KNOWN-CONTRAST ' + line + ' — ' + known.why); console.log('    KNOWN-CONTRAST(by ruling) ' + line); }
+    else bad(line);
+  }
   if ((nv.aaCount || 0) > 0) for (const a of nv.aa.slice(0, 4)) bad(`nav AA ${a.ratio} "${a.text}"`);
   if ((ft.aaCount || 0) > 0) for (const a of ft.aa.slice(0, 4)) bad(`footer AA ${a.ratio} "${a.text}"`);
   const aaOther = Object.entries(v.regions).filter(([g]) => g !== 'main' && g !== 'nav' && g !== 'footer' && g !== 'svg');
@@ -947,6 +964,19 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': 场景矩阵不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    PIN MISMATCH ' + miss.join(' | ')
       : `    场景矩阵 ${got.rows} 行全中，约定标签 ${got.conv} 行，藏干命中 ${got.cang} 条`);
+  }
+  // 动爻的金漆只在「最后一条记录正好是动爻」时才上屏 —— 实测约一半的跑法里根本没有对象
+  // （每爻老阴/老阳各 1/8）。不把这个数打出来，一次绿会被读成「对比度没问题」，
+  // 而那可能只是这盘没有动爻。0 处不是通过，是没测。
+  if (base === 'liuyao-done') {
+    const n = await evl(`(() => { const ink = document.querySelector('.qn-ink'); if (!ink) return -1;
+      const gold = e => (getComputedStyle(e).color || '').replace(/\\s+/g, '') === 'rgb(227,205,150)';
+      // 只有点亮那一行会合成出 rgb(95,80,51) 这个棕底；其余行压在墨底上，同一个前景本来
+      // 就有 4.73:1，不构成 AA 对象。所以"有没有对象"要按行底判，不能只数前景。
+      const lit = e => { for (let p = e; p && p !== ink; p = p.parentElement)
+        if ((getComputedStyle(p).backgroundColor || '').replace(/\\s+/g, '') === 'rgba(178,149,93,0.12)') return true; return false; };
+      return [...ink.querySelectorAll('*')].filter(e => gold(e) && lit(e)).length; })()`);
+    console.log('    金漆压在点亮行上的 AA 对象 ' + n + ' 个' + (n === 0 ? '（本轮 AA 检查没有对象，不是「已通过」）' : ''));
   }
   const v = await evl(CENSUS);
   if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; v.firstScreen = fold; }
@@ -1079,7 +1109,8 @@ if (fail.length) {
   for (const f of fail) console.log('  - ' + f);
 } else {
   console.log(`ALL CHECKS PASSED — ${Object.keys(results).filter(k => !k.endsWith('__perf')).length} states` +
-    (exempts.length ? ` (with ${exempts.length} exempted violation(s) above)` : ''));
+    (exempts.length ? ` (with ${exempts.length} exempted violation(s) above)` : '') +
+    (warns.length ? ` (with ${warns.length} warning(s) above — 含 KNOWN-CONTRAST)` : ''));
 }
 console.log('evidence written to ' + OUT);
 ws.close(); chrome.kill();

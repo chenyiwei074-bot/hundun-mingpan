@@ -106,6 +106,11 @@ export interface DayunDetail {
   liuNian: LiuNian[]; // 该大运内的流年列表
 }
 
+// 地支藏干的一条（本气/中气/余气）。键名与值类型都按产出方 getZhiCangGanFull 的声明来
+// （它返回 { gan: string, shiShen: string }）；不写成 ShiShen 联合类型，因为 getShiShen 的
+// 返回本身是 string，写成联合就是再造一个"声明比运行时严"的假类型。
+export interface CangGanItem { gan: string; shiShen: string }
+
 // 八字排盘结果
 export interface BaziChart {
   birthInfo: BirthInfo;
@@ -133,7 +138,11 @@ export interface BaziChart {
   };
   dayunStart: number; // 大运起运岁数
   dayun: DayunDetail[]; // 大运详情列表，通常显示前10步
-  cangGan?: { year: { gan: string; tenGod?: string }[]; month: { gan: string; tenGod?: string }[]; day: { gan: string; tenGod?: string }[]; hour: { gan: string; tenGod?: string }[] }
+  // 藏干十神的键名以产出方为准：bazi.ts:74 getZhiCangGanFull 返回 { gan, shiShen }，
+  // server 侧同名拷贝与 chart.service.ts:68 也是这一份。原声明写作 tenGod?（全站无人产出、
+  // 无人读取），照它读的后果不是报错而是整层归零——2026-10-19 #40 就是这样把藏干命中
+  // 从 29 条读成 6 条，天干那一半看着完全正常。
+  cangGan?: { year: CangGanItem[]; month: CangGanItem[]; day: CangGanItem[]; hour: CangGanItem[] }
     // 真太阳时校正明细（2026-10 接入）：bazi.ts 赋值，供 UI 展示与存档
     // 注：部署时由运维补声明——原 bazi.ts 已赋值但本接口缺此字段，导致 tsc 失败
     trueSolarTime?: TrueSolarTimeInfo;

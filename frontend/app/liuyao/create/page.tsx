@@ -526,7 +526,7 @@ export default function LiuyaoCreatePage() {
         <div style={{minHeight:96,textAlign:'center'}}>
           {anim==='result'&&records.length>0?(()=>{const last=records[records.length-1];return(<>
             <p className="qn-note" style={{margin:0,letterSpacing:'0.1em'}}>{YAO_NAMES[last.position-1]}</p>
-            <p className="qn-title" style={{margin:'4px 0 8px',color:last.isDong?'var(--color-accent-gold-light)':'#fff'}}>
+            <p className="qn-title" style={{margin:'4px 0 8px',color:last.isDong?'var(--color-accent-gold-on-ink)':'#fff'}}>
               {last.label}{last.isDong&&<span className="qn-cap" style={{letterSpacing:'0.1em',marginLeft:6}}>动爻</span>}
             </p>
             <div style={{display:'flex',justifyContent:'center'}}>{line(last.value,64,INK_STROKE)}</div>
@@ -550,9 +550,9 @@ export default function LiuyaoCreatePage() {
                   {r?line(r.value,64,INK_STROKE):<span style={{width:64,height:1,background:'rgba(255,255,255,0.16)'}}/>}
                 </span>
                 <span className="qn-note" style={{width:38,textAlign:'right',flex:'0 0 auto',
-                  color:r?(r.isDong?'var(--color-accent-gold-light)':INK_STROKE):'rgba(255,255,255,0.3)'}}>{r?r.label:'—'}</span>
+                  color:r?(r.isDong?'var(--color-accent-gold-on-ink)':INK_STROKE):'rgba(255,255,255,0.3)'}}>{r?r.label:'—'}</span>
                 <span style={{width:24,flex:'0 0 auto',textAlign:'center'}}>
-                  {r?.isDong&&<span className="qn-cap" style={{display:'inline-block',border:'0.5px solid rgba(212,184,122,0.45)',color:'var(--color-accent-gold-light)',borderRadius:999,padding:'1px 6px'}}>动</span>}
+                  {r?.isDong&&<span className="qn-cap" style={{display:'inline-block',border:'0.5px solid rgba(227,205,150,0.45)',color:'var(--color-accent-gold-on-ink)',borderRadius:999,padding:'1px 6px'}}>动</span>}
                 </span>
               </div>
             );
