@@ -1,5 +1,6 @@
 import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
 import { qiGuaByTime, QISHU_BASIS } from '@/lib/meihua/engine';
+import { randomToken } from '@/lib/crypto/random';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType } from '@/types/liuyao';
 
 /**
@@ -50,7 +51,7 @@ export function buildTimeResult(params: {
   const bianPalace = gua.bian ? getPalaceGong(gua.bian) : null;
 
   return {
-    id: 'time_' + Date.now().toString(36),
+    id: 'time_' + Date.now().toString(36) + randomToken(6),
     method: 'time',
     question: params.question,
     questionType: params.questionType,

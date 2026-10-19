@@ -167,10 +167,22 @@ ReceiptCore {
 6. 取数口径：`seed` 前 18 字节，每字节 `& 1`（一字节一 bit，无取模偏差），第 r 轮用第
    `3r..3r+2` 个 bit。直取不上 HKDF —— seed 本身 256 bit 均匀，前 18 bit 与其余统计独立，
    且这样第三方能用手算复核。
-7. **机制上限（页面文案与目录都按这个写）**：它证明「这一盘与事先的承诺对得上、事后没被改过」；
+7. **v2 的 `plateHash` 不含 `plate.id`**：`sha256(canonical(omit(plate, ['id'])))`。id 是客户端现铸的
+   定位符（`'coin_' + Date.now().toString(36) + randomToken(6)`，三式同此），把它算进承诺会让同一盘
+   两次回执得到两个 `plateHash`。回执里仍保留 `plate.id` 供定位，验真按同一规则（v1 仍含 id，见下）。
+   台账侧不受影响：leaf 用的是 `recordHash`，不是 `plateHash`。
+8. **机制上限（页面文案与目录都按这个写）**：它证明「这一盘与事先的承诺对得上、事后没被改过」；
    不证明掷钱这个动作真的在物理世界发生过，也管不到揭晓之前的整盘重来（重来即新 seed、新承诺，
    只有最后揭晓的那一份进回执）。要证「承诺早于结果」需要把 `seedHash` 也送进每日台账 leaf，
    那是台账侧的独立决定，本文档不预设。
+
+版本分叉一览（改任何一条都要升版本，见 §9）：
+
+| 规则 | v1 | v2 |
+| --- | --- | --- |
+| `core` 字段集 | 无 `randomness` | 多一个 `randomness`，参与 `recordHash` |
+| `plateHash` 覆盖范围 | 含 `plate.id` | **不含** `plate.id` |
+| 已发出的旧回执 | 按 v1 规则仍可验（金标准钉在 `tools/receipt-acceptance`） | — |
 
 对服务端台账（P1）的影响：**提交信封与幂等键都不变**（§6 的 `schemaVersion` 仍按信封写，
 `recordHash` 仍是幂等键）。变的只是 v2 的 `recordHash` 覆盖范围多了一个 `randomness`，

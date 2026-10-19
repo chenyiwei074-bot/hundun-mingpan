@@ -325,6 +325,60 @@ const run = async () => {
     `目录里六爻那条要从「随机源承诺另批做」改成已实现，且目录写死的承诺戳 ${CATALOG_STAMPS.commit} 必须等于引擎导出的 ${COIN_COMMIT_SCHEMA}：残留「另批做」 ${/另批做/.test(cat) ? '有' : '无'}`);
   ok('honesty/no-overclaim', !/无法伪造|绝对可信|已上链/.test(createPage + panelSrc + verifySrc),
     '页面不许出现"无法伪造/绝对可信"这类超出机制上限的说法（它能证明的是盘与事先承诺对得上）');
+
+  // ── 11. 裁定 ②：v2 的盘摘要不含 id，v1 仍含 ──
+  const twinA = await committedCoinPlate(IDX_SEED);
+  const twinB = { ...twinA, id: 'coin_' + 'z'.repeat(6) };
+  const rcA = await buildPlateReceipt(twinA, { salt: FIXED_SALT, nowUTC: FIXED_NOW });
+  const rcB = await buildPlateReceipt(twinB, { salt: FIXED_SALT, nowUTC: FIXED_NOW });
+  ok('platehash/v2-ignores-id', rcA.core.version === RECEIPT_VERSION_V2 && rcA.core.plateHash === rcB.core.plateHash
+    && rcA.plate.id !== rcB.plate.id,
+    `同一盘内容、两个不同 id → v2 的 plateHash 必须相同（id 是定位符不是内容，重开一次不该"内容变了"）：${rcA.plate.id} vs ${rcB.plate.id}`);
+  const idEdited = await verifyReceipt({ ...rcA, plate: { ...rcA.plate, id: 'coin_swapped' } }, { question: QUESTION });
+  ok('platehash/v2-id-edit-verifies', idEdited.ok && chk(idEdited, 'plateHash')?.ok === true,
+    '改 plate.id 后 v2 回执仍应验过（recordHash 只承诺内核，内核里是去掉 id 的盘摘要）');
+  const v1IdEdited = await verifyReceipt({ ...rcFrozen, plate: { ...rcFrozen.plate, id: 'coin_changed' } }, { question: QUESTION });
+  ok('platehash/v1-still-covers-id', chk(v1IdEdited, 'plateHash')?.ok === false,
+    `v1 仍按含 id 的旧规则算 —— 这条红就说明有人把"排除 id"做成了不分版本的顺手统一，那会让已发出的 v1 回执全部验不过`);
+  {
+    const ids = Array.from({ length: 200 }, () => coinPlate(3).id);
+    const uniq = new Set(ids).size;
+    ok('id/csprng-suffix', uniq === ids.length && ids.every(x => /^coin_[0-9a-z]+$/.test(x)),
+      `同一毫秒内铸 200 个盘 id 也必须全不相同（Date.now 那段一样，靠的就是 randomToken(6) 后缀）：去重 ${uniq}/${ids.length}，样例 ${ids[0]}`);
+    const three = ['coin', 'time', 'num'] as const;
+    const srcs = await Promise.all(['coin', 'time', 'number'].map(m => readSrc(`frontend/lib/liuyao/methods/${m}.ts`)));
+    const noSuffix = three.filter((_, i) => !/randomToken\(\d+\)/.test(srcs[i]) || !/\+ randomToken/.test(srcs[i]));
+    ok('id/all-methods-suffixed', noSuffix.length === 0 && srcs.every(s => /randomToken/.test(s.split('\n')[0] + s)),
+      `三式的 id 都要带 CSPRNG 后缀（时间/报数一样是客户端现铸，撞号问题同源）：缺后缀 ${noSuffix.join(',') || '无'}`);
+  }
+
+  // ── 12. 裁定 ①：重新摇只在结果态出现，且是全站唯二的铸 seed 入口 ──
+  {
+    // 注释里也会写「重新摇一卦」（handler 的 docstring 就写了），所以判"只出现在结果态"
+    // 必须先把注释剥掉 —— 否则是在测措辞，不是测渲染。
+    const page = createPage.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const doneBlock = page.slice(page.indexOf("{step==='done' &&"), page.indexOf('</section>)}'));
+    ok('reroll/only-in-done', doneBlock.includes('重新摇一卦（作废本盘，换新承诺）') &&
+      /\(step==='tossing'\|\|step==='done'\)/.test(page) &&
+      !/重新摇一卦/.test(page.slice(0, page.indexOf("{step==='done' &&"))),
+      '「重新摇一卦」只能出现在结果态那段 JSX 里 —— 摇卦进行中它不在 DOM 上，不是 disabled');
+    ok('reroll/confirms-first', /setConfirmReroll\(true\)/.test(doneBlock) &&
+      /确认作废并重摇/.test(doneBlock) && /onClick=\{\(\) => void rerollFresh\(\)\}/.test(doneBlock) &&
+      doneBlock.indexOf('setConfirmReroll(true)') < doneBlock.indexOf('rerollFresh()'),
+      '第一次点只把界面切到二次确认，真正重摇挂在「确认作废并重摇」上（源码顺序即交互顺序）');
+    ok('reroll/mints-fresh-seed', /const seedHex = newSeedHex\(\);/.test(page.slice(page.indexOf('const rerollFresh'))) &&
+      /await sealSeed\(seedHex\)/.test(page.slice(page.indexOf('const rerollFresh'))),
+      '重摇必须走与首次起卦同一套承诺流程：新铸 seed → 先封 hash → 再进掷钱阶段');
+    const sealSites = (page.match(/sealSeed\(/g) || []).length;
+    ok('reroll/no-other-seed-path', sealSites === 2,
+      `整页只有两处封 seed：开始摇卦与确认重摇。第三处就意味着存在中途换 seed 的路径（旧承诺还在回执里，新承诺已经盖上）：实得 ${sealSites} 处`);
+    ok('reroll/clears-plate-and-records', /sessionStorage\.removeItem\('liuyao_result'\)/.test(page.slice(page.indexOf('const rerollFresh'))) &&
+      /setRecords\(\[\]\)/.test(page.slice(page.indexOf('const rerollFresh'))) &&
+      /setRound\(0\)/.test(page.slice(page.indexOf('const rerollFresh'))),
+      '作废要落在地上：清掉待查看那一盘的 sessionStorage、六爻记录归零、轮次归零 —— 只换 seed 不清记录是假作废');
+    ok('reroll/no-dead-resetall', !/const resetAll =/.test(page) && /const startOver =/.test(page),
+      '原来那份没人调用的 resetAll 已删，改由 startOver 承担同一职责（死代码留着会有人以为它在管承诺）');
+  }
 };
 
 run().then(() => {
