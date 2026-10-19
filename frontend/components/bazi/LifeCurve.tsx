@@ -134,10 +134,12 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
           table-layout:fixed + width:100%：列宽由这张表自己算，10 列在 375px 上也放不下横向滚动。 */}
       <div style={{ marginTop: 12 }}>
         <table className="qn-kline-grid" aria-describedby="kline-axis-note"
-          style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 4 }}>
+          style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 3 }}>
           <thead>
             <tr>
-              <th scope="col"><span className="qn-axis">十神</span></th>
+              <th scope="col" style={{ width: '3em', whiteSpace: 'nowrap' }}>
+                <span className="qn-axis">十神</span>
+              </th>
               {seg.流年.map((m, i) => (
                 <th key={m.年纪} scope="col" data-tick-head={m.年纪}
                   style={{ fontSize: 'var(--qn-fs-eyebrow)', letterSpacing: '0.08em', fontWeight: i === yearIdx ? 500 : 400,
@@ -233,7 +235,7 @@ function FragmentRow({ lane, seg }: {
           // 在十列网格里是走不通的，所以格子改回"读"的东西。
           <td key={m.年纪} data-lane={lane.十神} data-year={m.年纪}
             title={hits.length ? `${m.干支}：${hits.join('、')}` : `${m.年纪} ${m.干支}：这一道无`}
-            style={{ overflowWrap: 'anywhere' }}>
+            style={{ overflowWrap: 'anywhere', textAlign: 'center', padding: 0 }}>
             <span style={{
               display: 'block', minHeight: 30, lineHeight: 1.6,
               border: '0.5px solid var(--color-border-subtle, rgba(0,0,0,0.08))',
