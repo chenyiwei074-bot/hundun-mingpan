@@ -21,6 +21,7 @@ import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { TRIGRAM_BITS } from '../liuyao-ganzhi/gold';
 import { CATALOG_STAMPS } from '../../frontend/lib/tools/catalog';
+import { ANCHOR_LABEL, RECEIPT_ENVELOPE_SCHEMA, anchorViewOf, receiptSubmissionBody, receiptSubmissionPayload } from '../../frontend/lib/receipt/anchor';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -36,6 +37,13 @@ const ok = (id: string, cond: boolean, detail: string) => {
   if (cond) pass++; else fail++;
   say(`${cond ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
 };
+
+/** 只看在代码里的字样：注释先剥掉。否则「本模块不许出现已上链」这类自我约束的说明
+ *  会自己咬自己 —— 随机源验收扫 Math.random 时踩过同一个坑（两次）。 */
+const codeOf = (src: string) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '')
+  .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
 
 const GOLD_DATE = new Date(2026, 9, 17, 12, 0);
 const QUESTION = '今年能不能签成那单合作';
@@ -202,9 +210,17 @@ const run = async () => {
   const verifyPage = await read('frontend/app/verify/page.tsx');
   const panel = await read('frontend/app/liuyao/result/[id]/ReceiptPanel.tsx');
   const lib = await read('frontend/lib/receipt/receipt.ts');
+  // 2026-10-19 P1 上线后这条的范围收窄过一次（改测试）：结果页现在**会**联网 —— 但只打
+  // /api/receipts（按回执编号提交摘要 / 查状态），验真页仍然一个请求都不发。
+  // 守的从来不是"零网络"，而是"绝不按报告 id 把原文取回来"。
+  const anchorMod = codeOf(await read('frontend/lib/receipt/anchor.ts'));
   ok('net/no-fetch-in-verify-layer', verifyPage.length > 0 && panel.length > 0 &&
-    !/fetch\(|XMLHttpRequest|axios/.test(verifyPage + panel),
-    `验真页与回执面板不得发任何请求（GET /reports/:id 那种按 id 取原文的路子一律不走）：命中 ${/fetch\(|XMLHttpRequest|axios/.test(verifyPage + panel) ? '有' : '无'}`);
+    !/fetch\(|XMLHttpRequest|axios/.test(codeOf(verifyPage)) &&
+    !/api\/reports?\/|getReportById/.test(codeOf(panel) + anchorMod),
+    `验真页零请求；结果页与摘要层不得出现任何按报告 id 取原文的调用（GET /api/reports/:id 会返回 inputJson，那是本站最老的隐私洞）`);
+  ok('net/panel-only-hits-receipts', /\/api\/receipts/.test(anchorMod) &&
+    !/fetch\(/.test(codeOf(panel)),
+    '联网只集中在 lib/receipt/anchor 一处，面板不自己拼 fetch（将来换端点只改一个文件）');
   const imports = (src: string) => Array.from(src.matchAll(/from\s+'([^']+)'/g)).map(m => m[1]);
   const libImports = imports(lib);
   // 2026-10-19 commit-reveal：回执层多两个依赖 —— 取 bit 的口径（@/lib/crypto/random）与
@@ -378,6 +394,56 @@ const run = async () => {
       '作废要落在地上：清掉待查看那一盘的 sessionStorage、六爻记录归零、轮次归零 —— 只换 seed 不清记录是假作废');
     ok('reroll/no-dead-resetall', !/const resetAll =/.test(page) && /const startOver =/.test(page),
       '原来那份没人调用的 resetAll 已删，改由 startOver 承担同一职责（死代码留着会有人以为它在管承诺）');
+  }
+
+  // ── 13. P1 台账接入：出门的只有摘要，措辞不超出服务端给的两态 ──
+  {
+    const payload = receiptSubmissionPayload(rcC);
+    const keys = Object.keys(payload).sort().join(',');
+    const wantKeys = ['basis', 'castAtUTC', 'kind', 'method', 'plateHash', 'recordHash', 'schemaVersion', 'subjectHash', 'tzOffsetMinutes'].join(',');
+    ok('anchor/payload-is-summary-only', keys === wantKeys,
+      `提交体是白名单，多一个字段都没有（reportHash/parentHash 只在解读回执里出现）：实得 ${keys}`);
+    const blob = JSON.stringify(payload);
+    ok('anchor/no-raw-data-leaves', !blob.includes(QUESTION) && !blob.includes(FIXED_SALT) &&
+      !/"question"/.test(blob) && !/subjectSalt/.test(blob) && !/yaoRecords/.test(blob) && !/naJia/.test(blob) &&
+      !/birthday|birthPlace|gender/.test(blob),
+      '问题原文、盐、盘身、生辰一律不出门。盐尤其要紧：摘要抗字典反查靠的就是它不外泄');
+    const body = receiptSubmissionBody(rcC);
+    const bodyBlob = JSON.stringify(body);
+    ok('anchor/record-hash-bare-hex', /^[0-9a-f]{64}$/.test(String(body.recordHash)) &&
+      /^[0-9a-f]{64}$/.test(String(body.plateHash)) && /^[0-9a-f]{64}$/.test(String(body.subjectHash)) &&
+      !bodyBlob.includes('sha256:'),
+      '出门的每一份摘要都是裸 hex（回执 JSON 保留 sha256: 前缀，归一化由提交方做，不靠对端兜）');
+    const before = canonical(rcC);
+    receiptSubmissionPayload(rcC);
+    ok('anchor/receipt-never-mutated', canonical(rcC) === before && rcC.anchor === null && rcC.anchorState === RECEIPT_ANCHOR_STATE_UNANCHORED,
+      '提交与查询都不写回回执本体：anchor 恒为 null。否则同一份回执会因查询时点不同而得到不同摘要');
+    // 跨边界字面量互校：服务端把信封版本钉死在一个常量上，那边改了这边必须红。
+    const ctrl = await read('server/src/controllers/receipt.controller.ts');
+    const serverSchema = (ctrl.match(/const SCHEMA = '([^']+)'/) || [])[1] || '(读不到)';
+    ok('anchor/envelope-schema-equals-server', ctrl.length > 0 && serverSchema === RECEIPT_ENVELOPE_SCHEMA,
+      `提交信封版本必须逐字等于服务端 SCHEMA（${serverSchema}）：不等就是线上 400，而这条只有跑真端点才发现得了，所以钉成字面量比对`);
+    ok('anchor/state-vocabulary', anchorViewOf('unanchored') === 'unanchored' && anchorViewOf('pending') === 'pending' &&
+      anchorViewOf('anchored') === 'unknown' && anchorViewOf('') === 'unknown' && anchorViewOf(undefined) === 'unknown',
+      '只认服务端现在给得出的两态；anchored 也落「状态未知」—— 本机无 bitcoind，ots 无法独立确认，本站不替运维宣布链上事实');
+    ok('anchor/labels', ANCHOR_LABEL.unanchored === '未锚定' && ANCHOR_LABEL.pending === '等待锚定' &&
+      ANCHOR_LABEL.unsubmitted === '未提交' && ANCHOR_LABEL.unknown === '状态未知' &&
+      !/已锚定|已上链/.test(Object.values(ANCHOR_LABEL).join('')),
+      `四态措辞固定，且标签里不许出现"已锚定/已上链"：${Object.values(ANCHOR_LABEL).join(' / ')}`);
+    const anchorSrc = codeOf(await read('frontend/lib/receipt/anchor.ts'));
+    const panelAll = codeOf(panelSrc) + anchorSrc;
+    ok('anchor/no-chain-wording', !/已上链|已写入区块链|比特币已确认|已锚定/.test(panelAll),
+      '面板与摘要层不得出现任何链上完成时态（anchored 目前不会下发，措辞先于能力就是撒谎）');
+    ok('anchor/query-by-recordhash-only', (anchorSrc.match(/fetch\('\/api\/receipts/g) || []).length === 2 &&
+      !/\/api\/reports?/.test(anchorSrc),
+      `anchor 层只有两处 fetch，都是 /api/receipts（POST 提交 + GET 按回执编号查）：实得 ${(anchorSrc.match(/fetch\(/g) || []).length} 处 fetch`);
+    ok('anchor/panel-wires-it', /from '@\/lib\/receipt\/anchor'/.test(panelSrc) &&
+      !/qn-badge__dot[^}]*\/>\s*未锚定/.test(panelSrc) && /未提交 —— 摘要还没送进台账/.test(panelSrc),
+      '面板的徽标改成状态驱动，不再写死「未锚定」；未提交时的原话要在页面上');
+    const doc = await read('docs/receipt-v1.md');
+    ok('anchor/documented', /等待锚定/.test(doc) && /anchored 目前不会返回|不会下发/.test(doc) &&
+      /YYYY-MM\/YYYY-MM-DD\.jsonl/.test(doc),
+      '两态措辞与实际分片路径要写进契约文档（文档里写的是 receipts/YYYY-MM-DD.jsonl，与端点的月度分片不一致会误导 ops）');
   }
 };
 
