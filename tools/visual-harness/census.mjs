@@ -54,7 +54,23 @@ const IDS = {
 };
 // A dump of the app's own sessionStorage key "chart_preview", so --stub can render
 // /chart/result at all. Without it that page has nothing to draw.
-const CHART_FIXTURE = arg('chart-fixture') ? readFileSync(arg('chart-fixture'), 'utf8') : null;
+// 现在有两张、而且都有仓库内默认值（tools/visual-harness/make-chart-fixture.ts 生成）：
+// 一张完整盘（审「场景矩阵」11 行），一张同一盘摘掉 siZhu（审裁定 6 的无盘降级那一支）。
+// 路径有默认值这件事本身就是修过的坑 —— 以前 --chart-fixture 忘了传就静默 SKIP，
+// 于是那一节从来没被测过。
+const CHART_DIR = arg('chart-fixtures') || 'tools/visual-harness/fixtures';
+const CHART_ROUTES = {
+  'chart-result': ['stubchart0001', `${CHART_DIR}/chart-result.json`],
+  'chart-result-empty': ['stubchartempty', `${CHART_DIR}/chart-result-no-sizhu.json`],
+};
+if (arg('chart-fixture')) CHART_ROUTES['chart-result'] = ['stubchart0001', arg('chart-fixture')];
+const CHART_BY_PATH = {};
+for (const [tag, [id, file]] of Object.entries(CHART_ROUTES)) {
+  if (!existsSync(file)) { console.log(`\nSKIP ${tag}: fixture 不存在 ${file}（生成：tools/visual-harness/make-chart-fixture.ts）`); continue; }
+  CHART_BY_PATH[`/chart/result/${id}`] = readFileSync(file, 'utf8');
+}
+const HAS_CHART = Object.keys(CHART_BY_PATH).length > 0;
+const CHART_FIXTURE = HAS_CHART;
 // Same idea for 六爻: /liuyao/result/[id] reads its plate out of sessionStorage key
 // "liuyao_result" and has no fetch fallback, so a route id alone can never render it.
 // Generated, committed, synthetic: tools/liuyao-ganzhi/make-fixture.ts —— 三种起卦各一张，
@@ -136,7 +152,14 @@ const AFTER = {
   'home': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /开始使用/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
   'chart-result': `(() => { const b = [...document.querySelectorAll('button')]
-      .find(x => /展开/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
+      .find(x => /展开/.test(x.textContent || '')); if (!b) return '四柱卡片的「展开」按钮不在页面上'; b.click();
+    // 场景矩阵每一行的依据/原文/岁运都收在 <details> 里。不打开，字号梯与对比度审计
+    // 就只见过折叠态，qn-quote 那一路 13px 原文从未被量过 —— 与 /meihua、/xiu 那次
+    // 「只审到输入态」同一类假绿。summary 不是 button，所以必须显式打开。
+    const ds = [...document.querySelectorAll('.qn-scenario details')];
+    if (!ds.length) return '场景矩阵里没有 <details> 可打开（那一节没渲染出来）';
+    ds.forEach(d => { d.open = true; });
+    return ds.every(d => d.open) ? true : 'details 打不开'; })()`,
   // 卦成之后才是这个页面真正交付的版式：三卦并排、体用条、取数过程、法务口径。不点这一下，
   // /meihua 审到的只有输入态，结果态的字号与对比度从未被测量过（等同首页那次「假绿」）。
   // 精确匹配「起卦」：三个 tab 的文字里也都含「起卦」。
@@ -237,6 +260,35 @@ const LIUYAO_PINS = {
     bian: ['父母庚子水', '兄弟庚寅木', '妻财庚辰土', '父母丁亥水', '官鬼丁酉金', '妻财丁未土'],
   },
 };
+// 八字结果态同样要钉结构。理由与六爻一致：--stub 注入的盘如果被应用读丢了，页面会落到
+// 空态，而空态也有导航、页脚、字号梯 —— bodyText 会绿，真正交付的四柱行与「场景矩阵」
+// 那一节却从没被量过。钉值全部取自 tools/visual-harness/fixtures/chart-coverage.txt，
+// 那份 token 又来自 bazi-validation-v1.json 的外部期望，不是从 fixture 抄的。
+const CHART_PINS = {
+  'chart-result': {
+    mode: 'plate',
+    pillars: ['戊辰', '己未', '辛未', '乙未'],
+    rows: ['自己', '日常', '父母', '兄弟姐妹与朋友', '恋爱', '婚姻', '子女',
+      '亲子（我为人子女）', '亲子（我为人父母）', '共事合作', '上下级'],
+    conventionRows: 4,          // 11 行里恰好 4 行标「本站约定，非古籍原目」
+    text: ['场景矩阵', 'liuqin-scenario-v1', '两说并存，本站不裁决', '宫分：年柱管父母'],
+    // 断语一律不上屏（裁定 9）。这几串只存在于 scenarios.ts 的出处凭据与 docs 底本里。
+    absent: ['父母不全', '兄弟不完', '妻妾不完', '子息无传', '子息凶頑', '妻妾不賢'],
+    minCangGan: 1,              // 藏干命中必须真上屏（字段名读错时这一路会静默归零）
+  },
+  // 无盘降级那一支：裁定 6 要的是「说明 + 去排盘的路」，不是整节消失，也不是编一张盘。
+  // 探针钉的是反向条件 —— 一行 [data-scenario] 都不许出现，同时要看到 /create 那条链接。
+  'chart-result-empty': {
+    mode: 'empty',
+    rows: [],
+    conventionRows: 0,
+    minCangGan: 0,
+    text: ['场景矩阵', '不预置示例盘', '先去排一张盘'],
+    absent: ['liuqin-scenario-v1', '两说并存', '父母不全', '妻妾不賢'],
+    pillars: [],
+  },
+};
+
 // 读盘面用结构探针而不是整页 bodyText：整页 includes('庚午') 会被别的行、别的卡片撞中，
 // 而「第 4 爻那一格写的就是 妻财庚午火」才是这次交付的东西。比较全在页内做完再回传，
 // 免得把整页文本搬过 CDP。
@@ -261,6 +313,37 @@ const liuyaoProbe = p => `(() => {
   (${JSON.stringify(p.text)}).forEach(x => { if (page.indexOf(x) < 0) out.push('text:' + x); });
   (${JSON.stringify(p.absent)}).forEach(x => { if (page.indexOf(x) >= 0) out.push('不该出现:' + x); });
   return { miss: out, kong, yao, bian };
+})()`;
+
+// 场景矩阵一节按结构数：11 个 [data-scenario] 行、行名逐一对上、约定标签恰好 4 行、
+// 藏干命中至少 N 条。用整页 bodyText 数「本站约定」会把别处的说明文字也算进去，
+// 数「命中」更是根本数不出来 —— 所以全部在页内按节内元素做完再回传。
+const chartProbe = p => `(() => {
+  const out = [];
+  const EMPTY = ${p.mode === 'empty'};
+  const sec = document.querySelector('.qn-scenario');
+  if (!sec) return { miss: ['section: .qn-scenario 不存在（盘面没读进来，或那一节没挂上）'] };
+  if (EMPTY !== sec.classList.contains('qn-scenario--empty'))
+    out.push('mode: 该走' + (EMPTY ? '降级' : '读盘') + '支，屏上却是' + (EMPTY ? '整节矩阵' : '降级卡'));
+  const rows = [...sec.querySelectorAll('[data-scenario]')];
+  if (rows.length !== ${p.rows.length}) out.push('rows: 场景行=' + rows.length + '（应为 ${p.rows.length}）');
+  const names = rows.map(r => r.getAttribute('data-scenario'));
+  (${JSON.stringify(p.rows)}).forEach(x => { if (names.indexOf(x) < 0) out.push('缺行:' + x); });
+  if (EMPTY) {
+    const a = [...sec.querySelectorAll('a')].find(x => (x.getAttribute('href') || '').indexOf('/create') === 0);
+    if (!a) out.push('降级分支缺 /create 入口');
+  }
+  const conv = rows.filter(r => ((r.querySelector('.qn-badge') || {}).textContent || '').indexOf('本站约定') >= 0).length;
+  if (conv !== ${p.conventionRows}) out.push('约定行=' + conv + '（应为 ${p.conventionRows}）');
+  const cang = rows.reduce((n, r) => n + [...r.querySelectorAll('li')].filter(li => (li.textContent || '').indexOf('藏干') >= 0).length, 0);
+  if (cang < ${p.minCangGan}) out.push('藏干命中=' + cang + '（引擎给 shiShen、types 里写的 tenGod 不存在，读错键就是这里归零）');
+  const secTxt = (sec.innerText || '').replace(/\\s+/g, '');
+  (${JSON.stringify(p.text)}).forEach(x => { if (secTxt.indexOf(x.replace(/\\s+/g, '')) < 0) out.push('text:' + x); });
+  // 四柱必须在盘上（不只在矩阵里）：这一条钉的是「注入的 fixture 真被应用读成了一张盘」。
+  const page = (document.body.innerText || '').replace(/\\s+/g, '');
+  (${JSON.stringify(p.pillars)}).forEach(x => { if (page.indexOf(x) < 0) out.push('四柱缺:' + x); });
+  (${JSON.stringify(p.absent)}).forEach(x => { if (page.indexOf(x) >= 0) out.push('不该上屏:' + x); });
+  return { miss: out, rows: names.length, conv, cang };
 })()`;
 
 // ---------------------------------------------------------------- chrome + cdp
@@ -359,8 +442,14 @@ await send('Runtime.enable');
 // The separator matters: two adjacent IIFEs without one parse as a call chain and
 // throw, which silently kills the CLS/LCP observers.
 await send('Page.addScriptToEvaluateOnNewDocument', { source: STUB ? OBSERVERS + ';\n' + STUB_BOOT : OBSERVERS });
-if (CHART_FIXTURE) {
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: 'try{sessionStorage.setItem("chart_preview",' + JSON.stringify(CHART_FIXTURE) + ')}catch(e){}' });
+if (HAS_CHART) {
+  // 按 pathname 选盘，选不中就清掉键 —— 否则上一张盘会顺着 sessionStorage 活到下一页，
+  // 「完整盘」与「无四柱盘」两张测的其实是同一份内容，census 看不出来。
+  await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: 'try{const m=' + JSON.stringify(CHART_BY_PATH) + ';const k=m[location.pathname];' +
+      'if(k)sessionStorage.setItem("chart_preview",k);' +
+      'else if(/^\\/chart\\/result\\//.test(location.pathname))sessionStorage.removeItem("chart_preview");}catch(e){}',
+  });
 }
 if (HAS_LIUYAO) {
   // 一张 Chrome 跑四张盘：注入按 pathname 选，选不中就把键清掉 —— 否则上一页那张盘会
@@ -844,6 +933,14 @@ async function measure(tag, url) {
     console.log(miss && miss.length ? '    PIN MISMATCH ' + miss.join(' | ')
       : `    pins n${String(LIUYAO_PINS[base].base).padStart(2, '0')}–n${String(LIUYAO_PINS[base].base + 11).padStart(2, '0')} 全中，空亡 ${got.kong} 处`);
   }
+  if (CHART_PINS[base]) {
+    const got = await evl(chartProbe(CHART_PINS[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 场景矩阵探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': 场景矩阵不等于钉值 — ' + x);
+    console.log(miss && miss.length ? '    PIN MISMATCH ' + miss.join(' | ')
+      : `    场景矩阵 ${got.rows} 行全中，约定标签 ${got.conv} 行，藏干命中 ${got.cang} 条`);
+  }
   const v = await evl(CENSUS);
   if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; v.firstScreen = fold; }
   results[tag] = v;
@@ -891,9 +988,9 @@ if (!STUB) {
     else console.log(`\nSKIP ${tag}: pass --${kind}-id=<id> to measure it against live data`);
   }
 } else {
-  if (keep('chart-result', '/chart/result')) {
-    if (CHART_FIXTURE) pages.push(['chart-result', '/chart/result/stubchart0001', false]);
-    else console.log('\nSKIP chart-result: --stub needs --chart-fixture=<chart_preview dump> before it can render a chart');
+  for (const [tag, [id]] of Object.entries(CHART_ROUTES)) {
+    if (!keep(tag, '/chart/result')) continue;
+    if (CHART_BY_PATH['/chart/result/' + id]) pages.push([tag, '/chart/result/' + id, false]);
   }
   if (keep('report', '/report')) pages.push(['report', '/report/stub-locked', false]);
 }

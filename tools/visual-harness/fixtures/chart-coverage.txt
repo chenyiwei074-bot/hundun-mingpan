@@ -1,0 +1,11 @@
+# make-chart-fixture.ts 生成，勿手改。判据来源：用例 historical-dst-iana（tools/bazi-acceptance/cases/bazi-validation-v1.json）。
+四柱: 戊辰 己未 辛未 乙未
+日主: 辛
+大运首段: 庚申（起 1996 岁 9）
+真太阳时: 13:59:42
+夏令时偏移: 1
+十神: year干正印 month干偏印 day干比肩 hour干偏财
+藏干: year支[戊正印乙偏财癸食神] month支[己偏印丁七杀乙偏财] day支[己偏印丁七杀乙偏财] hour支[己偏印丁七杀乙偏财]
+纳音: year大林木 month天上火 day路旁土 hour沙中金
+随时间漂移的路径: 26 条（+11 年探针），全部在 chart.ziwei 内；chart.bazi 逐字节稳定
+payload 字节: 11513
