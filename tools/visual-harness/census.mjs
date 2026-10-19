@@ -336,7 +336,7 @@ const KLINE_PINS = {
     cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
     cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
     text: ['人生K线 · 类别轴', 'kline-category-v1', '本图不构成吉凶评分',
-      '流年干支按立春换年', '无事件（未由你标注）', '落点取的是流年支'],
+      '流年干支按立春换年', '无事件（未由你标注）', '落点取的是流年支', '格子只读'],
     // 落点的逐字期望（手工推，不跑代码）：默认展示首段 1996 丙子，日主辛，四柱 戊辰 己未 辛未 乙未。
     //   子 × 未 = 六害（月／日／时三柱各一条）；子藏癸 × 辰藏戊 = 戊癸合 → 暗合（年柱一条）；
     //   运支 申 与 辰／未：申藏庚壬戊，辰藏戊乙癸、未藏己丁乙，天干五合是来回都算的一张对称表
@@ -357,7 +357,7 @@ const KLINE_PINS = {
     cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
     cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
     land: null,
-    text: ['人生K线 · 类别轴', '本图不构成吉凶评分', '这份数据里没有完整四柱'],
+    text: ['人生K线 · 类别轴', '本图不构成吉凶评分', '这份数据里没有完整四柱', '格子只读'],
   },
   'chart-result-barren': {
     mode: 'empty', segments: 0, years: [], lanes: [], cells: {}, cellText: {}, land: null,
@@ -435,11 +435,60 @@ const klineProbe = p => `(() => {
   const LIVE = ${p.mode === 'live'};
   if (EMPTY !== sec.classList.contains('qn-kline--empty'))
     out.push('mode: 该走' + (EMPTY ? '降级' : '排图') + '支，屏上却是' + (EMPTY ? '整张泳道图' : '降级卡'));
-  const chips = [...sec.querySelectorAll('button.qn-chip')].length;
+  // 运段那一排与年票那一排都是 .qn-chip 按钮（#88 之后），按类名数会把两排数成一排。
+  // 所以钉 data-seg：数量、顺序、哪一个点亮，都只说运段。
+  const chips = [...sec.querySelectorAll('button[data-seg]')].length;
   if (!LIVE && chips !== ${p.segments}) out.push('segments: 运段 chip=' + chips + '（应为 ' + ${p.segments} + '）');
   const ticks = [...sec.querySelectorAll('[data-tick]')].map(b => b.getAttribute('data-tick').slice(2));
   if (!LIVE && JSON.stringify(ticks) !== JSON.stringify(${JSON.stringify(p.years)}))
     out.push('ticks: 年份刻度=' + JSON.stringify(ticks) + '（应为 ' + JSON.stringify(${JSON.stringify(p.years)}) + '）');
+  let tapFacts = null;
+  // #88（2026-10-19）：选年只剩年票这一条路，格子改只读。三件事必须钉在 DOM 上，
+  // 不能只看组件源码 —— 源码里没写 onClick 不等于屏上不是个 button（还能 Tab 到）。
+  if (!EMPTY) {
+    const cellSel = 'td[data-lane][data-year]';
+    const cellEls = [...sec.querySelectorAll(cellSel)];
+    if (!cellEls.length) out.push('cells: 一个只读格子都没找到（选择器 ' + cellSel + ' 失效，格子这条审不了）');
+    const asControl = cellEls.filter(c => /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(c.tagName));
+    const withClick = cellEls.filter(c => c.hasAttribute('onclick') || c.getAttribute('role') === 'button');
+    const focusable = cellEls.filter(c => c.getAttribute('tabindex') !== null && c.getAttribute('tabindex') !== '-1');
+    if (asControl.length) out.push('cell/readonly: ' + asControl.length + ' 个格子仍是可点元素 '
+      + [...new Set(asControl.map(c => c.tagName))].join('/') + '（裁定：格子只读、不进 Tab 焦点序）');
+    if (withClick.length) out.push('cell/no-click: ' + withClick.length + ' 个格子带 onclick 或 role=button');
+    if (focusable.length) out.push('cell/taborder: ' + focusable.length + ' 个格子被显式给了 Tab 焦点');
+    // 只读≠不可读：表格语义要在，且列头/行头齐（屏幕阅读器念一格得念出哪一年、哪一道）。
+    const table = sec.querySelector('table');
+    if (!table) out.push('cell/semantics: 格子的容器不是 <table>，屏幕阅读器念不出「年 × 十神」');
+    else {
+      const colHeads = [...table.querySelectorAll('thead th[scope="col"]')].length;
+      const rowHeads = [...table.querySelectorAll('tbody th[scope="row"]')].length;
+      const perRow = cellEls.length / Math.max(rowHeads, 1);
+      if (colHeads !== ticks.length + 1)
+        out.push('cell/semantics: 列头 ' + colHeads + ' 个，年份刻度 ' + ticks.length
+          + ' 个（列头应为年份＋左上角那格）');
+      const laneNames = [...new Set([...sec.querySelectorAll('span[data-lane]')].map(s => s.getAttribute('data-lane')))];
+      if (rowHeads !== laneNames.length)
+        out.push('cell/semantics: 行头 ' + rowHeads + ' 个，屏上泳道 ' + laneNames.length + ' 条（每条道应有一个 scope=row）');
+      if (rowHeads && perRow !== ticks.length)
+        out.push('grid: 每行 ' + perRow + ' 格，年份刻度却有 ' + ticks.length + ' 个（列不对齐）');
+    }
+    // 年票：≥44×44 是裁定的硬数，且它是唯一的选年入口。
+    const yearChips = [...sec.querySelectorAll('button[data-tick]')];
+    if (!yearChips.length) out.push('year/chip: 没有 button[data-tick] —— 选年这条路整个没了');
+    const small = yearChips.filter(c => { const r = c.getBoundingClientRect(); return r.width < 44 || r.height < 44; })
+      .map(c => Math.round(c.getBoundingClientRect().width * 10) / 10 + 'x'
+        + Math.round(c.getBoundingClientRect().height * 10) / 10 + '(' + c.textContent.trim() + ')');
+    if (small.length) out.push('year/chip: ' + small.length + '/' + yearChips.length
+      + ' 个年票不足 44×44：' + small.slice(0, 4).join(' '));
+    const wrapped = yearChips.length > 1
+      && new Set(yearChips.map(c => Math.round(c.getBoundingClientRect().top))).size > 1;
+    const rail = yearChips.length ? yearChips[0].parentElement : null;
+    if (rail && rail.scrollWidth > rail.clientWidth + 1)
+      out.push('year/chip: 年票那排横向溢出（' + Math.round(rail.scrollWidth) + '>'
+        + Math.round(rail.clientWidth) + 'px），裁定要求换行而不是横向滚动');
+    tapFacts = { cells: cellEls.length, cellInteractive: asControl.length + withClick.length + focusable.length,
+      chips: yearChips.length, chipsSmall: small.length, wrapped, table: !!table };
+  }
   const lanes = [...new Set([...sec.querySelectorAll('span[data-lane]')].map(s => s.getAttribute('data-lane')))];
   if (JSON.stringify(lanes) !== JSON.stringify(${JSON.stringify(p.lanes)}))
     out.push('lanes: 泳道=' + JSON.stringify(lanes) + '（应为固定十条、顺序即命名序）');
@@ -447,7 +496,9 @@ const klineProbe = p => `(() => {
   const filled = {};
   const text = {};
   cells.forEach(l => {
-    const cs = [...sec.querySelectorAll('button[data-lane="' + l + '"]')];
+    // 格子自 #88 起是 <td>（只读），不再是 button。这里跟着换，否则选择器落空、
+    // 逐格钉值会静默变成「一条都没比对」。
+    const cs = [...sec.querySelectorAll('td[data-lane="' + l + '"]')];
     filled[l] = cs.filter(c => (c.textContent || '').trim() !== '·').map(c => c.getAttribute('data-year'));
     text[l] = cs.filter(c => (c.textContent || '').trim() !== '·').map(c => (c.textContent || '').trim());
   });
@@ -458,11 +509,8 @@ const klineProbe = p => `(() => {
     else if (JSON.stringify(text[l]) !== JSON.stringify(wantText[l]))
       out.push('cells[' + l + ']: 格子写的=' + JSON.stringify(text[l]) + '（手工推应为 ' + JSON.stringify(wantText[l]) + '）');
   });
-  if (LIVE) {
-    const perLane = [...sec.querySelectorAll('button[data-lane]')].length / Math.max(lanes.length, 1);
-    if (lanes.length && perLane !== ticks.length)
-      out.push('grid: 每条泳道 ' + perLane + ' 格，年份刻度却有 ' + ticks.length + ' 个（列不对齐）');
-  }
+  // 原 LIVE 模式专属的「列不对齐」这条并到上面 cell/semantics 的 perRow 里：
+  // 同一条事实（每行格数 == 年份刻度数）现在三种模式都审，不再只在真盘那一路审。
   const secTxt = (sec.innerText || '').replace(/\\s+/g, '');
   // 落点的期望值是手工推的（写在 KLINE_PINS 上面的注释里），且是"屏上这一帧真的印出了
   // 这几行、各几行"—— 不是拿 kline.ts 的输出比它自己。
@@ -484,7 +532,7 @@ const klineProbe = p => `(() => {
     if (!a) out.push('降级分支缺 /create 入口');
     if (sec.querySelector('[data-lane]')) out.push('降级分支里还画着泳道格子');
   }
-  return { miss: out, chips, lanes: lanes.length, filled };
+  return { miss: out, chips, lanes: lanes.length, filled, tapFacts };
 })()`;
 
 // ---------------------------------------------------------------- chrome + cdp
@@ -1054,6 +1102,26 @@ function check(tag, v) {
 }
 const hexOf = rgb => { const m = String(rgb).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : null; };
 
+// 改了某一节的交互，就得看一眼那一节。整页截图在 18000px 高的图上根本读不出格子；
+// 这里按当前视口截一节（与分段扫同一个"滚过去再测"的思路，只是顺手把画面留下）。
+const SECTION_SHOTS = { 'chart-result': '.qn-kline' };
+async function shotSection(tag, sel) {
+  if (!SHOTS) return;
+  const st = await evl(`(() => { const el = document.querySelector(${JSON.stringify(sel)});`
+    + ` if (!el) return 'not-found'; el.scrollIntoView({ block: 'center', behavior: 'instant' }); return 'ok'; })()`);
+  if (st !== 'ok') { warns.push(`${tag}: 分区截图的目标 ${sel} ${st === 'not-found' ? '不在页面上' : '滚不动'}`); return; }
+  await sleep(150);
+  await evl(`[...document.getAnimations()].forEach(a => { try {
+    a.pause();
+    const t = a.effect && a.effect.getComputedTiming && a.effect.getComputedTiming();
+    if (t && t.iterations === Infinity) a.currentTime = 0;
+  } catch (e) {} })`);
+  const s = await send('Page.captureScreenshot', { format: 'png' });
+  if (s.data) writeFileSync(`${OUT}/${tag}--section.png`, Buffer.from(s.data, 'base64'));
+  await evl(`window.scrollTo({ top: 0, behavior: 'instant' }); true`);
+  console.log('    shot ' + tag + '--section.png ← ' + sel);
+}
+
 async function measure(tag, url) {
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
@@ -1096,7 +1164,7 @@ async function measure(tag, url) {
     // 与运维 5a4edb4 对 CHART_PINS 四柱钉值的处理同一条路，否则真盘回归永远红、就没人跑。
     if (LIVE_CHART && base === 'chart-result') {
       kp.mode = 'live'; kp.segments = 0; kp.years = []; kp.cells = {}; kp.cellText = {}; kp.land = null;
-      kp.text = ['人生K线 · 类别轴', '本图不构成吉凶评分', '落点取的是流年支'];
+      kp.text = ['人生K线 · 类别轴', '本图不构成吉凶评分', '落点取的是流年支', '格子只读'];
     }
     const got = await evl(klineProbe(kp));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
@@ -1106,6 +1174,17 @@ async function measure(tag, url) {
       : (KLINE_PINS[base].mode === 'empty'
         ? `    K线 降级卡：0 条泳道、0 个运段、/create 入口在`
         : `    K线 ${got.lanes} 条泳道、${got.chips} 个运段，比肩/正官逐格手工值全中`));
+    // #88 的三条硬数打出来：格子数/年票数/年票不足 44 的个数。不打出来就没人知道
+    // 这一态到底审没审到格子（探针跑起来但选择器落空，是最容易骗过自己的一种绿）。
+    if (got && got.tapFacts) {
+      const tf = got.tapFacts;
+      console.log(`    格子 ${tf.cells} 个（可点 ${tf.cellInteractive} 个）· 表格语义 ${tf.table ? '在' : '不在'}`
+        + ` · 年票 ${tf.chips} 个（<44 的 ${tf.chipsSmall} 个，${tf.wrapped ? '已换行' : '单行'}）`);
+      if (tf.cells === 0) fail.push(tag + ': K线 格子数为 0 —— 选择器落空，这一节的只读断言是空过');
+      if (tf.chips === 0) fail.push(tag + ': K线 年票数为 0 —— 选年入口没测到');
+    } else if (KLINE_PINS[base].mode !== 'empty') {
+      fail.push(tag + ': K线 没交出 #88 的格子/年票读数（tapFacts 为空）—— 这一节的只读与 44px 没被测量过');
+    }
   }
   // 动爻的金漆只在「最后一条记录正好是动爻」时才上屏 —— 实测约一半的跑法里根本没有对象
   // （每爻老阴/老阳各 1/8）。不把这个数打出来，一次绿会被读成「对比度没问题」，
@@ -1151,6 +1230,7 @@ async function measure(tag, url) {
   }
   if (consoleErrors.length) console.log('   CONSOLE ' + consoleErrors.join(' | '));
   check(tag, v);
+  if (SECTION_SHOTS[base]) await shotSection(tag, SECTION_SHOTS[base]);
   await shot(tag, true);
   return v;
 }

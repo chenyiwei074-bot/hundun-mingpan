@@ -85,7 +85,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
         </span>
       </div>
 
-      <p className="qn-meta" style={{ marginTop: 8 }}>
+      <p className="qn-meta" id="kline-axis-note" style={{ marginTop: 8 }}>
         横着是年份，竖着是十神的十条道（{`比肩·劫财·食神·伤官·偏财·正财·七杀·正官·偏印·正印`}）。
         格子里写的，是那一年的流年天干或地支藏干正好是这一颗星 —— 只有「引动没有」这一件事。
         <strong style={{ fontWeight: 500 }}>本图不构成吉凶评分</strong>：不排高低、不计轻重、不给方向、不做预测；
@@ -94,7 +94,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
 
       <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {view.段.map((s, i) => (
-          <button key={s.段序} type="button"
+          <button key={s.段序} type="button" data-seg={s.段序}
             className={`qn-chip${i === segIdx ? ' qn-chip--on' : ''}`}
             style={{ minWidth: 84, textAlign: 'center' }}
             aria-pressed={i === segIdx}
@@ -109,23 +109,48 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
         ))}
       </div>
 
-      <div style={{ marginTop: 14, overflowWrap: 'anywhere' }}>
-        <div className="qn-kline-grid" style={{ display: 'grid', gridTemplateColumns: '4.2em repeat(10, minmax(0, 1fr))', gap: 4, alignItems: 'center' }}>
-          <span className="qn-axis">年份</span>
-          {seg.流年.map((m, i) => (
-            <button key={m.年纪} type="button" data-tick={m.年纪} className={`qn-hit${i === yearIdx ? ' qn-chip--on' : ''}`}
-              style={{ border: '0.5px solid var(--color-border-subtle, rgba(0,0,0,0.10))', borderRadius: 8, background: 'transparent', cursor: 'pointer', padding: '2px 0' }}
-              aria-pressed={i === yearIdx}
-              onClick={() => setYearIdx(i)}>
-              <span className="qn-cap">{m.年纪.slice(2)}</span>
-            </button>
-          ))}
+      <p className="qn-cap" style={{ marginTop: 14 }}>选一年：下面的格子只读，写的是那一年引动了哪一颗。</p>
+      {/* 选年的唯一入口（2026-10-19 裁定 #88）。格子改成只读之后，"点格子选年"这条路
+          就没了，所以年票必须自己够大：44×44 起、横向排不下就换行，不引横向滚动。
+          row-gap 12 是 globals.css 里那条老规矩：会换行的 .qn-chip 容器行距必须 >10，
+          因为 ::after 的 44px 命中带上下各伸出 5px，8 的行距会让下一行盖掉上一行的可点区
+          （harness 分段扫在运段那一排实测到的 miss2 就是这个）。年票自己已经 44 高，
+          ::after 的 min-height:100% 不再外扩，两处都不欠。 */}
+      <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8, rowGap: 12 }}
+        role="group" aria-label="选一年看它的岁运事实">
+        {seg.流年.map((m, i) => (
+          <button key={m.年纪} type="button" data-tick={m.年纪}
+            className={`qn-chip${i === yearIdx ? ' qn-chip--on' : ''}`}
+            style={{ minWidth: 44, minHeight: 44, padding: '0 10px' }}
+            aria-pressed={i === yearIdx}
+            onClick={() => setYearIdx(i)}>
+            {m.年纪}
+          </button>
+        ))}
+      </div>
 
-          {seg.泳道.map(lane => (
-            <FragmentRow key={lane.十神} lane={lane} seg={seg} yearIdx={yearIdx}
-              onPick={(i) => setYearIdx(i)} />
-          ))}
-        </div>
+      {/* 表格语义而不是 110 个按钮（裁定：只读≠不可读）。列头是年份、行头是十神，
+          屏幕阅读器念一格就能念出「1996 · 正官 · 丙子」；格子不进 Tab 焦点序。
+          table-layout:fixed + width:100%：列宽由这张表自己算，10 列在 375px 上也放不下横向滚动。 */}
+      <div style={{ marginTop: 12 }}>
+        <table className="qn-kline-grid" aria-describedby="kline-axis-note"
+          style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 4 }}>
+          <thead>
+            <tr>
+              <th scope="col"><span className="qn-axis">十神</span></th>
+              {seg.流年.map((m, i) => (
+                <th key={m.年纪} scope="col" data-tick-head={m.年纪}
+                  style={{ fontSize: 'var(--qn-fs-eyebrow)', letterSpacing: '0.08em', fontWeight: i === yearIdx ? 500 : 400,
+                    color: 'var(--color-text-secondary)', overflowWrap: 'anywhere' }}>
+                  {m.年纪.slice(2)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {seg.泳道.map(lane => <FragmentRow key={lane.十神} lane={lane} seg={seg} />)}
+          </tbody>
+        </table>
       </div>
 
       <p className="qn-note" style={{ marginTop: 10 }}>
@@ -181,11 +206,9 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
   );
 }
 
-function FragmentRow({ lane, seg, yearIdx, onPick }: {
+function FragmentRow({ lane, seg }: {
   lane: { 十神: string; 分组: string; 标注: string[] };
   seg: KlineSegment;
-  yearIdx: number;
-  onPick: (i: number) => void;
 }) {
   // 一条格子属于哪一年，靠标注串开头的年份定 —— 泳道与年份不另存下标，避免两处真相。
   const byYear = new Map<string, string[]>();
@@ -196,31 +219,34 @@ function FragmentRow({ lane, seg, yearIdx, onPick }: {
     if (arr) { arr.push(t.split('·').slice(2).join('·')); byYear.set(y, arr); }
   });
   return (
-    <>
-      <span className="qn-axis" data-lane={lane.十神}>{lane.十神}</span>
-      {seg.流年.map((m, i) => {
+    <tr>
+      <th scope="row" style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>
+        <span className="qn-axis" data-lane={lane.十神}>{lane.十神}</span>
+      </th>
+      {seg.流年.map(m => {
         const hits = byYear.get(m.年纪) || [];
         return (
-          <button key={m.年纪} type="button" className="qn-hit" data-lane={lane.十神} data-year={m.年纪}
-            onClick={() => onPick(i)}
-            aria-pressed={i === yearIdx}
+          // 只读格：没有 onClick、不是 button、不进 Tab 焦点序（#88）。
+          // 上一版这里是 110 个 button，每个用 ::after 把自己扩到 44px —— 分段扫实测
+          // 375px 上 110 格全部 <44，其中只有 21 格自己的中心点还归自己，另 89 格被邻居的
+          // 扩展带抢走；剩下那 21 格的 44px 四角也全解析到别人身上（miss4）。补命中区这条路
+          // 在十列网格里是走不通的，所以格子改回"读"的东西。
+          <td key={m.年纪} data-lane={lane.十神} data-year={m.年纪}
             title={hits.length ? `${m.干支}：${hits.join('、')}` : `${m.年纪} ${m.干支}：这一道无`}
-            // 不铺底色：qn-cap 的次级灰压在任何 wash 上都会掉出 AA（5% 金 wash 实测 4.33:1，
-            // 这是本项目量过三次的既有坑）。有/无只靠墨色与中点分，颜色不当第二层编码。
-            style={{
-              minHeight: 30, border: '0.5px solid var(--color-border-subtle, rgba(0,0,0,0.08))',
-              borderRadius: 8, cursor: 'pointer', padding: '2px 0', background: 'transparent',
-            }}>
+            style={{ overflowWrap: 'anywhere' }}>
             <span style={{
-              fontSize: 'var(--qn-fs-eyebrow)', lineHeight: 1.6, letterSpacing: '0.08em',
+              display: 'block', minHeight: 30, lineHeight: 1.6,
+              border: '0.5px solid var(--color-border-subtle, rgba(0,0,0,0.08))',
+              borderRadius: 8, padding: '4px 0',
               // 有 = 墨色 500，无 = 次级灰 400。不用 --color-text-muted：它在卡底只有 3.30:1，
               // 一个孤零零的中点也会被对比度扫描当成文字。
               color: hits.length ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
               fontWeight: hits.length ? 500 : 400,
+              fontSize: 'var(--qn-fs-eyebrow)', letterSpacing: '0.08em',
             }}>{hits.length ? m.干支 : '·'}</span>
-          </button>
+          </td>
         );
       })}
-    </>
+    </tr>
   );
 }

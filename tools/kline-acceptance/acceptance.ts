@@ -234,6 +234,38 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     `边界由数据给、页面照读：组件里有 view.边界.map( ${/view\.+边界\.map\(/.test(compCode)})，把声明抄进正文的有 ${copied.length} 句（抄一份就必然与数据漂移）`);
   ok('basis/stamp', male.口径戳 === KLINE_BASIS && KLINE_BASIS === 'kline-category-v1',
     `口径戳 ${KLINE_BASIS}（盘面输出里带的也是它）：改摆法必须升它，否则老截图无法区分`);
+
+  // ── 6b. #88（2026-10-19 裁定）：格子只读、选年只有年票这一条路 ──
+  // 上一版这里 110 个 button 各用 ::after 把自己扩到 44px。分段扫实测：375px 上 110 格
+  // 全部 <44，只有 21 格连自己的中心点都还归自己，那 21 格的四角又全解析到邻居身上（miss4），
+  // 另 89 格中心点直接被抢。十列网格里补命中区是走不通的，所以格子改回"读"的东西，
+  // 选年收进会换行的年票。这一组钉的是"别再长回可点元素"，不是钉我这一次的写法。
+  // FragmentRow 是这个文件的最后一个函数，截到文件尾即为它自己的函数体。
+  // （用 [\s\S]*?\n\} 会停在类型注解那行的 "\n}) {" 上 —— 实测只抓到 113 字符。）
+  const rowFn = (comp.match(/function FragmentRow[\s\S]*$/) || [''])[0];
+  const rowCode = rowFn.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok('cell/fragment-row-found', rowCode.length > 200,
+    `必须找得到画格子的那个函数（找不到下面三条全是空过）：实得 ${rowCode.length} 字符`);
+  ok('cell/read-only', /<td\s/.test(rowCode) && !/<button|onClick|role="button"|tabIndex/.test(rowCode),
+    `格子必须是不可交互的元素：<td> 在=${/<td\s/.test(rowCode)}，还能点/能聚焦的写法命中 `
+    + `${['<button', 'onClick', 'role="button"', 'tabIndex'].filter(t => rowCode.includes(t)).join('、') || '无'}`);
+  ok('cell/table-semantics', /<table[\s>]/.test(compCode) && /<th\s+scope="row"/.test(compCode)
+    && /scope="col"/.test(compCode) && /aria-describedby="kline-axis-note"/.test(compCode),
+    `只读≠不可读：表格语义齐（<table>=${/<table[\s>]/.test(compCode)}、行头=${/<th\s+scope="row"/.test(compCode)}`
+    + `、列头=${/scope="col"/.test(compCode)}、轴说明用 aria-describedby 指向那段话=`
+    + `${/aria-describedby="kline-axis-note"/.test(compCode)}）`);
+  const yearChip = (comp.match(/<button[^>]*data-tick=[\s\S]*?onClick=\{\(\) => setYearIdx\(i\)\}/) || [''])[0];
+  ok('year/chip-is-the-only-entry', yearChip.length > 40 && /minWidth: 44/.test(yearChip)
+    && /minHeight: 44/.test(yearChip) && /setYearIdx/.test(yearChip),
+    `选年的入口就是年票，且 44×44 写在票自己身上（不靠 ::after 补）：实得 ${yearChip.length} 字符`);
+  ok('year/chips-wrap-no-scroll', /flexWrap: 'wrap'/.test(compCode) && !/overflowX/.test(compCode),
+    `年票排不下就换行，不许开横向滚动：flexWrap 在=${/flexWrap: 'wrap'/.test(compCode)}，`
+    + `组件里出现 overflowX 的处数=${(compCode.match(/overflowX/g) || []).length}`);
+  ok('year/row-gap-clears-expansion', /rowGap: (1[1-9]|[2-9][0-9])/.test(compCode),
+    `会换行的 .qn-chip 容器行距必须 >10（globals.css 自己写的规矩：::after 的 44 带上下各伸 5px）：`
+    + `实得 ${/rowGap: (\d+)/.exec(compCode)?.[1] ?? '未声明'}`);
+  ok('year/copy-says-readonly', compCode.includes('格子只读'),
+    '页面上要有一句告诉用户格子不点（改了交互却不改话术，用户会以为坏了）');
 }
 
 // ── 7. 边界：只 import 引擎与两份现成函数、不联网、不新增路由/入口、零新依赖 ──
