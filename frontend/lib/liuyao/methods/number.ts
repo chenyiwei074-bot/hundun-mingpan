@@ -1,5 +1,6 @@
 import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
 import { qiGuaByNumbers, QISHU_BASIS } from '@/lib/meihua/engine';
+import { randomToken } from '@/lib/crypto/random';
 import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType } from '@/types/liuyao';
 
 /**
@@ -54,7 +55,7 @@ export function buildNumberResult(params: {
   const bianPalace = gua.bian ? getPalaceGong(gua.bian) : null;
 
   return {
-    id: 'num_' + Date.now().toString(36),
+    id: 'num_' + Date.now().toString(36) + randomToken(6),
     method: 'number',
     question: params.question,
     questionType: params.questionType,

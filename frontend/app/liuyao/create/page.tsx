@@ -148,6 +148,9 @@ export default function LiuyaoCreatePage() {
   const [commit, setCommit] = useState<CoinCommitment | null>(null);
   const commitRef = useRef<CoinCommitment | null>(null);
   const tossesRef = useRef<CoinFace[][]>([]);
+  // 结果态：六爻已齐、尚未离开本页。resultPath 是「查看结果」要去的那一盘。
+  const [resultPath, setResultPath] = useState('');
+  const [confirmReroll, setConfirmReroll] = useState(false);
   const router = useRouter();
   const [naJiaResult, setNaJiaResult] = useState<NaJiaYao[]>([]);
   const [bianNaJiaResult, setBianNaJiaResult] = useState<NaJiaYao[]>([]);
@@ -233,8 +236,11 @@ export default function LiuyaoCreatePage() {
             setBianNaJiaResult(getNaJia(gua.bian, bs, bx, bv, xk));
           } else { setBianNaJiaResult([]); }
           const result = { ...buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: tossNow, randomness: commitRef.current || undefined }), solar: toss.info };
+          // 六爻齐了先停在结果态，不直接跳走：这一盘此刻还没保存，「重新摇」才是真的
+          // 作废本盘 + 换新承诺，而不是把一份已经发出去的报告悄悄换掉。
           sessionStorage.setItem('liuyao_result', JSON.stringify(result));
-          router.push('/liuyao/result/' + result.id);
+          setResultPath('/liuyao/result/' + result.id);
+          setStep('done');
           setAutoRunning(false);
         } else {
           executeTossRound(rnd + 1, newRecs);
@@ -258,6 +264,8 @@ export default function LiuyaoCreatePage() {
     setRound(0);
     setCoins([]);
     setAnim('idle');
+    setResultPath('');
+    setConfirmReroll(false);
     setAutoRunning(true);
   };
 
@@ -273,14 +281,50 @@ export default function LiuyaoCreatePage() {
     else doNumGua();
   };
 
-  const resetAll = () => {
-    setStep('input');setRound(0);setRecords([]);setAnim('idle');setCoins([]);
-    setError('');setNumInput('');
-    setAutoRunning(false);setNaJiaResult([]);setBianNaJiaResult([]);
-    // 承诺随这一卦一起作废：留着旧 seedHash 会让下一次显示的是上一轮的承诺。
-    commitRef.current = null;tossesRef.current = [];setCommit(null);
-    if(timer.current)clearTimeout(timer.current);
-    if(autoSeq.current)clearTimeout(autoSeq.current);
+  /** 结果态里的「重新摇一卦」：作废本盘（含它那一份承诺），铸新 seed，整盘重来。
+   *  与 startAutoToss 走同一套承诺流程 —— 只有一处铸 seed 的代码，才谈得上"没有中途换 seed 的路径"。 */
+  const rerollFresh = async () => {
+    if (timer.current) clearTimeout(timer.current);
+    try { sessionStorage.removeItem('liuyao_result'); } catch { /* 隐私模式下写不进也读不出，无所谓 */ }
+    setResultPath('');
+    setConfirmReroll(false);
+    setError('');
+    const seedHex = newSeedHex();
+    const sealed = await sealSeed(seedHex);
+    if (!mounted.current) return;
+    commitRef.current = sealed;
+    tossesRef.current = tossesFromSeed(seedHex);
+    setCommit(sealed);
+    setRecords([]);
+    setRound(0);
+    setCoins([]);
+    setAnim('idle');
+    setNaJiaResult([]);
+    setBianNaJiaResult([]);
+    setStep('tossing');
+    setAutoRunning(true);
+  };
+
+  /** resetAll 与它同源：回输入态同样要把承诺与掷钱结果一起清掉，不留上一盘的 seedHash。 */
+  const startOver = () => {
+    if (timer.current) clearTimeout(timer.current);
+    try { sessionStorage.removeItem('liuyao_result'); } catch { /* 同上 */ }
+    commitRef.current = null;
+    tossesRef.current = [];
+    setCommit(null);
+    setResultPath('');
+    setConfirmReroll(false);
+    setStep('input');
+    setRound(0);
+    setRecords([]);
+    setAnim('idle');
+    setCoins([]);
+    setError('');
+    setNumInput('');
+    setAutoRunning(false);
+    setNaJiaResult([]);
+    setBianNaJiaResult([]);
+    if (autoSeq.current) clearTimeout(autoSeq.current);
   };
 
   useEffect(() => {
@@ -450,7 +494,7 @@ export default function LiuyaoCreatePage() {
     </>)}
 
     {/* ── STEP 3: TOSSING ── */}
-    {step==='tossing'&&(<section className="qn-ink qn-rise"
+    {(step==='tossing'||step==='done')&&(<section className="qn-ink qn-rise"
       style={{padding:'22px 24px 24px',display:'flex',flexDirection:'column',
         minHeight:'max(480px, calc(100vh - 160px))'}}>
 
@@ -515,6 +559,30 @@ export default function LiuyaoCreatePage() {
           })}
         </div>
       </div>
+      {/* 结果态才有的两个动作：摇卦进行中（step==='tossing'）这一整块根本不在 DOM 里，
+          所以"中途换 seed"不是被禁用，是没有入口。 */}
+      {step==='done' && (
+        <div style={{borderTop:'0.5px solid rgba(255,255,255,0.12)',paddingTop:16,display:'grid',gap:10}}>
+          <button type="button" className="qn-btn qn-btn--solid" onClick={() => router.push(resultPath)}>
+            查看结果 <span aria-hidden="true">→</span>
+          </button>
+          {!confirmReroll ? (
+            <button type="button" className="qn-btn qn-btn--ghost" onClick={() => setConfirmReroll(true)}>
+              重新摇一卦（作废本盘，换新承诺）
+            </button>
+          ) : (
+            <>
+              <button type="button" className="qn-btn qn-btn--solid" onClick={() => void rerollFresh()}>确认作废并重摇</button>
+              <button type="button" className="qn-btn qn-btn--quiet" onClick={() => setConfirmReroll(false)}>取消</button>
+            </>
+          )}
+        </div>
+      )}
+      {step==='done' && confirmReroll && (
+        <p className="qn-note" style={{textAlign:'center',margin:'10px 0 0'}}>
+          确认后这一盘连同它那一份承诺一起丢弃（还没保存，不会进你的报告），并铸一份新 seed 从头摇。
+        </p>
+      )}
     </section>)}
 
     <style jsx global>{`@keyframes coinSpin3D{0%{transform:rotateY(0deg);animation-timing-function:cubic-bezier(0.15,0.85,0.25,1)}100%{transform:rotateY(1800deg)}}@keyframes coinFlip3D{0%{transform:rotateY(0deg)}25%{transform:rotateY(90deg)}50%{transform:rotateY(180deg)}75%{transform:rotateY(270deg)}100%{transform:rotateY(360deg)}}`}</style>

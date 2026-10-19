@@ -1,4 +1,5 @@
 ﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
+import { randomToken } from '@/lib/crypto/random';
 import type { LiuyaoResult, YaoRecord, CoinCommitment, QuestionType, NaJiaYao } from '@/types/liuyao';
 
 export function buildCoinResult(params: {
@@ -30,7 +31,7 @@ export function buildCoinResult(params: {
   const bianGong = gua.bian ? getPalaceGong(gua.bian) : null;
 
   return {
-    id: 'coin_'+Date.now().toString(36),
+    id: 'coin_' + Date.now().toString(36) + randomToken(6),
     method: 'coin',
     question,
     questionType,

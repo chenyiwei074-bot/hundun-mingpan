@@ -158,6 +158,16 @@ export function projectPlate(result: LiuyaoResult): Record<string, unknown> {
   return out;
 }
 
+/** 盘身取摘要时喂进去的东西。v2 起 **不含 id**：id 是客户端现铸的定位符
+ *  （'coin_' + Date.now + 随机后缀），把它算进承诺会让同一盘两次回执得到两个 plateHash，
+ *  用户重开一次就"内容变了"。v1 仍按含 id 的旧规则算 —— 已发出的 v1 回执与已入台账的
+ *  leaf 不能因为这条改动作废，所以规则按版本分叉，不做"顺手统一"。 */
+export function plateForDigest(plate: Record<string, unknown>, version: string): Record<string, unknown> {
+  if (version !== RECEIPT_VERSION_V2) return plate;
+  const { id, ...rest } = plate;
+  return rest;
+}
+
 export async function buildPlateReceipt(
   result: LiuyaoResult,
   opts?: { salt?: string; nowUTC?: string; basis?: Record<string, string> },
@@ -170,13 +180,14 @@ export async function buildPlateReceipt(
     najia: result.najiaBasis || '未标注',
     qishu: result.qiShu?.version || '不适用',
   };
-  const plateHash = await sha256Hex(canonical(plate));
-  const subjectHash = await sha256Hex(canonical({ salt, question: result.question, questionType: result.questionType }));
   // 只有铜钱摇卦带承诺：时间与报数是确定性输入，给它们编一个 seed 是装样子。
   const randomness = result.method === 'coin' ? result.randomness : undefined;
+  const version = randomness ? RECEIPT_VERSION_V2 : RECEIPT_VERSION_V1;
+  const plateHash = await sha256Hex(canonical(plateForDigest(plate, version)));
+  const subjectHash = await sha256Hex(canonical({ salt, question: result.question, questionType: result.questionType }));
 
   const core: ReceiptCore = {
-    version: randomness ? RECEIPT_VERSION_V2 : RECEIPT_VERSION_V1,
+    version,
     kind: 'liuyao-plate',
     method: result.method,
     castAtLocal: local,
@@ -251,7 +262,7 @@ export async function verifyReceipt(
   push('version', known, known
     ? `回执版本 ${version}（${version === RECEIPT_VERSION_V2 ? '内核含随机承诺' : '承诺之前的格式'}）`
     : `回执版本 ${version || '缺失'}，本站只认 ${RECEIPT_VERSIONS.join(' / ')}`);
-  const plateNow = await sha256Hex(canonical(receipt.plate));
+  const plateNow = await sha256Hex(canonical(plateForDigest(receipt.plate, receipt.core?.version)));
   push('plateHash', plateNow === receipt.core.plateHash, `盘身重算 ${plateNow.slice(0, 18)}… vs 回执 ${receipt.core.plateHash.slice(0, 18)}…`);
 
   if (opts?.question !== undefined) {
