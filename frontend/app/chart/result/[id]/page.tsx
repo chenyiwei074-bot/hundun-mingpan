@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { getChartResult } from '@/app/lib/api';
 import ChartOverview from '@/components/chart/ChartOverview';
 import BaziCard from '@/components/chart/BaziCard';
+import ScenarioMatrix from '@/components/bazi/ScenarioMatrix';
 import ZiweiCard from '@/components/chart/ZiweiCard';
 import DoubleVerify from '@/components/chart/DoubleVerify';
 import { saveReport } from '@/lib/report/saveReport';
@@ -159,6 +160,9 @@ export default function ChartResultPage() {
         <DoubleVerify chartData={enrichedChartData} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
         <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />
+        {/* 无条件挂载：四柱不齐时组件自己走降级分支（说明 + /create），不在页面里玩条件渲染 ——
+            整节静悄悄消失，用户分不清是"这站没这功能"还是"我的盘没算出来"。 */}
+        <ScenarioMatrix chart={enrichedChartData.bazi} />
 
         {/* AI 解读卡：盘面先出，这一栏按状态机给话。没有百分比、没有「预计 X 秒」——
             免费模型的耗时实测 94–116 秒但随负载浮动，编一个进度条就是撒谎。 */}

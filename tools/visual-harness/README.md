@@ -26,6 +26,7 @@ node tools/visual-harness/census.mjs \
 
 六爻结果态不需要任何 flag：四张 fixture 已随仓库提交，路径有默认值
 （`tools/visual-harness/fixtures/`），不带参数也测得到。
+八字结果态同理，`--stub` 下测两张：完整盘 + 无四柱盘（降级那一支）。
 
 浏览器找不到时显式给路径，支持逗号分隔候选表（第一个存在的胜出），也可用 `QN_CHROME`：
 
@@ -39,7 +40,8 @@ node tools/visual-harness/census.mjs \
 | `--out` | 证据目录，默认 `.visual-harness` |
 | `--chart-id` / `--report-id` | 动态路由用的真实 id |
 | `--stub` | 本地无 API 时用 fixture 顶替 fetch |
-| `--chart-fixture=<file>` | `--stub` 下渲染 `/chart/result` 所需的 `chart_preview` dump |
+| `--chart-fixtures=<dir>` | 八字两张盘所在目录，默认 `tools/visual-harness/fixtures` |
+| `--chart-fixture=<file>` | 只覆盖完整那张盘（临时换一张用；`--stub` 下才起作用） |
 | `--liuyao-fixtures=<dir>` | 六爻四张盘所在目录，默认 `tools/visual-harness/fixtures` |
 | `--liuyao-fixture=<file>` | 只覆盖摇卦那一张（临时拿另一张盘调试用） |
 | `--only=home,legal` | 按 tag 或 url 片段过滤 |
@@ -54,9 +56,26 @@ id 从哪来：harness **只 GET 页面**，不建命盘、不下单、不点按
 **不要用 `--stub` 判定任何一次上线是否合格**。
 
 `--chart-fixture`：`/chart/result` 的数据在真实流程里来自上一个页面写进
-sessionStorage 的 `chart_preview`。本地要测这个态，先在浏览器里跑一次流程，
-DevTools 执行 `copy(sessionStorage.getItem('chart_preview'))` 存成文件再传进来。
-仓库里不放任何命盘数据（含示例），所以这一步必须现场做。
+sessionStorage 的 `chart_preview`。现在不必现场抓了 —— 两张合成盘随仓库提交，
+由 `tools/visual-harness/make-chart-fixture.ts` 用站点引擎排出来（判据取自
+`tools/bazi-acceptance/cases/bazi-validation-v1.json` 那条公开用例，不是从盘面抄的）：
+
+| tag | 文件 | 测的是哪一态 |
+| --- | --- | --- |
+| `chart-result` | `fixtures/chart-result.json` | 完整盘（戊辰 己未 辛未 乙未）：四柱行 + 「场景矩阵」11 行 |
+| `chart-result-empty` | `fixtures/chart-result-no-sizhu.json` | 同一张盘只摘掉 `chart.bazi.siZhu` → 无盘降级那一支（说明 + /create，一行矩阵都不许出） |
+
+```bash
+# 重新生成（要带 --check 前先跑这个）
+NODE_PATH="$PWD/frontend/node_modules" node server/node_modules/tsx/dist/cli.mjs \
+  --tsconfig=frontend/tsconfig.json tools/visual-harness/make-chart-fixture.ts
+# 只验不写：committed 与现排逐字节比；八字半边变了 = DRIFT，只有紫微当前大限随年漂 = STALE
+NODE_PATH="$PWD/frontend/node_modules" node server/node_modules/tsx/dist/cli.mjs \
+  --tsconfig=frontend/tsconfig.json tools/visual-harness/make-chart-fixture.ts --check
+```
+
+规则与六爻那四张一样：**不许手改 fixture 文件**；`--chart-fixture=<file>` 仍保留，
+用来临时顶替完整那一张（现场抓的真实盘也可以用这条路径进来）。
 
 `--liuyao-fixtures`：`/liuyao/result/[id]` 的盘只从 sessionStorage 的 `liuyao_result` 读，
 **不请求 API**，所以 `--liuyao-id` 从来画不出结果态（它落到「未找到卦象数据」空态，然后被
