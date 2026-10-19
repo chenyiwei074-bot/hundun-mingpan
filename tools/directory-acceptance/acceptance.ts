@@ -9,7 +9,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
-import { CATALOG_STAMPS, CLOSED_TOOLS, INTENT_ENTRIES, INTENTS, LIUYAO_BASIS_TEXT, LIVE_HREFS } from '../../frontend/lib/tools/catalog';
+import { CATALOG_STAMPS, CLOSED_TOOLS, HOME_FEATURED_SLUGS, INTENT_ENTRIES, INTENTS, LAUNCHER_SLUGS, LIUYAO_BASIS_TEXT, LIVE_HREFS, TOOLS_INDEX, TOOL_BY_SLUG, homeCard } from '../../frontend/lib/tools/catalog';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -147,18 +147,72 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('home/intent-entries-complete', JSON.stringify(got) === JSON.stringify(want) && INTENT_ENTRIES.every(e => routeExists(e.href)),
     `首页首屏的四类意图入口齐备且可达：${INTENT_ENTRIES.map(e => `${e.intent}→${e.href}`).join('  ')}`);
   const home = readFileSync(join(APP, 'page.tsx'), 'utf8');
-  ok('home/intents-come-from-catalog', /import\s*\{\s*INTENT_ENTRIES\s*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
+  ok('home/intents-come-from-catalog', /import\s*\{[^}]*\bINTENT_ENTRIES\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
     /INTENT_ENTRIES\.map/.test(home),
-    '首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是首页里再抄一份）');
-  const lists = ['const ENGINES', 'const LAUNCHER', 'INTENT_ENTRIES'].filter(k => home.includes(k));
-  say(`MEASURED 首页目前还并存 ${lists.length} 份工具清单（${lists.join('、')}）：本批只把首屏四类接到 catalog 上，` +
-    `核心引擎区与启动器轨道仍是各自硬编码，三者会各自漂移 —— 统一成一份是下一批的事，不当已完成`);
+    '首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是首页里再抄一份）；import 里允许并列其它 catalog 名字，@/lib/tools/catalog 之外不许再有第二个来源');
   const visitor = readFileSync(join(APP, '..', 'lib', 'auth', 'visitor.ts'), 'utf8');
   const create = readFileSync(join(APP, 'create', 'page.tsx'), 'utf8');
   ok('visitor/id-single-source', /export function getVisitorId/.test(visitor) &&
     /import\s*\{\s*getVisitorId\s*\}\s*from '@\/lib\/auth\/visitor'/.test(create) &&
     !/function getVisitorId/.test(create) && !/hundun_visitor_id/.test(create),
     '游客 id 只有 lib/auth/visitor 一份生成器，create 页 import 它（它是报告归属凭据，不该有两个出处）');
+}
+
+// ── 8. 首页三份清单合成一份（裁定 (a)）：核心引擎区与启动器轨道只准按 slug 引用目录 ──
+{
+  const raw = readFileSync(join(APP, 'page.tsx'), 'utf8');
+  const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
+
+  ok('home/lists-import-catalog',
+    /import\s*\{[^}]*HOME_FEATURED_SLUGS[^}]*LAUNCHER_SLUGS[^}]*homeCard[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code) &&
+    /HOME_FEATURED_SLUGS\s*\n?\s*\.map/.test(code) && /LAUNCHER_SLUGS\s*\n?\s*\.map/.test(code),
+    '首页两份清单必须是「slug 列表 → homeCard(slug)」的形状，名字/说明/入口不能自己写');
+
+  const hrefLits = code.match(/href\s*:\s*['"]\/[^'"]*['"]/g) || [];
+  const titleLits = code.match(/title\s*:\s*['"][^'"]*['"]/g) || [];
+  const descLits = code.match(/desc\s*:\s*['"][^'"]*['"]/g) || [];
+  ok('home/no-second-tool-list', hrefLits.length === 0 && titleLits.length === 0 && descLits.length === 0,
+    `首页不留第二份工具清单：硬编码的 href/title/desc 字段必须为 0 处（实得 ${[...hrefLits, ...titleLits, ...descLits].length} 处：${[...hrefLits, ...titleLits, ...descLits].join(' | ') || '无'}）`);
+
+  const slugs = ALL_TOOLS.map(t => t.slug);
+  ok('catalog/slug-unique', new Set(slugs).size === slugs.length && slugs.every(s => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(s)) && !slugs.includes(TOOLS_INDEX.slug),
+    `slug 是首页引用条目的唯一 key，必须齐备、小写连字符、互不重复，且不与目录页那一格（${TOOLS_INDEX.slug}）撞名：${slugs.join(' ')}`);
+
+  const cards = [...new Set([...HOME_FEATURED_SLUGS, ...LAUNCHER_SLUGS])].map(s => [s, homeCard(s)] as const);
+  const unresolved = cards.filter(([, c]) => c === null).map(([s]) => s);
+  ok('home/slug-lists-resolve', unresolved.length === 0 && HOME_FEATURED_SLUGS.length > 0 && LAUNCHER_SLUGS.length > 0,
+    `首页两份 slug 清单逐条解析得到卡片（解析不到的会被 .filter 静默丢掉，页面只是少一张卡，所以只能在这里红）：解析失败 ${unresolved.join('、') || '0 个'}；核心 ${HOME_FEATURED_SLUGS.length} 行 / 启动器 ${LAUNCHER_SLUGS.length} 格`);
+
+  const badHref = cards.filter(([, c]) => c && c.href && !routeExists(c.href)).map(([s, c]) => `${s}→${c!.href}`);
+  ok('home/cards-route', badHref.length === 0,
+    `首页每一张卡的入口都指向 app/**/page.tsx 真实存在的路由：断链 ${badHref.join(' | ') || '0 个'}`);
+
+  const leaked = HOME_FEATURED_SLUGS.filter(s => homeCard(s)?.href && TOOL_BY_SLUG[s]?.status === '未开放')
+    .concat(LAUNCHER_SLUGS.filter(s => homeCard(s)?.href && TOOL_BY_SLUG[s]?.status === '未开放'));
+  ok('home/unopen-never-linked', leaked.length === 0,
+    `未开放条目经 homeCard 之后一律拿不到 href（首页的「无链接、无按钮」靠的是这一道闸门，不是页面里再判一次状态）：违规 ${leaked.join('、') || '0 个'}`);
+
+  const thin = cards.filter(([, c]) => c && (c.title.length > 10 || c.teaser.length < 12 || c.teaser.length > 64))
+    .map(([s, c]) => `${s}(题 ${c!.title.length} 字 / 说 ${c!.teaser.length} 字)`);
+  ok('home/short-fields-fit', thin.length === 0,
+    `标题 ≤10 字、说明 12–64 字：卡片标题位与 375px 窄屏放不下目录页那种全名，超限会把行折坏 —— 该用短名，不是把字号调小：${thin.join(' | ') || '全部合格'}`);
+
+  const skinStart = raw.indexOf('const SKIN');
+  const skinBlock = skinStart < 0 ? '' : raw.slice(skinStart, raw.indexOf('};', skinStart));
+  const skins: Record<string, string> = {};
+  for (const m of skinBlock.matchAll(/['"]([a-z0-9-]+)['"]\s*:\s*\{([^}]*)\}/g)) skins[m[1]] = m[2];
+  const noZi = [...new Set([...HOME_FEATURED_SLUGS, ...LAUNCHER_SLUGS])].filter(s => !/zi\s*:/.test(skins[s] || ''));
+  const openFeatured = HOME_FEATURED_SLUGS.filter(s => homeCard(s)?.href);
+  const noGo = openFeatured.filter(s => !/go\s*:/.test(skins[s] || ''));
+  ok('home/skin-covers-lists', noZi.length === 0 && noGo.length === 0,
+    `展示层每个被引用的 slug 都要有刻字，已开放的核心行还要有按钮文案（缺了会渲染成空格子或空链接文字）：缺字 ${noZi.join('、') || '0 个'} / 缺按钮文案 ${noGo.join('、') || '0 个'}`);
+
+  const soonNames = (code.match(/\{\s*t:\s*["']([^"']+)["']/g) || []).map(s => s.replace(/.*t:\s*["']/, '').replace(/["']$/, ''));
+  const overlap = soonNames.filter(n => ALL_TOOLS.some(t => t.name.includes(n) || t.title === n));
+  ok('home/soon-no-overlap', soonNames.length > 0 && overlap.length === 0,
+    `「更多即将上线」只能预告目录里没有的东西：目录只描述已实现，未开放的术数不许在这里当预告卖，已开放的也不许在这里再列一遍（重叠 ${overlap.join('、') || '0 个'}；预告 ${soonNames.join('、')}）`);
+  say(`MEASURED 「即将上线」那一格（${soonNames.join('、')}）仍是首页自己写的路线声明，不属于本批统一范围 —— ` +
+    `它不与任何目录条目重叠，所以既不会与目录漂移，也不会给未做的功能留假入口`);
 }
 
 const summary = `directory acceptance: tools=${ALL_TOOLS.length} open=${OPEN.length} pass=${pass} fail=${fail}`;

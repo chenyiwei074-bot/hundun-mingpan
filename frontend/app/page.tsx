@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { INTENT_ENTRIES } from '@/lib/tools/catalog';
+import { HOME_FEATURED_SLUGS, INTENT_ENTRIES, LAUNCHER_SLUGS, homeCard } from '@/lib/tools/catalog';
+import type { HomeCard } from '@/lib/tools/catalog';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -375,28 +376,31 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="eyebrow">{children}</p>;
 }
 
-type Engine = { title: string; desc: string; href?: string; go?: string; pv: 'liuyao' | 'meihua' | 'xiu' | 'hepan' | 'zeri' };
+/** 首页只留版式：每个 slug 用哪张示意图、启动器刻哪个字、按钮写什么。
+ *  工具名、一句话说明、有没有入口，全部来自 lib/tools/catalog —— 首页不再自己抄一份，
+ *  两份清单各自漂移（梅花那行原来就跟目录页写法不同）由 tools/directory-acceptance 判红。 */
+type Skin = { pv?: 'liuyao' | 'meihua' | 'xiu' | 'hepan' | 'zeri'; zi: string; go?: string };
 
-const ENGINES: Engine[] = [
-  { title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。', href: '/liuyao', go: '开始问卦', pv: 'liuyao' },
-  { title: '梅花易数', desc: '年月日时、报数成卦。体用为纲，本卦互卦变卦一气看完，即时取断。', href: '/meihua', go: '即物起卦', pv: 'meihua' },
-  { title: '二十八宿', desc: '生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。', href: '/xiu', go: '查本命宿', pv: 'xiu' },
-  { title: '姓名合盘', desc: '未做。五格剖象与站内引擎不同源，口径与来源未定；右侧只是版式示意，不是结果。', pv: 'hepan' },
-  { title: '黄历宜忌', desc: '逐日宜忌、吉神凶煞、冲煞胎神、建除黄黑道。通书原样转录，一日一换。', href: '/huangli', go: '查今日', pv: 'zeri' },
-];
+const SKIN: Record<string, Skin> = {
+  'liuyao':      { pv: 'liuyao', zi: '爻', go: '开始问卦' },
+  'meihua':      { pv: 'meihua', zi: '梅', go: '即物起卦' },
+  'xiu-benming': { pv: 'xiu',    zi: '宿', go: '查本命宿' },
+  'xingming':    { pv: 'hepan',  zi: '合' },
+  'huangli':     { pv: 'zeri',   zi: '历', go: '查今日' },
+  'bazi':        { zi: '命' },
+  'tools':       { zi: '箱' },
+};
+
+const rowSkin = (slug: string): Skin => SKIN[slug] ?? { zi: '?' };
+
+const ENGINES: (HomeCard & Skin)[] = HOME_FEATURED_SLUGS
+  .map(s => { const c = homeCard(s); return c ? { ...c, ...rowSkin(s) } : null; })
+  .filter((x): x is HomeCard & Skin => !!x);
 
 /** 启动器轨道：没有 href 的卡片就是未开放，按目录页同一套做法渲染（无链接、无按钮、写明原因）。 */
-type LauncherCard = { href?: string; zi: string; title: string; desc: string; tag?: string };
-
-const LAUNCHER: LauncherCard[] = [
-  { href: '/create', zi: '命', title: '八字 & 紫微', desc: '四柱天干地支 + 十二宫排盘。大运流年、主星四化，一盘双参。' },
-  { href: '/liuyao', zi: '爻', title: '六爻问卦', desc: '金钱起卦，六爻纳甲。世应用神，一事一问，即时断卦。' },
-  { href: '/meihua', zi: '梅', title: '梅花易数', desc: '年月日时或报数成卦，体用生克为纲，本互变三卦一气看完。' },
-  { href: '/xiu', zi: '宿', title: '二十八宿', desc: '生日落在哪一宿。通书值日循环 28 日一周，四象七曜，逐日可核。' },
-  { href: '/huangli', zi: '历', title: '黄历宜忌', desc: '逐日宜忌、吉神凶煞、冲煞胎神、建除黄黑道。通书原样转录，一日一换。' },
-  { href: '/tools', zi: '箱', title: '玄学百宝箱', desc: '按「问什么」找工具：每个工具写明方法、取数口径与结果怎么读。' },
-  { zi: '合', title: '姓名合盘', desc: '未做。五格剖象与站内引擎不同源，口径与来源未定，不留假入口。', tag: '未开放' },
-];
+const LAUNCHER: (HomeCard & Skin)[] = LAUNCHER_SLUGS
+  .map(s => { const c = homeCard(s); return c ? { ...c, ...rowSkin(s) } : null; })
+  .filter((x): x is HomeCard & Skin => !!x);
 
 const SOON = [
   { t: "星座命盘", d: "西方占星 · 本命盘与合盘" },
@@ -532,7 +536,7 @@ export default function HomePage() {
 
           <div className="core-rows">
             {ENGINES.map(e => (
-              <div key={e.title} className="core-row">
+              <div key={e.slug} className="core-row">
                 <div className="row-pv">
                   {e.pv === 'liuyao' && <LiuYaoPreview />}
                   {e.pv === 'meihua' && <MeiHuaPreview />}
@@ -542,7 +546,7 @@ export default function HomePage() {
                 </div>
                 <div className="row-copy">
                   <h3 className="h3">{e.title}</h3>
-                  <p className="body muted">{e.desc}</p>
+                  <p className="body muted">{e.teaser}</p>
                   {e.href
                     ? <Link href={e.href} className="text-link">{e.go} <span aria-hidden="true">→</span></Link>
                     : <span className="tag">未开放</span>}
@@ -607,7 +611,7 @@ export default function HomePage() {
               {/* data-vh-scroll：这条横向轨永远溢出容器（7 张卡 × 100%），显式声明它的可滚动
                   凭据是左右两个箭头按钮，视觉验收 harness 据此放行；没有声明的溢出会被判失败。 */}
               <div id="ls" className="sheet-track" data-vh-scroll="arrows">
-                {LAUNCHER.map((item, i) => {
+                {LAUNCHER.map(item => {
                   const body = (
                     <>
                       <svg viewBox="0 0 72 72" className="sheet-zi">
@@ -615,8 +619,8 @@ export default function HomePage() {
                         <text x="36" y="50" textAnchor="middle" fill={goldDeep} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
                       </svg>
                       <h3 className="h3 sheet-name">{item.title}</h3>
-                      {item.tag ? <span className="tag">{item.tag}</span> : <span className="sheet-rule" />}
-                      <p className="body muted sheet-desc">{item.desc}</p>
+                      {item.href ? <span className="sheet-rule" /> : <span className="tag">未开放</span>}
+                      <p className="body muted sheet-desc">{item.teaser}</p>
                       <span className={item.href ? 'sheet-go' : 'sheet-go is-dim'}>
                         {item.href ? '进入' : '未开放'}
                         {item.href && <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>}
@@ -624,8 +628,8 @@ export default function HomePage() {
                     </>
                   );
                   return item.href
-                    ? <Link key={i} href={item.href} onClick={() => setShowLauncher(false)} className="sheet-item">{body}</Link>
-                    : <div key={i} className="sheet-item is-soon" aria-disabled="true">{body}</div>;
+                    ? <Link key={item.slug} href={item.href} onClick={() => setShowLauncher(false)} className="sheet-item">{body}</Link>
+                    : <div key={item.slug} className="sheet-item is-soon" aria-disabled="true">{body}</div>;
                 })}
               </div>
 
