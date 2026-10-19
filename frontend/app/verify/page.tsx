@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { RECEIPT_VERSION, verifyReceipt } from '@/lib/receipt/receipt';
+import { RECEIPT_VERSIONS, verifyReceipt } from '@/lib/receipt/receipt';
 import type { Receipt, VerifyCheck } from '@/lib/receipt/receipt';
 
 // 站内验真：把下载到的回执 JSON 贴进来或选文件，全部在浏览器本地重算摘要比对。
@@ -28,7 +28,7 @@ export default function VerifyPage() {
       return;
     }
     if (!parsed?.core || !parsed?.recordHash) {
-      setError(`缺 core 或 recordHash，不是 ${RECEIPT_VERSION} 形状的回执。`);
+      setError(`缺 core 或 recordHash，不是本站认得的回执形状（${RECEIPT_VERSIONS.join(' / ')}）。`);
       return;
     }
     try {
@@ -58,7 +58,7 @@ export default function VerifyPage() {
           style={{ marginTop: 8 }} onChange={e => { void onFile(e.target.files?.[0]); }} />
         <label className="qn-label" htmlFor="rv-text" style={{ display: 'block', marginTop: 16 }}>或直接粘贴内容</label>
         <textarea id="rv-text" className="qn-textarea" rows={7} style={{ marginTop: 8, width: '100%' }}
-          placeholder='{"core":{"version":"hundun-receipt-v1", … }}'
+          placeholder='{"core":{"version":"hundun-receipt-v2", … }}'
           value={text} onChange={e => setText(e.target.value)} />
         <label className="qn-label" htmlFor="rv-q" style={{ display: 'block', marginTop: 16 }}>当初问的事（选填）</label>
         <input id="rv-q" className="qn-input" style={{ marginTop: 8, width: '100%' }} value={question}
@@ -83,8 +83,13 @@ export default function VerifyPage() {
           <div style={{ marginTop: 14, display: 'grid', gap: 8 }}>
             {result.checks.map(c => (
               <div key={c.field} className="qn-row" style={{ alignItems: 'flex-start', gap: 10 }}>
-                <span className="qn-axis" style={{ flex: '0 0 84px', color: c.ok ? 'var(--color-ji)' : 'var(--color-xiong)' }}>
-                  {c.ok ? '通过' : '不通过'}
+                {/* 三态而不是两态：没测过的东西标成绿色「通过」就是在骗人，标成红色又是在谎报篡改。
+                    金色是站里既有的中性强调墨色（次要灰在卡底只有 4.48:1，过不了 AA）。 */}
+                <span className="qn-axis" style={{
+                  flex: '0 0 84px',
+                  color: c.na ? 'var(--color-accent-gold-text)' : c.ok ? 'var(--color-ji)' : 'var(--color-xiong)',
+                }}>
+                  {c.na ? '未复核' : c.ok ? '通过' : '不通过'}
                 </span>
                 <span className="qn-meta" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
                   <strong>{c.field}</strong> · {c.detail}
@@ -104,8 +109,13 @@ export default function VerifyPage() {
 
       <section className="qn-legal" style={{ marginTop: 24 }}>
         <h2>这页能证明什么，不能证明什么</h2>
-        <p>能证明：你手上这份回执的内容自洽，改任何一个字都会红；以及它记录的是哪一盘、哪一刻、用哪套口径（{RECEIPT_VERSION}）。</p>
-        <p>不能证明：这一盘真的由某次掷钱产生（随机源承诺属另一批），也不能证明解读正确。回执里没有原始问题与生辰，问题只以带盐摘要存在，因此只有本人事后重填原文才能复核那一项。</p>
+        <p>能证明：你手上这份回执的内容自洽，改任何一个字都会红；以及它记录的是哪一盘、哪一刻、用哪套口径（{RECEIPT_VERSIONS.join(' / ')}）。</p>
+        <p>v2 的铜钱卦还能多证明一层：这六个爻值确实由掷钱之前锁定的那个 seed 派生 —— seedHash、18 个 bit
+          与盘上爻值三处互相咬合，改任何一处都会红。这就是 commit-reveal 能给的全部。</p>
+        <p>不能证明：掷钱这个动作真的在物理世界里发生过；也不能证明你在揭晓之前没有整盘重来过 ——
+          重来就是新 seed、新承诺，只有最后揭晓的那一份会进回执。要证「承诺早于结果」得把 seedHash 也送进每日台账，
+          那是另一件事。解读正确与否同样不在证明范围内。回执里没有原始问题与生辰，问题只以带盐摘要存在，
+          因此只有本人事后重填原文才能复核那一项。</p>
         <p>
           <Link href="/liuyao/create" className="qn-link">去起卦</Link>
           {' · '}

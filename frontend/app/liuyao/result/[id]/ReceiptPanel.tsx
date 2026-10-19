@@ -42,6 +42,17 @@ export default function ReceiptPanel({ result, reportText }: { result: LiuyaoRes
     }
   };
 
+  const rnd = plate?.core.randomness;
+  // 有承诺时多列一行 seedHash：它是揭晓前唯一公布过的东西，用户自己也要能看见。
+  const rows: [string, string][] = plate
+    ? [
+        ['卦盘摘要', plate.core.plateHash],
+        ...(rnd ? [['随机承诺', rnd.seedHash] as [string, string]] : []),
+        ['问题摘要', plate.core.subjectHash],
+        ['回执编号', plate.recordHash],
+      ]
+    : [];
+
   return (
     <section className="qn-card" style={{ marginBottom: 16, padding: '22px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -67,8 +78,7 @@ export default function ReceiptPanel({ result, reportText }: { result: LiuyaoRes
       {plate && (
         <>
           <div style={{ marginTop: 14, display: 'grid', gap: 6 }}>
-            {([['卦盘摘要', plate.core.plateHash], ['问题摘要', plate.core.subjectHash], ['回执编号', plate.recordHash]] as const)
-              .map(([k, v]) => (
+            {rows.map(([k, v]) => (
                 <div key={k} className="qn-row" style={{ gap: 10 }}>
                   <span className="qn-axis" style={{ flex: '0 0 auto' }}>{k}</span>
                   <span className="qn-meta" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{v}</span>
@@ -87,6 +97,21 @@ export default function ReceiptPanel({ result, reportText }: { result: LiuyaoRes
               ? '解读比卦盘晚生成，所以另封一份并用 parentHash 指回卦盘，不把两个时间点伪造成一条记录。'
               : '本次未生成解读；先生成解读再下载，会另出一份解读回执。'}
           </p>
+          {/* 随机承诺的边界照实写：能证明什么、不能证明什么，都按上限说。 */}
+          {rnd ? (
+            <p className="qn-cap" style={{ marginTop: 8 }}>
+              随机承诺（{rnd.schema}）：首掷之前先锁定 seed，六个爻值全部由它派生，bit 串 {rnd.bits}
+              （1=花 0=字，六轮各三枚）连同 seed 一起进回执，/verify 双向核对 seedHash 与爻值重放。
+              它证明「这一盘与事先的承诺对得上、事后没被改过」；不证明掷钱这个动作真的发生过，
+              也管不到揭晓之前的整盘重来 —— 重来就是新 seed、新承诺，只有最后揭晓的这一份进回执。
+            </p>
+          ) : (
+            <p className="qn-cap" style={{ marginTop: 8 }}>
+              {plate.core.method === 'coin'
+                ? '这一盘没有随机承诺：起卦时未锁定 seed（承诺功能上线前的盘），爻值与随机源之间无从核对，回执只证明盘身自洽。'
+                : '这一盘没有随机承诺，也不需要：时间与报数起卦是确定性输入，取数过程已在盘面上逐步列出。'}
+            </p>
+          )}
         </>
       )}
     </section>

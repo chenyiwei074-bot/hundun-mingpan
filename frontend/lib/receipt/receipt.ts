@@ -11,9 +11,20 @@
 //
 // 摘要算法：SHA-256，走 Web Crypto（浏览器）与 node:crypto 双向对拍，零新依赖。
 
-import type { LiuyaoResult } from '@/types/liuyao';
+import type { LiuyaoResult, CoinCommitment } from '@/types/liuyao';
+import { bitsFromSeedHex } from '@/lib/crypto/random';
+import { COIN_COMMIT_BITS, calcYao, tossesFromSeed } from '@/lib/liuyao/methods/coinFaces';
 
-export const RECEIPT_VERSION = 'hundun-receipt-v1';
+/** v1 = 没有随机承诺的那套内核；v2 = 内核里多一个 randomness。
+ *  两版共用同一套规范化与摘要规则，只差那一个字段，所以旧回执按 v1 重算仍是同一个 hash。 */
+export const RECEIPT_VERSION_V1 = 'hundun-receipt-v1';
+export const RECEIPT_VERSION_V2 = 'hundun-receipt-v2';
+/** 出盘时按内容挑版本：没有承诺就用 v1，不为了"看起来新"把同一盘的重算 hash 换掉。 */
+export const RECEIPT_VERSION = RECEIPT_VERSION_V1;
+export const RECEIPT_VERSIONS = [RECEIPT_VERSION_V1, RECEIPT_VERSION_V2] as const;
+
+/** 随机承诺的派生口径戳：seed 取 bit 的方式、bit→面值→爻值的对应关系。 */
+export const COIN_COMMIT_SCHEMA = 'coin-commit-v1';
 export const RECEIPT_ANCHOR_STATE_UNANCHORED = '未锚定';
 
 /** 盘身白名单：逐条对应 LiuyaoResult 的键。新增键时下面那行类型检查会先报错。 */
@@ -23,8 +34,10 @@ export const PLATE_FIELDS = [
   'benGua', 'bianGua', 'yaoRecords', 'naJia', 'bianNaJia', 'dongYao', 'shiYing', 'liuShen',
 ] as const;
 
-/** 明确不进回执的键 —— 写出来，免得以后有人以为是漏掉了。 */
-export const PLATE_EXCLUDED = ['question'] as const;
+/** 明确不进盘身投影的键 —— 写出来，免得以后有人以为是漏掉了。
+ *  randomness 刻意不在 PLATE_FIELDS 里：它是「承诺」不是「盘」，进盘身就等于同一个事实被
+ *  摘要两次（plateHash 与 core.randomness 各一次），改一处会让两处互相矛盾而看不出哪处是原件。 */
+export const PLATE_EXCLUDED = ['question', 'randomness'] as const;
 
 // 编译期护栏：白名单 + 排除表必须恰好盖住 LiuyaoResult 的每一个键。
 // 类型新增字段时这里直接编译不过，逼着人决定它进不进回执，而不是静默带出去或静默漏掉。
@@ -46,7 +59,7 @@ export interface ReceiptAnchor {
 
 /** 被 recordHash 覆盖的承诺内核。字段顺序无所谓，规范化后按键排序。 */
 export interface ReceiptCore {
-  version: typeof RECEIPT_VERSION;
+  version: typeof RECEIPT_VERSION_V1 | typeof RECEIPT_VERSION_V2;
   kind: 'liuyao-plate' | 'liuyao-report';
   method: string;
   castAtLocal: string;
@@ -58,6 +71,8 @@ export interface ReceiptCore {
   plateHash: string;
   reportHash?: string;
   parentHash?: string;
+  /** v2 才有：掷钱之前的那份承诺。它在内核里，所以拆掉承诺就会改 recordHash —— 放在外面等于可拆。 */
+  randomness?: CoinCommitment;
 }
 
 export interface Receipt {
@@ -106,6 +121,27 @@ function newSalt(): string {
   return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
+/** 锁定时刻的本地文本（到秒）。只作展示：本地时钟不可信，把它进摘要等于给自己伪造时间。 */
+function localText(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** 铸承诺：seed → seedHash + 那 18 个 bit。首掷之前调用一次，整卦共用一份，中途换 seed 就是换一卦。 */
+export async function sealSeed(seedHex: string, now: Date = new Date()): Promise<CoinCommitment> {
+  return {
+    schema: COIN_COMMIT_SCHEMA,
+    seedHex,
+    seedHash: await sha256Hex(seedHex),
+    bits: bitsFromSeedHex(seedHex, COIN_COMMIT_BITS).join(''),
+    committedAtLocal: localText(now),
+  };
+}
+
+/** 露前 12 位就够对上号：一屏放不下 64 位十六进制，而全露与不露在揭晓前没有区别。 */
+export function shortHash(h: string): string {
+  return h.replace(/^sha256:/, '').slice(0, 12);
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 function castStamps(date: LiuyaoResult['date']): { local: string; utc: string; offset: number } {
@@ -136,9 +172,11 @@ export async function buildPlateReceipt(
   };
   const plateHash = await sha256Hex(canonical(plate));
   const subjectHash = await sha256Hex(canonical({ salt, question: result.question, questionType: result.questionType }));
+  // 只有铜钱摇卦带承诺：时间与报数是确定性输入，给它们编一个 seed 是装样子。
+  const randomness = result.method === 'coin' ? result.randomness : undefined;
 
   const core: ReceiptCore = {
-    version: RECEIPT_VERSION,
+    version: randomness ? RECEIPT_VERSION_V2 : RECEIPT_VERSION_V1,
     kind: 'liuyao-plate',
     method: result.method,
     castAtLocal: local,
@@ -148,6 +186,7 @@ export async function buildPlateReceipt(
     subjectSalt: salt,
     subjectHash,
     plateHash,
+    ...(randomness ? { randomness } : {}),
   };
   const recordHash = await sha256Hex(canonical(core));
   return {
@@ -191,19 +230,27 @@ export interface VerifyCheck {
   field: string;
   ok: boolean;
   detail: string;
+  /** 这一项压根没被检验（回执里没有可比对的东西）。既不算通过也不算不通过。 */
+  na?: boolean;
 }
 
 /** 离线复验：不联网、不查库，只用手上的这份回执自己证自己。
  *  问题原文默认不在回执里（隐私），所以带原文时才真算一次 subjectHash，不带就标成
- *  「未复核」——不拿一个永真式冒充通过。 */
+ *  「未复核」——不拿一个永真式冒充通过。随机承诺同理：v1 的老盘标「未承诺」，
+ *  时间与报数标「不适用」，都是没测过，不是测过了。 */
 export async function verifyReceipt(
   receipt: Receipt,
   opts?: { question?: string },
 ): Promise<{ ok: boolean; checks: VerifyCheck[] }> {
   const checks: VerifyCheck[] = [];
-  const push = (field: string, cond: boolean, detail: string) => checks.push({ field, ok: cond, detail });
+  const push = (field: string, cond: boolean, detail: string, na = false) =>
+    checks.push(na ? { field, ok: cond, detail, na: true } : { field, ok: cond, detail });
 
-  push('version', receipt.core?.version === RECEIPT_VERSION, `回执版本 ${receipt.core?.version}，期望 ${RECEIPT_VERSION}`);
+  const version = receipt.core?.version;
+  const known = (RECEIPT_VERSIONS as readonly string[]).includes(version);
+  push('version', known, known
+    ? `回执版本 ${version}（${version === RECEIPT_VERSION_V2 ? '内核含随机承诺' : '承诺之前的格式'}）`
+    : `回执版本 ${version || '缺失'}，本站只认 ${RECEIPT_VERSIONS.join(' / ')}`);
   const plateNow = await sha256Hex(canonical(receipt.plate));
   push('plateHash', plateNow === receipt.core.plateHash, `盘身重算 ${plateNow.slice(0, 18)}… vs 回执 ${receipt.core.plateHash.slice(0, 18)}…`);
 
@@ -213,7 +260,42 @@ export async function verifyReceipt(
     }));
     push('subjectHash', subjectNow === receipt.core.subjectHash, `问题摘要重算 ${subjectNow.slice(0, 18)}… vs 回执 ${receipt.core.subjectHash.slice(0, 18)}…`);
   } else {
-    push('subjectHash', true, `问题摘要 ${receipt.core.subjectHash.slice(0, 18)}… 未被复核（回执不含原文，需本人重填问题才能比对）`);
+    push('subjectHash', true, `问题摘要 ${receipt.core.subjectHash.slice(0, 18)}… 未被复核（回执不含原文，需本人重填问题才能比对）`, true);
+  }
+
+  const rnd = receipt.core.randomness;
+  if (version === RECEIPT_VERSION_V2 && rnd) {
+    // 双向：seedHash 要对得上 seed，回执里的 bit 也要对得上 seed —— 只校一边就能改另一边。
+    const hashNow = await sha256Hex(rnd.seedHex);
+    push('seedHash', hashNow === rnd.seedHash,
+      `承诺重算 ${shortHash(hashNow)}… vs 回执 ${shortHash(rnd.seedHash)}…（seedHash 就是揭晓前公布的那一个）`);
+    let bitsNow: string;
+    try {
+      bitsNow = bitsFromSeedHex(rnd.seedHex, COIN_COMMIT_BITS).join('');
+    } catch (e) {
+      bitsNow = `seed 解析失败：${e instanceof Error ? e.message : '非法 seed'}`;
+    }
+    push('commitBits', bitsNow === rnd.bits, `seed 派生 ${bitsNow} vs 回执 ${rnd.bits}（1=花 0=字，六轮各三枚）`);
+    // 最要紧的一头：bit 与 seed 自洽还不够，得一路重放到盘上那六个爻值。
+    let replayOk = false;
+    let replayDetail = '';
+    try {
+      const fromSeed = tossesFromSeed(rnd.seedHex).map(t => calcYao(t).value).join('');
+      const onPlate = (Array.isArray(receipt.plate?.yaoRecords) ? receipt.plate.yaoRecords as { value: number }[] : [])
+        .map(r => r.value).join('');
+      replayOk = fromSeed === onPlate;
+      replayDetail = `seed 重放爻值 ${fromSeed} vs 盘上 ${onPlate}`;
+    } catch (e) {
+      replayDetail = `无法重放：${e instanceof Error ? e.message : 'seed 或盘身不完整'}`;
+    }
+    push('tossReplay', replayOk, `这六个爻值确实由承诺过的 seed 推出 —— ${replayDetail}`);
+    if (rnd.schema !== COIN_COMMIT_SCHEMA) {
+      push('commitSchema', false, `承诺口径 ${rnd.schema}，本站只按 ${COIN_COMMIT_SCHEMA} 重放，不认识的就判失败`);
+    }
+  } else if (receipt.core.method === 'coin') {
+    push('randomness', true, '未承诺 —— 这份回执是 v1 格式，那时摇卦还没有 commit-reveal；盘身与摘要照常复核，但"爻值来自一次诚实的随机"这一条它证明不了', true);
+  } else {
+    push('randomness', true, '不适用 —— 时间起卦与报数起卦是确定性输入，没有随机过程需要承诺', true);
   }
 
   if (receipt.core.kind === 'liuyao-report') {
@@ -228,7 +310,7 @@ export async function verifyReceipt(
   push('anchor', !!receipt.anchor,
     receipt.anchor ? `已锚定于 ${receipt.anchor.date}，root ${receipt.anchor.root}` : RECEIPT_ANCHOR_STATE_UNANCHORED);
 
-  return { ok: checks.filter(c => c.field !== 'anchor').every(c => c.ok), checks };
+  return { ok: checks.filter(c => c.field !== 'anchor' && !c.na).every(c => c.ok), checks };
 }
 
 /** 下载用文件名：带上前 12 位摘要，用户自己存的一堆文件里能对上号。 */
