@@ -2,12 +2,15 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { buildCoinResult, coinToss, calcYao } from '@/lib/liuyao/methods/coin';
+import { buildCoinResult } from '@/lib/liuyao/methods/coin';
+import { calcYao, tossesFromSeed } from '@/lib/liuyao/methods/coinFaces';
+import { newSeedHex } from '@/lib/crypto/random';
+import { sealSeed, shortHash } from '@/lib/receipt/receipt';
 import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
 import { getGua, getNaJia, getDayGanZhi, getXunKong, GUA_MAP } from '@/lib/liuyao/core';
 import { resolveQiguaMoment, type QiguaPlace } from '@/lib/liuyao/solar-basis';
-import type { QiguaSolarInfo } from '@/types/liuyao';
+import type { QiguaSolarInfo, CoinCommitment } from '@/types/liuyao';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 
 type CoinFace = '字' | '花';
@@ -140,6 +143,11 @@ export default function LiuyaoCreatePage() {
   const [showShell, setShowShell] = useState(false);
   const [numInput, setNumInput] = useState('');
   const [autoRunning, setAutoRunning] = useState(false);
+  // 随机承诺（commit-reveal）：seed 在首掷之前铸好并公布哈希，整卦六轮共用同一份。
+  // ref 与 state 各一份是必要的 —— 逐轮取面值发生在 setTimeout 里，闭包读 state 会拿到旧值。
+  const [commit, setCommit] = useState<CoinCommitment | null>(null);
+  const commitRef = useRef<CoinCommitment | null>(null);
+  const tossesRef = useRef<CoinFace[][]>([]);
   const router = useRouter();
   const [naJiaResult, setNaJiaResult] = useState<NaJiaYao[]>([]);
   const [bianNaJiaResult, setBianNaJiaResult] = useState<NaJiaYao[]>([]);
@@ -182,7 +190,19 @@ export default function LiuyaoCreatePage() {
   const executeTossRound = useCallback((rnd: number, recs: YaoRecord[]) => {
     if (!mounted.current) return;
     
-    const cs: CoinFace[] = coinToss();
+    // 本轮面值取自承诺过的 seed，不再现场取随机数：这样「揭晓」与「重放」必然是同一份。
+    const cs = tossesRef.current[rnd - 1];
+    if (!cs) {
+      // 走到这里说明 seed 与轮次脱节（中途换过 seed 或被外部清空）。宁可明着失败，
+      // 也不静默改走随机源 —— 那样发出去的回执会带着一份对不上盘的承诺。
+      tossesRef.current = [];
+      commitRef.current = null;
+      setCommit(null);
+      setAutoRunning(false);
+      setAnim('idle');
+      setError('随机承诺与本轮掷钱对不上，这一卦作废，请重新起卦');
+      return;
+    }
     setRound(rnd);
     setAnim('spinning');
     setCoins(cs);
@@ -212,7 +232,7 @@ export default function LiuyaoCreatePage() {
             const bs = GUA_MAP[bsBits]||'?', bx = GUA_MAP[bxBits]||'?';
             setBianNaJiaResult(getNaJia(gua.bian, bs, bx, bv, xk));
           } else { setBianNaJiaResult([]); }
-          const result = { ...buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: tossNow }), solar: toss.info };
+          const result = { ...buildCoinResult({ question: questionRef.current, questionType: questionTypeRef.current, records: newRecs, now: tossNow, randomness: commitRef.current || undefined }), solar: toss.info };
           sessionStorage.setItem('liuyao_result', JSON.stringify(result));
           router.push('/liuyao/result/' + result.id);
           setAutoRunning(false);
@@ -222,9 +242,17 @@ export default function LiuyaoCreatePage() {
       }, 1500);
     }, 2000);
   }, []);
-  const startAutoToss = () => {
+  const startAutoToss = async () => {
     if (!question.trim()) { setError('请填写所问之事'); return; }
     setError('');
+    // 承诺在先：seed 一铸好就先算出哈希、显示出来，然后才开始第一轮。
+    // 每次点「开始摇卦」都重铸一份，绝不复用上一轮的 —— 复用就是中途静默换 seed。
+    const seedHex = newSeedHex();
+    const sealed = await sealSeed(seedHex);
+    if (!mounted.current) return;
+    commitRef.current = sealed;
+    tossesRef.current = tossesFromSeed(seedHex);
+    setCommit(sealed);
     setStep('tossing');
     setRecords([]);
     setRound(0);
@@ -240,7 +268,7 @@ export default function LiuyaoCreatePage() {
   }, [step, autoRunning, round, executeTossRound]);
 
   const startToss = () => {
-    if (method === 'coin') startAutoToss();
+    if (method === 'coin') void startAutoToss();
     else if (method === 'time') doTimeGua();
     else doNumGua();
   };
@@ -249,6 +277,8 @@ export default function LiuyaoCreatePage() {
     setStep('input');setRound(0);setRecords([]);setAnim('idle');setCoins([]);
     setError('');setNumInput('');
     setAutoRunning(false);setNaJiaResult([]);setBianNaJiaResult([]);
+    // 承诺随这一卦一起作废：留着旧 seedHash 会让下一次显示的是上一轮的承诺。
+    commitRef.current = null;tossesRef.current = [];setCommit(null);
     if(timer.current)clearTimeout(timer.current);
     if(autoSeq.current)clearTimeout(autoSeq.current);
   };
@@ -430,6 +460,15 @@ export default function LiuyaoCreatePage() {
       <div style={{marginTop:12,height:2,borderRadius:99,background:'rgba(255,255,255,0.14)',overflow:'hidden'}}>
         <div style={{height:'100%',borderRadius:99,background:'var(--color-accent-gold)',width:(Math.min(round,6)/6*100)+'%',transition:'width .5s ease'}}/>
       </div>
+
+      {/* 随机承诺。这一行在首轮掷钱之前就已经渲染：seedHash 先公布，六个面值后揭晓。
+          措辞按能证明的上限写 —— 它证明的是「这一盘与事先的承诺对得上」，
+          不证明掷钱这个动作真的发生过，也不阻止你在揭晓前整盘重来（重来就是新承诺）。 */}
+      {commit && (
+        <p className="qn-cap" style={{margin:'12px 0 0',textAlign:'center',letterSpacing:'0.08em'}}>
+          已锁定 {commit.schema} · seedHash {shortHash(commit.seedHash)}… · 六轮面值全部由它派生
+        </p>
+      )}
 
       <div style={{flex:'1 1 auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:'10px 0'}}>
         <div style={{display:'flex',justifyContent:'center',alignItems:'center',gap:coinSz>90?14:10}}>

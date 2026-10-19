@@ -1,28 +1,15 @@
 ﻿import { getGua, getNaJia, getShiYing, getPalaceGong, getYearGanZhi, getMonthGanZhi, getDayGanZhi, getHourGanZhi, getXunKong, getLiuShen, WX, GANZHI_BASIS, NAJIA_BASIS } from '../core';
-import { randomBits } from '@/lib/crypto/random';
-import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType, NaJiaYao } from '@/types/liuyao';
-
-/** 三枚各取 1 bit：1 = 花，0 = 字。站里唯一的掷钱实现，页面不得再自己拼一遍。 */
-export function coinToss(): CoinFace[] {
-  return randomBits(3).map(b => (b ? '花' : '字') as CoinFace);
-}
-
-/** 花数 → 爻值（0 花老阴动、1 少阳、2 少阴、3 花老阳动）。同样只此一份。 */
-export function calcYao(coins: CoinFace[]): { value: number; label: string; isDong: boolean } {
-  const hua = coins.filter(c => c === '花').length;
-  if (hua === 0) return { value: 6, label: '老阴', isDong: true };
-  if (hua === 1) return { value: 7, label: '少阳', isDong: false };
-  if (hua === 2) return { value: 8, label: '少阴', isDong: false };
-  return { value: 9, label: '老阳', isDong: true };
-}
+import type { LiuyaoResult, YaoRecord, CoinCommitment, QuestionType, NaJiaYao } from '@/types/liuyao';
 
 export function buildCoinResult(params: {
   question: string;
   questionType: QuestionType;
   records: YaoRecord[];
   now: Date;
+  /** 这一卦用的随机承诺。缺它就没有承诺（老页面或未锁定路径），不猜、不补。 */
+  randomness?: CoinCommitment;
 }): LiuyaoResult {
-  const { question, questionType, records, now } = params;
+  const { question, questionType, records, now, randomness } = params;
   const values = records.map(r => r.value);
   const gua = getGua(values);
   const { gong } = getPalaceGong(gua.ben);
@@ -59,6 +46,7 @@ export function buildCoinResult(params: {
     xunKong,
     ganzhiBasis: GANZHI_BASIS,
     najiaBasis: NAJIA_BASIS,
+    ...(randomness ? { randomness } : {}),
     benGua: { name: gua.ben, gong, wuxing: WX[gong], shangGua: gua.shangGua, xiaGua: gua.xiaGua },
     bianGua: gua.bian ? { name: gua.bian, gong: bianGong?.gong||null, wuxing: bianGong ? WX[bianGong.gong] : null } : { name:null, gong:null, wuxing:null },
     yaoRecords: records,

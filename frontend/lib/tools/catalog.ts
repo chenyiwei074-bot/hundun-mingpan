@@ -42,11 +42,12 @@ export interface IntentGroup {
   tools: ToolEntry[];
 }
 
-/** 目录里写死的三项口径戳；验收把它们与引擎导出值逐字比对。 */
+/** 目录里写死的四项口径戳；验收把它们与引擎导出值逐字比对。 */
 export const CATALOG_STAMPS = {
   ganzhi: 'jieqi-lichun-v1',
   najia: 'jingfang-neiwai-v2',
   qishu: 'meihua-qishu-v1',
+  commit: 'coin-commit-v1',
 };
 
 /** 六爻三式的口径戳都写在盘上，目录里的字符串必须与引擎导出一致。 */
@@ -100,7 +101,7 @@ export const INTENTS: IntentGroup[] = [
         reading: '先看用神与世应，再看动爻变出什么；盘面逐爻给六亲、干支、纳音、旬空与六神，并显示取数过程。',
         status: '可用',
         href: '/liuyao/create',
-        note: '铜钱摇卦的随机源是 crypto.getRandomValues（三枚各 1 bit，无取模偏差）；回执能复验「记录下来的爻值与摘要自洽」，但不声称验证了随机过程本身 —— 随机源承诺（commit-reveal）另批做，实体掷钱同理。',
+        note: `铜钱摇卦走 commit-reveal（${CATALOG_STAMPS.commit}）：首掷之前先锁定 32 字节 seed 并公布 seedHash，六轮面值全部由 seed 的前 18 bit 派生（一字节一 bit，无取模偏差），回执 v2 里带 seed 供双向重放。它证明的是「盘上爻值与事先的承诺对得上、事后没被改过」，不证明掷钱这个动作真的发生过，也管不到揭晓之前的整盘重来（重来即新承诺）；实体掷钱同理不在范围内。`,
       },
       {
         slug: 'meihua',

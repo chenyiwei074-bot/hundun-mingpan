@@ -8,15 +8,19 @@
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import {
-  PLATE_EXCLUDED, PLATE_FIELDS, RECEIPT_ANCHOR_STATE_UNANCHORED, RECEIPT_VERSION,
-  buildPlateReceipt, buildReportReceipt, canonical, receiptFileName, sha256Hex, verifyReceipt,
+  COIN_COMMIT_SCHEMA, PLATE_EXCLUDED, PLATE_FIELDS, RECEIPT_ANCHOR_STATE_UNANCHORED,
+  RECEIPT_VERSION, RECEIPT_VERSION_V1, RECEIPT_VERSION_V2, RECEIPT_VERSIONS,
+  buildPlateReceipt, buildReportReceipt, canonical, receiptFileName, sealSeed, sha256Hex, shortHash, verifyReceipt,
 } from '../../frontend/lib/receipt/receipt';
 import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { buildCoinResult } from '../../frontend/lib/liuyao/methods/coin';
+import { COIN_COMMIT_BITS, calcYao, tossesFromSeed } from '../../frontend/lib/liuyao/methods/coinFaces';
+import { bitsFromSeedHex, newSeedHex } from '../../frontend/lib/crypto/random';
 import { buildTimeResult } from '../../frontend/lib/liuyao/methods/time';
 import { buildNumberResult } from '../../frontend/lib/liuyao/methods/number';
 import { TRIGRAM_BITS } from '../liuyao-ganzhi/gold';
+import { CATALOG_STAMPS } from '../../frontend/lib/tools/catalog';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -46,9 +50,43 @@ function coinPlate(dong: number) {
   return buildCoinResult({ question: QUESTION, questionType: '合作', records: records as never, now: GOLD_DATE });
 }
 
+/** 手算向量 seed：第 i 字节 = i，所以 bit[i] = i & 1 → 0101…01，六轮爻值 7/8/7/8/7/8。
+ *  金标准故意选这种一眼能算出来的串，不选一串随机 hex —— 否则"钉住"的只是当时的实现。 */
+const IDX_SEED = Array.from({ length: 32 }, (_, i) => i.toString(16).padStart(2, '0')).join('');
+
+/** 走 commit-reveal 那条路造一盘：面值来自 seed，承诺在首掷之前就已封好。 */
+async function committedCoinPlate(seedHex: string, now = GOLD_DATE) {
+  const records = tossesFromSeed(seedHex).map((coins, i) => {
+    const y = calcYao(coins);
+    return { position: i + 1, coins, value: y.value, label: y.label, isDong: y.isDong };
+  });
+  return buildCoinResult({ question: QUESTION, questionType: '合作', records, now, randomness: await sealSeed(seedHex, now) });
+}
+
 const plate = coinPlate(3);
 const FIXED_NOW = '2026-10-18T00:00:00.000Z';
 const FIXED_SALT = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
+/** v1 冻结金标准：2026-10-19 用 main(4bf95d1) 那份实现原样跑出这四个值后钉在这里。
+ *  动 canonical 顺序、动字段语义、动摘要范围 —— 任何一处碰到 v1，这条就红。
+ *  已发出去的回执与已入台账的 leaf 全靠它兜住，所以它是"不许改"的，不是"暂时这样"。
+ *  注意盘 id 必须钉死：plateHash 覆盖 PLATE_FIELDS 里的 id，而 id 是客户端现铸的
+ *  'coin_' + Date.now().toString(36) —— 不钉住的话这条断言每次跑都是新值，等于没有断言。 */
+const FROZEN_PLATE_ID = 'coin_frozen_v1';
+const V1_FROZEN = {
+  plateHash: 'sha256:3ff1685e9dbb721dc0a3acd5bffe052a03b936d98756d191afa726eadc53f077',
+  subjectHash: 'sha256:70eaae08b4532d53a2ae166d0bd39835cbeac525e6319fc9cae017c2af84eb65',
+  recordHash: 'sha256:b29199fa811c9187df962763eddc49e7fdc5b128662d9e1ade18f1f71f9ab189',
+  core: '{"basis":{"ganzhi":"jieqi-lichun-v1","najia":"jingfang-neiwai-v2","qishu":"不适用"},'
+    + '"castAtLocal":"2026-10-17 12:00","castAtUTC":"2026-10-17T04:00:00.000Z","kind":"liuyao-plate",'
+    + '"method":"coin","plateHash":"sha256:3ff1685e9dbb721dc0a3acd5bffe052a03b936d98756d191afa726eadc53f077",'
+    + '"subjectHash":"sha256:70eaae08b4532d53a2ae166d0bd39835cbeac525e6319fc9cae017c2af84eb65",'
+    + '"subjectSalt":"a1b2c3d4e5f60718293a4b5c6d7e8f90","tzOffsetMinutes":480,"version":"hundun-receipt-v1"}',
+};
+
+/** IDX_SEED 的 seedHash：SHA-256 取的是这串 hex 字符本身（不是解码后的字节），
+ *  这样第三方用 `printf %s <seed> | sha256sum` 就能自己复算。 */
+const IDX_SEED_HASH = 'sha256:6c86c6aac5fb24bcf5d9939cb7d7d5645ce39418f449e03b262dd4fa14b4b92b';
 
 const run = async () => {
   // ── 1. 摘要实现 ──
@@ -151,8 +189,9 @@ const run = async () => {
     `摇卦 / 时间 / 报数三式都能出自验通过的回执，且口径戳随盘带出（报数还须带取数戳）：问题 ${detail.join(' | ') || '0 个'}`);
   ok('basis/stamp-values-live', rc.core.basis.ganzhi === GANZHI_BASIS && rc.core.basis.najia === NAJIA_BASIS,
     `回执里的戳等于引擎当前导出值，不是抄的：${rc.core.basis.ganzhi} / ${rc.core.basis.najia}`);
-  ok('version/envelope-version', rc.core.version === RECEIPT_VERSION,
-    `回执带版本戳 ${RECEIPT_VERSION}，将来改字段有新旧可分`);
+  ok('version/envelope-version', rc.core.version === RECEIPT_VERSION_V1 && RECEIPT_VERSION === RECEIPT_VERSION_V1
+    && RECEIPT_VERSIONS.join(' ') === 'hundun-receipt-v1 hundun-receipt-v2',
+    `没有承诺的回执仍按 v1 出（同一盘重算得到同一个 hash，不为了"看起来新"把已发出回执的算法换掉）：实得 ${rc.core.version}，认得 ${RECEIPT_VERSIONS.join(' / ')}`);
 
   // ── 8. 这一层不许联网：验真页一旦按 id 拉报告，就把隐私门重新打开了 ──
   const read = async (p: string) => {
@@ -168,10 +207,124 @@ const run = async () => {
     `验真页与回执面板不得发任何请求（GET /reports/:id 那种按 id 取原文的路子一律不走）：命中 ${/fetch\(|XMLHttpRequest|axios/.test(verifyPage + panel) ? '有' : '无'}`);
   const imports = (src: string) => Array.from(src.matchAll(/from\s+'([^']+)'/g)).map(m => m[1]);
   const libImports = imports(lib);
-  ok('net/lib-is-pure', lib.length > 0 && libImports.every(i => i === '@/types/liuyao'),
-    `回执层只 import 类型，不依赖任何引擎/后端代码（换术数时整块搬得走）：实得 ${JSON.stringify(libImports)}`);
+  // 2026-10-19 commit-reveal：回执层多两个依赖 —— 取 bit 的口径（@/lib/crypto/random）与
+  // 面值→爻值（coinFaces）。重放必须与生产用同一份实现，两份实现正是这仓库反复踩的坑，
+  // 所以宁可依赖一个纯口径模块，也不把函数抄一遍。守住的是这三条：不联网、不依赖后端、
+  // 不拖排盘内核（coinFaces 由 tools/random-acceptance 的 layering/faces-pure 单独钉）。
+  const ALLOWED = ['@/types/liuyao', '@/lib/crypto/random', '@/lib/liuyao/methods/coinFaces'];
+  const extra = libImports.filter(i => !ALLOWED.includes(i));
+  ok('net/lib-is-pure', lib.length > 0 && extra.length === 0 &&
+    !libImports.some(i => /liuyao\/core|meihua|server|api/.test(i)),
+    `回执层只依赖类型 + 两个纯口径模块，不 import 排盘内核、不依赖后端代码：多出 ${extra.join(',') || '无'}；实得 ${JSON.stringify(libImports)}`);
   ok('net/salt-from-csprng', /crypto\.getRandomValues/.test(lib) && !/Math\.random/.test(lib),
     '盐走 crypto.getRandomValues，不用 Math.random（否则摘要承诺可被预测）');
+
+  // ── 9. commit-reveal：掷钱之前的承诺必须一路咬到盘上爻值 ──
+  const committed = await committedCoinPlate(IDX_SEED);
+  const rcC = await buildPlateReceipt(committed, { salt: FIXED_SALT, nowUTC: FIXED_NOW });
+  const vC = await verifyReceipt(rcC, { question: QUESTION });
+  const cr = rcC.core.randomness;
+  const chk = (r: { checks: { field: string; ok: boolean; na?: boolean; detail: string }[] }, f: string) =>
+    r.checks.find(c => c.field === f);
+
+  ok('commit/v2-shape', rcC.core.version === RECEIPT_VERSION_V2 && !!cr && cr.schema === COIN_COMMIT_SCHEMA
+    && /^[0-9a-f]{64}$/.test(cr.seedHex) && /^[01]{18}$/.test(cr.bits) && cr.seedHash.startsWith('sha256:'),
+    `带承诺的回执是 v2 且 randomness 形状钉死（seed 64 位小写 hex、bits 恰好 18 个 0/1、seedHash 带前缀）：版本 ${rcC.core.version} / 口径 ${cr?.schema}`);
+  ok('commit/golden-seed-vector', !!cr && cr.seedHash === IDX_SEED_HASH && cr.bits === '010101010101010101'
+    && (rcC.plate.yaoRecords as { value: number }[]).map(r => r.value).join('') === '787878',
+    `手算向量：seed 第 i 字节 = i ⇒ bit 0101…01 ⇒ 六轮 字花字/花字花 交替 ⇒ 爻值 787878，seedHash 用 sha256sum 也能复算：${cr?.seedHash.slice(0, 22)}…`);
+  ok('commit/verifies-clean', vC.ok && ['seedHash', 'commitBits', 'tossReplay'].every(f => chk(vC, f)?.ok && !chk(vC, f)?.na),
+    `v2 自验全绿且三项承诺检查都是真检过的：${vC.checks.map(c => `${c.field}=${c.na ? 'NA' : c.ok ? 'T' : 'F'}`).join(' ')}`);
+  ok('commit/not-in-plate', !('randomness' in rcC.plate) && PLATE_EXCLUDED.includes('randomness'),
+    '承诺不进盘身投影：plateHash 与 core.randomness 各摘要一次同一事实，改一处会让两处互相矛盾而看不出哪处是原件');
+
+  // 裁定 ①：randomness 必须在承诺内核之内 —— 拿掉它 recordHash 必须变。
+  const noCommit = await verifyReceipt({ ...rcC, core: { ...rcC.core, randomness: undefined } }, { question: QUESTION });
+  ok('commit/inside-record-hash', chk(noCommit, 'recordHash')?.ok === false && chk(noCommit, 'tossReplay')?.ok !== false,
+    `把 randomness 从内核里摘掉，recordHash 必须红（放内核外面等于承诺可拆，这是裁定 ①）：recordHash=${chk(noCommit, 'recordHash')?.ok ? '仍绿（可拆）' : '红'}`);
+
+  // 强制项 2：双向校验，三处各改一处都必须单独红，不能只靠 recordHash 一把抓。
+  const otherSeed = await sealSeed(newSeedHex(), GOLD_DATE);
+  const swapSeed = await verifyReceipt({ ...rcC, core: { ...rcC.core, randomness: { ...otherSeed, seedHash: cr!.seedHash } } }, { question: QUESTION });
+  ok('tamper/seed-swapped-detected', chk(swapSeed, 'seedHash')?.ok === false && chk(swapSeed, 'tossReplay')?.ok === false
+    && chk(swapSeed, 'commitBits')?.ok === true,
+    `整对儿换 seed（seed 与它的 bits 一起换，只留原 seedHash）：seedHash 与重放必须红，commitBits 反而是绿的 —— 它校的是"bit 与 seed 自洽"，不校盘。三项各管一段，合成一张网：${swapSeed.checks.filter(c => !c.ok && !c.na).map(c => c.field).join(',') || '（没抓到，假绿）'}`);
+  const flipBits = await verifyReceipt({ ...rcC, core: { ...rcC.core, randomness: { ...cr!, bits: (cr!.bits.slice(0, 5) + (cr!.bits[5] === '1' ? '0' : '1') + cr!.bits.slice(6)) as string } } }, { question: QUESTION });
+  ok('tamper/bits-only-detected', chk(flipBits, 'commitBits')?.ok === false && chk(flipBits, 'seedHash')?.ok === true,
+    `只改回执里的 bit 串（seed 与 seedHash 不动）：commitBits 必须红，证明 bit 是拿 seed 重算的，不是自说自话：${chk(flipBits, 'commitBits')?.ok ? '绿（假绿）' : '红'}`);
+  const fakePlate = structuredClone(committed);
+  const fp = fakePlate.yaoRecords[2];
+  fp.value = fp.value === 6 ? 7 : 6;
+  fp.isDong = fp.value === 6 || fp.value === 9;
+  const rcFake = await buildPlateReceipt(fakePlate, { salt: FIXED_SALT, nowUTC: FIXED_NOW });
+  const yaoVsSeed = await verifyReceipt({ ...rcC, plate: rcFake.plate }, { question: QUESTION });
+  ok('tamper/yao-vs-seed', chk(yaoVsSeed, 'tossReplay')?.ok === false && chk(yaoVsSeed, 'plateHash')?.ok === false,
+    `把盘上第三爻改成 seed 推不出的值：plateHash 与 tossReplay 都要红（只红一个就说明有一环没接上）：${yaoVsSeed.checks.filter(c => !c.ok && !c.na).map(c => c.field).join(',') || '（没抓到，假绿）'}`);
+  ok('tamper/yao-vs-seed-premise', canonical(fakePlate) !== canonical(committed) && fakePlate.yaoRecords[2].value !== committed.yaoRecords[2].value,
+    '上一条的前提：盘确实被改动了，不是拿同一份自己比自己');
+
+  const badSchema = await verifyReceipt({ ...rcC, core: { ...rcC.core, randomness: { ...cr!, schema: 'coin-commit-v9' } } }, { question: QUESTION });
+  ok('commit/unknown-schema-fails', chk(badSchema, 'commitSchema')?.ok === false && !badSchema.ok,
+    `不认识的承诺口径必须红，不能"照旧重放一下试试"：${chk(badSchema, 'commitSchema')?.detail.slice(0, 40) || '没这条检查'}`);
+  const badSeed = await verifyReceipt({ ...rcC, core: { ...rcC.core, randomness: { ...cr!, seedHex: '00'.repeat(33) } } }, { question: QUESTION });
+  ok('commit/seed-shape-pinned', chk(badSeed, 'commitBits')?.ok === false && chk(badSeed, 'tossReplay')?.ok === false,
+    `33 字节的"seed"必须红而不是静默取前 18 bit：bits=${chk(badSeed, 'commitBits')?.ok ? '绿（放过了）' : '红'}，且验真没有崩`);
+
+  // 没承诺的两种情形：v1 老盘 =「未承诺」，时间/报数 =「不适用」，都不算通过也不算失败。
+  const v1check = chk(await verifyReceipt(rc, { question: QUESTION }), 'randomness');
+  ok('commit/v1-says-uncommitted', !!v1check && v1check.na === true && v1check.detail.includes('未承诺'),
+    `v1 摇卦回执的 randomness 一项是「未承诺」而不是「通过」：${v1check?.detail.slice(0, 34)}…`);
+  const timeRc = await buildPlateReceipt(buildTimeResult({ question: QUESTION, questionType: '合作', date: GOLD_DATE }), { salt: FIXED_SALT, nowUTC: FIXED_NOW });
+  const timeCheck = chk(await verifyReceipt(timeRc, { question: QUESTION }), 'randomness');
+  ok('commit/time-not-applicable', !!timeCheck && timeCheck.na === true && timeCheck.detail.includes('不适用')
+    && timeRc.core.version === RECEIPT_VERSION_V1,
+    `时间起卦没有承诺也不需要：标「不适用」，且回执仍是 v1（没承诺就不换版本）：${timeCheck?.detail.slice(0, 30)}…`);
+  const naNotCounted = (await verifyReceipt(rc, { question: QUESTION })).ok === true;
+  ok('commit/na-not-counted', naNotCounted, 'na 项不参与 ok 判定 —— 否则"未承诺"会把老盘验成失败，那是谎报篡改');
+
+  // 跨次不可复现 + 分布：承诺改了取数路径，均匀性必须在整条链上重测一遍。
+  const seeds = new Set<string>();
+  for (let i = 0; i < 2000; i++) seeds.add(newSeedHex());
+  ok('commit/seeds-across-runs-differ', seeds.size === 2000, `2000 次起卦的 seed 全不相同：去重 ${seeds.size}`);
+  const N = 10000;
+  const cnt: Record<string, number> = { '6': 0, '7': 0, '8': 0, '9': 0 };
+  for (let i = 0; i < N; i++) for (const t of tossesFromSeed(newSeedHex())) cnt[String(calcYao(t).value)]++;
+  const p = (k: string) => cnt[k] / (N * 6);
+  ok('commit/yao-value-distribution', Math.abs(p('6') - 0.125) < 0.008 && Math.abs(p('9') - 0.125) < 0.008
+    && Math.abs(p('7') - 0.375) < 0.012 && Math.abs(p('8') - 0.375) < 0.012,
+    `${N} 个 seed 重放出 ${N * 6} 个爻值，与理论分布 1/8·3/8·3/8·1/8 的偏差：老阴 ${p('6').toFixed(4)} 少阳 ${p('7').toFixed(4)} 少阴 ${p('8').toFixed(4)} 老阳 ${p('9').toFixed(4)}（承诺改了取数路径，所以这条必须重测，不能沿用上一批的结论）`);
+
+  // 强制项 3：v1 冻结。用钉住 id 的同一份 fixture 走新代码，四个值必须与 main(4bf95d1) 一字不差。
+  const rcFrozen = await buildPlateReceipt({ ...plate, id: FROZEN_PLATE_ID }, { salt: FIXED_SALT, nowUTC: FIXED_NOW });
+  ok('commit/v1-frozen-golden', rcFrozen.core.plateHash === V1_FROZEN.plateHash
+    && rcFrozen.core.subjectHash === V1_FROZEN.subjectHash && rcFrozen.recordHash === V1_FROZEN.recordHash
+    && canonical(rcFrozen.core) === V1_FROZEN.core,
+    `v1 的四个金标准值与改前实现逐字相同（含规范化内核全文）—— 已发回执与已入台账的 leaf 因此仍可复算：recordHash ${rcFrozen.recordHash.slice(0, 22)}…`);
+  ok('commit/v1-still-verifies', (await verifyReceipt(rcFrozen, { question: QUESTION })).ok,
+    '冻结的不只是摘要值，旧回执在新验真器下仍是「通过 + randomness 标未承诺」');
+  say(`MEASURED plateHash 覆盖盘 id，而 id 是客户端现铸的 'coin_' + Date.now().toString(36)：同一盘两次铸 id 会得到两个不同的 plateHash。金标准因此必须钉 id；这不是本批引入的，属已知缺陷（id 可预测、可撞），要改得先定"id 进不进承诺"这条口径`);
+
+  // 强制项 4：诚实边界必须落在页面上，不能只写在代码注释里。
+  const readSrc = async (p: string) => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    try { return readFileSync(join(__dirname, '../..', p), 'utf8'); } catch { return ''; }
+  };
+  const createPage = await readSrc('frontend/app/liuyao/create/page.tsx');
+  const panelSrc = await readSrc('frontend/app/liuyao/result/[id]/ReceiptPanel.tsx');
+  const verifySrc = await readSrc('frontend/app/verify/page.tsx');
+  const cat = await readSrc('frontend/lib/tools/catalog.ts');
+  ok('honesty/commit-visible-before-first-toss', /seedHash \{shortHash\(commit\.seedHash\)\}/.test(createPage) &&
+    createPage.indexOf('await sealSeed(') < createPage.indexOf("setStep('tossing')"),
+    '起卦页必须显示 seedHash 前 12 位，且 sealSeed 发生在进入掷钱阶段之前（源码顺序即执行顺序，行为侧另有浏览器实测）');
+  ok('honesty/boundary-on-pages', /不证明掷钱这个动作真的发生过/.test(createPage) &&
+    /重来就是新 seed、新承诺/.test(panelSrc) && /不能证明：掷钱这个动作真的在物理世界里发生过/.test(verifySrc),
+    '边界那句话要出现在用户看得见的三个地方（起卦页、结果页回执面板、验真页），不能只活在注释里');
+  ok('honesty/catalog-updated', /commit-reveal/.test(cat) && !/另批做/.test(cat) &&
+    CATALOG_STAMPS.commit === COIN_COMMIT_SCHEMA,
+    `目录里六爻那条要从「随机源承诺另批做」改成已实现，且目录写死的承诺戳 ${CATALOG_STAMPS.commit} 必须等于引擎导出的 ${COIN_COMMIT_SCHEMA}：残留「另批做」 ${/另批做/.test(cat) ? '有' : '无'}`);
+  ok('honesty/no-overclaim', !/无法伪造|绝对可信|已上链/.test(createPage + panelSrc + verifySrc),
+    '页面不许出现"无法伪造/绝对可信"这类超出机制上限的说法（它能证明的是盘与事先承诺对得上）');
 };
 
 run().then(() => {

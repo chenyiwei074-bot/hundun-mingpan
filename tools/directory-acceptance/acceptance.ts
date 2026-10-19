@@ -9,6 +9,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
+import { COIN_COMMIT_SCHEMA } from '../../frontend/lib/receipt/receipt';
 import { CATALOG_STAMPS, CLOSED_TOOLS, HOME_FEATURED_SLUGS, INTENT_ENTRIES, INTENTS, LAUNCHER_SLUGS, LIUYAO_BASIS_TEXT, LIVE_HREFS, TOOLS_INDEX, TOOL_BY_SLUG, homeCard } from '../../frontend/lib/tools/catalog';
 
 const arg = (name: string) => {
@@ -91,21 +92,23 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     [GANZHI_BASIS]: 'GANZHI_BASIS',
     [NAJIA_BASIS]: 'NAJIA_BASIS',
     [QISHU_BASIS]: 'QISHU_BASIS',
+    [COIN_COMMIT_SCHEMA]: 'COIN_COMMIT_SCHEMA',
   };
+  const engine = { ganzhi: GANZHI_BASIS, najia: NAJIA_BASIS, qishu: QISHU_BASIS, commit: COIN_COMMIT_SCHEMA };
   const drift = (Object.keys(CATALOG_STAMPS) as (keyof typeof CATALOG_STAMPS)[])
-    .map(k => `${k}: 目录 ${CATALOG_STAMPS[k]} vs 引擎 ${{ ganzhi: GANZHI_BASIS, najia: NAJIA_BASIS, qishu: QISHU_BASIS }[k]}`)
+    .map(k => `${k}: 目录 ${CATALOG_STAMPS[k]} vs 引擎 ${engine[k]}`)
     .filter(line => {
       const [a, b] = line.split(' vs ');
       return a.split('目录 ')[1] !== b.split('引擎 ')[1];
     });
   ok('dir/stamps-equal-engine', drift.length === 0,
-    `目录写死的三项口径戳必须逐字等于引擎导出值，引擎改戳而目录没跟上就在这里红：${drift.join(' | ') || `三项一致（${GANZHI_BASIS} / ${NAJIA_BASIS} / ${QISHU_BASIS}）`}`);
+    `目录写死的 ${Object.keys(CATALOG_STAMPS).length} 项口径戳必须逐字等于引擎导出值，引擎改戳而目录没跟上就在这里红：${drift.join(' | ') || `四项一致（${GANZHI_BASIS} / ${NAJIA_BASIS} / ${QISHU_BASIS} / ${COIN_COMMIT_SCHEMA}）`}`);
   const STAMP = /[a-z]+-[a-z]+-v\d+/g;
-  const corpus = ALL_TOOLS.map(t => `${t.name} ${t.basis}`).join('\n') + '\n' + LIUYAO_BASIS_TEXT;
+  const corpus = ALL_TOOLS.map(t => `${t.name} ${t.basis} ${t.note || ''}`).join('\n') + '\n' + LIUYAO_BASIS_TEXT;
   const found = Array.from(new Set(corpus.match(STAMP) || []));
   const stale = found.filter(v => !truth[v]);
-  ok('dir/stamps-match-engine', found.length >= 3 && stale.length === 0,
-    `目录里出现的口径戳 ${JSON.stringify(found.sort())} 必须全部等于引擎当前导出值（${GANZHI_BASIS} / ${NAJIA_BASIS} / ${QISHU_BASIS}）：写歪或残留旧戳 ${stale.join('、') || '0 个'}`);
+  ok('dir/stamps-match-engine', found.length >= 4 && stale.length === 0,
+    `目录里出现的口径戳 ${JSON.stringify(found.sort())} 必须全部等于引擎当前导出值（含新加的随机承诺戳）：写歪或残留旧戳 ${stale.join('、') || '0 个'}`);
   ok('dir/liuyao-basis-carries-three', LIUYAO_BASIS_TEXT.includes(GANZHI_BASIS) && LIUYAO_BASIS_TEXT.includes(NAJIA_BASIS) && LIUYAO_BASIS_TEXT.includes(QISHU_BASIS),
     `六爻条目的口径串三项齐备（戳是目录里的字面量，其正确性由 dir/stamps-equal-engine 钉住）：${LIUYAO_BASIS_TEXT}`);
 }
