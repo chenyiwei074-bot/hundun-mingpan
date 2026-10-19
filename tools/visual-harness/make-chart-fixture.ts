@@ -193,13 +193,20 @@ if (CHECK) {
   try { committed2 = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'chart-result-no-sizhu.json'), 'utf8')); } catch { }
   const probe2 = JSON.parse(paylo); delete probe2.chart.bazi.siZhu;
   const variantSame = JSON.stringify(committed2) === JSON.stringify(probe2);
+  let committed3: any = null;
+  try { committed3 = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'chart-result-barren.json'), 'utf8')); } catch { }
+  const probe3 = JSON.parse(paylo);
+  delete probe3.chart.bazi.siZhu; delete probe3.chart.bazi.dayun; delete probe3.chart.bazi.dayMaster;
+  const barrenSame = JSON.stringify(committed3) === JSON.stringify(probe3);
   console.log((wholeSame ? '  PASS  ' : '  FAIL  ') + 'check/byte-identical'.padEnd(28) +
     (wholeSame ? 'committed 与现排逐字节一致' : '有差异，判据见下'));
   console.log((baziSame ? '  PASS  ' : '  FAIL  ') + 'check/bazi-half-matches'.padEnd(28) +
     `八字半边与 committed 一致：${baziSame ? '是' : '否 —— 引擎变了，必须查'}`);
   console.log((variantSame ? '  PASS  ' : '  FAIL  ') + 'check/degrade-variant-fresh'.padEnd(28) +
     `无四柱那份与主份同步（只差 chart.bazi.siZhu 一条路径）：${variantSame ? '是' : '否/文件不存在'}`);
-  if (!baziSame || !variantSame) { console.log('\nDRIFT  八字半边或降级份变了 —— 这是真变化。'); process.exit(1); }
+  console.log((barrenSame ? '  PASS  ' : '  FAIL  ') + 'check/barren-variant-fresh'.padEnd(28) +
+    `贫盘（无四柱+无大运+无日主）与主份同步：${barrenSame ? '是' : '否/文件不存在'}`);
+  if (!baziSame || !variantSame || !barrenSame) { console.log('\nDRIFT  八字半边或某份降级份变了 —— 这是真变化。'); process.exit(1); }
   if (!wholeSame) {
     const keys = diffPaths(chart, committed.chart, 'chart').filter(p => !p.startsWith('chart.bazi'));
     console.log('STALE  只有紫微那半边的当前大限/流年随自然年更新（预期内）：' +
@@ -225,9 +232,23 @@ ok('variant/only-siZhu-removed',
   variantDiff.join(',') === 'chart.bazi.siZhu',
   `两份盘只该差 chart.bazi.siZhu 这一条路径：实得 ${variantDiff.join(' / ') || '（无差异）'}`);
 ok('variant/no-dayun-either', !!(noPlate.chart.bazi?.dayun), '只摘四柱，大运留着（守卫必须按 siZhu 判，不能顺手把 dayun 也当证据）');
-if (fails.length) { console.log('\nvariant 断言未过 —— 不写第二份。'); process.exit(1); }
+
+// 第三份：把四柱、大运、日主一起摘掉 —— 人生K线（#41）的降级分支只有在这种盘上才走到。
+// 它只缺 no-sizhu 那份再多的两层，仍然是"同一张盘缺几层"，不是另编一张空壳。
+const barren = JSON.parse(paylo);
+delete barren.chart.bazi.siZhu; delete barren.chart.bazi.dayun; delete barren.chart.bazi.dayMaster;
+const barrenOut = join(__dirname, 'fixtures', 'chart-result-barren.json');
+const barrenStr = JSON.stringify(barren);
+const barrenDiff = diffPaths(JSON.parse(paylo).chart, barren.chart, 'chart').sort();
+ok('variant/barren-diff-exact', barrenDiff.join(',') === ['chart.bazi.dayMaster', 'chart.bazi.dayun', 'chart.bazi.siZhu'].sort().join(','),
+  `贫盘只该差这三条路径：实得 ${barrenDiff.join(' / ') || '（无差异）'}`);
+ok('variant/barren-keeps-ziwei', !!barren.chart.ziwei, '贫盘仍带紫微半边 —— 它测的是"八字岁运缺席"，不是整页空白');
+
+if (fails.length) { console.log('\nvariant 断言未过 —— 不写第二、三份。'); process.exit(1); }
 writeFileSync(noPlateOut, noPlateStr, 'utf8');
 console.log('写入 ' + noPlateOut + '（' + noPlateStr.length + ' 字节）');
+writeFileSync(barrenOut, barrenStr, 'utf8');
+console.log('写入 ' + barrenOut + '（' + barrenStr.length + ' 字节）');
 
 // coverage 报告：census.mjs 的 CHART_PINS 从这里抄死，抄的是用例期望值而不是引擎返回值。
 const P = ['year', 'month', 'day', 'hour'] as const;
@@ -236,6 +257,9 @@ const lines = [
   `四柱: ${siZhu.join(' ')}`,
   `日主: ${bazi.dayMaster}`,
   `大运首段: ${firstCycle}（起 ${bazi.dayun?.[0]?.startYear} 岁 ${bazi.dayun?.[0]?.startAge}）`,
+  `大运段数: ${bazi.dayun?.length}（人生K线的运段 chip 数就是这个数）`,
+  `首段流年: ${(bazi.dayun?.[0]?.liuNian || []).map((x: any) => `${x.year}${x.ganZhi.gan}${x.ganZhi.zhi}`).join(' ')}`,
+  `首段区间: ${bazi.dayun?.[0]?.startYear}–${bazi.dayun?.[0]?.endYear}`,
   `真太阳时: ${tst}`,
   `夏令时偏移: ${zone.dstOffsetHours}`,
   `十神: ${P.map(k => `${k}干${bazi.shiShen[k]}`).join(' ')}`,

@@ -62,6 +62,9 @@ const CHART_DIR = arg('chart-fixtures') || 'tools/visual-harness/fixtures';
 const CHART_ROUTES = {
   'chart-result': ['stubchart0001', `${CHART_DIR}/chart-result.json`],
   'chart-result-empty': ['stubchartempty', `${CHART_DIR}/chart-result-no-sizhu.json`],
+  // 贫盘：四柱、大运、日主一起缺 —— 人生K线（#41）的降级分支只有在这种盘上才走得到。
+  // 没有它，那一支就永远没被测过（与六爻「只审到输入态」、矩阵「降级没测」同一类假绿）。
+  'chart-result-barren': ['stubchartbarren', `${CHART_DIR}/chart-result-barren.json`],
 };
 if (arg('chart-fixture')) CHART_ROUTES['chart-result'] = ['stubchart0001', arg('chart-fixture')];
 const CHART_BY_PATH = {};
@@ -303,6 +306,51 @@ const CHART_PINS = {
     absent: ['liuqin-scenario-v1', '两说并存', '父母不全', '妻妾不賢'],
     pillars: [],
   },
+  // 贫盘：矩阵同样降级（siZhu 也缺了）。K线那一节另有 KLINE_PINS 管。
+  'chart-result-barren': {
+    mode: 'empty',
+    rows: [],
+    conventionRows: 0,
+    minCangGan: 0,
+    text: ['场景矩阵', '不预置示例盘', '先去排一张盘'],
+    absent: ['liuqin-scenario-v1', '两说并存', '父母不全', '妻妾不賢'],
+    pillars: [],
+  },
+};
+
+// 人生K线（#41）的钉值。y 轴是固定十条十神泳道，所以钉的是「哪一格该出现哪个干支」——
+// 每个值都是手工推出的，不是从页面、也不是从 kline.ts 的输出抄的：
+//   日主辛（阴金）。辛见辛=比肩、见庚=劫财；辛生癸=食神、生壬=伤官；辛克乙=偏财、克甲=正财；
+//   丙克辛=正官、丁克辛=七杀；戊生辛=正印、己生辛=偏印。
+//   藏干按本/中/余：子[癸]、丑[己癸辛]、寅[甲丙戊]、卯[乙]、辰[戊乙癸]、巳[丙庚戊]、
+//   午[丁己]、未[己丁乙]、申[庚壬戊]、酉[辛]。
+// 于是首段（1996–2005，庚申运，虚岁 9 起）：
+//   比肩 = 1997 丁丑的余气辛 / 2001 辛巳的流年干辛 / 2005 乙酉的本气辛 → 三格；
+//   正官 = 1996 丙子的流年干丙 / 1998 戊寅的中气丙 / 2001 辛巳的本气丙 → 三格。
+// 运段 chip = 9、每段 10 格，取自 fixtures/chart-coverage.txt（那份是引擎+外部用例的产物）。
+const KLINE_PINS = {
+  'chart-result': {
+    mode: 'plate', segments: 9,
+    years: ['96', '97', '98', '99', '00', '01', '02', '03', '04', '05'],
+    lanes: ['比肩', '劫财', '食神', '伤官', '偏财', '正财', '七杀', '正官', '偏印', '正印'],
+    cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
+    cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
+    text: ['人生K线 · 类别轴', 'kline-category-v1', '本图不构成吉凶评分',
+      '流年干支按立春换年', '本批未接', '无事件（未由你标注）'],
+  },
+  // 无四柱但大运仍在：矩阵降级，K线照排 —— 两节各判各的盘，这个组合本身就是被测的事实。
+  'chart-result-empty': {
+    mode: 'plate', segments: 9,
+    years: ['96', '97', '98', '99', '00', '01', '02', '03', '04', '05'],
+    lanes: ['比肩', '劫财', '食神', '伤官', '偏财', '正财', '七杀', '正官', '偏印', '正印'],
+    cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
+    cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
+    text: ['人生K线 · 类别轴', '本图不构成吉凶评分'],
+  },
+  'chart-result-barren': {
+    mode: 'empty', segments: 0, years: [], lanes: [], cells: {}, cellText: {},
+    text: ['人生K线', '没有可用的岁运序列', '不预置示例盘', '先去排一张盘'],
+  },
 };
 
 // 读盘面用结构探针而不是整页 bodyText：整页 includes('庚午') 会被别的行、别的卡片撞中，
@@ -360,6 +408,57 @@ const chartProbe = p => `(() => {
   (${JSON.stringify(p.pillars)}).forEach(x => { if (page.indexOf(x) < 0) out.push('四柱缺:' + x); });
   (${JSON.stringify(p.absent)}).forEach(x => { if (page.indexOf(x) >= 0) out.push('不该上屏:' + x); });
   return { miss: out, rows: names.length, conv, cang };
+})()`;
+
+// K线的探针按结构读：运段 chip 数、年份刻度、十条泳道、以及每条泳道"哪些年份被点亮、
+// 格子里写的是哪个干支"。手工推的钉值写在 KLINE_PINS 上面，不是从组件或 kline.ts 抄的 ——
+// 从自己的输出抄回来，等于让这一节自己证明自己对。
+const klineProbe = p => `(() => {
+  const out = [];
+  const sec = document.querySelector('.qn-kline');
+  if (!sec) return { miss: ['section: .qn-kline 不存在（那一节没挂上，或盘没读进来）'] };
+  const EMPTY = ${p.mode === 'empty'};
+  // 真盘（--chart-id）模式：手工逐格钉值是这张 fixture 盘的，不该拿它去判别人的盘。
+  // 这一模式只测结构 —— 十条泳道固定、每道格子数等于年份刻度数、声明句照旧上屏。
+  const LIVE = ${p.mode === 'live'};
+  if (EMPTY !== sec.classList.contains('qn-kline--empty'))
+    out.push('mode: 该走' + (EMPTY ? '降级' : '排图') + '支，屏上却是' + (EMPTY ? '整张泳道图' : '降级卡'));
+  const chips = [...sec.querySelectorAll('button.qn-chip')].length;
+  if (!LIVE && chips !== ${p.segments}) out.push('segments: 运段 chip=' + chips + '（应为 ' + ${p.segments} + '）');
+  const ticks = [...sec.querySelectorAll('[data-tick]')].map(b => b.getAttribute('data-tick').slice(2));
+  if (!LIVE && JSON.stringify(ticks) !== JSON.stringify(${JSON.stringify(p.years)}))
+    out.push('ticks: 年份刻度=' + JSON.stringify(ticks) + '（应为 ' + JSON.stringify(${JSON.stringify(p.years)}) + '）');
+  const lanes = [...new Set([...sec.querySelectorAll('span[data-lane]')].map(s => s.getAttribute('data-lane')))];
+  if (JSON.stringify(lanes) !== JSON.stringify(${JSON.stringify(p.lanes)}))
+    out.push('lanes: 泳道=' + JSON.stringify(lanes) + '（应为固定十条、顺序即命名序）');
+  const cells = ${JSON.stringify(Object.keys(p.cells))};
+  const filled = {};
+  const text = {};
+  cells.forEach(l => {
+    const cs = [...sec.querySelectorAll('button[data-lane="' + l + '"]')];
+    filled[l] = cs.filter(c => (c.textContent || '').trim() !== '·').map(c => c.getAttribute('data-year'));
+    text[l] = cs.filter(c => (c.textContent || '').trim() !== '·').map(c => (c.textContent || '').trim());
+  });
+  const want = ${JSON.stringify(p.cells)}, wantText = ${JSON.stringify(p.cellText)};
+  cells.forEach(l => {
+    if (JSON.stringify(filled[l]) !== JSON.stringify(want[l]))
+      out.push('cells[' + l + ']: 点亮年=' + JSON.stringify(filled[l]) + '（手工推应为 ' + JSON.stringify(want[l]) + '）');
+    else if (JSON.stringify(text[l]) !== JSON.stringify(wantText[l]))
+      out.push('cells[' + l + ']: 格子写的=' + JSON.stringify(text[l]) + '（手工推应为 ' + JSON.stringify(wantText[l]) + '）');
+  });
+  if (LIVE) {
+    const perLane = [...sec.querySelectorAll('button[data-lane]')].length / Math.max(lanes.length, 1);
+    if (lanes.length && perLane !== ticks.length)
+      out.push('grid: 每条泳道 ' + perLane + ' 格，年份刻度却有 ' + ticks.length + ' 个（列不对齐）');
+  }
+  const secTxt = (sec.innerText || '').replace(/\\s+/g, '');
+  (${JSON.stringify(p.text)}).forEach(x => { if (secTxt.indexOf(x.replace(/\\s+/g, '')) < 0) out.push('text:' + x); });
+  if (EMPTY) {
+    const a = [...sec.querySelectorAll('a')].find(x => (x.getAttribute('href') || '').indexOf('/create') === 0);
+    if (!a) out.push('降级分支缺 /create 入口');
+    if (sec.querySelector('[data-lane]')) out.push('降级分支里还画着泳道格子');
+  }
+  return { miss: out, chips, lanes: lanes.length, filled };
 })()`;
 
 // ---------------------------------------------------------------- chrome + cdp
@@ -964,6 +1063,23 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': 场景矩阵不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    PIN MISMATCH ' + miss.join(' | ')
       : `    场景矩阵 ${got.rows} 行全中，约定标签 ${got.conv} 行，藏干命中 ${got.cang} 条`);
+  }
+  if (KLINE_PINS[base]) {
+    const kp = { ...KLINE_PINS[base] };
+    // 真盘（--chart-id）下没有 fixture 的手工钉值可言：换成 live 模式，只测结构与声明句。
+    // 与运维 5a4edb4 对 CHART_PINS 四柱钉值的处理同一条路，否则真盘回归永远红、就没人跑。
+    if (LIVE_CHART && base === 'chart-result') {
+      kp.mode = 'live'; kp.segments = 0; kp.years = []; kp.cells = {}; kp.cellText = {};
+      kp.text = ['人生K线 · 类别轴', '本图不构成吉凶评分', '本批未接'];
+    }
+    const got = await evl(klineProbe(kp));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': K线探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': K线不等于手工钉值 — ' + x);
+    console.log(miss && miss.length ? '    PIN MISMATCH ' + miss.join(' | ')
+      : (KLINE_PINS[base].mode === 'empty'
+        ? `    K线 降级卡：0 条泳道、0 个运段、/create 入口在`
+        : `    K线 ${got.lanes} 条泳道、${got.chips} 个运段，比肩/正官逐格手工值全中`));
   }
   // 动爻的金漆只在「最后一条记录正好是动爻」时才上屏 —— 实测约一半的跑法里根本没有对象
   // （每爻老阴/老阳各 1/8）。不把这个数打出来，一次绿会被读成「对比度没问题」，
