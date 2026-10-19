@@ -56,6 +56,65 @@ const GAN_HE: Record<Tiangan, Tiangan> = {
 
 type Pillar = '年'|'月'|'日'|'时';
 
+// ── 成对（两支）查表 ────────────────────────────────────────────────────
+// detectZhiRelations 与「流年 × 四柱」用同一份查表，不分叉出第二套关系逻辑。
+// 这几个 helper 只查表、不产出结构：detectZhiRelations 的输出形状、顺序与柱名聚合全部不变，
+// 所以这次加导出没有改变任何既有行为（golden 全枚举 12^4=20736 组四柱，输出串接 sha256 逐字节相同）。
+// 相破这一族本站从来没有对应的表，也不在这里新增（原典之外不发明）—— 成对入口只报现有这六类。
+function chongOf(a: Dizhi, b: Dizhi): boolean {
+  return LIU_CHONG.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+}
+function heOf(a: Dizhi, b: Dizhi): boolean {
+  return LIU_HE.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+}
+function haiOf(a: Dizhi, b: Dizhi): boolean {
+  return LIU_HAI.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+}
+// 相刑：子卯两支齐即成；寅巳申 / 丑戌未 三支族里任意两支齐即半刑，三支齐即全刑。
+function xingOf(a: Dizhi, b: Dizhi): string | null {
+  if (a === b) return null;                          // 同支不属族内相刑，自刑另有其位
+  for (const xing of XIANG_XING) {
+    if (xing.zhi.includes(a) && xing.zhi.includes(b)) {
+      return xing.zhi.length === 2 ? xing.name : xing.name + '(半)';
+    }
+  }
+  return null;
+}
+// 暗合的算法体，从原 detectZhiRelations 里原样搬出来，一字未改。
+function anHeDetail(a: Dizhi, b: Dizhi): string {
+  const aGans = ZHI_CANG_GAN[a].map(c => c.gan);
+  const bGans = ZHI_CANG_GAN[b].map(c => c.gan);
+  const hits: string[] = [];
+  for (const ag of aGans) for (const bg of bGans) if (GAN_HE[ag] === bg) hits.push(`${ag}${bg}合`);
+  return hits.join('、');
+}
+
+export type PairRelationType = '六冲' | '六合' | '六害' | '相刑' | '自刑' | '暗合';
+
+/**
+ * 任意两支之间的关系。给「流年 × 命局某柱」这类外部配对用 —— detectZhiRelations 只吃
+ * 命局自身四柱（ZhiRelation.pillars 结构上只能装 年/月/日/时），表达不出"流年 vs 日柱"。
+ *
+ * 范围与既有实现完全对齐：只报成对成立的关系，即 六冲/六合/六害/相刑/自刑/暗合。
+ * 三合/三会/拱合/拱会 是三支族的关系，不在成对里报 —— 一支对一支报出来就是假的三合。
+ * 相破 本站不存在（原典之外不发明），也不在这里报。
+ * 暗合的抑制规则沿用原来那一条：这对支之间已有显式关系时不再报暗合。
+ */
+export function zhiPairRelations(a: Dizhi, b: Dizhi): Array<{ type: PairRelationType; detail?: string }> {
+  const out: Array<{ type: PairRelationType; detail?: string }> = [];
+  if (chongOf(a, b)) out.push({ type: '六冲' });
+  if (heOf(a, b)) out.push({ type: '六合' });
+  if (haiOf(a, b)) out.push({ type: '六害' });
+  const xing = xingOf(a, b);
+  if (xing) out.push({ type: '相刑', detail: xing });
+  if (a === b && ZI_XING.includes(a)) out.push({ type: '自刑' });
+  if (out.length === 0 && a !== b) {
+    const detail = anHeDetail(a, b);
+    if (detail) out.push({ type: '暗合', detail });
+  }
+  return out;
+}
+
 export function detectZhiRelations(zhis: Record<Pillar, Dizhi>): ZhiRelation[] {
   const out: ZhiRelation[] = [];
   const pillars: Pillar[] = ['年','月','日','时'];
@@ -69,32 +128,13 @@ export function detectZhiRelations(zhis: Record<Pillar, Dizhi>): ZhiRelation[] {
     }
   }
 
-  // 六冲
-  for (const [a, b] of pairs) {
-    for (const [x, y] of LIU_CHONG) {
-      if ((a.zhi === x && b.zhi === y) || (a.zhi === y && b.zhi === x)) {
-        out.push({type:'六冲', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar]});
-      }
-    }
-  }
-
-  // 六合
-  for (const [a, b] of pairs) {
-    for (const [x, y] of LIU_HE) {
-      if ((a.zhi === x && b.zhi === y) || (a.zhi === y && b.zhi === x)) {
-        out.push({type:'六合', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar]});
-      }
-    }
-  }
-
-  // 六害
-  for (const [a, b] of pairs) {
-    for (const [x, y] of LIU_HAI) {
-      if ((a.zhi === x && b.zhi === y) || (a.zhi === y && b.zhi === x)) {
-        out.push({type:'六害', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar]});
-      }
-    }
-  }
+  // 六冲 / 六合 / 六害 —— 三类都是"表里查这一对支"，逐对推入，顺序与原来一致。
+  for (const [a, b] of pairs) if (chongOf(a.zhi, b.zhi))
+    out.push({type:'六冲', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar]});
+  for (const [a, b] of pairs) if (heOf(a.zhi, b.zhi))
+    out.push({type:'六合', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar]});
+  for (const [a, b] of pairs) if (haiOf(a.zhi, b.zhi))
+    out.push({type:'六害', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar]});
 
   // 相刑
   for (const xing of XIANG_XING) {
@@ -157,18 +197,9 @@ export function detectZhiRelations(zhis: Record<Pillar, Dizhi>): ZhiRelation[] {
   for (const [a, b] of pairs) {
     if (a.zhi === b.zhi) continue;
     if (hasExplicit(a.zhi, b.zhi)) continue;
-    const aGans = ZHI_CANG_GAN[a.zhi].map(c => c.gan);
-    const bGans = ZHI_CANG_GAN[b.zhi].map(c => c.gan);
-    const hits: string[] = [];
-    for (const ag of aGans) {
-      for (const bg of bGans) {
-        if (GAN_HE[ag] === bg) {
-          hits.push(`${ag}${bg}合`);
-        }
-      }
-    }
-    if (hits.length > 0) {
-      out.push({type:'暗合', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar], detail: hits.join('、')});
+    const detail = anHeDetail(a.zhi, b.zhi);
+    if (detail) {
+      out.push({type:'暗合', zhi:[a.zhi, b.zhi], pillars:[a.pillar, b.pillar], detail});
     }
   }
 
