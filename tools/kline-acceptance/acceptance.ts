@@ -12,12 +12,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import { getZhiCangGanFull } from '../../frontend/app/lib/core/yiqi-core/bazi';
-import { getShiShen } from '../../frontend/app/lib/core/bazi-enrich/tables';
+import { getShiShen, DIZHI } from '../../frontend/app/lib/core/bazi-enrich/tables';
+import { zhiPairRelations } from '../../frontend/app/lib/core/bazi-enrich/zhi-relations';
 import { SHISHEN_MAP } from '../../frontend/app/lib/core/yiqi-core/ganzhi';
 import type { BaziChart } from '../../frontend/app/lib/core/yiqi-core/types';
 import {
   buildKline, eventLabel, KLINE_BASIS, KLINE_LANES, KLINE_GROUPS,
-  KLINE_NO_SCORE, KLINE_LICHUN_NOTE, KLINE_RELATION_NOTE,
+  KLINE_NO_SCORE, KLINE_LICHUN_NOTE, KLINE_RELATION_NOTE, KLINE_RELATION_MISSING,
 } from '../../frontend/lib/bazi/kline';
 
 const arg = (name: string) => {
@@ -160,9 +161,58 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   const literalEvent = (codeOnly.match(/标注:\s*['"`][^'"`]/g) || []).length;
   ok('event/no-canned-list', writers <= 2 && literalEvent === 0,
     `事件只能有两条来路（本地读回 + 用户输入入库）：setEvents 调用 ${writers} 处（>2 就是多了一条写入路），预置事件字面量 ${literalEvent} 处`);
-  ok('relation/declared-unbuilt', male.边界.includes(KLINE_RELATION_NOTE)
-    && /未接|待裁/.test(KLINE_RELATION_NOTE),
-    `落点必须显式声明本批未接、而不是留白：${KLINE_RELATION_NOTE}`);
+  // 落点现在接上了，断言随之换向：不再是"必须声明未接"，而是"必须真报得出、且条条可复算"。
+  const landings = male.段.flatMap(s => s.落点.concat(s.流年.flatMap(m => m.落点)));
+  ok('relation/wired', landings.length > 0 && male.边界.includes(KLINE_RELATION_NOTE)
+    && !/未接|待裁/.test(KLINE_RELATION_NOTE),
+    `落点必须真报出来且边界改写为"已接自现有成对函数"：实得 ${landings.length} 条，样例「${landings[0] || '（无）'}」`);
+  const oneLanding = landings.filter(x => !/×/.test(x) || !/→/.test(x));
+  ok('relation/points-at-two-branches', oneLanding.length === 0,
+    `每条落点都要写清"哪两支配对、成什么关系"（回指盘内事实，不许写成一句断语）：不合形 ${oneLanding.length} 条`);
+  // 成对入口与"手写的那张期望表"逐对比，144 组全覆盖。
+  // 为什么不与 detectZhiRelations 对拍：它按柱族聚合（寅巳申三支族里两支齐就出一条，
+  // pillars 把四柱全列上；暗合的抑制也看整张盘），而成对入口一次只看两支，两者的
+  // pillars/条数天然不同 —— 拿一个的输出去比另一个只会制造假红，比不出真问题。
+  const unordered = (x: string, y: string) => (x < y ? x + y : y + x);
+  const EXPECT: Record<string, Array<[string, string]>> = {
+    六冲: [['子', '午'], ['丑', '未'], ['寅', '申'], ['卯', '酉'], ['辰', '戌'], ['巳', '亥']],
+    六合: [['子', '丑'], ['寅', '亥'], ['卯', '戌'], ['辰', '酉'], ['巳', '申'], ['午', '未']],
+    六害: [['子', '未'], ['丑', '午'], ['寅', '巳'], ['卯', '辰'], ['申', '亥'], ['酉', '戌']],
+    // 相刑：子卯两支即成；寅巳申、丑戌未两支齐为半刑，故族内任一双都算。
+    相刑: [['子', '卯'], ['寅', '巳'], ['巳', '申'], ['寅', '申'], ['丑', '戌'], ['戌', '未'], ['丑', '未']],
+    自刑: [['辰', '辰'], ['午', '午'], ['酉', '酉'], ['亥', '亥']],
+  };
+  const expectSet = new Map<string, Set<string>>();
+  for (const [t, arr] of Object.entries(EXPECT)) expectSet.set(t, new Set(arr.map(([x, y]) => unordered(x, y))));
+  let typeMiss = 0, typeExtra = 0; const badPairs: string[] = [];
+  const anHePairs: string[] = [];
+  for (const a of DIZHI) for (const b of DIZHI) {
+    const got = zhiPairRelations(a, b);
+    for (const r of got) {
+      if (r.type === '暗合') { anHePairs.push(unordered(a, b)); continue; }
+      if (!expectSet.get(r.type)?.has(unordered(a, b))) { typeExtra++; badPairs.push(`${a}${b}:${r.type}`); }
+    }
+    for (const [t, set] of expectSet) if (set.has(unordered(a, b)) && !got.some(r => r.type === t)) { typeMiss++; badPairs.push(`${a}${b}缺${t}`); }
+  }
+  ok('relation/pairwise-equals-hand-table', typeMiss === 0 && typeExtra === 0,
+    `144 组逐一比手写期望表：少报 ${typeMiss}、多报 ${typeExtra}${badPairs.length ? '（' + badPairs.slice(0, 5).join('、') + '）' : ''}`);
+  // 暗合只钉三件能讲清的事：它与显式关系互斥、同支不报、且确实按藏干五合出得来。
+  const anHe = new Set(anHePairs);
+  ok('relation/anhe-rules', anHe.has(unordered('卯', '申')) && !anHe.has(unordered('寅', '巳'))
+    && !anHe.has(unordered('辰', '辰')) && !anHe.has(unordered('子', '午')),
+    `暗合：卯申（乙庚合）要报、寅巳（已是六害+半刑）不许再叠、同支与已显式的对不许报。实得 ${anHePairs.length} 对`);
+  // 相破：本站不存在这张表，页面上也不许出现这个字（裁定：不做，也别写"我们不做相破"把它带上页面）
+  const withLanding = JSON.stringify(male);
+  ok('relation/no-xiangpo', !withLanding.includes('破'),
+    `输出里不得出现「破」字 —— 没有这张表就不报，也不声明"不做"把它送上面来`);
+  // 没有四柱就不能配对：这条走的是 fixture 里那张"无四柱但大运仍在"的盘，
+  // 它同时证明落点不是硬编出来的（缺输入时确实为空），也证明边界话术跟着换。
+  const noZhu = buildKline({ ...maleChart, siZhu: undefined } as never)!;
+  ok('relation/degrades-without-pillars',
+    noZhu.段.every(s => s.落点.length === 0 && s.流年.every(m => m.落点.length === 0))
+    && noZhu.边界.includes(KLINE_RELATION_MISSING) && noZhu.边界.includes(KLINE_RELATION_NOTE)
+    && noZhu.段[0].泳道.some(l => l.标注.length > 0),
+    `缺四柱时：落点必须为空且不假装报过（泳道照旧报得出），边界额外加一句"无从配对"：实得边界 ${noZhu.边界.length} 条`);
   // 抄表就是"第四份引擎拷贝"，这条把它拦在提交之前
   const klineSrc = readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'kline.ts'), 'utf8');
   const banned = ['LIU_CHONG', 'LIU_HE', 'SAN_HE', 'XIANG_XING', 'LIU_HAI', 'ZHI_CHONG', '地支六冲'];
@@ -176,9 +226,12 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   ok('basis/lichun-disclosed', male.边界.includes(KLINE_LICHUN_NOTE),
     `流年干支按立春换年，公历轴与干支轴不重合，这句必须在边界里：${KLINE_LICHUN_NOTE}`);
   const comp = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8');
-  ok('basis/lichun-on-page', comp.includes('KLINE_LICHUN_NOTE') && comp.includes('流年干支按立春换年')
-    || comp.includes('{KLINE_LICHUN_NOTE}'),
-    '这句不能只活在模块里，页面必须渲染它');
+  // 页面不各抄一份声明，只照读 view.边界 —— 所以这条钉的是"有没有把边界整个渲染出来"，
+  // 而不是"页面里能不能搜到这句字面量"（后者会把两份文案硬编在组件里当成通过）。
+  const compCode = comp.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const copied = ['流年干支按立春换年', '落点取的是流年支'].filter(x => compCode.includes(x));
+  ok('basis/boundary-rendered-from-data', /view\.+边界\.map\(/.test(compCode) && copied.length === 0,
+    `边界由数据给、页面照读：组件里有 view.边界.map( ${/view\.+边界\.map\(/.test(compCode)})，把声明抄进正文的有 ${copied.length} 句（抄一份就必然与数据漂移）`);
   ok('basis/stamp', male.口径戳 === KLINE_BASIS && KLINE_BASIS === 'kline-category-v1',
     `口径戳 ${KLINE_BASIS}（盘面输出里带的也是它）：改摆法必须升它，否则老截图无法区分`);
 }
@@ -221,9 +274,23 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   const touched = (tracked + '\n' + untracked).split('\n').map(s => s.trim()).filter(Boolean);
   ok('change-list/is-real', touched.length >= 3,
     `本批的改动清单必须列得出来（否则下面这条"没动算法层"是空过）：实得 ${touched.length} 个文件`);
+  // 2026-10-19 裁定：合冲落点这一批**只许**在 zhi-relations.ts 就地开成对入口。
+  // 所以这一条不再是"算法层一个字节都不许动"，而是"只能动那一个文件的那一个导出，
+  // 且行为必须逐字节不变"（由 tools/zhi-relations 的全枚举 golden 钉），
+  // 并且 server/ 那份同源拷贝仍不许我碰（运维自己改，改完 diff 校验）。
   const engine = touched.filter(f => /app\/lib\/core\/(yiqi-core|bazi-enrich)\//.test(f));
-  ok('algo/layer-untouched', engine.length === 0,
-    `本批不许动命理算法层（落点要接就得单开一批、前后端两份同源拷贝一起改）：命中 ${engine.join(' | ') || '无'}`);
+  ok('algo/only-the-pairwise-export', engine.every(f => f.replace(/\\/g, '/').endsWith('bazi-enrich/zhi-relations.ts')),
+    `动到的算法层文件只能是 bazi-enrich/zhi-relations.ts 这一个：实得 ${engine.join(' | ') || '（无）'}`);
+  // 只看已跟踪的改动：仓库根下有一堆历史遗留的未跟踪垃圾（server/.scratch07、
+  // DEV_STATE.md、.vh-* 等），把它们算进来这条就永远红，且报不出真信息。
+  const trackedFiles = tracked.split(String.fromCharCode(10)).map(x => x.trim()).filter(Boolean);
+  const server = trackedFiles.filter(f => f.startsWith('server/'));
+  ok('server/untouched', server.length === 0,
+    `server/ 那份 byte-同拷贝由运维改，我不碰（已跟踪改动里）：实得 ${server.join(' | ') || '（无）'}`);
+  const rel = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'zhi-relations.ts'), 'utf8');
+  ok('algo/export-surface-minimal', /export function zhiPairRelations/.test(rel)
+    && (rel.match(/^export /gm) || []).length === 4,
+    `算法层的导出面只多这一个函数（现在四个：ZhiRelation 类型、detectZhiRelations、zhiPairRelations + 类型）：实得 ${(rel.match(/^export /gm) || []).length} 个 export`);
 }
 
 const summary = `kline acceptance: segments=${male.段.length} lanes=${male.段[0].泳道.length} marks=${male.段.reduce((n, s) => n + s.泳道.reduce((m, l) => m + l.标注.length, 0), 0)} pass=${pass} fail=${fail}`;
