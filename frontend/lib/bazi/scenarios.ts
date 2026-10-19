@@ -95,11 +95,10 @@ function hitsFor(chart: BaziChart, stars: ShiShen[]): { 命中: string[]; 不见
     if (ss && want.has(ss)) {
       命中.push(`${ss}·${p.名}天干·${chart.siZhu[p.key].gan}${chart.siZhu[p.key].zhi}`);
     }
-    // 藏干的十神在引擎里实际叫 shiShen（yiqi-core/bazi.ts:74 getZhiCangGanFull 就是这么产出的），
-    // 而 types.ts:136 那份声明写的是 tenGod?: string —— 声明是错的。按真实字段读，
-    // 读错一个键就是整层藏干命中静默归零，盘面看着只是"这盘没这颗星"。types.ts 属算法层，不动它。
+    // 键名已由 types.ts 与产出方对齐（{ gan, shiShen }），这里不留 tenGod 兜底：
+    // 兜底会让「读错键」继续不可见，而 scen/cangGan-field-is-shiShen 钉的正是运行时没有 tenGod 这个键。
     for (const c of chart.cangGan?.[p.key as keyof typeof chart.cangGan] ?? []) {
-      const god = (c as { shiShen?: string; tenGod?: string }).shiShen ?? (c as { tenGod?: string }).tenGod;
+      const god = c.shiShen;
       if (god && want.has(god)) 命中.push(`${god}·${p.名}藏干·${c.gan}（支 ${chart.siZhu[p.key].zhi}）`);
     }
   }

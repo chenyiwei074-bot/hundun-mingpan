@@ -137,9 +137,9 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
   // 独立复算：命中条目里的星必须真在四柱天干或藏干里，不能是模块自己声称的。
   const siZhu = maleChart.siZhu;
   const cangGan = maleChart.cangGan;
-  // 藏干十神的真字段名是 shiShen（yiqi-core/bazi.ts:74），types.ts:136 声明的 tenGod 是不存在
-  // 的键。这里若也只读 tenGod，复算集就会退化成"只有天干"，本条断言跟着失去牙齿 ——
-  // 与产品代码同时瞎，等于没测。两种键名都收，但下面另有两条专门盯住"藏干命中真的存在"。
+  // 藏干十神的真字段名是 shiShen（yiqi-core/bazi.ts:74 产出，types.ts 已随裁定 ① 改对）。
+  // 复算这一侧仍两种键名都收：断言必须比被测对象宽一档，否则产品读错键的同时断言也瞎，
+  // 两条一起绿就等于没测。收紧的那一条是下面的 cangGan-declaration-honest（读声明原文）。
   const godOf = (c: any) => c?.shiShen ?? c?.tenGod;
   const present = new Set<string>();
   const 藏干应在盘里的 = new Map<string, number>();
@@ -169,7 +169,17 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
   const anyTenGodKey = ['year', 'month', 'day', 'hour'].some(p =>
     (cangGan?.[p] ?? []).some((c: any) => 'tenGod' in c));
   ok('scen/cangGan-field-is-shiShen', !anyTenGodKey,
-    `引擎藏干的十神键名实测为 shiShen（有 tenGod 的盘 = ${anyTenGodKey}）：types.ts:136 的 tenGod? 声明与运行时不符，本套件按真实字段读`);
+    `引擎藏干的十神键名实测为 shiShen（有 tenGod 的盘 = ${anyTenGodKey}）：断言只看运行时对象，不看声明`);
+  // 声明侧也钉住：裁定 ① 要求「把声明改对，不许只在 consumer 绕」。这里直接读那份 types.ts，
+  // 藏干那一行若再出现 tenGod 就红 —— 否则下一个 consumer 照旧会被假字段引进同一个坑。
+  const decl = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'yiqi-core', 'types.ts'), 'utf8');
+  // 先剥注释再扫字样：types.ts 里正当写着「原声明写作 tenGod?」这段历史，不剥就会
+  // 被自己的说明文字咬住（这条坑本项目已经踩过四次，扫描类断言一律先 codeOf）。
+  const declCode = decl.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const cgLine = (decl.match(/cangGan\?:[^\n]*/) || [''])[0];
+  ok('scen/cangGan-declaration-honest',
+    /tenGod/.test(declCode) === false && /CangGanItem/.test(cgLine),
+    `types.ts 里藏干的声明必须与产出方一致：实得「${cgLine.slice(0, 84)}」，代码里不再出现 tenGod=${!/tenGod/.test(declCode)}`);
   // 前提断言：真盘上矩阵必须真的报出东西。命中/岁运全为 0 时其余断言会空过 ——
   // 上一批「空结果静默通过」的老坑，这次先堵在这里。
   const totalHits = male.reduce((n, r) => n + r.命中.length, 0);
