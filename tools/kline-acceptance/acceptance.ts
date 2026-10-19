@@ -29,6 +29,7 @@ const OUT = arg('out') || '.kline.txt';
 const ROOT = join(__dirname, '../..');
 const lines: string[] = [];
 let pass = 0; let fail = 0;
+const skips: string[] = [];   // 判定不了的必须说出来，不能算过
 const say = (s: string) => lines.push(s);
 const ok = (id: string, cond: boolean, detail: string) => {
   if (cond) pass++; else fail++;
@@ -267,13 +268,19 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     Object.keys({ ...o.dependencies, ...o.devDependencies }).sort();
   const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k));
   ok('dep/no-new-package', added.length === 0, `零新依赖：实得新增 ${added.join('、') || '无'}`);
-  // 改动清单要真的能列出来：只看 origin/main..HEAD 的话，提交之前的工作区一个文件都不算，
-  // 这条就会空过（本项目"前提断言"第四次用上）。所以已跟踪的 diff 与未跟踪的新文件一起数。
-  const tracked = execSync('git diff --name-only origin/main', { cwd: ROOT, encoding: 'utf8' });
-  const untracked = execSync('git ls-files --others --exclude-standard', { cwd: ROOT, encoding: 'utf8' });
-  const touched = (tracked + '\n' + untracked).split('\n').map(s => s.trim()).filter(Boolean);
-  ok('change-list/is-real', touched.length >= 3,
-    `本批的改动清单必须列得出来（否则下面这条"没动算法层"是空过）：实得 ${touched.length} 个文件`);
+  // 批范围断言只能读"这个分支提交了什么"，不能读工作区。
+  // 教训（2026-10-19 的 #89）：原来这里读 `git diff origin/main` 与 `git ls-files --others`，
+  // 于是运维为对齐 server 那份同源拷贝而存在的**未提交改动**会被算成我碰了 server/ ——
+  // 首轮 39/1、他提交之后四跑 40/0。看起来像随机 flake，其实是我把别人正在干的活
+  // 当成我的违规来判。读提交（merge-base..HEAD）之后，同一棵工作区不管谁在改什么都与这条无关。
+  const base = execSync('git merge-base origin/main HEAD', { cwd: ROOT, encoding: 'utf8' }).trim();
+  const ahead = Number(execSync(`git rev-list --count ${base}..HEAD`, { cwd: ROOT, encoding: 'utf8' }).trim());
+  const touched = execSync(`git diff --name-only ${base}..HEAD`, { cwd: ROOT, encoding: 'utf8' })
+    .split('\n').map(s => s.trim()).filter(Boolean);
+  skips.push(...(ahead > 0 ? [] : ['批范围三条断言（改动清单 / 算法层范围 / server 不碰）']));
+  ok('change-list/is-real', ahead > 0 && touched.length >= 1,
+    ahead === 0 ? 'HEAD 相对 merge-base 还没有提交：这几条判定的是"本批交了什么"，先 commit 再跑（现在计 SKIP，不算通过）'
+      : `本批提交里能列出改动文件（否则下面"没乱动算法层"是空过）：${ahead} 个提交 / ${touched.length} 个文件`);
   // 2026-10-19 裁定：合冲落点这一批**只许**在 zhi-relations.ts 就地开成对入口。
   // 所以这一条不再是"算法层一个字节都不许动"，而是"只能动那一个文件的那一个导出，
   // 且行为必须逐字节不变"（由 tools/zhi-relations 的全枚举 golden 钉），
@@ -281,21 +288,24 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   const engine = touched.filter(f => /app\/lib\/core\/(yiqi-core|bazi-enrich)\//.test(f));
   ok('algo/only-the-pairwise-export', engine.every(f => f.replace(/\\/g, '/').endsWith('bazi-enrich/zhi-relations.ts')),
     `动到的算法层文件只能是 bazi-enrich/zhi-relations.ts 这一个：实得 ${engine.join(' | ') || '（无）'}`);
-  // 只看已跟踪的改动：仓库根下有一堆历史遗留的未跟踪垃圾（server/.scratch07、
-  // DEV_STATE.md、.vh-* 等），把它们算进来这条就永远红，且报不出真信息。
-  const trackedFiles = tracked.split(String.fromCharCode(10)).map(x => x.trim()).filter(Boolean);
-  const server = trackedFiles.filter(f => f.startsWith('server/'));
-  ok('server/untouched', server.length === 0,
-    `server/ 那份 byte-同拷贝由运维改，我不碰（已跟踪改动里）：实得 ${server.join(' | ') || '（无）'}`);
+  const server = touched.filter(f => f.startsWith('server/'));
+  ok('server/untouched', ahead === 0 || server.length === 0,
+    `本批提交里没有 server/ 文件（那份 byte-同拷贝由运维改）：实得 ${server.join(' | ') || '（无）'}`);
   const rel = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'zhi-relations.ts'), 'utf8');
   ok('algo/export-surface-minimal', /export function zhiPairRelations/.test(rel)
     && (rel.match(/^export /gm) || []).length === 4,
     `算法层的导出面只多这一个函数（现在四个：ZhiRelation 类型、detectZhiRelations、zhiPairRelations + 类型）：实得 ${(rel.match(/^export /gm) || []).length} 个 export`);
 }
 
-const summary = `kline acceptance: segments=${male.段.length} lanes=${male.段[0].泳道.length} marks=${male.段.reduce((n, s) => n + s.泳道.reduce((m, l) => m + l.标注.length, 0), 0)} pass=${pass} fail=${fail}`;
+const fails = lines.filter(l => l.startsWith('FAIL'));
+// 断言名直接进摘要那一行：只 tail 一行、或日志只留尾行的人，不该再遇到
+// "fail=1 但没捕获是哪一条" —— 一次定位不了的失败，等于一次修不了的失败。
+const failNames = fails.map(l => (l.split(/\s+/)[1] || '?'));
+const summary = `kline acceptance: segments=${male.段.length} lanes=${male.段[0].泳道.length} marks=${male.段.reduce((n, s) => n + s.泳道.reduce((m, l) => m + l.标注.length, 0), 0)} pass=${pass} fail=${fail}`
+  + (skips.length ? ` skip=${skips.length}` : '')
+  + (failNames.length ? `  未过：${failNames.join(' , ')}` : '');
 try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
 console.log(summary);
-const fails = lines.filter(l => l.startsWith('FAIL'));
+if (skips.length) console.log('  SKIP（判定不了，不算通过）：' + skips.join(' ; '));
 if (fails.length) { console.log(fails.join('\n')); process.exit(1); }
 console.log('0 failures — see ' + OUT);
