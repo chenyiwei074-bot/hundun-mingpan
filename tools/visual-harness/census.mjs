@@ -102,6 +102,8 @@ const STATIC_PAGES = [
   ['create', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
+  // 结果态（step==='done'）单独占一个状态：同一 URL，但 AFTER 钩子会真摇一卦把它推到位。
+  ['liuyao-done', '/liuyao/create'],
   ['meihua', '/meihua'],
   ['xiu', '/xiu'],
   ['huangli', '/huangli'],
@@ -166,6 +168,28 @@ const AFTER = {
         await new Promise(r => setTimeout(r, 25));
       }
       return false; })()`,
+  // 结果态只能真摇出来（六爻各 2s 转 + 1.5s 停 ≈ 21s）。裁定 (c2)② 明确不给生产加可注入
+  // 调试态 —— 能注入 seed 就等于用户能挑 seed，承诺当场作废。所以这里只做「点击 + 等待」，
+  // 与用户走同一条路；代价是每个视口多花约 25 秒。
+  // 到位判据钉的是结构不是文字：六爻六行、承诺行、那两个按钮，缺一就不算到达 ——
+  // 空态同样"有导航、有页脚、有字号梯"，只测 bodyText 会假绿（首页那次已经踩过）。
+  'liuyao-done': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const btn = re => [...document.querySelectorAll('button')].find(x => re.test((x.textContent || '').trim()));
+    const ta = document.getElementById('ly-question'); if (!ta) return '问题输入框不在页面上';
+    const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+    set.call(ta, '视觉验收占位问题'); ta.dispatchEvent(new Event('input', { bubbles: true }));
+    const next = btn(/下一步/); if (!next) return '下一步按钮不在页面上'; next.click();
+    for (let n = 0; n < 40 && !btn(/^开始摇卦$/); n++) await wait(50);
+    const start = btn(/^开始摇卦$/); if (!start) return '起卦方式那一步没渲染出「开始摇卦」'; start.click();
+    for (let n = 0; n < 200; n++) { if (btn(/查看结果/)) break; await wait(250); }
+    if (!btn(/查看结果/)) return '摇满六爻后没进入结果态';
+    if (!btn(/重新摇一卦/)) return '结果态缺「重新摇一卦」入口';
+    const line = ([...document.querySelectorAll('p')].map(p => p.textContent).find(t => (t || '').includes('已锁定')) || '');
+    if (!/seedHash [0-9a-f]{12}/.test(line)) return '结果态缺承诺行（seedHash 未显示）';
+    const rows = [...document.querySelectorAll('.qn-ink .qn-note')].map(e => (e.textContent || '').trim()).filter(t => t && t !== '—').length;
+    if (rows < 6) return '六爻记录只渲染出 ' + rows + ' 行';
+    return true; })()`,
 };
 
 // Injected states must actually land on screen. A fixture the app silently fails to
@@ -807,7 +831,7 @@ async function measure(tag, url) {
     // multi-second load regression on a page that paints fine.
     await evl('window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp');
     const ok = await evl(AFTER[base]);
-    if (ok !== true) fail.push(tag + ': expand control not found — the collapsed half of this page was never measured');
+    if (ok !== true) fail.push(tag + ': 该状态没到位（' + (typeof ok === 'string' ? ok : JSON.stringify(ok)) + '）—— 这一屏从未被测量');
     else { await sleep(800); console.log('    clicked expand control'); }
   }
   // The injected state has to be provably on screen before anything else here means
