@@ -10,6 +10,8 @@
 //   cd <repo root> && NODE_PATH="$PWD/frontend/node_modules" \
 //     node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
 //     tools/hepan-acceptance/acceptance.ts --out=.hepan.txt
+import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
@@ -78,6 +80,36 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
   }
   ok('core/detect-gan-unchanged', diffs === 0,
     `ganPair 是从本盘关系表里抽出来的，抽取前后 10^4=${n} 组四柱天干的输出必须逐字相同（新导出的"相生/相同"两类只给合盘用，不许漏进本盘表）：差异 ${diffs} 处${first ? `\n${first}` : ''}`);
+
+  // 钉一个冻结摘要，而不是只信上面那份手抄 oracle —— 手抄的旧实现和现实现可以被一起改掉，
+  // 摘要改不动。这个值 d1ea79065618a10d 是从 2971343（本批切出来的那个 main）的原文
+  // 跑出来的，不是从抽完之后的输出倒读的。
+  const digest = createHash('sha256');
+  for (const a of GANS) for (const b of GANS) for (const c of GANS) for (const d of GANS) {
+    digest.update(JSON.stringify(detectGanRelations({ 年: a, 月: b, 日: c, 时: d })));
+  }
+  const got = digest.digest('hex').slice(0, 16);
+  ok('core/detect-gan-frozen-digest', got === 'd1ea79065618a10d',
+    `本盘天干关系表在 10^4 组全枚举上的输出摘要必须等于抽取前那一份（这一条不许用重新算一遍的方式"更新"，要改先证明改动是被裁定过的）：实得 ${got}`);
+
+  // 反手抄：套件里那份"抽取前"的实现必须真的来自 2971343 的原文。
+  // 手抄一份自己以为的旧代码，测出来的是"我在测我自己"—— 这条是被 zhi-relations 那次教训换来的。
+  try {
+    const blob = execSync('git show 2971343:frontend/app/lib/core/bazi-enrich/gan-relations.ts',
+      { cwd: ROOT, encoding: 'utf8' });
+    const self = readFileSync(__filename, 'utf8').replace(/\s+/g, '');
+    const marks = [
+      "if (he) { out.push({type:'天干合', gans:[a.gan, b.gan], pillars:[a.pillar, b.pillar]});",
+      "const rel = shengKe(GAN_WUXING[a.gan], GAN_WUXING[b.gan]);",
+      "out.push({type:'天干相克', gans:[a.gan, b.gan], pillars:[a.pillar, b.pillar]});",
+    ];
+    const norm = (s: string) => s.replace(/\s+/g, '');
+    const bad = marks.filter(m => !norm(blob).includes(norm(m)) || !self.includes(norm(m)));
+    ok('core/oracle-is-the-real-old-file', bad.length === 0 && !blob.includes('export function ganPair'),
+      `套件那份 oracle 的三行特征原文既要在 2971343 里，也要在本套件里逐字出现，而且那份原文不许已经有 ganPair（有的话说明我抄的是抽完之后的版本，比较就失去了对象）：不符 ${bad.join(' | ') || '0 处'}`);
+  } catch (e) {
+    ok('core/oracle-is-the-real-old-file', false, `git show 2971343 读不到原文，这条判不了（判不了要说出来，不算过）：${(e as Error).message}`);
+  }
 
   const pair: Array<[string, string, string | null]> = [
     ['甲', '己', '天干合'], ['乙', '庚', '天干合'], ['庚', '乙', '天干合'],
