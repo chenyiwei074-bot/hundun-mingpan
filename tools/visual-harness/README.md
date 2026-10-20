@@ -44,7 +44,7 @@ node tools/visual-harness/census.mjs \
 | `--chart-fixture=<file>` | 只覆盖完整那张盘（临时换一张用；`--stub` 下才起作用） |
 | `--liuyao-fixtures=<dir>` | 六爻四张盘所在目录，默认 `tools/visual-harness/fixtures` |
 | `--liuyao-fixture=<file>` | 只覆盖摇卦那一张（临时拿另一张盘调试用） |
-| `--only=home,legal` | 按 tag 或 url 片段过滤 |
+| `--only=home,legal` | 按 tag 或 url 片段过滤。**写 tag，别写 `/western` 这种带斜杠的**：Git Bash 会把参数开头的 `/x` 改成本地路径（实测变成 `C:/Program Files/Git/western`），于是一个态都没筛到。筛到 0 个态现在直接判红，不再报"ALL PASSED — 0 states"。 |
 | `--no-shots` | 不截图，只出 census.json |
 | `--port` | CDP 端口，默认 9399，需空闲 |
 
@@ -209,6 +209,23 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
 的关键词表人工推出来的，与 kline 那 144 组成对表同一做法。
+
+## 44px 与 CLS 现在是判定，不是读数（D1 / D2）
+
+**TAP44 进判定。** 以前 `tapIssues` 只打印，于是 375px 上一堆 `13x13` 的复选框、
+`43x44` 的 chip、`17px` 高的链接都能带着 `ALL PASSED` 出门。现在每条 blocking 违例直接红。
+
+唯一的豁免是 WCAG 2.5.5 的 **inline 例外**，判据写得很窄，四条同时成立才算：
+`<a href>`、`display` 是 inline 系、所在块里链接前后都还有正文（整行只有它 = 独立入口，不豁免）、
+且它不超过所在块的六成宽。豁免项**逐条打印并进 warns** —— 一个悄悄变大的桶比一条红更糟。
+密网格上的控件（K线那种）不要用 `::after` 扩命中区，会互相抢；改语义（只读）或改布局。
+
+**CLS 分两段判。** `交互后位移 = 累计 CLS − 点击前读数`，≥0.1 直接红；
+加载期就存在的位移单独进 warn 并把数印出来（本轮量到六爻结果页 0.171–0.237，
+是既有缺陷、不在这一批顺手修，但也不能因为"没人断言"被读成没问题）。
+排查位移靠 `CLS-SRC`（每条最多列 9 个移动元素，含 `dx/dy/h`）——
+`/western` 问事态那 0.106 就是靠它定位到"提交按钮在 `flexWrap:'wrap'` 的行里换了行"
+（`dx=-192 dy=55`），而不是靠猜；固定高度面板与 `contain` 都排除过之后才找到真凶。
 
 ## 产物
 

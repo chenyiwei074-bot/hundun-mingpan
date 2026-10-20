@@ -70,18 +70,25 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
     <div className="qa" data-mode={mode} data-compact={compact ? '1' : undefined}>
       <form
         onSubmit={e => { e.preventDefault(); void ask(text); }}
-        style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
-        <label className="qn-label" htmlFor={`qa-input-${mode}`} style={{ flex: '1 1 100%', margin: 0 }}>
+        style={{ display: 'grid', gap: 8 }}>
+        <label className="qn-label" htmlFor={`qa-input-${mode}`} style={{ margin: 0 }}>
           问一句（中文）
         </label>
-        <input
-          id={`qa-input-${mode}`} className="qn-input" style={{ flex: '2 1 180px', minWidth: 0 }}
-          value={text} onChange={e => setText(e.target.value)}
-          placeholder={PLACEHOLDER[mode]} maxLength={200} aria-describedby={`qa-note-${mode}`} />
-        <button type="submit" className="qn-btn qn-btn--solid" style={{ minWidth: 76 }}
-          disabled={busy || text.trim().length === 0}>
-          {busy ? '在想' : '问一下'}
-        </button>
+        {/* nowrap 那一行是刻意的：以前 label/input/button 挤在同一个 flexWrap:'wrap' 里，
+            按钮文字在「问一下 / 在想」之间变长变短会让整行重新排 —— 实测按钮跳到下一行
+            （dx=-192、dy=55），整页被推下去 54px，CLS 0.106。输入框自己 min-width:0，
+            永远让得起。 */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'stretch' }}>
+          <input
+            id={`qa-input-${mode}`} className="qn-input" style={{ flex: '1 1 auto', minWidth: 0 }}
+            value={text} onChange={e => setText(e.target.value)}
+            placeholder={PLACEHOLDER[mode]} maxLength={200} aria-describedby={`qa-note-${mode}`} />
+          <button type="submit" className="qn-btn qn-btn--solid"
+            style={{ minWidth: 84, flex: '0 0 auto' }}
+            disabled={busy || text.trim().length === 0}>
+            {busy ? '在想' : '问一下'}
+          </button>
+        </div>
       </form>
 
       <p id={`qa-note-${mode}`} className="qn-cap" style={{ marginTop: 6 }}>
@@ -106,7 +113,15 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
 
       {err && <p className="qn-alert" role="alert" style={{ marginTop: 10 }}>{err}</p>}
 
-      <div aria-live="polite">
+      {/* 非紧凑那一版给答案面板一个固定高度、内部滚动：答案卡插进来不再把下面的目录推下去。
+          /western 问事态实测 CLS 0.155 就是这么来的 —— 一答题整页位移，而以前没人测交互之后的 CLS。
+          首屏那一版（compact）不预留：预留会把四类意图挤出首屏，那是另一条钉着的契约，
+          两害相权取"位移面积小"这一边，由 cls 断言兜住。 */}
+      <div className="qa-pane" data-compact={compact ? '1' : undefined}>
+        <div className="qa-turns" aria-live="polite">
+        {turns.length === 0 && !compact && (
+          <p className="qn-cap" style={{ margin: 0 }}>问一句之后，结果出现在这一块。</p>
+        )}
         {turns.map(t => {
           const tool = toolOf(mode, t.result.toolSlug);
           const why = t.source === 'server'
@@ -139,6 +154,7 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
             </div>
           );
         })}
+        </div>
       </div>
     </div>
   );

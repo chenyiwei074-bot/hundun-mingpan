@@ -147,6 +147,8 @@ const STATIC_PAGES = [
   ['fengshui', '/fengshui'],
   // 户型页填一组标注之后的那一态：规则层的输出必须真的上屏（空页面过审没有意义）。
   ['fengshui-filled', '/fengshui'],
+  // 3D 那一态单独跑：它要等动态 import、要量首帧与帧率，混在 filled 里会把两个数都污染。
+  ['fengshui-3d', '/fengshui'],
   ['create', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
@@ -206,21 +208,35 @@ const QA_PINS = {
 };
 
 const AFTER = {
+  // 户型工作室那一态：载入合成样例 → 勾"我自己核对过" → 规则层实时出判定。
+  // 为什么用合成样例而不是拖角点：拖拽要真指针事件与坐标，样例是确定输入，
+  // 这一态要证的是"几何翻译成宫位之后判定真的上屏"，不是编辑器能不能拖。
+  // 两个动作之间必须让一拍：点完样例 React 还没重渲染，同一 tick 里 querySelector 拿到的
+  // 还是旧 DOM 上那个复选框（这里是 <details> 里旧表单那份），勾了个错的却看起来像勾过了。
+  // evl 开了 awaitPromise，所以钩子可以写成 async IIFE —— 别的钩子不需要同步，别照抄这个形状。
+  'fengshui-filled': `(async () => {
+    const find = t => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === t);
+    const s = find('样例 · 两室夹一厅');
+    if (!s) return '合成样例按钮不在页面上（工作室没渲染出来？）';
+    s.click();
+    await new Promise(r => setTimeout(r, 150));
+    const c = document.getElementById('fp-confirm');
+    if (!c) return '确认复选框 #fp-confirm 没渲染出来（几何没进去？）';
+    if (!c.checked) c.click();
+    await new Promise(r => setTimeout(r, 150));
+    return true; })()`,
+  'fengshui-3d': `(async () => {
+    const find = t => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === t);
+    const s = find('样例 · 两室夹一厅'); if (!s) return '合成样例按钮不在页面上';
+    s.click();
+    await new Promise(r => setTimeout(r, 150));
+    const c = document.getElementById('fp-confirm');
+    if (c && !c.checked) c.click();
+    await new Promise(r => setTimeout(r, 150));
+    const three = find('3D'); if (!three) return '视图切换里没有 3D 那一档';
+    three.click(); return true; })()`,
   // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
   // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
-  'fengshui-filled': `(() => {
-    const mark = (kind, palace) => { const b = document.querySelector(\`button[data-mark="\${kind}"][data-palace="\${palace}"]\`);
-      if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); return true; };
-    // 门与窗都要标上：默认表单只有房间，规则层对"缺输入"的诚实回答就是不判定 ——
-    // 那一态由 fengshui 那个空态测，这一态要的是"输入齐了推不推得出东西"。
-    if (!mark('door', '离')) return '找不到"入户门在离"那个标记按钮';
-    if (!mark('window', '坎')) return '找不到"主窗在坎"那个标记按钮';
-    const c = document.querySelector('input[type=checkbox]');
-    if (!c) return '确认勾选框不在页面上（第一步就没法勾）';
-    if (!c.checked) c.click();
-    const b = [...document.querySelectorAll('button')].find(x => /算一遍/.test(x.textContent || ''));
-    if (!b) return '「按这些标注算一遍」按钮不在页面上';
-    b.click(); return true; })()`,
   'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
     if (!i) return '问事框输入框不在页面上（#qa-input-oriental）';
     const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -617,6 +633,80 @@ const FS_PROBE = `(() => {
   return { miss: out, chars: txt.length };
 })()`;
 
+// 主题钉值（纠正一）。正向：/western 的 main 计算背景/正文色/卡片底必须等于裁定给的深紫 token，
+// 且 color-scheme 是 dark。反向：东方、目录、建盘这三页必须还是浅底（正文是深色）。
+// 两边都得算数 —— 只钉正向的话，"整套 token 被误挂到 :root"这种事故会把所有页面都染紫，
+// 而截图对比不一定看得出（浅底页本来就白），只有反向断言能抓住。
+const WESTERN_DARK = { bg: 'rgb(27, 16, 48)', text: 'rgb(243, 238, 255)', card: 'rgb(36, 26, 61)' };
+const THEME_STATES = {
+  western: 'dark', 'western-ask': 'dark',
+  oriental: 'light', tools: 'light', create: 'light', fengshui: 'light', home: 'gate',
+};
+const themeProbe = kind => `(() => {
+  const main = document.querySelector('main');
+  if (!main) return { miss: ['没有 <main>，主题断言没地方落'] };
+  const lum = s => { const m = String(s).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/); if (!m) return null;
+    const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    const [r, g, b] = [+m[1], +m[2], +m[3]].map(v => f(v / 255)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+  const cs = getComputedStyle(main), bs = getComputedStyle(document.body);
+  const card = main.querySelector('.qn-card');
+  const got = { mainBg: cs.backgroundColor, color: cs.color, bodyBg: bs.backgroundColor,
+    scheme: cs.colorScheme, cardBg: card ? getComputedStyle(card).backgroundColor : null,
+    bodyLum: Math.round(lum(bs.backgroundColor) * 1000) / 1000,
+    colorLum: Math.round(lum(cs.color) * 1000) / 1000 };
+  const out = [];
+  const W = ${JSON.stringify(WESTERN_DARK)};
+  if (${JSON.stringify(kind)} === 'dark') {
+    if (got.mainBg !== W.bg) out.push('main 背景 ' + got.mainBg + ' 应为 ' + W.bg);
+    if (got.color !== W.text) out.push('main 正文色 ' + got.color + ' 应为 ' + W.text);
+    if (got.cardBg !== W.card) out.push('.qn-card 底 ' + got.cardBg + ' 应为 ' + W.card);
+    if (got.bodyBg !== W.bg) out.push('body 背景 ' + got.bodyBg + ' 应为 ' + W.bg + '（body:has 那条没生效会白闪）');
+    if (got.scheme !== 'dark') out.push('color-scheme 是 ' + got.scheme + '，深底页应为 dark（原生控件与滚动条跟着走）');
+  } else if (${JSON.stringify(kind)} === 'light') {
+    if (got.bodyLum < 0.5) out.push('body 亮度 ' + got.bodyLum + ' —— 浅底页被深紫污染了');
+    if (got.colorLum > 0.5) out.push('正文亮度 ' + got.colorLum + ' —— 浅底页上正文变成了浅色');
+    if (got.mainBg === W.bg || got.cardBg === W.card) out.push('深紫 token 漏到了这一页（mainBg=' + got.mainBg + ' cardBg=' + got.cardBg + '）');
+  } else {
+    // 门廊：本体浅底，两张卡一浅一深 —— "两扇门"就是这个意思
+    if (got.bodyLum < 0.5) out.push('门廊本体不该是深底（body 亮度 ' + got.bodyLum + '）');
+    const cards = [...main.querySelectorAll('a.domain-card')].map(c => {
+      const s = getComputedStyle(c);
+      return { mode: c.getAttribute('data-mode'), lum: Math.round(lum(s.backgroundColor) * 1000) / 1000 };
+    });
+    const w = cards.find(c => c.mode === 'western'), o = cards.find(c => c.mode === 'oriental');
+    if (!w || !o) out.push('门廊两张卡没找全：' + JSON.stringify(cards));
+    else if (!(w.lum < 0.5 && o.lum > 0.5)) out.push('门廊应当"东方浅、西方深"，实得 ' + JSON.stringify(cards));
+    got.cards = cards;
+  }
+  return { miss: out, ...got };
+})()`;
+
+// 纠正一还有一句「全部走变量，禁止硬编码色」。这一条只能静态查：计算样式分不出
+// "这个 rgb 是写死的还是 token 展开的"，浏览器里看到的一切都一样。
+// 扫之前必须剥掉 /* */ —— 注释里就出现过 #fff（"输入框写死了浅色值"那句正是拿它举例），
+// 不剥就是模块咬自己的断言（这个坑本站已经踩到第三次）。
+function cssTokenAudit() {
+  const file = join(import.meta.dirname, '..', '..', 'frontend', 'app', 'globals.css');
+  let css;
+  try { css = readFileSync(file, 'utf8'); }
+  catch (e) { return ['globals.css 读不到，token 纪律没法查：' + e.message]; }
+  const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const out = [];
+  const scope = /\[data-mode="western"\][^{}]*\{([^}]*)\}/g;
+  let m, n = 0;
+  while ((m = scope.exec(stripped))) {
+    n++;
+    const lit = m[1].match(/#[0-9a-fA-F]{3,8}\b|\brgba?\(/g);
+    if (lit) out.push(`western 作用域第 ${n} 条规则里写死了色 ${JSON.stringify([...new Set(lit)])}，应改成 var(--color-western-*)`);
+  }
+  if (n === 0) out.push('一条 [data-mode="western"] 规则都没找到 —— 深紫主题没了，还是选择器改名了？');
+  // 定义了却没人消费的 token = 那条改色根本没落地（真正的"漏"长这个样子，不是长得不对）。
+  const declared = new Set([...stripped.matchAll(/(--color-western-[\w-]+)\s*:/g)].map(x => x[1]));
+  const used = new Set([...stripped.matchAll(/var\((--color-western-[\w-]+)\)/g)].map(x => x[1]));
+  for (const t of declared) if (!used.has(t)) out.push(`token ${t} 定义了但没有任何规则 var() 它`);
+  return out;
+}
+
 // 问事框答完之后那一帧的读数：回答卡、卡上的入口、入口是否出自目录。
 const qaProbe = p => `(() => {
   const turns = [...document.querySelectorAll('.qa-turn')];
@@ -687,7 +777,7 @@ const OBSERVERS = `(() => {
       window.__cls += e.value;
       if (e.value > 0.01 && window.__clsSrc.length < 14) window.__clsSrc.push({
         v: Math.round(e.value * 1000) / 1000, time: Math.round(e.startTime),
-        t: (e.sources || []).slice(0, 3).map(s => {
+        t: (e.sources || []).slice(0, 9).map(s => {
           const n = s.node, o = s.previousRect, x = s.currentRect;
           const d = (o && x) ? 'dy=' + Math.round(x.top - o.top) + ' dx=' + Math.round(x.left - o.left) + ' h=' + Math.round(x.height) : 'inserted/removed';
           const cn = n && n.className ? String(n.className).slice(0, 34) : (n ? n.nodeName : '?');
@@ -901,6 +991,12 @@ const CENSUS = String.raw`(() => {
           const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
           if (ratio < worst) { worst = ratio; onBg = bg; } }
         const bold = +cs.fontWeight >= 700, large = size >= 24 || (size >= 19 && bold);
+        // 顺手记下这一段里最差的实测比值和样本数。AA=0 只说"没违规"，不说"测过几个"；
+        // 没有这两个数，一次全文只有 3 段文字的页面和 300 段的页面看起来一样绿。
+        R[g].n = (R[g].n || 0) + 1;
+        const wr = Math.round(worst * 100) / 100;
+        if (!R[g].min || wr < R[g].min.ratio)
+          R[g].min = { ratio: wr, size, text: t.slice(0, 12), on: 'rgb(' + onBg.join(',') + ')' };
         if (worst < (large ? 3 : 4.5)) R[g].aa.push({ text: t.slice(0, 20), color: cs.color,
           on: 'rgb(' + onBg.join(',') + ')', size, weight: cs.fontWeight, ratio: Math.round(worst * 100) / 100 });
       }
@@ -984,7 +1080,7 @@ const CENSUS = String.raw`(() => {
   };
   for (const [k, v] of Object.entries(R)) out.regions[k] = {
     sizes: [...v.sizes.keys()].sort((a, b) => a - b),
-    aaCount: v.aa.length, aa: v.aa.slice(0, 20) };
+    aaCount: v.aa.length, aa: v.aa.slice(0, 20), n: v.n || 0, min: v.min || null };
   return out;
 })()`;
 
@@ -1009,6 +1105,10 @@ const CENSUS = String.raw`(() => {
 // describe two different populations -- that is what the 2026-10-19 ruling asks for.
 const TAP_AUDIT = String.raw`(() => {` + VH_SHARED + String.raw`
   const small = new Set(); const issues = new Set(); const seen = new Set();
+  // 2026-10-20 裁定：不许用"句中链接豁免"过关。WCAG 2.5.5 的 inline 例外在规范里确实存在，
+  // 但它在这里成了一个可以悄悄变大的桶 —— 被点名的真实违例（选择体系 52x17）正走这条道变绿。
+  // 所以豁免通道整个删掉：不足 44px 就是违例，修法是把它做成真的 44px 控件或改成非交互文本，
+  // 不是给它找一个例外。
   let inWindow = 0;
   const why = {};
   const note = (el, k) => { const key = k + ' ' + el.nodeName.toLowerCase() + '.' + String(el.className || '').split(' ')[0].slice(0, 24);
@@ -1054,9 +1154,10 @@ const TAP_AUDIT = String.raw`(() => {` + VH_SHARED + String.raw`
       const hit = document.elementFromPoint(x, y);
       if (!hit || !(hit === el || el.contains(hit))) miss++;
     }
-    if (miss && untestable < 4)
-      issues.add(region(el) + '|' + label + '|' + box +
-        '|miss' + miss + (txt ? '' : '|ICON'));
+    if (miss && untestable < 4) {
+      const key = region(el) + '|' + label + '|' + box + '|miss' + miss + (txt ? '' : '|ICON');
+      issues.add(key);
+    }
   }
   return { small: [...small].sort(), issues: [...issues].sort(), inWindow,
     distinct: document.querySelectorAll('[data-vh-t]').length,
@@ -1158,6 +1259,18 @@ function check(tag, v) {
   if (v.bodyText < 100) bad(`page rendered almost no text (${v.bodyText} chars) — did the data load?`);
   if (!v.booted) bad('boot script never ran: CLS/LCP observers are dead, so the perf numbers are meaningless');
   if (v.overflowX > 0) bad(`horizontal overflow ${v.overflowX}px`);
+  // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推走那种位移没人管
+  // （/western 问事态实测 0.106，元凶是提交按钮在 flex-wrap 里换了行）。
+  // 分工要说清：交互引起的位移直接红；加载期就有的位移单独喊（本轮量到六爻结果页 0.17–0.24，
+  // 那是既有缺陷，不在这一批里顺手修，但绝不能因为"没人断言"而继续被读成没问题）。
+  if (typeof v.cls !== 'number') bad('CLS 没测到（observer 或 perf 读数坏了）—— 这一态的位移没被测量过');
+  else {
+    const load = typeof v.clsAtLoad === 'number' ? v.clsAtLoad : v.cls;
+    const after = Math.round((v.cls - load) * 1000) / 1000;
+    if (after >= 0.1) bad(`交互后 CLS +${after}（累计 ${v.cls}）—— 有内容在点击之后把页面推走了`);
+    if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
+    console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
+  }
   if (!!v.pointerCoarse !== !!v.wantTouch) bad(`pointer mismatch: asked ${v.wantTouch ? 'coarse' : 'fine'}, page sees ${v.pointerCoarse ? 'coarse' : 'fine'}`);
   for (const c of (v.cssInkData || [])) bad(`stylesheet paints data colour as ink: ${c}`);
 
@@ -1206,6 +1319,9 @@ function check(tag, v) {
   }
   for (const i of (v.inkedDataColors || [])) bad(`DATA COLOUR USED AS INK ${i.color} ${i.size}px "${i.text}" in ${i.region}`);
   for (const s of (v.smallTargets || []).filter(x => x.startsWith('nav|') || x.startsWith('footer|'))) bad(`sub-44 target in shell: ${s}`);
+  // D1：44px 的"有效可点"以前只打印不判定，于是 375px 上一堆 13x13 / 43x44 / 17px
+  // 的违例都能带着 ALL PASSED 出门。现在违例直接红，且没有任何豁免通道（2026-10-20 裁定）。
+  for (const s of (v.tapIssues || [])) bad(`TAP44 有效命中区不可点：${s}`);
 
   for (const [k, want] of Object.entries(WX_FROZEN)) {
     const got = v.tokens['wx-' + k];
@@ -1437,6 +1553,48 @@ async function measure(tag, url) {
     console.log(miss && miss.length ? '    FS MISMATCH ' + miss.join(' | ')
       : `    户型规则层上屏 ${got.chars} 字，依据/不确定项/口径戳/边界话术齐备`);
   }
+  // 3D 舞台那一态。两条路都算通过：真出了 canvas，或者真降级了且原因写在页面上。
+  // 不通过的是"什么都没发生"—— 黑屏、永久转圈、或者悄悄换了一张图却不说为什么。
+  if (base === 'fengshui-3d') {
+    await evl(`window.__fp = { frames: 0, t0: performance.now() };
+      (function loop(){ window.__fp.frames++; requestAnimationFrame(loop); })(); true`);
+    await sleep(2000);
+    const got = await evl(`(() => {
+      const fps = Math.round(window.__fp.frames / ((performance.now() - window.__fp.t0) / 1000) * 10) / 10;
+      const stage = document.querySelector('[data-fp-stage]');
+      const canvas = stage ? stage.querySelector('canvas') : null;
+      const reason = [...document.querySelectorAll('p.qn-alert')].map(p => (p.textContent || '').trim())
+        .filter(t => /等轴|帧率|上下文/.test(t));
+      const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
+        .find(t => /首帧/.test(t)) || null;
+      return { fps, canvas: !!canvas, canvasW: canvas ? canvas.width : 0, reason, readout,
+        scrollHijack: stage ? getComputedStyle(stage).touchAction : null,
+        bodyTouch: getComputedStyle(document.body).touchAction };
+    })()`);
+    if (!got || typeof got.fps !== 'number') fail.push(tag + ': 3D 探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else {
+      if (!got.canvas && !got.reason.length)
+        fail.push(`3D 既没有 canvas，也没有写明降级原因（fps ${got.fps}）—— 静默失败`);
+      if (got.canvas && got.canvasW < 100) fail.push(`canvas 宽度只有 ${got.canvasW}，尺寸没铺开的 3D 不算渲染出来`);
+      if (got.canvas && got.fps < 45) fail.push(`3D 帧率 ${got.fps}fps < 45（连续 2s 采样）`);
+      // 裁定：touch-action:none 只许落在舞台这一块，页面纵向滚动不能被劫持。
+      // 所以两头都要钉：舞台是 none（否则 OrbitControls 收不到手势），body 不是 none（否则整页滚不动）。
+      if (got.scrollHijack !== 'none') fail.push(`舞台 touch-action=${got.scrollHijack}，应为 none`);
+      if (got.bodyTouch !== 'auto') fail.push(`body touch-action=${got.bodyTouch}，页面滚动被劫持`);
+      console.log(`   3D canvas=${got.canvas} 宽=${got.canvasW} fps=${got.fps} 首帧读数="${got.readout ?? '无'}" 降级="${got.reason.join(' / ') || '无'}"`);
+    }
+  }
+  // 主题正反向断言（纠正一）。跑在 census 之前、AFTER 之后：/western 的问答卡插进来
+  // 不该改变任何计算色，所以先后无所谓；但必须在滚动扫之前跑完，别拿别的段的位置说事。
+  if (THEME_STATES[base]) {
+    const kind = THEME_STATES[base];
+    const got = await evl(themeProbe(kind));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 主题探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 主题不等于钉值 — ' + x);
+    console.log(`   THEME[${kind}] main=${got && got.mainBg} card=${got && got.cardBg} body=${got && got.bodyBg}`
+      + ` text=${got && got.color} scheme=${got && got.scheme}${got && got.cards ? ' cards=' + JSON.stringify(got.cards) : ''}`);
+  }
   // 动爻的金漆只在「最后一条记录正好是动爻」时才上屏 —— 实测约一半的跑法里根本没有对象
   // （每爻老阴/老阳各 1/8）。不把这个数打出来，一次绿会被读成「对比度没问题」，
   // 而那可能只是这盘没有动爻。0 处不是通过，是没测。
@@ -1458,6 +1616,9 @@ async function measure(tag, url) {
     cls: Math.round(window.__cls * 1000) / 1000,
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000 })`);
   results[tag + '__perf'] = perf;
+  // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推下去那种位移没人管
+  // （/western 问事态实测 0.155）。把两个值都挂到这一态上，交给 check() 判。
+  if (v && !v.__err) { v.cls = perf.cls; v.clsAtLoad = perf.clsAtLoad; }
   // 分段扫必须排在 perf 读数之后：scrollTo 会让懒加载图片进来，那会把 LCP 改成滚动后的值。
   if (v && !v.__err) await sweepTap(v, tag);
   console.log(`\n== ${tag}  ${v && v.path ? v.path : url}`);
@@ -1465,6 +1626,10 @@ async function measure(tag, url) {
   if (v && !v.__err) {
     const m = v.regions.main || {};
     console.log(`   coarse=${v.pointerCoarse} ovfX=${v.overflowX} text=${v.bodyText} ladder=${JSON.stringify(v.ladder)} | main AA=${m.aaCount || 0} sizes=${JSON.stringify(m.sizes)} | nav AA=${(v.regions.nav || {}).aaCount || 0} | footer AA=${(v.regions.footer || {}).aaCount || 0} | small=${v.tapSmallTotal || 0}个/${(v.smallTargets || []).length}种`);
+    // 实测对比度（纠正一 验收①要求"打印实测"，不是只报 0 条违规）。
+    const cr = g => { const r = v.regions[g]; if (!r || !r.min) return g + '=未采样';
+      return `${g} 最差 ${r.min.ratio}:1(${r.min.size}px「${r.min.text}」压 ${r.min.on}) / 共 ${r.n} 处`; };
+    console.log(`   CONTRAST ${cr('main')} | ${cr('nav')} | ${cr('footer')}`);
     if (v.foot) console.log(`   nav=${v.nav && v.nav.h}px shell=${v.shell && v.shell.w}px foot=${v.foot.top}->${v.foot.bottom} docH=${v.docH}${v.docH <= H + 1 ? ' (dead band ' + (H - v.foot.bottom) + 'px)' : ''}`);
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
@@ -1579,11 +1744,21 @@ if (exempts.length) {
   console.log(`${exempts.length} EXEMPTED VIOLATION(S) — tracked, not passed`);
   for (const e of exempts) console.log('  ! ' + e);
 }
+const cssBad = cssTokenAudit();
+for (const x of cssBad) fail.push('CSS-TOKEN ' + x);
+if (!cssBad.length) console.log('CSS-TOKEN western 作用域内零写死色，western token 全部有人用');
+
+// --only 打空了也报"ALL PASSED — 0 态"，是一种静默绿：写错一个斜杠（Git Bash 会吃掉
+// 参数开头的 /western）就整轮什么都没测，退出码还是 0。筛过就必须筛到东西。
+const ranStates = Object.keys(results).filter(k => !k.endsWith('__perf')).length;
+if (ONLY.length && ranStates === 0) {
+  fail.push(`--only=${ONLY.join(',')} 一个态都没匹配到（0 态）—— 拼错了，这一轮不算通过`);
+}
 if (fail.length) {
   console.log(`${fail.length} FAILURE(S)`);
   for (const f of fail) console.log('  - ' + f);
 } else {
-  console.log(`ALL CHECKS PASSED — ${Object.keys(results).filter(k => !k.endsWith('__perf')).length} states` +
+  console.log(`ALL CHECKS PASSED — ${ranStates} states` +
     (exempts.length ? ` (with ${exempts.length} exempted violation(s) above)` : '') +
     (warns.length ? ` (with ${warns.length} warning(s) above — 含 KNOWN-CONTRAST)` : ''));
 }

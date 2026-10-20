@@ -505,6 +505,11 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 
 .qn-link { color: var(--color-accent-gold-text); text-decoration: none; font-size: var(--qn-fs-meta); }
 .qn-link:hover { text-decoration: underline; }
+/* 入口一律单独成行，不嵌在句子里。句中链接的命中区只有字高（实测 17px），
+   而 2026-10-20 裁定不给 inline 豁免：要么做成真 44px 控件，要么改成非交互文本。
+   这一行就是"做成真控件"那一条路，代价是法务区多 27px 高度。 */
+.qn-linkrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 6px; }
+.qn-linkrow .qn-link { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
 
 /* ---- 选项 chip ---- */
 .qn-chip {
@@ -694,6 +699,135 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   row-gap: 12px;
 }
 .qa-examples .qn-chip { max-width: 100%; }
+/* 答案面板：尺寸恒定，内容自己滚。这样"答一题"永远不改变页面布局 —— CLS 只可能来自
+   位移，把位移源拿掉比把阈值放宽诚实。compact 那一版在首屏里，不预留高度。 */
+/* 答案面板：外层占位、内层绝对定位。绝对定位的内容不参与父级布局，
+   所以"插一条回答"在数学上不可能把页面推走 —— 固定高度与 contain 都试过，
+   实测仍记到 54px 位移；这一版是把可能性掐掉，不是把阈值放宽。 */
+.qa-pane:not([data-compact="1"]) { position: relative; height: 200px; }
+.qa-pane:not([data-compact="1"]) .qa-turns {
+  position: absolute; inset: 0; overflow-y: auto;
+  display: grid; align-content: start;
+}
+
+/* ---- 西方体系：固定深紫主题（不是切换器、不跟随系统）----
+   作用域只有两处：main[data-mode="western"] 那一页，与门廊上"西方"那一张卡。
+   东方页与门廊本体保持浅底 —— 门廊是"一扇浅、一扇深"两扇门，不是整页变深。 */
+:root {
+  --color-western-bg: #1b1030;
+  --color-western-surface: #241a3d;
+  --color-western-surface-2: #2e2249;
+  --color-western-line: rgba(230, 220, 255, 0.14);
+  --color-western-text: #f3eeff;
+  --color-western-muted: #c9bfe0;
+  --color-western-gold: #d9b877;
+  --color-western-gold-soft: rgba(217, 184, 119, 0.5);
+  --color-western-gold-wash: rgba(217, 184, 119, 0.16);
+  --color-western-gold-line: rgba(217, 184, 119, 0.65);
+  --color-western-danger-bg: rgba(178, 58, 46, 0.16);
+  --color-western-danger-line: rgba(230, 150, 140, 0.34);
+  --color-western-danger-text: #f2c4bd;
+  --color-western-shadow: rgba(8, 3, 20, 0.5);
+  --color-western-nav-bg: rgba(27, 16, 48, 0.86);   /* 导航是半透明吸顶，得单独一支，不能直接用 bg */
+  --color-domain-western: #8b6fd0;   /* 深底上原来那支紫会糊掉，这一支才分得开 */
+  /* 东方户型的 3D 舞台：页面本体仍是浅底，深色只是卡片里的一块舞台。
+     刻意不复用 --color-western-* —— 同值会让人以为西方主题漏到了东方页，
+     共用更会让"改西方配色"连带改掉东方的 3D。色值与西方略偏（底色更深一档）。 */
+  --color-fp-stage-bg: #171226;
+  --color-fp-stage-floor: #241a3d;
+  --color-fp-stage-wall: #f3eeff;
+  --color-fp-stage-line: rgba(230, 220, 255, 0.14);
+  --color-fp-stage-gold: #d9b877;
+  --color-fp-stage-flow: #c9bfe0;
+}
+
+[data-mode="western"] {
+  color-scheme: dark;
+  /* 原语全部消费 var(--color-*)，所以换 token 的指向，而不是逐条重写颜色：
+     后者一定会漏（卡片改了、输入框没改那种）。 */
+  --color-bg-primary: var(--color-western-bg);
+  --color-bg-card: var(--color-western-surface);
+  --color-bg-card-hover: var(--color-western-surface-2);
+  --color-text-primary: var(--color-western-text);
+  --color-text-secondary: var(--color-western-muted);
+  --color-text-muted: var(--color-western-muted);
+  --color-hairline: var(--color-western-line);
+  --color-accent-gold: var(--color-western-gold);
+  --color-accent-gold-text: var(--color-western-gold);
+  --color-accent-gold-light: var(--color-western-gold);
+  --qn-hairline: 0.5px solid var(--color-western-line);
+  --qn-shadow: 0 8px 26px var(--color-western-shadow);
+  background: var(--color-western-bg);
+  color: var(--color-western-text);
+}
+
+/* 少数原语写死了浅色值，逐条补（这些是量出来的，不是猜的：#fff 的输入框在深底上
+   会把整块面板戳出一个白洞）。 */
+[data-mode="western"] .qn-input,
+[data-mode="western"] .qn-select,
+[data-mode="western"] .qn-textarea {
+  background: var(--color-western-surface-2);
+  border: 1px solid var(--color-western-line);
+  color: var(--color-western-text);
+}
+[data-mode="western"] .qn-input::placeholder { color: var(--color-western-muted); opacity: 0.9; }
+[data-mode="western"] .qn-input:focus,
+[data-mode="western"] .qn-select:focus,
+[data-mode="western"] .qn-textarea:focus {
+  border-color: var(--color-western-gold-line);
+  box-shadow: 0 0 0 3px var(--color-western-gold-wash);
+}
+[data-mode="western"] .qn-chip {
+  background: var(--color-western-surface-2);
+  border: 1px solid var(--color-western-line);
+  color: var(--color-western-muted);
+}
+[data-mode="western"] .qn-chip:hover { border-color: var(--color-western-gold-soft); }
+[data-mode="western"] .qn-chip--on {
+  border-color: var(--color-western-gold);
+  background: var(--color-western-gold-wash);
+  color: var(--color-western-gold);
+}
+[data-mode="western"] .qn-btn--ghost {
+  background: transparent;
+  color: var(--color-western-gold);
+  box-shadow: inset 0 0 0 1px var(--color-western-gold);
+}
+[data-mode="western"] .qn-btn--solid { background: var(--color-western-gold); color: var(--color-western-surface); }
+[data-mode="western"] .qn-btn--quiet { background: var(--color-western-surface-2); color: var(--color-western-muted); }
+[data-mode="western"] .qn-alert {
+  background: var(--color-western-danger-bg);
+  border-color: var(--color-western-danger-line);
+  color: var(--color-western-danger-text);
+}
+[data-mode="western"] .qn-badge { background: var(--color-western-surface-2); color: var(--color-western-muted); }
+[data-mode="western"] .qn-legal { border-top: var(--qn-hairline); }
+[data-mode="western"] .qa-turns { scrollbar-width: thin; }
+
+/* 站头与页脚在 main 之外，够不着上面的作用域，用 body:has(main[...]) 挂。
+   写 main[data-mode="western"] 而不是 [data-mode="western"]，是为了门廊：
+   那一页也含西方那张卡，但它的 body 不该变深。
+   这里换的仍然是 token 而不是各条规则：.qn-footer__meta 自己写着
+   color: var(--color-text-secondary)，只覆盖 .qn-footer 的 color 会被它盖回去
+   —— 实测就是页脚那两行 3.67:1 的来源。 */
+body:has(main[data-mode="western"]) { background: var(--color-western-bg); }
+body:has(main[data-mode="western"]) .qn-nav,
+body:has(main[data-mode="western"]) .qn-footer {
+  --color-text-primary: var(--color-western-text);
+  --color-text-secondary: var(--color-western-muted);
+  --color-text-muted: var(--color-western-muted);
+  --color-hairline: var(--color-western-line);
+  --qn-hairline: 0.5px solid var(--color-western-line);
+  --color-bg-nav: var(--color-western-nav-bg);
+  --color-bg-footer: var(--color-western-bg);
+  --color-accent-gold-text: var(--color-western-gold);
+}
+body:has(main[data-mode="western"]) .qn-nav {
+  background: var(--color-bg-nav);
+  border-bottom: 0.5px solid var(--color-western-line);
+}
+body:has(main[data-mode="western"]) .qn-nav__brand { color: var(--color-western-text); }
+body:has(main[data-mode="western"]) .qn-footer { border-top: 0.5px solid var(--color-western-line); }
 
 /* ---- 动效：一次性入场 + 全站降级 ---- */
 @keyframes qn-rise {

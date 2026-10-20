@@ -71,9 +71,10 @@ export default function GatePage() {
       <section className="qn-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
           卡片上的数字由两套目录现算，本站不在门廊维护第二份工具清单；每一项的可用状态、
-          计算口径与需要哪些输入，进到工作页或
-          <Link className="qn-link" href="/tools" style={{ marginLeft: 4 }}>全部工具与取数口径</Link>
-          都看得到。
+          计算口径与需要哪些输入，进到工作页或工具目录都看得到。
+        </p>
+        <p className="qn-linkrow">
+          <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
         </p>
       </section>
     </main>

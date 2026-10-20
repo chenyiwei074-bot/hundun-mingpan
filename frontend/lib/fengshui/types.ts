@@ -16,6 +16,10 @@ export type Palace = typeof PALACES[number];
 export const ROOM_KINDS = ['卧室', '客厅', '厨房', '卫生间', '书房', '餐厅', '阳台', '储物', '玄关'] as const;
 export type RoomKind = typeof ROOM_KINDS[number];
 
+/** 后天九宫的版面排法（行从上到下、列从左到右）。表单格子与几何层的宫位归属必须读这一份：
+ *  两处各写一遍的话，改一处就会让"图上看到的宫"和"算出来的宫"悄悄分家。 */
+export const PALACE_GRID: Palace[][] = [['乾', '坎', '艮'], ['兑', '中', '震'], ['坤', '离', '巽']];
+
 export interface Room {
   id: string;
   名称: string;

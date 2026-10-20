@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { analyzeFloor, FENGSHUI_BASIS } from '@/lib/fengshui/analysis';
 import { FACING_LIST, PALACES, ROOM_KINDS } from '@/lib/fengshui/types';
 import type { FacingInput, Palace, Room, RoomKind } from '@/lib/fengshui/types';
+import { PALACE_GRID } from '@/lib/fengshui/types';
 
 const DEFAULT_ROOMS: Room[] = [
   { id: 'r1', 名称: '客厅', 用途: '客厅', 宫位: '离' },
@@ -19,7 +20,7 @@ const DEFAULT_ROOMS: Room[] = [
 
 /** 九宫的显示顺序：上南下北、左东右西是中国古地图那一套，但用户手上的户型图是现代方向。
  *  这里按现代方向摆（上北下南、左西右东），并在界面上把每个格子的方位名写出来，不靠猜。 */
-const LAYOUT: Palace[][] = [['乾', '坎', '艮'], ['兑', '中', '震'], ['坤', '离', '巽']];
+const LAYOUT = PALACE_GRID;
 const PALACE_HINT: Record<Palace, string> = {
   坎: '北', 艮: '东北', 震: '东', 巽: '东南', 离: '南', 坤: '西南', 兑: '西', 乾: '西北', 中: '正中',
 };
@@ -49,7 +50,7 @@ export default function FloorPlanForm() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, rowGap: 12, marginTop: 8 }}>
           {([...FACING_LIST, '未确认'] as FacingInput[]).map(f => (
             <button key={f} type="button" className={`qn-chip${朝向 === f ? ' qn-chip--on' : ''}`}
-              style={{ minHeight: 44 }} aria-pressed={朝向 === f} onClick={() => set朝向(f)}>
+              style={{ minHeight: 44, minWidth: 44 }} aria-pressed={朝向 === f} onClick={() => set朝向(f)}>
               {f}
             </button>
           ))}
@@ -115,7 +116,10 @@ export default function FloorPlanForm() {
 
       <section className="qn-card" style={{ marginTop: 12 }}>
         <label className="qn-label" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
-          <input type="checkbox" style={{ marginTop: 4 }} checked={已确认} onChange={e => set已确认(e.target.checked)} />
+          {/* 命中区按 44 给：原生 checkbox 只有 13x13，整块 44x44 的盒子都是可点区，
+              视觉上仍然是一个勾框（外观不动，只是把元素的盒子撑到指尖尺寸）。 */}
+          <input type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
+            checked={已确认} onChange={e => set已确认(e.target.checked)} />
           <span>以上每一项都是我自己标的，可以让规则层据此判定。
             <span className="qn-note" style={{ display: 'block', marginTop: 4 }}>
               不勾就只出提示不出判定：拿没确认的输入算出来的结论，在页面上和确认过的一模一样，这是最容易被读错的一种绿。
