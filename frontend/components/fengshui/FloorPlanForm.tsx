@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react';
 import { analyzeFloor, FENGSHUI_BASIS } from '@/lib/fengshui/analysis';
 import { FACING_LIST, PALACES, ROOM_KINDS } from '@/lib/fengshui/types';
 import type { FacingInput, Palace, Room, RoomKind } from '@/lib/fengshui/types';
+import { PALACE_GRID } from '@/lib/fengshui/types';
 
 const DEFAULT_ROOMS: Room[] = [
   { id: 'r1', 名称: '客厅', 用途: '客厅', 宫位: '离' },
@@ -19,7 +20,7 @@ const DEFAULT_ROOMS: Room[] = [
 
 /** 九宫的显示顺序：上南下北、左东右西是中国古地图那一套，但用户手上的户型图是现代方向。
  *  这里按现代方向摆（上北下南、左西右东），并在界面上把每个格子的方位名写出来，不靠猜。 */
-const LAYOUT: Palace[][] = [['乾', '坎', '艮'], ['兑', '中', '震'], ['坤', '离', '巽']];
+const LAYOUT = PALACE_GRID;
 const PALACE_HINT: Record<Palace, string> = {
   坎: '北', 艮: '东北', 震: '东', 巽: '东南', 离: '南', 坤: '西南', 兑: '西', 乾: '西北', 中: '正中',
 };
