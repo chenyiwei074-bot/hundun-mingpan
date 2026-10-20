@@ -42,13 +42,14 @@ export interface IntentGroup {
   tools: ToolEntry[];
 }
 
-/** 目录里写死的四项口径戳；验收把它们与引擎导出值逐字比对。 */
+/** 目录里写死的口径戳；验收把它们与引擎导出值逐字比对。 */
 export const CATALOG_STAMPS = {
   ganzhi: 'jieqi-lichun-v1',
   najia: 'jingfang-neiwai-v2',
   qishu: 'meihua-qishu-v1',
   commit: 'coin-commit-v1',
   fengshui: 'fengshui-geometry-v1',
+  hepan: 'hepan-local-v1',
 };
 
 /** 六爻三式的口径戳都写在盘上，目录里的字符串必须与引擎导出一致。 */
@@ -175,13 +176,16 @@ export const INTENTS: IntentGroup[] = [
       },
       {
         slug: 'hepan',
-        name: '合盘（八字 / 紫微双盘）',
-        question: '两个人的命局怎么互相作用。',
-        method: '需要双方生辰；当前表单可录入对方生日，但不会提交到后端，也没有双盘对照视图。',
-        basis: '无。没有实现就没有口径可写。',
-        reading: '无。',
-        status: '未开放',
-        note: '首页已撤掉「双人合盘」的入口承诺；表单里那半截输入字段仍在，属已知缺陷，不当作功能。',
+        name: '合盘（两人对照）',
+        title: '合盘',
+        teaser: '两张盘本机并排：日主相待、十神回指、宫位对照。不出评分、不出匹配度。',
+        question: '我和另一个人的命局摆在一起时，盘面上读得到哪些对应关系。',
+        method: '在自己的命盘结果页下方填对方生辰（也可在建盘页「双人合盘」一次填完）；勾「已获得对方同意」才会存进这台设备。',
+        basis: `两张盘各自独立排盘后并排，关系表复用八字内核同一份实现（天干 ${CATALOG_STAMPS.ganzhi} 口径、地支关系与十神表同源）；对照层自己的口径戳 ${CATALOG_STAMPS.hepan}。对方盘同样走真太阳时校正，两边同口径才可比。`,
+        reading: '每条只给「观察 + 依据 + 说不准的地方」：依据指出是哪个盘面字段读来的，不确定项写明缺什么输入。要核就对着两张盘的四柱与宫位核。',
+        status: '可用',
+        href: '/create',
+        note: '不出合盘评分、不出匹配度百分比、不说合适不合适；不引古籍（docs/classics 无合婚原文，原典之外不发明），整节标「自研 · 非还原」。对方生辰只活在本机：不进 API、不进报告、不进回执、不进公开存证，默认关标签页即失，勾选留存则 7 天后自动作废。',
       },
       {
         slug: 'xingming',

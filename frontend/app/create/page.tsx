@@ -6,6 +6,7 @@ import { createChart as apiCreateChart, trackEvent } from '@/app/lib/api';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
+import { clearPartner, savePartner } from '@/lib/hepan/local-store';
 import { toCivilInput, lunarDayCount, leapMonthOfYear } from '@/app/lib/core/yiqi-core/lunar-input';
 import { getVisitorId } from '@/lib/auth/visitor';
 
@@ -45,8 +46,10 @@ export default function CreatePage() {
     partnerName: '', partnerGender: '女' as '男'|'女',
     partnerYear: '', partnerMonth: '', partnerDay: '',
     partnerHour: '12', partnerMinute: '00',
+    partnerIsLeapMonth: false,
     partnerBirthProvince: '北京', partnerBirthCity: '北京', partnerBirthDistrict: '',
-    partnerCurrentProvince: '北京', partnerCurrentCity: '北京', partnerCurrentDistrict: '',
+    /** 对方生辰的同意位。不勾就不写进本机存放（见 handleSubmit 里那段）。 */
+    partnerConsent: false,
   });
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
@@ -62,9 +65,14 @@ export default function CreatePage() {
   // false，永远凑不出 month ≠ 该年闰月 这种换算层会直接抛错的组合。
   const lunarLeap = isLunar && form.year ? leapMonthOfYear(parseInt(form.year)) : 0;
   const isLeapOn = lunarLeap > 0 && form.isLeapMonth && parseInt(form.month) === lunarLeap;
+  // 对方那一栏的闰月要单独判：两个农历生日几乎不会闰在同一个月，共用我这边的
+  // isLeapMonth 会把"我选闰四月"当成"对方也闰四月"，而这是别人的生日。
+  const partnerLunarLeap = isLunar && form.partnerYear ? leapMonthOfYear(parseInt(form.partnerYear)) : 0;
+  const partnerIsLeapOn = partnerLunarLeap > 0 && form.partnerIsLeapMonth && parseInt(form.partnerMonth) === partnerLunarLeap;
 
   const dayOptions = useMemo(() => getDayOptions(form.year, form.month, isLunar, isLeapOn), [form.year, form.month, isLunar, isLeapOn]);
-  const partnerDayOptions = useMemo(() => getDayOptions(form.partnerYear, form.partnerMonth), [form.partnerYear, form.partnerMonth]);
+  const partnerDayOptions = useMemo(() => getDayOptions(form.partnerYear, form.partnerMonth, isLunar, partnerIsLeapOn),
+    [form.partnerYear, form.partnerMonth, isLunar, partnerIsLeapOn]);
 
   const validate = (): string | null => {
     const nameTrimmed = form.name.trim();
@@ -87,6 +95,11 @@ export default function CreatePage() {
       const n = lunarDayCount(parseInt(form.year), parseInt(form.month), isLeapOn);
       if (n <= 0) return '该农历年没有这个闰月';
       if (parseInt(form.day) > n) return '该农历月没有这一天，请重选日期';
+    }
+    if (isLunar && form.partnerYear && form.partnerMonth && form.partnerDay) {
+      const n = lunarDayCount(parseInt(form.partnerYear), parseInt(form.partnerMonth), partnerIsLeapOn);
+      if (n <= 0) return '对方那个农历年没有这个闰月';
+      if (parseInt(form.partnerDay) > n) return '对方那个农历月没有这一天，请重选日期';
     }
     return null;
   };
@@ -147,6 +160,29 @@ export default function CreatePage() {
         chart, chartName,
         trueSolarWiring: { geo: tstWiring.geo, dstOffset: tstWiring.dstOffset, ambiguousDst: tstWiring.ambiguousDst, warning: tstWiring.warning },
       }));
+
+      // 双人那一栏原来收完对方生辰就丢掉（handleSubmit 一个 partner* 键都不读）。
+      // 现在接管成真输入：只写本机 sessionStorage，零请求 —— 不进下面的 POST、不进报告、
+      // 不进回执、不进台账。没勾同意就不写，"需获得对方同意"才不只是一句话。
+      if (tab === 'double') {
+        if (!form.partnerConsent) {
+          setError('对方生辰需要本人同意才能填。请先勾「已获得对方同意」。');
+          setLoading(false);
+          return;
+        }
+        savePartner({
+          称呼: form.partnerName.trim(), 性别: form.partnerGender,
+          year: form.partnerYear, month: form.partnerMonth, day: form.partnerDay,
+          hour: form.partnerHour, minute: form.partnerMinute,
+          isLunar: isLunar, isLeapMonth: partnerIsLeapOn,
+          省份: form.partnerBirthProvince, 城市: form.partnerBirthCity,
+          savedAt: 0,
+        }, false);
+      } else {
+        // 从单人 tab 提交时要把上一次可能留下的对方数据清掉，
+        // 否则结果页那节会拿旧对象跟新盘并排，而用户以为填的是同一次。
+        clearPartner();
+      }
 
       // 后端持久化
       // calendar 保持「用户输入的历法」；闰月单独用一个 additive 字段带过去，
@@ -271,16 +307,20 @@ export default function CreatePage() {
       </div>
       {/* 开关只在「所选月份正好是该年闰的那个月」时出现。每个农历年闰的月份不同，
           常显的闰月框会让用户以为任何月都能闰，而选了不存在的闰月换算层会直接抛错。 */}
-      {!isP && isLunar && lunarLeap > 0 && parseInt(m || '0') === lunarLeap && (
+      {isLunar && (isP ? partnerLunarLeap : lunarLeap) > 0
+        && parseInt(m || '0') === (isP ? partnerLunarLeap : lunarLeap) && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
           <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'rgba(0,0,0,0.04)' }}>
-            <button type="button" aria-pressed={isLeapOn} onClick={() => setForm(p => ({ ...p, isLeapMonth: !p.isLeapMonth }))}
+            <button type="button" aria-pressed={isP ? partnerIsLeapOn : isLeapOn}
+              onClick={() => isP
+                ? setForm(p => ({ ...p, partnerIsLeapMonth: !p.partnerIsLeapMonth }))
+                : setForm(p => ({ ...p, isLeapMonth: !p.isLeapMonth }))}
               className="qn-chip" style={{ minWidth: 46, padding: '0 12px', minHeight: 30, fontSize: 'var(--qn-fs-meta)',
                 border: 'none', borderRadius: 6,
-                background: isLeapOn ? '#ffffff' : 'transparent',
-                color: isLeapOn ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                fontWeight: isLeapOn ? 500 : 400,
-                boxShadow: isLeapOn ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>闰{lunarLeap}月</button>
+                background: (isP ? partnerIsLeapOn : isLeapOn) ? '#ffffff' : 'transparent',
+                color: (isP ? partnerIsLeapOn : isLeapOn) ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                fontWeight: (isP ? partnerIsLeapOn : isLeapOn) ? 500 : 400,
+                boxShadow: (isP ? partnerIsLeapOn : isLeapOn) ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>闰{isP ? partnerLunarLeap : lunarLeap}月</button>
           </div>
         </div>
       )}
@@ -405,7 +445,22 @@ export default function CreatePage() {
 
               {form.calendar !== '四柱' && <div className="space-y-4">{renderRegionGroup('birth', '诞生之地')}</div>}
               {tab === 'single' && form.calendar !== '四柱' && <div className="space-y-4">{renderRegionGroup('current', '现居之地')}</div>}
-              {tab === 'double' && (<><div className="space-y-4">{renderRegionGroup('partnerBirth', '对方诞生之地')}</div><div className="space-y-4">{renderRegionGroup('partnerCurrent', '对方现居之地')}</div></>)}
+              {/* 对方只取"诞生之地"：合盘要的是两张盘同口径排出来，现居之地在合盘里没有角色。
+                  原来这里还渲染了一个 partnerCurrent 组，收上来的四个字段没有任何地方读 —— 删掉，
+                  不留第二个"收了就丢"的字段。 */}
+              {tab === 'double' && <div className="space-y-4">{renderRegionGroup('partnerBirth', '对方诞生之地')}</div>}
+              {tab === 'double' && (
+                <label className="qn-note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+                  <input type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
+                    checked={form.partnerConsent}
+                    onChange={e => setForm(p => ({ ...p, partnerConsent: e.target.checked }))} />
+                  <span>已获得对方本人同意，用其生辰在本机做对照。
+                    <span className="qn-note" style={{ display: 'block', marginTop: 2 }}>
+                      对方生辰不会提交到服务器：只存在这个标签页里，关掉即失，不进报告、回执与任何公开存证。
+                    </span>
+                  </span>
+                </label>
+              )}
 
               {error && <div className="qn-alert" role="alert">{error}</div>}
 

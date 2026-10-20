@@ -66,6 +66,10 @@ const CHART_ROUTES = {
   // 贫盘：四柱、大运、日主一起缺 —— 人生K线（#41）的降级分支只有在这种盘上才走得到。
   // 没有它，那一支就永远没被测过（与六爻「只审到输入态」、矩阵「降级没测」同一类假绿）。
   'chart-result-barren': ['stubchartbarren', `${CHART_DIR}/chart-result-barren.json`],
+  // 合盘那一节的"填了对方"态：同一张完整盘，多一段本机对照报告。
+  // 挂在同一个 fixture 上是有意的 —— 这一态要证的不是盘面又算了一遍，而是
+  // "本机的盘 + 本机现排的对方盘"真的能在页面上拼出八条立项。
+  'chart-hepan': ['stubchart0001', `${CHART_DIR}/chart-result.json`],
 };
 if (arg('chart-fixture')) CHART_ROUTES['chart-result'] = ['stubchart0001', arg('chart-fixture')];
 const CHART_BY_PATH = {};
@@ -150,6 +154,9 @@ const STATIC_PAGES = [
   // 3D 那一态单独跑：它要等动态 import、要量首帧与帧率，混在 filled 里会把两个数都污染。
   ['fengshui-3d', '/fengshui'],
   ['create', '/create'],
+  // 建盘页的「双人合盘」那一栏本批接管成真输入（多了同意框、闰月开关、对方的地区三件），
+  // 不测这一 tab 就等于这批新加的控件一个 44px 读数都没有 —— 与"只审到输入态"同一类假绿。
+  ['create-double', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
   // 结果态（step==='done'）单独占一个状态：同一 URL，但 AFTER 钩子会真摇一卦把它推到位。
@@ -168,6 +175,9 @@ const STATIC_PAGES = [
 const DYNAMIC_PAGES = [
   ['chart-loading', '/chart/loading/', 'chart'],
   ['chart-result', '/chart/result/', 'chart'],
+  // 合盘态：同一张真盘，页内那一节被真人级点击推到"已经并排"。live 下也要跑，
+  // 否则这一节只在 fixture 上被审过，而后端给的盘才带 enrichment。
+  ['chart-hepan', '/chart/result/', 'chart'],
   // liuyao-result deliberately not here: it takes its plate from sessionStorage, not
   // from the API, so an id cannot make it render. See the LIUYAO_ROUTES block below.
   ['report', '/report/', 'report'],
@@ -238,6 +248,24 @@ const AFTER = {
     if (!ds.length) return '场景矩阵里没有 <details> 可打开（那一节没渲染出来）';
     ds.forEach(d => { d.open = true; });
     return ds.every(d => d.open) ? true : 'details 打不开'; })()`,
+  // 合盘：把"本机填对方生辰"这条路走一遍。这一段用脚本点击把表单叫出来、把三个
+  // 数字格填上，然后交给 TRUSTED 用真实鼠标去勾同意 + 按「并排对照」——
+  // 因为那一下会插入整段报告，脚本点击不算 hadRecentInput，会把用户不被扣分的
+  // 展开记成加载回归（户型那两态已经为此改过一次）。
+  'chart-hepan': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const open = document.getElementById('hp-open');
+    if (open) open.click();
+    for (let n = 0; n < 30 && !document.getElementById('hp-consent'); n++) await wait(50);
+    if (!document.getElementById('hp-consent')) return '合盘的对方表单没渲染出来（#hp-open 点下去 #hp-consent 不出现）';
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    const put = (label, v) => { const i = [...document.querySelectorAll('input[aria-label]')]
+        .find(x => x.getAttribute('aria-label') === label);
+      if (!i) return false; set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); return true; };
+    if (!put('对方年', '1990') || !put('对方月', '2') || !put('对方日', '3')) return '对方年/月/日输入框不在页面上';
+    const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '并排对照');
+    if (!b) return '「并排对照」按钮不在页面上';
+    return true; })()`,
   // 卦成之后才是这个页面真正交付的版式：三卦并排、体用条、取数过程、法务口径。不点这一下，
   // /meihua 审到的只有输入态，结果态的字号与对比度从未被测量过（等同首页那次「假绿」）。
   // 精确匹配「起卦」：三个 tab 的文字里也都含「起卦」。
@@ -423,6 +451,78 @@ const KLINE_PINS = {
     text: ['人生K线', '没有可用的岁运序列', '不预置示例盘', '先去排一张盘'],
   },
 };
+
+// 合盘（#49）的钉值。我 = fixtures/chart-result.json 那张完整盘（戊辰 己未 辛未 乙未，日主辛）；
+// 对方 = 探针填进去的 1990-02-03 12:00 北京（时辰格留默认值），四柱 己巳 丁丑 己亥 庚午。
+// 1990 年 2 月 3 日在立春前，故年柱仍是己巳；己年五虎遁到丑月为丁丑。以下每条都是手推：
+//   日主 辛(阴金) × 己(阴土)：土生金 → 金被生 → 「天干相生」；辛己不构成五合任何一对。
+//   以辛论己：阴土生阴金，同性相生 → 偏印；我盘四干 戊/己/辛/乙 的十神是 正印/偏印/比肩/偏财，
+//     所以回指落点恰好只有月柱。
+//   年支 辰 × 巳：非冲非合非害非刑 → 看暗合。辰藏戊乙癸、巳藏丙庚戊 → 乙庚合、癸戊合 → 暗合。
+//   日支 未 × 亥：亥卯未是三支的三合，成对不报（原典之外不发明）→ 看暗合。未藏己丁乙、亥藏壬甲
+//     → 己甲合、丁壬合 → 暗合。
+//   年命纳音：戊辰与己巳同属大林木 → 同为木，shengKe 在 WuXing 上是全函数，这一档报「同」。
+const HEPAN_DEGRADED = {
+  mode: 'degraded', items: [],
+  text: ['合盘 · 两人对照', '自研 · 非还原', 'hepan-local-v1', '对方生辰需要本人同意才能填',
+    '填对方生辰（本机计算）', '不进报告、不进回执、不进台账、不上链', '进入 · 建盘页（双人合盘）'],
+  absent: ['null', 'undefined', 'NaN'],
+  noScoreIn: ['评分', '匹配度', '吉', '凶', '宜忌', '%'],
+};
+const HEPAN_PINS = {
+  // 没有对方数据时那一节必须还在，而且给的是一个当场能填的表单 —— 不是整节消失。
+  // 用户分不清"这站没这功能"和"我的盘没算出来"，这条就是用来分清它们的。
+  'chart-result': { ...HEPAN_DEGRADED },
+  // 无四柱 / 贫盘两张降级盘各测一遍：这一节是无条件挂载的，降级页上它同样必须在。
+  'chart-result-empty': { ...HEPAN_DEGRADED },
+  'chart-result-barren': { ...HEPAN_DEGRADED },
+  'chart-hepan': {
+    items: ['日主相待', '对方日主在我盘里的位置', '年支对照', '日支对照', '年命纳音',
+      '我盘夫妻宫 × 对方命宫', '五行数量并排', '当前大运并排'],
+    text: [
+      '我日主 辛、对方日主 己，两者之间是「天干相生」',
+      '是「偏印」', '我盘里月柱的天干也是这个十神',
+      '我年支 辰、对方年支 巳：暗合', '我日支 未、对方日支 亥：暗合',
+      '大林木', '两者是「同」',
+      '1990-2-3 12:00', '自研 · 非还原', 'hepan-local-v1', '没做的部分',
+      '合盘评分 / 匹配度百分比：不做（裁定）',
+    ],
+    // 反向：整节里既不该出现 undefined/null 这类没被兜住的空值，也不该出现结论性数字。
+    absent: ['null', 'undefined', 'NaN'],
+    noScoreIn: ['评分', '匹配度', '吉', '凶', '宜忌', '%'],
+  },
+};
+
+const hepanProbe = p => `(() => {
+  const out = [];
+  const sec = document.getElementById('hepan');
+  if (!sec) return { miss: ['section: #hepan 不存在（那一节根本没挂上结果页）'] };
+  const items = [...sec.querySelectorAll('[data-hepan-item]')];
+  const names = items.map(x => x.getAttribute('data-hepan-item'));
+  const DEGRADED = ${p.mode === 'degraded'};
+  if (DEGRADED) {
+    if (names.length) out.push('degraded: 没有对方数据时不该有任何立项块（实得 ' + names.length + '）');
+    if (!document.getElementById('hp-open')) out.push('degraded: 缺「填对方生辰（本机计算）」那颗按钮（整节只剩说明文字 = 用户分不清没这功能和没填）');
+  } else {
+    if (names.length !== ${p.items.length}) out.push('立项块=' + names.length + '（应为 ${p.items.length}；少一块通常是某个盘面字段读成 undefined 后静默走了「没做的部分」）');
+    (${JSON.stringify(p.items)}).forEach(x => { if (names.indexOf(x) < 0) out.push('缺立项:' + x); });
+  }
+  // 每块都得同时有"依据"与"说不准的"两行，缺一行就是只剩断语。
+  items.forEach(el => {
+    const t = (el.textContent || '').replace(/\\s+/g, '');
+    if (!t.includes('依据：')) out.push('[' + el.getAttribute('data-hepan-item') + '] 没有依据行');
+    if (!t.includes('说不准的：')) out.push('[' + el.getAttribute('data-hepan-item') + '] 没有不确定项行');
+  });
+  const raw = (sec.textContent || '').replace(/\\s+/g, '');
+  const body = (sec.innerText || '').replace(/\\s+/g, '');
+  (${JSON.stringify(p.text)}).forEach(x => { const k = x.replace(/\\s+/g, '');
+    if (raw.indexOf(k) < 0 && body.indexOf(k) < 0) out.push('text:' + x); });
+  (${JSON.stringify(p.absent)}).forEach(x => { if (raw.includes(x)) out.push('不该出现:' + x); });
+  const inItems = items.map(el => (el.textContent || '')).join('|');
+  (${JSON.stringify(p.noScoreIn)}).forEach(x => { if (inItems.includes(x))
+    out.push('结论块里出现「' + x + '」（这一节只报盘面对应关系，不裁决；声明不做的句子在块外，不在块内）'); });
+  return { miss: out, blocks: names.length };
+})()`;
 
 // 读盘面用结构探针而不是整页 bodyText：整页 includes('庚午') 会被别的行、别的卡片撞中，
 // 而「第 4 爻那一格写的就是 妻财庚午火」才是这次交付的东西。比较全在页内做完再回传，
@@ -817,6 +917,12 @@ if (HAS_CHART) {
       'else if(/^\\/chart\\/result\\//.test(location.pathname))sessionStorage.removeItem("chart_preview");}catch(e){}',
   });
 }
+// 合盘的对方数据活在本机，一张 Chrome 连跑十几个态时它也会顺着 sessionStorage 串页：
+// 第一次把"并排对照"点出来之后，后面每一态的合盘节都从表单态变成已填态，
+// 而 chart-result 那几态的截图与 44px 读数就再也不是同一张页面了。每个新文档先清掉。
+await send('Page.addScriptToEvaluateOnNewDocument', {
+  source: 'try{sessionStorage.removeItem("hundun.hepan.partner.v1");}catch(e){}',
+});
 if (HAS_LIUYAO) {
   // 一张 Chrome 跑四张盘：注入按 pathname 选，选不中就把键清掉 —— 否则上一页那张盘会
   // 顺着 sessionStorage 活到下一页，四张截图其实是同一张盘，census 看不出来。
@@ -1452,7 +1558,7 @@ async function sweepTap(v, tag) {
 
 // 改了某一节的交互，就得看一眼那一节。整页截图在 18000px 高的图上根本读不出格子；
 // 这里按当前视口截一节（与分段扫同一个"滚过去再测"的思路，只是顺手把画面留下）。
-const SECTION_SHOTS = { 'chart-result': '.qn-kline' };
+const SECTION_SHOTS = { 'chart-result': '.qn-kline', 'chart-hepan': '#hepan' };
 async function shotSection(tag, sel) {
   if (!SHOTS) return;
   const st = await evl(`(() => { const el = document.querySelector(${JSON.stringify(sel)});`
@@ -1478,6 +1584,12 @@ async function shotSection(tag, sel) {
 const TRUSTED = {
   'fengshui-filled': ['样例 · 两室夹一厅', '#fp-confirm'],
   'fengshui-3d': ['样例 · 两室夹一厅', '#fp-confirm', '3D'],
+  // 勾同意与按对照这两下都会改版面，必须真实事件。顺序有意义：不先勾同意，
+  // 「并排对照」是 disabled，点了等于没点，而 harness 会因为打到了元素而不报错。
+  'chart-hepan': ['#hp-consent', '并排对照'],
+  // 建盘页那一栏的同意框/闰月开关都是这一批新加的；先真实点开 tab 再测，
+  // 否则这些控件从来没有出现在任何一屏里。
+  'create-double': ['双人合盘'],
 };
 
 async function measure(tag, url) {
@@ -1576,6 +1688,23 @@ async function measure(tag, url) {
     } else if (KLINE_PINS[base].mode !== 'empty') {
       fail.push(tag + ': K线 没交出 #88 的格子/年票读数（tapFacts 为空）—— 这一节的只读与 44px 没被测量过');
     }
+  }
+  // 合盘那一节：探针跑完必须把块数打出来。0 块既可能是"这一节没挂上"，也可能是
+  // "填了但一条对照都没推出来" —— 两种都该红，而不能因为页面上还有表单和说明文字就过。
+  if (HEPAN_PINS[base]) {
+    const got = await evl(hepanProbe(HEPAN_PINS[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 合盘探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else {
+      for (const x of miss) fail.push(tag + ': 合盘不等于钉值 — ' + x);
+      // 0 块单独再点名一次：它既可能是"这一节没挂上"，也可能是"填了但一条对照都没推出来"，
+      // 两种都不该因为页面上还剩着表单和说明文字就过去。
+      if (HEPAN_PINS[base].mode !== 'degraded' && got.blocks === 0) fail.push(tag + ': 合盘 0 个立项块 —— 这一节从未真的并排出报告');
+    }
+    console.log(miss && miss.length ? '    HEPAN PIN MISMATCH ' + miss.join(' | ')
+      : (HEPAN_PINS[base].mode === 'degraded'
+        ? '    合盘 降级态：0 块、表单入口在、四条隐私声明都在屏上'
+        : `    合盘 ${got.blocks} 个立项块，八条手推关系全中`));
   }
   // 问事框：答完之后那一帧必须被逐条读过。只测空输入框等于什么都没测（路由、来源标注、
   // 未开放不给入口，全在提交之后才成立）。

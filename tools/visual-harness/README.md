@@ -56,14 +56,21 @@ id 从哪来：harness **只 GET 页面**，不建命盘、不下单、不点按
 **不要用 `--stub` 判定任何一次上线是否合格**。
 
 `--chart-fixture`：`/chart/result` 的数据在真实流程里来自上一个页面写进
-sessionStorage 的 `chart_preview`。现在不必现场抓了 —— 两张合成盘随仓库提交，
+sessionStorage 的 `chart_preview`。现在不必现场抓了 —— 几张合成盘随仓库提交，
 由 `tools/visual-harness/make-chart-fixture.ts` 用站点引擎排出来（判据取自
 `tools/bazi-acceptance/cases/bazi-validation-v1.json` 那条公开用例，不是从盘面抄的）：
 
 | tag | 文件 | 测的是哪一态 |
 | --- | --- | --- |
-| `chart-result` | `fixtures/chart-result.json` | 完整盘（戊辰 己未 辛未 乙未）：四柱行 + 「场景矩阵」11 行 |
+| `chart-result` | `fixtures/chart-result.json` | 完整盘（戊辰 己未 辛未 乙未）：四柱行 + 「场景矩阵」11 行 + 合盘那一节的**降级态**（表单在、0 个立项块） |
 | `chart-result-empty` | `fixtures/chart-result-no-sizhu.json` | 同一张盘只摘掉 `chart.bazi.siZhu` → 无盘降级那一支（说明 + /create，一行矩阵都不许出） |
+| `chart-hepan` | 同上（`fixtures/chart-result.json`） | 同一张盘，页内那一节被**真实鼠标**推到"已并排"：勾同意 → 按对照 → 八条立项必须逐字对上 census.mjs 里的 `HEPAN_PINS` 手推值（日主相生 / 偏印回指月柱 / 辰巳暗合 / 未亥暗合 / 纳音「同」） |
+
+`chart-hepan` 的对方表单值由 AFTER 钩子填（`1990-2-3`，时辰留默认 12:00），而"勾同意 + 按对照"那两下走
+`TRUSTED` 的真实 CDP 点击：它们会在页面里插入整段报告，脚本合成点击不计入 `hadRecentInput`，
+会被记成一屏加载位移回归（与户型那两态同一个理由）。另外每个新文档都会先清掉
+`hundun.hepan.partner.v1` —— 对方数据活在 sessionStorage 里，不清的话第一次点完之后
+后面每一态的合盘节都从表单态变成已填态，`chart-result` 那几态的截图与 44px 读数就不再是同一张页面。
 
 ```bash
 # 重新生成（要带 --check 前先跑这个）

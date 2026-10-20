@@ -11,6 +11,7 @@ import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { COIN_COMMIT_SCHEMA } from '../../frontend/lib/receipt/receipt';
 import { FENGSHUI_BASIS } from '../../frontend/lib/fengshui/analysis';
+import { HEPAN_BASIS } from '../../frontend/lib/hepan/types';
 import { CATALOG_STAMPS, CLOSED_TOOLS, HOME_FEATURED_SLUGS, INTENT_ENTRIES, INTENTS, LAUNCHER_SLUGS, LIUYAO_BASIS_TEXT, LIVE_HREFS, TOOLS_INDEX, TOOL_BY_SLUG, homeCard } from '../../frontend/lib/tools/catalog';
 import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS } from '../../frontend/lib/tools/western-catalog';
 
@@ -102,8 +103,9 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     [QISHU_BASIS]: 'QISHU_BASIS',
     [COIN_COMMIT_SCHEMA]: 'COIN_COMMIT_SCHEMA',
     [FENGSHUI_BASIS]: 'FENGSHUI_BASIS',
+    [HEPAN_BASIS]: 'HEPAN_BASIS',
   };
-  const engine = { ganzhi: GANZHI_BASIS, najia: NAJIA_BASIS, qishu: QISHU_BASIS, commit: COIN_COMMIT_SCHEMA, fengshui: FENGSHUI_BASIS };
+  const engine = { ganzhi: GANZHI_BASIS, najia: NAJIA_BASIS, qishu: QISHU_BASIS, commit: COIN_COMMIT_SCHEMA, fengshui: FENGSHUI_BASIS, hepan: HEPAN_BASIS };
   const drift = (Object.keys(CATALOG_STAMPS) as (keyof typeof CATALOG_STAMPS)[])
     .map(k => `${k}: 目录 ${CATALOG_STAMPS[k]} vs 引擎 ${engine[k]}`)
     .filter(line => {
@@ -111,7 +113,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
       return a.split('目录 ')[1] !== b.split('引擎 ')[1];
     });
   ok('dir/stamps-equal-engine', drift.length === 0,
-    `目录写死的 ${Object.keys(CATALOG_STAMPS).length} 项口径戳必须逐字等于引擎导出值，引擎改戳而目录没跟上就在这里红：${drift.join(' | ') || `四项一致（${GANZHI_BASIS} / ${NAJIA_BASIS} / ${QISHU_BASIS} / ${COIN_COMMIT_SCHEMA}）`}`);
+    `目录写死的 ${Object.keys(CATALOG_STAMPS).length} 项口径戳必须逐字等于引擎导出值，引擎改戳而目录没跟上就在这里红：${drift.join(' | ') || `${Object.keys(engine).length} 项一致（${Object.values(engine).join(' / ')}）`}`);
   const STAMP = /[a-z]+-[a-z]+-v\d+/g;
   const corpus = ALL_TOOLS.map(t => `${t.name} ${t.basis} ${t.note || ''}`).join('\n') + '\n' + LIUYAO_BASIS_TEXT;
   const found = Array.from(new Set(corpus.match(STAMP) || []));
