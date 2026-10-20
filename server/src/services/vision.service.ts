@@ -35,12 +35,12 @@ const Point = z.tuple([z.number(), z.number()]);
 const Room = z.object({
   name: z.string().min(1).max(12),
   polygon: z.array(Point).min(3).max(24),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).optional().default(0.5),
 });
 const Opening = z.object({
   x: z.number(), y: z.number(),
   width: z.number().min(0).max(3),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().min(0).max(1).optional().default(0.5),
 });
 const PlanSchema = z.object({
   ok: z.boolean().optional(),
