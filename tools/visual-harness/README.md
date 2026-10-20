@@ -204,6 +204,7 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 | `western` | `/western` | 西方工作页（目录全未开放那一态） |
 | `oriental-ask` / `western-ask` | 同上两条 | **问事框提交之后**那一帧：回答卡、来源标注、该给的入口 / 不该给的入口 |
 | `fengshui` / `fengshui-filled` | `/fengshui` | 空表单，以及勾了确认、点了"算一遍"之后的规则层输出 |
+| `fengshui-recognize-fail` / `-candidates` | `/fengshui?recognize=503` / `=ok` | 识别三态里两个后端落点：503 失败、成功但待确认。查询串只给桩看，页面自己不读 |
 
 两条纪律写在这里：
 
@@ -216,6 +217,32 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
 的关键词表人工推出来的，与 kline 那 144 组成对表同一做法。
+
+## 户型识别三态：桩怎么造、文件怎么塞、以及一次假绿（2026-10-20）
+
+裁定要的三个态是"识别失败 / 成功未确认 / 确认后进 3D"。后两个由这两态 + `fengshui-filled`
+合起来覆盖，全部走 `STUB_BOOT` 里那条 `/api/fengshui/recognize` 规则：
+
+- 落点由 **URL 查询串**选（`?recognize=503` / `?recognize=ok`），页面自己不读它。
+  同一张 Chrome 连跑十几个态，用状态变量选分支迟早会串页。
+- 失败态按运维给的口径**用"路由返回 503"注入，不改端点**。成功体也不在 census 里抄第二份：
+  它 `readFileSync` 的是 `tools/fengshui-acceptance/cases/recognize-success.json`，
+  验收套件校形状、这里原样 serve，改形状两边一起红。
+- 桩里带一个 `window.__recCalls` 计数，探针钉的是**"请求打了 1 次"这个测量**，不是源码 grep。
+  "5xx 不自动重试"用 grep 挡不住 `setTimeout` 循环；数一次请求才叫证据。
+
+文件注入走页面内构造：`atob` → `Uint8Array` → `new File(...)` → `DataTransfer` →
+`input.files = dt.files` → 派发 `change`。没用 CDP 的 `DOM.setFileInputFiles`，因为这条路径
+要测的正是"选完图之后页面自己做了什么"（本地校验、读字节、量宽高比、出预览），
+页面内构造的 File 与真用户那一个进的是同一个 `onChange`。
+
+**踩到的一次假绿，值得记下来**：`fixtures/floorplan-sample.png` 第一版是我手写 CRC-32 生成的，
+我又用**同一份算法**去验它，于是"CRC 全对"而 Chrome 从不解码 —— `readImageAspect` 静默落到 1，
+"按宽高比分两轴换算"那条路径看着被真图跑过，一次都没跑过。发现它是因为读了页面上那个
+不相干的数（可行走网格 33×31，而 2:1 的图应该是 33×16）。现在两件事都钉住了：
+`fengshui-acceptance` 的 `harness/fixture-decodes-under-an-independent-oracle` 用 `node:zlib`
+的 `crc32` / `inflateRaw`（另一份实现）复核这张图，探针里 `可行走网格 33×16 格` 是它的
+浏览器侧证据。自证要用另一份实现，这是第三次学到同一条。
 
 ## 44px 与 CLS 现在是判定，不是读数（D1 / D2）
 

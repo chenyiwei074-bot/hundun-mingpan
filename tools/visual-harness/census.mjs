@@ -155,6 +155,12 @@ const STATIC_PAGES = [
   ['fengshui-filled', '/fengshui'],
   // 3D 那一态单独跑：它要等动态 import、要量首帧与帧率，混在 filled 里会把两个数都污染。
   ['fengshui-3d', '/fengshui'],
+  // 识别的两种后端落点。查询串只给 STUB_BOOT 看（同一张 /fengshui，recognize=503 让桩返回 503，
+  // recognize=ok 返回契约里的成功体），页面自己不读它。
+  // 为什么必须有两态而不是一态：三态里"失败"与"成功待确认"是两条完全不同的代码路径，
+  // 只测失败就永远不知道成功体能不能被这套 UI 吃下；只测成功就永远不知道失败会不会假装成功。
+  ['fengshui-recognize-fail', '/fengshui?recognize=503'],
+  ['fengshui-recognize-candidates', '/fengshui?recognize=ok'],
   ['create', '/create'],
   // 农历态从没被审过：闰月开关、日期下拉、农历换算提示都只在 calendar==='农历' 时存在，
   // 而 create 那一态停在默认的公历上。本批把三处 qn-chip 的内联 minHeight:30 摘掉，
@@ -223,6 +229,30 @@ const QA_PINS = {
   },
 };
 
+// tools/visual-harness/fixtures/floorplan-sample.png 的字节（156B 的 200×100 PNG，白底黑边）。
+// 之所以用 2:1 而不是正方：识别响应只有 0..1 归一化坐标，宽高比是本站唯一能拿到
+// "这张图本来多长多宽"的通道；正方图会让"按 aspect 分两轴缩"与"两轴同缩"算出同一结果，
+// 那条缩放路径就永远没被真图跑过。套件里钉了这份内联字节必须与该文件逐字节相同，
+// 并且钉"这张图本身能被独立实现解出来"——上一版它解不出来，aspect 静默落到 1，
+// 那条缩放路径看起来跑过了，其实一次都没跑。
+const FS_PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAMgAAABkCAAAAADm7SDXAAAAY0lEQVTtzwENAAAMAiD7l/5rOAcNSGbcBBERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERkc7IiAfEP4sqAAAAAElFTkSuQmCC';
+const FS_PICK = `(async () => {
+  const inp = document.querySelector('input[type=file]');
+  if (!inp) return '页面上没有选图控件（input[type=file]）';
+  const bin = atob(${JSON.stringify(FS_PNG_B64)});
+  const u8 = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+  const dt = new DataTransfer();
+  dt.items.add(new File([u8], 'floorplan-sample.png', { type: 'image/png' }));
+  inp.files = dt.files;
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+  // 等 onPick 走完：它要读字节、开 objectURL、解码一次量宽高比，然后才把同意框渲染出来。
+  // 不等这一步就点同意，TRUSTED 那一枪会打在"还没有同意框"的页面上，而且不报错。
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  for (let n = 0; n < 60 && !document.getElementById('fp-consent'); n++) await wait(50);
+  if (!document.getElementById('fp-consent')) return '塞了图但同意框没出现（onPick 没走完或校验把文件拒了）';
+  return true; })()`;
+
 const AFTER = {
   // 农历态：先把历法切到农历，再把年/月设成 2025 年 6 月（该年闰六月），闰月开关才会出现。
   // select 是 React 受控的，必须走 HTMLSelectElement 的原生 setter + change 事件，
@@ -245,6 +275,13 @@ const AFTER = {
     return true; })()`,
   // 户型工作室那两态改走 TRUSTED（真实 CDP 点击），不再用脚本 .click()：
   // 见上面 TRUSTED 的注释 —— 合成点击不计入 hadRecentInput，会把用户不被扣分的展开算成回归。
+  // 户型识别两态：先把那张 200×100 的 PNG 塞进 <input type=file>，再走 TRUSTED 点同意与识别。
+  // 为什么在页面里造 File 而不是 CDP 的 DOM.setFileInputFiles：这条路径要测的正是"选完图之后
+  // 页面自己做了什么"（读字节、量宽高比、出预览、没同意就不许发请求）。页面内构造的 File
+  // 与真用户那一个进的是同一个 onChange，而 setFileInputFiles 绕过了 accept 之外的所有判断。
+  // 字节取自 fixtures/floorplan-sample.png，套件里有一条闸门钉两者逐字节相同，不会分家。
+  'fengshui-recognize-fail': FS_PICK,
+  'fengshui-recognize-candidates': FS_PICK,
   // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
   // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
   'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
@@ -767,6 +804,67 @@ const FS_PROBE = `(() => {
   return { miss: out, chars: txt.length };
 })()`;
 
+// 识别三态的钉值。
+// 为什么不只靠验收套件：套件在 node 里喂 JSON，能证明解析对不对；但"页面收到 503 之后
+// 到底有没有说人话、到底有没有自己再打第二次"只有真浏览器里点一次才知道。
+// calls=1 这一条是不自动重试的**测量**，不是源码 grep —— grep 挡不住 setTimeout 循环。
+const FS_RECOGNIZE_PINS = {
+  'fengshui-recognize-fail': {
+    state: '失败', line: '识别：失败', calls: 1, plan: false,
+    must: ['HTTP 503', 'provider_error', '不会自动重试', '这条不装作成功', '还没有几何'],
+    not: ['候选已载入', '墙 2 道'],
+  },
+  'fengshui-recognize-candidates': {
+    state: '候选待确认', line: '墙 2 道 · 房间 2 间 · 门 1 · 窗 1 · 跨度按 9m', calls: 1, plan: true,
+    must: ['每一项都要你逐条确认', '长边按 9m 估', '请在俯视图里拖角点对一下',
+      '模型把握：未给出（0.5 是占位值，不是精确读数）', '模型把握：偏高',
+      // 这一条是 aspect 的浏览器侧证据：fixture 是 200×100（2:1），两轴同缩会得到 33×31，
+      // 分轴缩才是 33×16。图一旦解不出来（上一版就是这样）这里立刻红。
+      '可行走网格 33×16 格'],
+    unconfirmed: 2, disabled3d: true,
+    ct: 'application/json', keys: 'imageBase64,visitorId', b64Head: 'data:image/png;base64,', visitor: 'v_',
+    // 门+窗=2 时那条"请手动补"不许出现（它是给 0 门窗准备的）；空态话术也必须已经退场。
+    not: ['还没有几何', '请手动补'],
+  },
+};
+const fsRecognizeProbe = p => `(() => {
+  // 选择器里必须带 span.qn-meta：置信度那一行是 <span class="qn-meta">，只收 p 的话
+  // 页面上真实存在的文案会被判"找不到"，而这种假红最费人（它会指向错的那一层）。
+  const txt = [...document.querySelectorAll('p.qn-alert, p.qn-meta, p.qn-note, span.qn-meta')]
+    .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
+  const st = document.getElementById('fp-recognize-state');
+  const chip = t => [...document.querySelectorAll('.qn-chip')].filter(b => (b.textContent || '').trim() === t);
+  // 「未确认」必须只在门窗那一格里数：这一页下面还收着一份降级用的九宫格表单（藏在
+  // 折叠的 <details> 里），它自己也有一个 朝向=未确认 的 chip。闭合的 details 仍然在 DOM 里，
+  // 不划界就会数到 3 个 —— 这种假红会把人引向"识别多回来一条门窗"那个根本不存在的错。
+  const cardChips = t => [...document.querySelectorAll('#fp-openings .qn-chip')].filter(b => (b.textContent || '').trim() === t);
+  const out = [];
+  if (!st) out.push('识别状态那一行不在页面上（#fp-recognize-state）—— 三态没有可见落点');
+  const got = {
+    state: st ? st.getAttribute('data-recognize-state') : null,
+    line: st ? (st.innerText || '').replace(/\\s+/g, ' ').trim() : null,
+    calls: window.__recCalls || 0, req: window.__recReq || null,
+    unconfirmed: cardChips('未确认').length,
+    chips: [...document.querySelectorAll('.qn-chip')].map(b => (b.textContent || '').trim()).join(','),
+    disabled3d: (() => { const b = chip('3D')[0]; return b ? b.disabled : null; })(),
+    plan: !!document.querySelector('#fp-confirm'),
+    chars: txt.length,
+  };
+  if (got.state !== ${JSON.stringify(p.state)}) out.push('识别态应为 ${p.state}，实为 ' + got.state);
+  if (!got.line || !got.line.includes(${JSON.stringify(p.line)})) out.push('状态行缺「${p.line}」');
+  if (got.calls !== ${p.calls}) out.push('识别请求打了 ' + got.calls + ' 次，钉的是 ${p.calls} 次（多于 1 次就是自动重试）');
+  if (got.plan !== ${p.plan}) out.push('确认勾与编辑区出现=' + got.plan + '，钉的是 ${p.plan}');
+  ${p.must ? `for (const s of ${JSON.stringify(p.must)}) if (!txt.includes(s)) out.push('页面上找不到「' + s + '」');` : ''}
+  ${p.not ? `for (const s of ${JSON.stringify(p.not)}) if (txt.includes(s)) out.push('页面上不该出现「' + s + '」');` : ''}
+  ${p.unconfirmed !== undefined ? `if (got.unconfirmed !== ${p.unconfirmed}) out.push('未确认的开口 chip 应有 ${p.unconfirmed} 个，实得 ' + got.unconfirmed + '（识别回来的每一条都必须从待确认起步）');` : ''}
+  ${p.disabled3d !== undefined ? `if (got.disabled3d !== ${p.disabled3d}) out.push('3D chip 的 disabled 应为 ${p.disabled3d}，实得 ' + got.disabled3d);` : ''}
+  ${p.ct ? `if (!got.req || got.req.ct !== ${JSON.stringify(p.ct)}) out.push('请求 Content-Type 应为 ${p.ct}，实得 ' + (got.req && got.req.ct));` : ''}
+  ${p.keys ? `if (!got.req || got.req.keys !== ${JSON.stringify(p.keys)}) out.push('请求体键应为 ${p.keys}，实得 ' + (got.req && got.req.keys));` : ''}
+  ${p.b64Head ? `if (!got.req || got.req.b64Head !== ${JSON.stringify(p.b64Head)}) out.push('imageBase64 应以 ${p.b64Head} 开头，实得 ' + (got.req && got.req.b64Head));` : ''}
+  ${p.visitor ? `if (!got.req || got.req.visitor !== ${JSON.stringify(p.visitor)}) out.push('visitorId 应以 ${p.visitor} 开头，实得 ' + (got.req && got.req.visitor));` : ''}
+  return { miss: out, ...got };
+})()`;
+
 // 主题钉值（纠正一）。正向：/western 的 main 计算背景/正文色/卡片底必须等于裁定给的深紫 token，
 // 且 color-scheme 是 dark。反向：东方、目录、建盘这三页必须还是浅底（正文是深色）。
 // 两边都得算数 —— 只钉正向的话，"整套 token 被误挂到 :root"这种事故会把所有页面都染紫，
@@ -988,6 +1086,10 @@ const OBSERVERS = `(() => {
   } catch (e) {}
 })()`;
 
+// 识别桩的成功体不在这里抄第二份：读的就是验收套件 cases/ 里那一份。
+// 两处各写一遍的话，改了形状只红一边，另一边的绿是假的。
+const FS_OK_BODY = readFileSync(join(import.meta.dirname, '..', 'fengshui-acceptance', 'cases', 'recognize-success.json'), 'utf8');
+
 const STUB_BOOT = `(() => {
   const NL = String.fromCharCode(10);
   const MD = ['# 示例报告标题', '', '这是一段用于排版验收的示例正文，字数刻意写得偏长，用来测量小屏上的行数与行高是否仍然落在验收区间之内。', '', '## 第一节 结构', '', '- 第一条列点内容', '- 第二条列点内容稍长，检查在 375 宽度下换行时的悬挂缩进是否对齐', '- 第三条列点内容', '', '> 这是一条引用样式的示例文本。', '', '## 第二节 结构', '', '结尾段落，同样写得长一些，确保它不会被误判为三行以内的短段落，从而暴露出行数上限的问题。'].join(NL);
@@ -1001,8 +1103,27 @@ const STUB_BOOT = `(() => {
   const FIX = Object.fromEntries(LIST.map(r => [r.id, r]));
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
   const of = window.fetch;
-  window.fetch = async (u) => {
+  window.fetch = async (u, init) => {
     const url = String(u);
+    // 户型识别：三态里两个后端落点都在这儿造。计数是这条规则的重点之一 ——
+    // "5xx 不自动重试"光看源码断言不算数，真打一次才知道页面有没有自己循环。
+    if (url.includes('/api/fengshui/recognize')) {
+      window.__recCalls = (window.__recCalls || 0) + 1;
+      try {
+        const b = JSON.parse((init && init.body) || '{}');
+        window.__recReq = {
+          ct: (init && init.headers && (init.headers['Content-Type'] || init.headers['content-type'])) || null,
+          keys: Object.keys(b).sort().join(','),
+          b64Head: String(b.imageBase64 || '').slice(0, 22),
+          visitor: String(b.visitorId || '').slice(0, 2),
+          bytes: JSON.stringify(b).length,
+        };
+      } catch (e) { window.__recReq = { err: String(e).slice(0, 60) }; }
+      const mode = new URLSearchParams(location.search).get('recognize');
+      if (mode === 'ok') return new Response(${JSON.stringify(FS_OK_BODY)}, { status: 200, headers: { 'Content-Type': 'application/json' } });
+      return J({ ok: false, code: 'provider_error', message: '所有视觉供应商都失败了：glm-4v:timeout',
+        attempts: [{ provider: 'glm-4v', ok: false, ms: 0, error: 'timeout' }] }, 503);
+    }
     if (url.includes('/api/chart/result/')) { let p = null; try { p = JSON.parse(sessionStorage.getItem('chart_preview') || 'null'); } catch (e) {}
       return J({ success: true, data: { chartData: p && p.chart, name: p && p.chartName } }); }
     if (url.includes('/api/chart/status/')) return J({ success: true, data: { status: 'done' } });
@@ -1699,6 +1820,11 @@ async function shotSection(tag, sel) {
 const TRUSTED = {
   'fengshui-filled': ['样例 · 两室夹一厅', '#fp-confirm'],
   'fengshui-3d': ['样例 · 两室夹一厅', '#fp-confirm', '3D'],
+  // 识别两态：勾同意与按"送给模型提候选"都会改版面，必须真实事件。顺序有意义 ——
+  // 不先勾同意，那个按钮是 disabled，点了等于没点，而 harness 因为打到了元素也不会报错。
+  // 这条正好也是 privacy/consent-gates-request 那条闸门的浏览器侧证据。
+  'fengshui-recognize-fail': ['#fp-consent', '送给模型提候选'],
+  'fengshui-recognize-candidates': ['#fp-consent', '送给模型提候选'],
   // 勾同意与按对照这两下都会改版面，必须真实事件。顺序有意义：不先勾同意，
   // 「并排对照」是 disabled，点了等于没点，而 harness 会因为打到了元素而不报错。
   'chart-hepan': ['#hp-consent', '并排对照'],
@@ -1857,6 +1983,14 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': 户型规则层输出不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    FS MISMATCH ' + miss.join(' | ')
       : `    户型规则层上屏 ${got.chars} 字，依据/不确定项/口径戳/边界话术齐备`);
+  }
+  if (FS_RECOGNIZE_PINS[base]) {
+    const got = await evl(fsRecognizeProbe(FS_RECOGNIZE_PINS[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 识别探针跑不起来 ' + JSON.stringify(got).slice(0, 180));
+    else for (const x of miss) fail.push(tag + ': 识别三态不等于钉值 — ' + x);
+    console.log(miss && miss.length ? `    RECOGNIZE MISMATCH ${miss.join(' | ')} ／ chip=[${got ? got.chips : '?'}]`
+      : `    识别态 ${got.state}，请求打了 ${got.calls} 次（>1 就是自动重试），未确认开口 ${got.unconfirmed} 个，3D disabled=${got.disabled3d}`);
   }
   // 3D 舞台那一态。两条路都算通过：真出了 canvas，或者真降级了且原因写在页面上。
   // 不通过的是"什么都没发生"—— 黑屏、永久转圈、或者悄悄换了一张图却不说为什么。

@@ -10,6 +10,7 @@
 //     tools/fengshui-acceptance/acceptance.ts --out=.fengshui.txt
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { crc32, inflateRawSync } from 'node:zlib';
 import { analyzeFloor, FENGSHUI_BASIS } from '../../frontend/lib/fengshui/analysis';
 import {
   assignPalace, buildWalkGrid, nearestWalkable, palaceCells, passable, reachableFrom, toFloorInput,
@@ -17,7 +18,12 @@ import {
 import type { FloorGeometry, Opening, Wall } from '../../frontend/lib/fengshui/geometry';
 import { isoSvg, planSvg } from '../../frontend/lib/fengshui/svg';
 import { PARTICLES, SCENE, particleBudget, tierFor } from '../../frontend/lib/fengshui/stage';
-import { checkFloorplanFile, sniffImage } from '../../frontend/lib/fengshui/upload';
+import { MAX_BYTES, checkFloorplanFile, sniffImage } from '../../frontend/lib/fengshui/upload';
+import {
+  DEFAULT_CONFIDENCE, RECOGNIZE_SPAN_M, RECOGNIZE_URL, buildRecognizeRequest, bytesToDataUrl,
+  classifyStatus, confidenceText, failReason, parseRecognize, roomKindOf, toBase64,
+} from '../../frontend/lib/fengshui/recognize';
+import type { RecognizeResult } from '../../frontend/lib/fengshui/recognize';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import type { FloorInput, Palace, Room } from '../../frontend/lib/fengshui/types';
@@ -341,6 +347,242 @@ const base: FloorInput = {
   ok('privacy/no-image-in-report', !/image|blob|dataUrl|objectURL/i.test(
     readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'analysis.ts'), 'utf8')),
     '规则层源码里没有任何图片字段：图不进判定输出，也就不会被顺手带进报告');
+}
+
+// ── 9. 识别对接（POST /api/fengshui/recognize）：契约形状、投影、三态、不自动重试 ──
+{
+  const studio = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8');
+  const ctrl = readFileSync(join(ROOT, 'server', 'src', 'controllers', 'fengshui.controller.ts'), 'utf8');
+  const vision = readFileSync(join(ROOT, 'server', 'src', 'services', 'vision.service.ts'), 'utf8');
+
+  // A. base64 自己写（不用 btoa / Buffer），所以要跟标准库逐字节对。
+  //    三种余数都单独覆盖：尾部 1 字节和 2 字节是最容易写错的（少一个 = 解出来多/少一字节）。
+  const b64Bad: string[] = [];
+  for (const n of [0, 1, 2, 3, 4, 5, 6, 17, 1000, 0x18000 - 2, 0x18000 + 1]) {
+    const bytes = new Uint8Array(n);
+    for (let i = 0; i < n; i++) bytes[i] = (i * 37 + 11) & 0xff;
+    const mine = toBase64(bytes);
+    const std = Buffer.from(bytes).toString('base64');
+    if (mine !== std) b64Bad.push(`${n}B（我 ${mine.length} 字符 / 标准库 ${std.length} 字符）`);
+  }
+  ok('rc/base64-matches-node', b64Bad.length === 0,
+    `toBase64 与 Buffer.toString('base64') 逐字符相同，覆盖 0..6 与跨越 0x18000 分组边界的长度${b64Bad.length ? ' — 不符 ' + b64Bad.join(' | ') : ''}`);
+  ok('rc/dataurl-prefix-carries-mime', bytesToDataUrl(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), 'png').startsWith('data:image/png;base64,'),
+    '带 mime 前缀的 dataURL：服务端两种都收，但它解码之后还要再按头判一次类型');
+
+  // B. 请求形状：这一条是这次对接的根因（multipart → 服务端 body 未解析 → bad_visitor）。
+  const tinyPng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+  const req = buildRecognizeRequest('v_abcdefghij012345', tinyPng, 'png');
+  const reqBody = req.ok ? JSON.parse(req.init.body as string) : null;
+  ok('rc/request-is-json-not-multipart', !!req.ok && req.url === RECOGNIZE_URL
+    && (req.init.headers as Record<string, string>)['Content-Type'] === 'application/json'
+    && !!reqBody && Object.keys(reqBody).sort().join(',') === 'imageBase64,visitorId'
+    && /^data:image\/png;base64,/.test(String(reqBody.imageBase64)),
+    `请求体是 JSON、只有 visitorId + imageBase64 两个键（${Object.keys(reqBody || {}).join(',') || '读不出来'}）；`
+    + 'FormData / multipart 会被服务端解析成空 body，那条错一直报 bad_visitor，看着像 id 不合法');
+  ok('rc/no-multipart-left-in-page', !/FormData|multipart|form\.append/.test(studio)
+    && (studio.match(/fetch\(/g) || []).length === 1,
+    `页面里不再出现 FormData，fetch 只剩一处（实测 ${(studio.match(/fetch\(/g) || []).length} 处）：一次请求完成校验+落盘+识别，没有独立上传端点`);
+
+  // C. 本地预校验：与控制器同一条正则，把注定 400 的请求拦在发出之前。
+  ok('rc/visitor-rule-matches-server', /const VISITOR_RE = (\/[^;]+;)/.exec(ctrl)?.[1]
+    === /const VISITOR_RE = (\/[^;]+;)/.exec(readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'recognize.ts'), 'utf8'))?.[1],
+    '访客 id 的形态判据与服务端逐字同一条：两处各写一遍的话，改一处就会出现"本地放行、服务端拒"这种查半天的错配');
+  const badVisitor = buildRecognizeRequest('short', tinyPng, 'png');
+  const badBig = buildRecognizeRequest('v_abcdefghij012345', new Uint8Array(MAX_BYTES + 1), 'png');
+  ok('rc/refused-before-sending', !badVisitor.ok && badVisitor.code === 'bad_visitor'
+    && !badBig.ok && badBig.code === 'too_large',
+    `过短的 id 与超过 5MB 的字节都在本地就判掉（${!badVisitor.ok ? badVisitor.code : '放行了'} / ${!badBig.ok ? badBig.code : '放行了'}）—— 前者连请求都不该发`);
+
+  // D. 状态码分类与失败话术：5xx 说"服务不可用 + 不自动重试"，4xx 说"被拒 + 服务端 code"。
+  ok('rc/status-buckets', classifyStatus(200) === 'ok' && classifyStatus(422) === 'client'
+    && classifyStatus(413) === 'client' && classifyStatus(500) === 'upstream' && classifyStatus(504) === 'upstream',
+    '5xx 一律 upstream（含 504 超时），422 归 client：它是"模型认为这不是户型图"，重试没有意义');
+  const reason503 = failReason(503, { ok: false, code: 'provider_error', message: '所有视觉供应商都失败了：glm-4v:timeout', attempts: [] });
+  ok('rc/fail-reason-carries-code', /503/.test(reason503) && /provider_error/.test(reason503)
+    && /不会自动重试/.test(reason503) && /供应商/.test(reason503),
+    `失败话术带上状态、code 与服务端原话，并明说不会自动重试：${reason503}`);
+  const reason415 = failReason(415, { ok: false });
+  ok('rc/unknown-code-still-speaks', /415/.test(reason415) && /识别被拒/.test(reason415),
+    `body 里连 message 都没有时也不能只剩"失败了"：${reason415}`);
+
+  // E. 响应体形状：外层包不包 plan 都得吃下 —— 服务端成功分支是 { ok, imageId, plan: {...} }。
+  const successCase = JSON.parse(readFileSync(join(__dirname, 'cases', 'recognize-success.json'), 'utf8'));
+  const parsedCase = parseRecognize(successCase, { spanM: RECOGNIZE_SPAN_M, aspect: 2 });
+  ok('rc/plan-wrapper-unwrapped', parsedCase.ok === true,
+    parsedCase.ok ? `认得 plan 外层：${parsedCase.geom.墙体.length} 道墙 / ${parsedCase.geom.房间.length} 间房 / 门 ${parsedCase.门数} 窗 ${parsedCase.窗数} / 未挂上 ${parsedCase.未挂上数}`
+      : `读不出契约里的成功体：${parsedCase.reason}`);
+  ok('rc/flat-body-also-accepted', parsedCase.ok === true && parseRecognize(successCase.plan, { aspect: 2 }).ok === true,
+    '同一份 plan 摊平了也认：形状判据只管字段，不管谁包着谁');
+  ok('rc/image-id-is-carried-out', parsedCase.ok === true && parsedCase.imageId === successCase.imageId,
+    `把 imageId 交回上层（${parsedCase.ok ? parsedCase.imageId : '无'}）：它是 7 天保留期里本人取回这张图的唯一凭据`);
+
+  // F. 契约同步：样例里的字段必须还是服务端接口声明的那些。服务端改字段这条就红。
+  const planKeys = Object.keys(successCase.plan).sort().join(',');
+  const declared = ['rooms', 'walls', 'doors', 'windows', 'notes', 'provider', 'model', 'latencyMs'].sort().join(',');
+  ok('rc/case-keys-match-server-interface', planKeys === declared,
+    `样例的 plan 键集合等于服务端 RecognizedPlan 声明的 8 个（实得 ${planKeys}）—— 服务端动字段而这里没红，就是契约同步漏了`);
+  const envelope = Object.keys(successCase).sort().join(',');
+  ok('rc/envelope-keys-match-controller', ['attempts', 'imageBytes', 'imageId', 'imageMime', 'latencyMs', 'model', 'ok', 'plan', 'provider'].join(',') === envelope,
+    `外层信封键等于控制器成功分支的 9 个（实得 ${envelope}）`);
+  const roomKeys = Object.keys(successCase.plan.rooms[0]).sort().join(',');
+  const openKeys = Object.keys(successCase.plan.doors[0]).sort().join(',');
+  ok('rc/field-names-live-in-server-schema', roomKeys === 'confidence,name,polygon' && openKeys === 'confidence,width,x,y'
+    && /name: z\.string/.test(vision) && /polygon: z\.array\(Point\)/.test(vision)
+    && /x: z\.number\(\), y: z\.number\(\)/.test(vision) && /width: z\.number\(\)/.test(vision),
+    `房间字段 ${roomKeys}、门窗字段 ${openKeys} 与服务端 zod 声明一致：点写成元组而不是 {x,y} 也是那份 schema 定的，适配层照着两种都读`);
+
+  // G. 只校形状、不校数值（裁定）：把数值整体扰动，形状结论必须一模一样。
+  //    这条比"源码里没写死坐标"强 —— 它真的跑一遍，扰动后若有任何数值进了断言就会红。
+  const scaled = JSON.parse(JSON.stringify(successCase));
+  const scalePt = (p: [number, number]): [number, number] => [p[0] * 0.5 + 0.25, p[1] * 0.5 + 0.25];
+  for (const r of scaled.plan.rooms) r.polygon = r.polygon.map(scalePt);
+  for (const w of scaled.plan.walls) for (let i = 0; i < w.length; i++) w[i] = scalePt(w[i]);
+  for (const o of [...scaled.plan.doors, ...scaled.plan.windows]) {
+    o.x = o.x * 0.5 + 0.25; o.y = o.y * 0.5 + 0.25; o.width = o.width * 0.5;
+  }
+  for (const r of scaled.plan.rooms) r.confidence = 0.13;
+  for (const o of scaled.plan.doors) if ('confidence' in o) o.confidence = 0.97;
+  scaled.plan.latencyMs = 1; scaled.imageBytes = 7; scaled.imageId = 'x';
+  const parsedPerturbed = parseRecognize(scaled, { spanM: RECOGNIZE_SPAN_M, aspect: 2 });
+  const shapeOf = (p: typeof parsedCase) => (p.ok
+    ? [p.geom.墙体.length, p.geom.房间.length, p.门数, p.窗数, p.未挂上数, p.未命名房间数,
+      ...p.geom.房间.map(r => r.用途), ...p.geom.开口.map(o => [o.类型, o.墙, o.段, o.已确认])].join('|')
+    : `fail:${p.kind}`);
+  ok('rc/shape-only-not-numbers', parsedPerturbed.ok === parsedCase.ok
+    && (!parsedCase.ok || !parsedPerturbed.ok || shapeOf(parsedCase) === shapeOf(parsedPerturbed)),
+    `坐标整体平移缩放、confidence 与 latency 全换掉之后，形状结论（条数/用途/挂在哪道墙的哪一段/确认位）逐字不变 —— 样例只校形状这件事是跑出来的，不是写在注释里的`);
+
+  // H. 投影：契约只给"中心点 + 宽"，沿墙比例 t 归本站算。下面三格的 t 是手推的。
+  //    墙 0→1 是从 (0,0) 到 (9,0)（aspect=1、span=9 → xSpan=ySpan=9）：
+  //    中心 (4.5,0) → t=0.5；(0.9,0) → t=0.1；(8.1,0) → t=0.9。
+  const projBody = (cx: number, cy: number) => ({
+    walls: [[[0, 0], [1, 0]]], rooms: [], doors: [{ x: cx, y: cy, width: 0.1, confidence: 0.9 }], windows: [],
+  });
+  const pMid = parseRecognize(projBody(0.5, 0), { spanM: 9, aspect: 1 });
+  const pLow = parseRecognize(projBody(0.1, 0), { spanM: 9, aspect: 1 });
+  const pHigh = parseRecognize(projBody(0.9, 0), { spanM: 9, aspect: 1 });
+  const tOf = (p: typeof pMid) => (p.ok && p.geom.开口[0] ? `${p.geom.开口[0].墙}#${p.geom.开口[0].段}:${p.geom.开口[0].位}` : '没挂上');
+  ok('rc/projection-t-is-parametric', tOf(pMid) === '墙1#0:0.5' && tOf(pLow) === '墙1#0:0.1' && tOf(pHigh) === '墙1#0:0.9',
+    `中心点沿墙投影成 (墙, 段, 位)：中点 ${tOf(pMid)}、一成处 ${tOf(pLow)}、九成处 ${tOf(pHigh)}（都是手推值）`);
+  const pClamp = parseRecognize(projBody(1.4, 0), { spanM: 9, aspect: 1 });
+  ok('rc/projection-clamps-past-endpoint', pClamp.ok === false || pClamp.geom.开口.length === 0 || pClamp.geom.开口[0].位 <= 1,
+    `越过墙端的中心点要么被判越界整条失败、要么夹到端点（实得 ${pClamp.ok ? tOf(pClamp) : 'shape 失败'}）—— t 出 [0,1] 时下游按段长取点会算到墙外去`);
+  // 中心点根本不在墙上（模型给的是房间中心）：不许硬按到最近的墙上，报"未挂上"让用户补。
+  const pOff = parseRecognize(projBody(0.5, 0.6), { spanM: 9, aspect: 1 });
+  ok('rc/off-wall-opening-is-reported', !!pOff.ok && pOff.geom.开口.length === 0 && pOff.未挂上数 === 1,
+    pOff.ok ? `离墙 5.4m 的"门"没有被按到那面墙上：开口 0 条、未挂上 ${pOff.未挂上数} —— 硬挂上去等于凭空在墙上开一个洞，粒子会从那儿流`
+      : `本该报未挂上，结果整条失败：${pOff.reason}`);
+
+  // I. 宽高比：归一化坐标不含幅面信息，两轴必须按这张图自己的比例分别缩。
+  const squareRoom = { walls: [], rooms: [{ name: '客厅', polygon: [[0, 0], [0.4, 0], [0.4, 0.4], [0, 0.4]] }], doors: [], windows: [] };
+  const bbox = (p: RecognizeResult) => {
+    const r = p.geom.房间[0].外环;
+    return { w: Math.max(...r.map(q => q.x)), h: Math.max(...r.map(q => q.y)) };
+  };
+  const a1 = parseRecognize(squareRoom, { spanM: 9, aspect: 1 });
+  const a2 = parseRecognize(squareRoom, { spanM: 9, aspect: 2 });
+  const b1 = a1.ok ? bbox(a1) : null, b2 = a2.ok ? bbox(a2) : null;
+  ok('rc/aspect-splits-axes', !!b1 && !!b2 && Math.abs(b1.w / b1.h - 1) < 1e-6 && Math.abs(b2.w / b2.h - 2) < 1e-6,
+    `同一份归一化方形房间：aspect=1 出来 ${b1 ? `${b1.w}×${b1.h}` : '失败'}（正方），aspect=2 出来 ${b2 ? `${b2.w}×${b2.h}` : '失败'}（应 2:1）`
+    + ' —— 两轴乘同一个数会把横长的厅画成正的，而宫位与动线吃的就是这些米');
+
+  // J. 认不全就整条失败：不许画"半张图"。
+  const shapeFails = [
+    { 名: '一道墙只有一个点', body: { walls: [[[0, 0]]], rooms: [] } },
+    { 名: '一个房间只有两个点', body: { walls: [], rooms: [{ name: '厅', polygon: [[0, 0], [1, 1]] }] } },
+    { 名: '坐标越出 0..1', body: { walls: [[[0, 0], [1.7, 0]]], rooms: [] } },
+    { 名: '什么都没认出来', body: { walls: [], rooms: [] } },
+    { 名: '顶点不是数字', body: { walls: [[['a', 'b']]], rooms: [] } },
+    { 名: '正文不是对象', body: 'oops' },
+  ];
+  const shapeBad = shapeFails.filter(c => {
+    const r = parseRecognize(c.body, { aspect: 1 });
+    return !(r.ok === false && r.kind === 'shape');
+  });
+  ok('rc/fail-closed-on-shape', shapeBad.length === 0,
+    `六种残缺响应全部整条判失败（kind=shape）${shapeBad.length ? ' — 这些被放过了：' + shapeBad.map(b => b.名).join('、') : ''}`);
+
+  // K. 置信度：0.5 是"模型没给"的占位，不能当精确读数上屏。
+  ok('rc/confidence-placeholder-worded', confidenceText(DEFAULT_CONFIDENCE).是缺省 === true
+    && !/%/.test(confidenceText(DEFAULT_CONFIDENCE).文本)
+    && confidenceText(0.86).是缺省 === false && !/[0-9]/.test(confidenceText(0.86).文本),
+    `0.5 那一档说"${confidenceText(DEFAULT_CONFIDENCE).文本}"且不带百分号；真给了数值也只报粗档（0.86 → "${confidenceText(0.86).文本}"，一个数字都不出现）`);
+  const noConf = parseRecognize({ walls: [[[0, 0], [1, 0]]], rooms: [], doors: [{ x: 0.5, y: 0, width: 0.1 }] }, { spanM: 9, aspect: 1 });
+  ok('rc/absent-confidence-not-handmade', !!noConf.ok && noConf.geom.开口.length === 1
+    && noConf.geom.开口[0].置信度 === DEFAULT_CONFIDENCE,
+    `缺 confidence 的候选落成 0.5 占位（实得 ${noConf.ok ? String(noConf.geom.开口[0].置信度) : '失败'}）：null 在这个类型里的意思是"手工标注"，模型猜的东西不能自称人手画的`);
+  ok('rc/no-percentage-in-page', !/Math\.round\(o\.置信度 \* 100\)/.test(studio) && /confidenceText/.test(studio),
+    '页面上那行百分比已经不在了，改走 confidenceText：0.5 混着真值时，百分比读不出区别');
+
+  // L. 用途关键词表：认不出的不许冒充认出的。
+  ok('rc/placeholder-name-not-a-bedroom', roomKindOf('房间1').认出了 === false
+    && roomKindOf('Room 2').认出了 === false && roomKindOf('主卧').认出了 === true
+    && roomKindOf('客卫').认出了 === true,
+    `模型看不清名字时按提示词写"房间N"，这一类必须报"没认出来"（Room 2 也一样）—— 把未知房间认成卧室会直接挂上私密区判据`);
+
+  // M. 三态与确认门：接了后端也不许绕过"用户确认后才入账"。
+  ok('rc/openings-enter-unconfirmed', parsedCase.ok === true && parsedCase.geom.开口.length > 0
+    && parsedCase.geom.开口.every(o => o.已确认 === false),
+    `识别回来的每一条开口都是未确认（${parsedCase.ok ? parsedCase.geom.开口.length : 0} 条）：确认门是 fengshui-geometry-v1 的判据，接了后端也一样`);
+  ok('rc/3d-wait-for-confirmation', /disabled=\{k === '3D' && !已确认\}/.test(studio),
+    '「3D」这个 chip 在没勾确认时是禁用的 —— 三态里"确认后才进 3D"必须有行为，不能只写在注释里');
+  ok('rc/zero-opening-says-refill', /请手动补/.test(studio) && /不等于你家没门窗/.test(studio),
+    '门+窗为 0 时那句话说的是"这不等于你家没门窗，请手动补"，而不是让判定层按"没有门窗"往下推');
+  ok('rc/no-retry-loop', !/\bretry|retries|for \([^)]*attempt/i.test(studio) && /不自动重试/.test(studio),
+    '页面里没有重试循环（0 处 retry/attempt 循环），话术里明写不自动重试：一次识别上游已经花掉 110s 预算');
+  ok('rc/pure-layer-outside-page', !/function parseRecognize|function toBase64/.test(studio),
+    '适配层住在 lib/fengshui/recognize.ts，页面只做状态与话术：这套判据才能在 node 里直接跑');
+
+  // N. 反向证据：把成功体里真字段改坏，必须真的红（不是"永远 ok"）。
+  const falsified = [
+    { 名: '墙变成对象数组', body: { ...successCase, plan: { ...successCase.plan, walls: [{ a: 1 }] } } },
+    { 名: '门给的是像素坐标', body: { ...successCase, plan: { ...successCase.plan, doors: [{ x: 640, y: 300, width: 80 }] } } },
+    { 名: 'plan 整个不见了', body: { ok: true } },
+  ].map(c => parseRecognize(c.body, { aspect: 2 }))
+    .filter(r => r.ok === true);
+  ok('rc/falsifiable', falsified.length === 0,
+    `三种"看着像响应"的东西喂进去都必须失败（实得 ${falsified.length} 条被放行）—— 这条是给上面那一堆绿本身准备的：判据不能永远返回成功`);
+
+  // O. harness 与这份契约只许有一份真值。
+  const census = readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8');
+  const pngReal = readFileSync(join(ROOT, 'tools', 'visual-harness', 'fixtures', 'floorplan-sample.png')).toString('base64');
+  const inlined = /const FS_PNG_B64 = '([^']+)'/.exec(census)?.[1];
+  ok('harness/fixture-bytes-not-recopied', !!inlined && inlined === pngReal
+    && Buffer.from(pngReal, 'base64').subarray(0, 8).toString('hex') === '89504e470d0a1a0a',
+    `census 内联的那串字节与 fixtures/floorplan-sample.png 逐字节相同（${pngReal.length} 字符 base64）—— 注入用的就是这张 2:1 的图，不是另写的一份`);
+  // 这张图本身必须能被解出来 —— 而且要拿**另一份实现**来判。
+  // 上一版 fixture 是我自己手写表驱动 CRC 生成的，我又用同一份算法去验它，于是"CRC 全对"
+  // 而 Chrome 根本不认：readImageAspect 静默落到 1，aspect 那条路径看着跑过、其实一次没跑。
+  // 这里用 node:zlib 的 crc32 与 inflateRaw 做独立 oracle，并把宽高与解压长度一起钉。
+  const pngBytes = readFileSync(join(ROOT, 'tools', 'visual-harness', 'fixtures', 'floorplan-sample.png'));
+  const pngBad: string[] = [];
+  let q = 8, ihdr: Buffer | null = null, idat: Buffer | null = null;
+  while (q + 8 <= pngBytes.length) {
+    const len = pngBytes.readUInt32BE(q);
+    const type = pngBytes.toString('ascii', q + 4, q + 8);
+    const data = pngBytes.subarray(q + 8, q + 8 + len);
+    const want = crc32(Buffer.concat([Buffer.from(type, 'ascii'), data])) >>> 0;
+    const got = pngBytes.readUInt32BE(q + 8 + len);
+    if (want !== got) pngBad.push(`${type} CRC ${got.toString(16)} ≠ zlib 的 ${want.toString(16)}`);
+    if (type === 'IHDR') ihdr = data;
+    if (type === 'IDAT') idat = data;
+    q += 12 + len;
+  }
+  const W = ihdr ? ihdr.readUInt32BE(0) : 0, H = ihdr ? ihdr.readUInt32BE(4) : 0;
+  let inflated = -1;
+  try { inflated = idat ? inflateRawSync(idat).length : -1; } catch { /* 记在下面 */ }
+  ok('harness/fixture-decodes-under-an-independent-oracle', sniffImage(new Uint8Array(pngBytes)) === 'png'
+    && pngBad.length === 0 && W === 200 && H === 100 && inflated === H * (W + 1),
+    `fixture 由 zlib 复核：${W}×${H}、IDAT 解出 ${inflated} 字节（应为 ${H * (W + 1)}）、三道 chunk CRC 全对`
+    + `${pngBad.length ? ' — ' + pngBad.join(' | ') : ''}；浏览器解不出来时 aspect 会静默落回 1，那种"跑过"是假的`);
+
+  ok('harness/serves-the-same-case-file', /recognize-success\.json/.test(census)
+    && !/"plan":\s*\{/.test(census) && /recognize=503/.test(census) && /__recCalls/.test(census),
+    '成功体不在 census 里抄第二份（它 readFileSync cases/ 那一份），失败注入走 503 且带请求计数');
+  ok('harness/tests-three-states', /fengshui-recognize-fail/.test(census) && /fengshui-recognize-candidates/.test(census)
+    && /FS_RECOGNIZE_PINS\[base\]/.test(census),
+    '三态里两个后端落点各有自己的 harness 态与探针：只测失败就永远不知道成功体能不能被这套 UI 吃下');
 }
 
 const summary = `fengshui acceptance: notes=${analyzeFloor(base).判定.length} stamp=${FENGSHUI_BASIS} pass=${pass} fail=${fail}`;
