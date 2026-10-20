@@ -29,13 +29,21 @@ nginx 的精确 location 已通，线上 `POST {}` 返回的是 Next 的 400，�
 - 要么补后端（把问事交给模型 + 受控路由到工具），前端把措辞从"本机匹配"改掉；
 - 要么维持现状，那这一条可以从待办里划掉。
 
-## 3. 配额：服务端说"不限次"，前端根本没读
+## 3. 配额：前端半边已做完（D1），剩下的是"要不要真算"
 
-`chart.controller.ts:246 getQuota` 返回 `{used: 0, remaining: null, limit: null, unlimited: true}`，
-而前端**没有任何一处**调用 `/api/chart/quota`（全仓 grep `quota` 只命中 harness 的桩）。
+`chart.controller.ts:246 getQuota` 返回 `{used: 0, remaining: null, limit: null, unlimited: true}`。
+本批前端已按队列裁定接上：建盘页在提交键上方读一次 `/api/chart/quota?visitor_id=…`，
+服务端明说 `unlimited` 才写「当前内测免费，不限次数。」；读不到 / 404 / 封套 `success:false`
+一律写「暂时读不到额度信息」，**不退化成"免费"、也不凭空出一个数**（历史上那是硬编码 999）。
+`frontend/lib/api/quota.ts` 只有这三条分支，由 `tools/api-contract-acceptance` 的 8 条 `quota/*`
+钉住，harness 又在 8 个 create 态的浏览器里核那一行实际显示的字。
 
-队列里的 D1「配额显式化」卡在这里：要显示什么，得先定"到底有没有额度"。
-两个方向都能做，但需要一句裁定：真限额（那 `getQuota` 要真算），还是明写"当前不限次"（那前端去读这个字段并显示）。
+**给运维的一句话**：以后要上真额度，只改 `getQuota` 让它真算 `remaining`/`limit` 就行，
+前端不用动 —— 有额度那一档已经写好了。三条判据要一起盯：
+- `remaining`/`limit` 给 `null` 时前端**不会**当 0，走"未知"；要显示数字就得两个都给。
+- `unlimited: true` 优先于数字（`{unlimited:true, remaining:null}` 是当前的合法组合）。
+- 额度那一行**不是闸门**：读失败不拦排盘，本机引擎照常出盘，只有"能不能存进「我的报告」"受影响。
+  这条是刻意的，套件里 `quota/line-is-disclosure-not-gate` 禁止提交键的 `disabled` 引用 quota。
 
 ## 3b. 四柱直批：后端加一档枚举，这一类盘就能存下来（今天已确认的缺陷）
 
@@ -45,8 +53,8 @@ nginx 的精确 location 已通，线上 `POST {}` 返回的是 Next 的 400，�
 `四柱:甲子,乙丑,丙寅,丁卯` 这种串，两个字段同时不合格。
 
 前端这一批已经把它改成"不发 + 明说"（选了四柱就在提交键之前写明"这条不会存进「我的报告」，
-刷新就没了"，并由 `tools/api-contract-acceptance` 14 条闸门钉住）。
-但这是绕，不是修。**要真正修好得后端加一档**，比如：
+刷新就没了"，并由 `tools/api-contract-acceptance` 钉住）。但这是绕，不是修，
+**要真正修好得后端加一档**，比如：
 
 - `calendar` 加 `'四柱'`，同时给一个放四柱的字段（`siZhu` 之类），
   `birthday` 的 regex 对这一档放宽或改判；

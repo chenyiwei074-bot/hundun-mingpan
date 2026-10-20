@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { createChart as apiCreateChart, trackEvent } from '@/app/lib/api';
 import { canPersist, validateCreateChart } from '@/lib/api/contract';
 import type { CreateChartPayload } from '@/lib/api/contract';
+import { describeQuota, fetchQuota } from '@/lib/api/quota';
+import type { QuotaView } from '@/lib/api/quota';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
@@ -34,6 +36,8 @@ function getDayOptions(year: string, month: string, isLunar = false, isLeapMonth
 export default function CreatePage() {
   const router = useRouter();
   const [visitorId, setVisitorId] = useState('');
+  // 初值必须是"未知"，不能先渲染一个数字再被服务端纠正 —— 那一闪就是假信息。
+  const [quota, setQuota] = useState<QuotaView>(() => describeQuota(null));
   const [tab, setTab] = useState<'single'|'double'>('single');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -55,6 +59,14 @@ export default function CreatePage() {
   });
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
+  // 额度只在拿到访客 id 之后读一次（服务端按 visitor_id 查）。读失败保持"未知"，
+  // 不重试也不阻塞：这一行是说明，不是闸门。
+  useEffect(() => {
+    if (!visitorId) return;
+    let alive = true;
+    fetchQuota(visitorId).then(v => { if (alive) setQuota(v); });
+    return () => { alive = false; };
+  }, [visitorId]);
   // 换年或换月就把闰月标记清掉：标记本身只在「所选月正好是该年闰月」时才生效，
   // 但留着 true 会让用户改回那个月时发现自己悄悄回到了闰月盘。可见的输入不该藏状态。
   const setField = (f: string, v: string) => setForm(p => ({
@@ -325,8 +337,11 @@ export default function CreatePage() {
             </select>
           </div>
           )}
-          <button type="button" onClick={() => setForm(p => ({ ...p, unknownTime: !p.unknownTime }))} className="qn-cap qn-hit"
-            style={{ color: 'var(--color-accent-gold-text)', letterSpacing: '0.02em', marginTop: 16, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+          {/* 真盒子，不靠 .qn-hit::after 往外撑：撑出来的 44px 会和上下相邻控件的
+              撑出区互相抢角，命中的是别人。文字型开关自己占满 44 高才点得准。 */}
+          <button type="button" onClick={() => setForm(p => ({ ...p, unknownTime: !p.unknownTime }))} className="qn-cap"
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, minWidth: 44, padding: '0 12px',
+              color: 'var(--color-accent-gold-text)', letterSpacing: '0.02em', marginTop: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             {form.unknownTime ? '精确时间' : '时辰选择'}
           </button>
         </div>
@@ -496,6 +511,12 @@ export default function CreatePage() {
               )}
 
               {error && <div className="qn-alert" role="alert">{error}</div>}
+
+              {/* D1：额度这一行只报服务端说了什么，读不到就说读不到。
+                  它不是闸门 —— 本机引擎算得出盘，配额只管"能不能存进服务器"那一侧。 */}
+              <p className="qn-meta" id="create-quota" data-quota-kind={quota.kind} style={{ margin: '4px 0 10px' }}>
+                {quota.文本}
+              </p>
 
               <button type="submit" disabled={loading} className="qn-btn qn-btn--solid qn-btn--block" style={{ minHeight: 50 }}>
                 {loading ? '生成中...' : '生成我的双盘命格'}

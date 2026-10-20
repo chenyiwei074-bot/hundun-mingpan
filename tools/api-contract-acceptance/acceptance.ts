@@ -17,6 +17,7 @@
 //     tools/api-contract-acceptance/acceptance.ts --out=.contract.txt
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { describeQuota, fetchQuota } from '../../frontend/lib/api/quota';
 import {
   SERVER_BIRTHDAY_RE, SERVER_CALENDAR, SERVER_GENDER, canPersist, validateCreateChart,
 } from '../../frontend/lib/api/contract';
@@ -141,9 +142,67 @@ const good: CreateChartPayload = {
     'app/lib/api.ts 里没有调试打印（这一批顺手删掉了 getChartResult 里那条 [DEBUG]）');
 }
 
-const summary = `api-contract acceptance: enum=${SERVER_CALENDAR.join('/')} pass=${pass} fail=${fail}`;
-try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
-console.log(summary);
-const fails = lines.filter(l => l.startsWith('FAIL'));
-if (fails.length) { console.log(fails.join('\n')); process.exit(1); }
-console.log('0 failures — see ' + OUT);
+// ── 5. D1 配额：额度只能来自服务端，读不到不许退化成"免费"或一个数字 ──
+{
+  const free = describeQuota({ used: 0, remaining: null, limit: null, unlimited: true });
+  const unknown = describeQuota(null);
+  const empty = describeQuota({});
+  const has = describeQuota({ used: 3, remaining: 2, limit: 5 });
+  const spent = describeQuota({ used: 5, remaining: 0, limit: 5 });
+  ok('quota/only-server-says-free', free.kind === '内测免费' && /不限次数/.test(free.文本),
+    `服务端明说 unlimited 才写"不限次数"：${free.文本}`);
+  ok('quota/unreadable-is-not-free', unknown.kind === '未知' && empty.kind === '未知'
+    && !/\d/.test(unknown.文本) && !/免费|不限/.test(unknown.文本),
+    '读不到 / 字段缺 → 走"未知"，既不退化成"免费"也不凭空出一个数（那正是原来 999 的毛病）');
+  ok('quota/numbers-come-from-the-response', has.kind === '有额度' && has.剩余 === 2 && has.上限 === 5
+    && spent.kind === '有额度' && spent.已用完 === true && /本机排盘照常/.test(spent.文本),
+    `有额度时数字只能来自响应（2/5），用满那一档说"本机排盘照常"而不是拦人`);
+
+  // 服务端字面形状 ↔ 前端 ↔ harness 桩，三方对齐。
+  const ctrlSrc = strip(readFileSync(join(ROOT, 'server', 'src', 'controllers', 'chart.controller.ts'), 'utf8'));
+  const getQuota = /export async function getQuota[\s\S]*?data:\s*\{([^}]*)\}/.exec(ctrlSrc)?.[1] || '';
+  const censusSrc = readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8');
+  const stubQuota = /\/api\/chart\/quota'\)\)\s*return J\(\{ success: true, data: (\{[^}]*\})/.exec(censusSrc)?.[1] || '';
+  ok('quota/server-shape-is-unlimited', /unlimited:\s*true/.test(getQuota) && /remaining:\s*null/.test(getQuota),
+    `服务端 getQuota 现在明说不限次（实得 data:{${getQuota.trim()}}）—— 这一条变了就说明 D1 的前提没了，前端的措辞要跟着改`);
+  ok('quota/stub-mirrors-the-server', /unlimited:\s*true/.test(stubQuota) && /remaining:\s*null/.test(stubQuota),
+    `harness 桩给的是同一份形状（实得 ${stubQuota || '没找到'}）—— 桩以前给 {remaining:3,limit:3}，`
+    + '于是同一行 UI 在桩下显示"还可排 3 次"、线上显示"内测免费"，harness 就再也证不了额度的判据');
+
+  // 这条自己踩了一次坑：quota.ts 的注释里写着"历史上是硬编码 999"，
+  // 拿原文去扫 999 就会扫到那句解释。扫之前必须先剥注释 —— 同一个坑这个仓库已经踩过第四次了。
+  const quotaBody = strip(readFileSync(join(ROOT, 'frontend', 'lib', 'api', 'quota.ts'), 'utf8'));
+  ok('quota/no-invented-constant', !/\b999\b/.test(quotaBody) && !/(remaining|limit)\s*[:=]\s*\d/.test(quotaBody),
+    'quota.ts 的**代码**里没有任何兜底额度常量（注释里那句"历史上是硬编码 999"不算）');
+  ok('quota/line-is-disclosure-not-gate', /id="create-quota"/.test(pageSrc) && /data-quota-kind=\{quota\.kind\}/.test(pageSrc)
+    && !/disabled=\{[^}]*quota/.test(pageSrc),
+    '额度那一行有可见落点且带 data-quota-kind；提交键的 disabled 不引用 quota —— 读不到额度不能拦人排盘');
+}
+
+// tsx 把这些 .ts 编成 CJS，**顶层 await 用不了**（会抛 TransformError）。
+// 需要 await 的那几条放进这个收尾函数里，摘要也必须在它里面打印 ——
+// 否则 pass/fail 会在断言跑完之前就被算出去。
+async function finish() {
+  const fake = (fn: () => Promise<Response>) => fn as unknown as typeof fetch;
+  const json = (o: unknown, status = 200) =>
+    new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
+  const fetchFail = await fetchQuota('v_abcdefghij012345', fake(async () => { throw new Error('offline'); }));
+  const fetch404 = await fetchQuota('v_abcdefghij012345', fake(async () => new Response('nope', { status: 404 })));
+  const fetchEnvelopeFalse = await fetchQuota('v_abcdefghij012345',
+    fake(async () => json({ success: false, error: 'nope' })));
+  const fetchOk = await fetchQuota('v_abcdefghij012345',
+    fake(async () => json({ success: true, data: { used: 0, remaining: null, limit: null, unlimited: true } })));
+  const fetchNoId = await fetchQuota('', fake(async () => { throw new Error('should not be called'); }));
+  ok('quota/fetch-degrades-to-unknown', fetchFail.kind === '未知' && fetch404.kind === '未知'
+    && fetchEnvelopeFalse.kind === '未知' && fetchOk.kind === '内测免费' && fetchNoId.kind === '未知',
+    `网络失败 / 404 / 封套 success:false / 没有访客 id 四种读法全落"未知"，只有服务端真说 unlimited 才落"内测免费"`);
+
+  const summary = `api-contract acceptance: enum=${SERVER_CALENDAR.join('/')} pass=${pass} fail=${fail}`;
+  try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
+  console.log(summary);
+  const fails = lines.filter(l => l.startsWith('FAIL'));
+  if (fails.length) { console.log(fails.join('\n')); process.exit(1); }
+  console.log('0 failures — see ' + OUT);
+}
+
+void finish();

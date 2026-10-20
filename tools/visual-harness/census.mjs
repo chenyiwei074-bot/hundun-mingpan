@@ -1130,7 +1130,11 @@ const STUB_BOOT = `(() => {
     if (url.includes('/api/chart/result/')) { let p = null; try { p = JSON.parse(sessionStorage.getItem('chart_preview') || 'null'); } catch (e) {}
       return J({ success: true, data: { chartData: p && p.chart, name: p && p.chartName } }); }
     if (url.includes('/api/chart/status/')) return J({ success: true, data: { status: 'done' } });
-    if (url.includes('/api/chart/quota')) return J({ success: true, data: { used: 0, remaining: 3, limit: 3 } });
+    // 形状必须照 chart.controller.ts 的 getQuota 原样给：{used:0, remaining:null, limit:null, unlimited:true}。
+    // 这里以前给的是 {remaining:3, limit:3} —— 那是桩自己在假装有配额，
+    // 于是 D1 那行 UI 在桩下会显示"还可排 3 / 共 3 次"，而线上显示"内测免费"：
+    // 同一个组件在两处读到两种事实，harness 就再也证不了任何关于额度的判据。
+    if (url.includes('/api/chart/quota')) return J({ success: true, data: { used: 0, remaining: null, limit: null, unlimited: true } });
     if (url.includes('/api/reports?')) return J({ success: true, data: LIST });
     if (url.includes('/api/reports/')) { const k = url.split('/api/reports/')[1].split('?')[0]; return FIX[k] ? J({ success: true, data: FIX[k] }) : J({ success: false, error: '报告不存在' }); }
     // No fixture for this endpoint. Answering success:true + {} made
@@ -2075,6 +2079,26 @@ const fsEditProbe = p => `(() => {
     else for (const x of miss) fail.push(tag + ': 四柱披露不合格 — ' + x);
     console.log(miss && miss.length ? '    SIZHU MISMATCH ' + miss.join(' | ')
       : '    四柱披露在屏：' + got.txt);
+  }
+  // D1 配额那一行：桩现在照 getQuota 原样返回 unlimited:true，所以这一行必须显示"内测免费"。
+  // 这一条同时管两件事：前端确实去读了额度，以及桩没有再假装有配额。
+  if (/^create/.test(base)) {
+    const q = await evl(`(() => {
+      const n = document.getElementById('create-quota');
+      const txt = n ? (n.innerText || '').replace(/\\s+/g, ' ').trim() : null;
+      const miss = [];
+      if (!n) miss.push('额度那一行不在页面上（#create-quota）');
+      else {
+        if (n.getAttribute('data-quota-kind') !== '内测免费') miss.push('data-quota-kind 是 ' + n.getAttribute('data-quota-kind') + '，桩给的应是 内测免费');
+        if (!/不限次数/.test(txt || '')) miss.push('那一行没写"不限次数"，实得「' + txt + '」');
+        if (/\\d/.test(txt || '')) miss.push('那一行出现了数字（' + txt + '）—— 额度只能来自服务端，不许有兜底常量');
+      }
+      return { miss, txt };
+    })()`);
+    const miss = q && Array.isArray(q.miss) ? q.miss : null;
+    if (!miss) fail.push(tag + ': 额度探针跑不起来 ' + JSON.stringify(q).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 配额显示不等于钉值 — ' + x);
+    if (miss && !miss.length) console.log('    配额行：' + q.txt);
   }
   if (base === 'fengshui-edit') {
     const got = await evl(fsEditProbe(FS_EDIT_PINS));
