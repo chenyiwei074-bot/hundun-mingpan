@@ -1692,7 +1692,13 @@ async function measure(tag, url) {
   // 合盘那一节：探针跑完必须把块数打出来。0 块既可能是"这一节没挂上"，也可能是
   // "填了但一条对照都没推出来" —— 两种都该红，而不能因为页面上还有表单和说明文字就过。
   if (HEPAN_PINS[base]) {
-    const got = await evl(hepanProbe(HEPAN_PINS[base]));
+    // 真盘模式：合盘八条的关系文案随"我这张盘"而变，fixture 钉值不适用（与 chart-result 的
+    // LIVE_CHART 同一处理）。保留结构断言：8 块、每块依据+不确定项、四条隐私声明、无 null/undefined/NaN、
+    // 结论块内无评分/吉凶词。钉值只在 fixture 模式生效。
+    const hepanPins = LIVE_CHART && base === 'chart-hepan'
+      ? { ...HEPAN_PINS[base], text: [] }
+      : HEPAN_PINS[base];
+    const got = await evl(hepanProbe(hepanPins));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
     if (!miss) fail.push(tag + ': 合盘探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else {
