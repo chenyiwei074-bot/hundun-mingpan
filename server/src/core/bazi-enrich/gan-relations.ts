@@ -14,6 +14,23 @@ const GAN_HE_PAIRS: Array<[Tiangan, Tiangan, string]> = [
 
 type Pillar = '年'|'月'|'日'|'时';
 
+export type GanPairType = '天干合' | '天干相克' | '天干相生' | '天干同';
+
+/**
+ * 两个天干之间的关系。就地从 detectGanRelations 的双层循环里抽出来，
+ * 让"两个人之间"的合盘能复用同一张表 —— 合盘另写一份五合/相克表，
+ * 就是本站反复踩的那个"同一件事两处实现"（三份 getShiShen 是现成的例子）。
+ * 抽取前后行为必须逐对相同，套件用 10×10 全枚举钉住。
+ */
+export function ganPair(a: Tiangan, b: Tiangan): GanPairType | null {
+  if (GAN_HE_PAIRS.some(([x, y]) => (a === x && b === y) || (a === y && b === x))) return '天干合';
+  if (a === b) return '天干同';
+  const rel = shengKe(GAN_WUXING[a], GAN_WUXING[b]);
+  if (rel === '克' || rel === '被克') return '天干相克';
+  if (rel === '生' || rel === '被生') return '天干相生';
+  return null;
+}
+
 export function detectGanRelations(gans: Record<Pillar, Tiangan>): GanRelation[] {
   const out: GanRelation[] = [];
   const pillars: Pillar[] = ['年','月','日','时'];
@@ -21,16 +38,11 @@ export function detectGanRelations(gans: Record<Pillar, Tiangan>): GanRelation[]
   for (let i = 0; i < list.length; i++) {
     for (let j = i+1; j < list.length; j++) {
       const a = list[i], b = list[j];
-      // 五合
-      const he = GAN_HE_PAIRS.find(([x,y]) => (a.gan===x && b.gan===y) || (a.gan===y && b.gan===x));
-      if (he) {
-        out.push({type:'天干合', gans:[a.gan, b.gan], pillars:[a.pillar, b.pillar]});
-        continue;
-      }
-      // 相克 (剔除合化情形)
-      const rel = shengKe(GAN_WUXING[a.gan], GAN_WUXING[b.gan]);
-      if (rel === '克' || rel === '被克') {
-        out.push({type:'天干相克', gans:[a.gan, b.gan], pillars:[a.pillar, b.pillar]});
+      // 只保留原来会产出的那三类：新增的"相生/相同"是合盘要用的，
+      // 这里必须过滤掉，否则本盘关系表的输出会凭空多出两类（行为变了，套件该红）。
+      const p = ganPair(a.gan, b.gan);
+      if (p === '天干合' || p === '天干相克') {
+        out.push({ type: p, gans: [a.gan, b.gan], pillars: [a.pillar, b.pillar] });
       }
     }
   }

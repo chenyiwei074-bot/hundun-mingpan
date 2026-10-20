@@ -321,8 +321,23 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // 且行为必须逐字节不变"（由 tools/zhi-relations 的全枚举 golden 钉），
   // 并且 server/ 那份同源拷贝仍不许我碰（运维自己改，改完 diff 校验）。
   const engine = touched.filter(f => /app\/lib\/core\/(yiqi-core|bazi-enrich)\//.test(f));
-  ok('algo/only-the-pairwise-export', engine.every(f => f.replace(/\\/g, '/').endsWith('bazi-enrich/zhi-relations.ts')),
-    `动到的算法层文件只能是 bazi-enrich/zhi-relations.ts 这一个：实得 ${engine.join(' | ') || '（无）'}`);
+  // 2026-10-20 合盘 #49 裁定：算法层允许的就地导出从 1 个文件扩到 2 个 ——
+  // zhi-relations（合冲那批）与 gan-relations（合盘要的成对天干）。扩的是点名清单，不是"随便动"：
+  // 新增第三个文件仍然红；两个文件各自的行为不变由全枚举 golden 钉住。
+  const ENGINE_ALLOW = new Set(['bazi-enrich/zhi-relations.ts', 'bazi-enrich/gan-relations.ts']);
+  ok('algo/only-the-pairwise-export',
+    engine.every(f => { const p = f.replace(/\\/g, '/'); return [...ENGINE_ALLOW].some(x => p.endsWith(x)); }),
+    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}：实得 ${engine.join(' | ') || '（无）'}`);
+  // 合盘层不许自带第二份地支/天干关系表 —— 复用算法层导出，是这批允许改算法层的交换条件。
+  let hepanCopied: string[] = [];
+  try {
+    const hepanSrc = ['engine.ts', 'local-store.ts', 'types.ts']
+      .map(f => readFileSync(join(ROOT, 'frontend', 'lib', 'hepan', f), 'utf8')).join('\n');
+    hepanCopied = ['GAN_HE_PAIRS', 'LIU_CHONG', 'LIU_HE', 'SAN_HE', 'SAN_HUI', 'XIANG_XING', 'LIU_HAI', 'ZHI_CHONG']
+      .filter(tok => hepanSrc.includes(tok));
+  } catch { /* 合盘文件不存在时这条不适用 */ }
+  ok('algo/hepan-no-copied-table', hepanCopied.length === 0,
+    `合盘层不得自带关系表（必须复用 bazi-enrich 的导出）：命中 ${hepanCopied.join('、') || '无'}`);
   const server = touched.filter(f => f.startsWith('server/'));
   ok('server/untouched', ahead === 0 || server.length === 0,
     `本批提交里没有 server/ 文件（那份 byte-同拷贝由运维改）：实得 ${server.join(' | ') || '（无）'}`);
