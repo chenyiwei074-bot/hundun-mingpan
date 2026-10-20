@@ -116,9 +116,8 @@ export default function VerifyPage() {
           重来就是新 seed、新承诺，只有最后揭晓的那一份会进回执。要证「承诺早于结果」得把 seedHash 也送进每日台账，
           那是另一件事。解读正确与否同样不在证明范围内。回执里没有原始问题与生辰，问题只以带盐摘要存在，
           因此只有本人事后重填原文才能复核那一项。</p>
-        <p>
+        <p className="qn-linkrow">
           <Link href="/liuyao/create" className="qn-link">去起卦</Link>
-          {' · '}
           <Link href="/tools" className="qn-link">全部工具与取数口径</Link>
         </p>
       </section>

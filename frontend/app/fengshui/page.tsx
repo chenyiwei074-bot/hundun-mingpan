@@ -22,9 +22,10 @@ export default function FengshuiPage() {
         <p className="qn-note" style={{ margin: 0 }}>
           这一页不上传户型图、不写日志、不进报告与台账：所有标注只存在这个页面的内存里，
           刷新即失。要留结果请自己截图。
-          <Link className="qn-link" href="/" style={{ marginLeft: 4 }}>返回选择体系</Link>
-          <span> · </span>
-          <Link className="qn-link" href="/tools" style={{ marginLeft: 4 }}>全部工具与取数口径</Link>
+        </p>
+        <p className="qn-linkrow">
+          <Link className="qn-link" href="/">返回选择体系</Link>
+          <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
         </p>
       </section>
     </main>

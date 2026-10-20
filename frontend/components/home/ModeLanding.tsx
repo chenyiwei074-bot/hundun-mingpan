@@ -45,10 +45,11 @@ export default function ModeLanding({ mode, children }: {
       {children}
       <section className="qn-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
-          这一页只列{mode === 'western' ? '西方' : '东方'}体系里的工具；
-          换体系请回
-          <Link className="qn-link" href="/" style={{ margin: '0 4px' }}>选择体系</Link>
-          那页重选。排盘与抽取由各自的规则引擎执行，模型只做解释与引导。
+          这一页只列{mode === 'western' ? '西方' : '东方'}体系里的工具；换体系请回到选体系那一页。
+          排盘与抽取由各自的规则引擎执行，模型只做解释与引导。
+        </p>
+        <p className="qn-linkrow">
+          <Link className="qn-link" href="/">返回选择体系</Link>
         </p>
       </section>
     </main>

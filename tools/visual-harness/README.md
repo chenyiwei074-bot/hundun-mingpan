@@ -44,7 +44,7 @@ node tools/visual-harness/census.mjs \
 | `--chart-fixture=<file>` | 只覆盖完整那张盘（临时换一张用；`--stub` 下才起作用） |
 | `--liuyao-fixtures=<dir>` | 六爻四张盘所在目录，默认 `tools/visual-harness/fixtures` |
 | `--liuyao-fixture=<file>` | 只覆盖摇卦那一张（临时拿另一张盘调试用） |
-| `--only=home,legal` | 按 tag 或 url 片段过滤 |
+| `--only=home,legal` | 按 tag 或 url 片段过滤。**写 tag，别写 `/western` 这种带斜杠的**：Git Bash 会把参数开头的 `/x` 改成本地路径（实测变成 `C:/Program Files/Git/western`），于是一个态都没筛到。筛到 0 个态现在直接判红，不再报"ALL PASSED — 0 states"。 |
 | `--no-shots` | 不截图，只出 census.json |
 | `--port` | CDP 端口，默认 9399，需空闲 |
 
