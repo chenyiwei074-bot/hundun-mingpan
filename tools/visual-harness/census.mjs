@@ -18,6 +18,7 @@
 
 import { spawn } from 'node:child_process';
 import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 // ---------------------------------------------------------------- flags
 const arg = (name, dflt = undefined) => {
@@ -133,7 +134,19 @@ const SIHUA_FROZEN = {
 };
 
 const STATIC_PAGES = [
+  // #双体系：tag "home" 现在指门廊（/ 只负责选体系），原来那张首页搬到 /oriental。
+  // 于是 d1-home.png 的旧基线整张作废（不是回归，是这一页换了内容），
+  // 而 d1-oriental.png 才是与旧 d1-home.png 可比的那一张。
   ['home', '/'],
+  ['oriental', '/oriental'],
+  ['western', '/western'],
+  // 问事框的"答完之后"那一态：同一张页面，AFTER 钩子真的把一句话打进去并提交。
+  // 不测这一态，等于只审了一个空输入框 —— 路由对不对、来源标没标、未开放有没有入口，全在提交之后。
+  ['oriental-ask', '/oriental'],
+  ['western-ask', '/western'],
+  ['fengshui', '/fengshui'],
+  // 户型页填一组标注之后的那一态：规则层的输出必须真的上屏（空页面过审没有意义）。
+  ['fengshui-filled', '/fengshui'],
   ['create', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
@@ -167,8 +180,63 @@ const ORPHAN_PAGES = [
 // Some states only exist after a click. Each entry runs once after load and must
 // return true; the click itself doubles as a "did the control survive the redesign"
 // check, and without it the collapsed half of the chart card is never audited.
+// 目录里"有入口"的 href 全集，从 catalog.ts 源码现读。问事框回答里出现的每一个链接
+// 都必须落在这个集合里 —— 这一条是防"模型/代码幻觉出一个入口"的最后一道，写死一份清单
+// 就会与目录漂移，所以宁可去读源文件。
+const CATALOG_HREFS = [...new Set(
+  (readFileSync(join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8')
+    .match(/href:\s*['"]\/[^'"]+['"]/g) || []).map(s => s.replace(/.*['"](\/[^'"]+)['"]/, '$1')))];
+
+// 问事框两态的钉值。期望全部是照 lib/assistant/intent.ts 的关键词表人工推出来的
+// （与 kline 那 144 组成对表同一做法），不是跑一遍再把输出抄回来。
+const QA_PINS = {
+  'oriental-ask': {
+    q: '帮我排个八字看看命格',
+    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数（可用）', '还要补：日期或生日、出生时辰、出生地点',
+      '这一轮由本机目录匹配给出，未经模型'],
+    entry: { text: '进入 · 八字 & 紫微斗数', href: '/create' },
+    absent: ['这一轮来自服务端路由'],
+  },
+  'western-ask': {
+    q: '我的上升和月亮星座是什么',
+    mustSay: ['还没开放', '这一轮由本机目录匹配给出，未经模型'],
+    entry: null,
+    absent: ['进入 ·', '这一轮来自服务端路由'],
+  },
+};
+
 const AFTER = {
-  'home': `(() => { const b = [...document.querySelectorAll('button')]
+  // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
+  // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
+  'fengshui-filled': `(() => {
+    const mark = (kind, palace) => { const b = document.querySelector(\`button[data-mark="\${kind}"][data-palace="\${palace}"]\`);
+      if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); return true; };
+    // 门与窗都要标上：默认表单只有房间，规则层对"缺输入"的诚实回答就是不判定 ——
+    // 那一态由 fengshui 那个空态测，这一态要的是"输入齐了推不推得出东西"。
+    if (!mark('door', '离')) return '找不到"入户门在离"那个标记按钮';
+    if (!mark('window', '坎')) return '找不到"主窗在坎"那个标记按钮';
+    const c = document.querySelector('input[type=checkbox]');
+    if (!c) return '确认勾选框不在页面上（第一步就没法勾）';
+    if (!c.checked) c.click();
+    const b = [...document.querySelectorAll('button')].find(x => /算一遍/.test(x.textContent || ''));
+    if (!b) return '「按这些标注算一遍」按钮不在页面上';
+    b.click(); return true; })()`,
+  'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
+    if (!i) return '问事框输入框不在页面上（#qa-input-oriental）';
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    set.call(i, ${JSON.stringify(QA_PINS['oriental-ask'].q)});
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+    const b = [...document.querySelectorAll('button')].find(x => /问一下/.test(x.textContent || ''));
+    if (!b) return '「问一下」按钮不在页面上'; b.click(); return true; })()`,
+  'western-ask': `(() => { const i = document.getElementById('qa-input-western');
+    if (!i) return '问事框输入框不在页面上（#qa-input-western）';
+    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    set.call(i, ${JSON.stringify(QA_PINS['western-ask'].q)});
+    i.dispatchEvent(new Event('input', { bubbles: true }));
+    const b = [...document.querySelectorAll('button')].find(x => /问一下/.test(x.textContent || ''));
+    if (!b) return '「问一下」按钮不在页面上'; b.click(); return true; })()`,
+  // 启动器在东方工作页上（#双体系 之后 / 只剩两个入口，门廊没有按钮可点）。
+  'oriental': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /开始使用/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
   'chart-result': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /展开/.test(x.textContent || '')); if (!b) return '四柱卡片的「展开」按钮不在页面上'; b.click();
@@ -533,6 +601,42 @@ const klineProbe = p => `(() => {
     if (sec.querySelector('[data-lane]')) out.push('降级分支里还画着泳道格子');
   }
   return { miss: out, chips, lanes: lanes.length, filled, tapFacts };
+})()`;
+
+// 户型规则层那一块是否真的上了屏（注意 \\s：这是普通模板串，写一个反斜杠会被吃掉）。
+const FS_PROBE = `(() => {
+  const sec = [...document.querySelectorAll('section')].find(s => /规则层结果/.test(s.innerText || ''));
+  if (!sec) return { miss: ['勾了确认、点了"算一遍"之后没有出现规则层结果那一块'] };
+  const txt = (sec.innerText || '').replace(/\\s+/g, '');
+  const out = [];
+  if (!/fengshui-geometry-v\\d/.test(txt)) out.push('结果块里没有口径戳');
+  if (!/依据：/.test(txt)) out.push('判定没有带「依据：」');
+  if (!/说不准的：/.test(txt)) out.push('判定没有带「说不准的：」');
+  if (!/不是方位吉凶/.test(txt)) out.push('没有声明这些不是方位吉凶');
+  if (/已开放|进入/.test(txt)) out.push('结果块里出现了入口/推销字样（这一页只出判定）');
+  return { miss: out, chars: txt.length };
+})()`;
+
+// 问事框答完之后那一帧的读数：回答卡、卡上的入口、入口是否出自目录。
+const qaProbe = p => `(() => {
+  const turns = [...document.querySelectorAll('.qa-turn')];
+  if (!turns.length) return { miss: ['提交了问题却一个回答卡都没渲染（.qa-turn = 0）—— 这一态从未到位'] };
+  const t = turns[0];
+  const txt = (t.innerText || '').replace(/\\s+/g, '');
+  const out = [];
+  (${JSON.stringify(p.mustSay)}).forEach(x => { if (txt.indexOf(x.replace(/\\s+/g, '')) < 0) out.push('回答里缺这句：' + x); });
+  (${JSON.stringify(p.absent || [])}).forEach(x => { if (txt.indexOf(x.replace(/\\s+/g, '')) >= 0) out.push('回答里出现了不该有的：' + x); });
+  const links = [...t.querySelectorAll('a[href]')].map(a => ({ href: a.getAttribute('href'), text: (a.innerText || '').trim() }));
+  const allow = ${JSON.stringify(CATALOG_HREFS)};
+  links.filter(l => !allow.includes(l.href)).forEach(l => out.push('入口不在目录里：' + l.href));
+  if (${JSON.stringify(p.entry || null)}) {
+    const want = ${JSON.stringify(p.entry || null)};
+    const hit = links.find(l => l.href === want.href && l.text.replace(/\\s+/g, '') === want.text.replace(/\\s+/g, ''));
+    if (!hit) out.push('该给的入口没给（要 ' + want.href + ' ' + want.text + '，实得 ' + JSON.stringify(links) + '）');
+  } else if (links.length) {
+    out.push('这一系没有已开放的工具，回答里却出现了入口：' + JSON.stringify(links));
+  }
+  return { miss: out, links: links.length, chars: txt.length };
 })()`;
 
 // ---------------------------------------------------------------- chrome + cdp
@@ -1030,7 +1134,12 @@ const FIRST_SCREEN = `(() => {
     // 「导航 ≤5 项」= 站头那一条里**实际可见**的入口：宽屏全名与窄屏两字简称同时在 DOM 里，
     // 靠 CSS 切换，所以必须按可见性数；品牌 logo 链接也不算导航项。
     navItems: [...document.querySelectorAll('.qn-nav__links a')].filter(a => a.offsetParent !== null && a.getClientRects().length)
-      .map(a => (a.innerText || '').trim()).filter(Boolean) };
+      .map(a => (a.innerText || '').trim()).filter(Boolean),
+    // 门廊那两张卡：入口指向哪、在不在首屏、卡片上写的数是多少。
+    // 数是从目录算出来渲染的，这里把它读回来，与 GATE_EXPECT 对 —— 门廊说谎就在这露馅。
+    domainCards: [...document.querySelectorAll('a.domain-card')].map(a => ({
+      href: a.getAttribute('href'), fold: inFold(a),
+      tally: ((a.querySelector('.qn-axis') || {}).innerText || '').replace(/\s+/g, ' ').trim() })) };
 })()`;
 
 function check(tag, v) {
@@ -1107,19 +1216,43 @@ function check(tag, v) {
     if (got && hexOf(got) && hexOf(got).toLowerCase() !== want) bad(`sihua-${k} renders ${got}, frozen value is ${want}`);
   }
 
-  // 裁定 ①：首页首屏四类意图各 ≥1 个可点入口、导航 ≤5 项、首屏不塞营销话。
+  // 裁定 ①：首屏四类意图各 ≥1 个可点入口、导航 ≤5 项、首屏不塞营销话。
   // 探针没跑起来也算失败 —— 否则这条要求会静默变成「没人测过」。
-  if (/-home$/.test(tag)) {
+  // #双体系 之后四类意图在 /oriental 的首屏（门廊 / 上没有，也不该有）。
+  if (/-oriental$/.test(tag)) {
     const f = v.firstScreen;
-    if (!f) bad('first-screen probe did not run — 首页四类意图的要求没被测量过');
+    if (!f) bad('first-screen probe did not run — 四类意图的要求没被测量过');
     else {
       for (const t of INTENTS_EXPECT) {
         if (!f.intents || !f.intents[t]) bad(`首屏没有「${t}」的可点入口（scrollY=${f.scrollY}、首屏内 ${f.links} 个链接）`);
       }
+      console.log(`   FIRST-SCREEN intents=${f.intents ? Object.values(f.intents).filter(Boolean).length : '?'}/4 links=${f.links}`);
+    }
+  }
+  if (/-home$/.test(tag)) {
+    const f = v.firstScreen;
+    if (!f) bad('first-screen probe did not run — 门廊的要求没被测量过');
+    else {
       if (!f.navItems || !f.navItems.length) bad('导航探针一个都没数到 —— 选择器失效时这条要求会静默通过');
       else if (f.navItems.length > 5) bad(`导航 ${f.navItems.length} 项，超过裁定的 ≤5：${f.navItems.join('/')}`);
-      if (f.marketing && f.marketing.length) bad(`首屏出现营销话：${f.marketing.join('、')}`);
-      console.log(`   FIRST-SCREEN intents=${f.intents ? Object.values(f.intents).filter(Boolean).length : '?'}/4 nav=${(f.navItems || []).length} marketing=${(f.marketing || []).length} links=${f.links}`);
+      if (f.marketing && f.marketing.length) bad(`门廊首屏出现营销话：${f.marketing.join('、')}`);
+      // 门廊的全部职责就是这两个入口：少一个是没有路，多一个就是它又开始当第三套工具主页。
+      const cards = f.domainCards || [];
+      if (cards.length !== 2) bad(`门廊首屏应当恰好两张体系卡，实得 ${cards.length} 张（选择器 a.domain-card 失效也会是这个数）`);
+      const want = ['/oriental', '/western'];
+      const got = cards.map(c => c.href).sort();
+      if (JSON.stringify(got) !== JSON.stringify(want.slice().sort()))
+        bad(`门廊两张卡的入口必须是 ${want.join(' 与 ')}，实得 ${JSON.stringify(got)}`);
+      for (const c of cards) {
+        if (!c.fold) bad(`门廊卡片 ${c.href} 不在首屏内（这就是"进来先选体系"这件事没做到）`);
+        if (!/^已开放 \d+ \/ \d+ 项/.test(c.tally || ''))
+          bad(`门廊卡片 ${c.href} 上那行数读不成「已开放 N / M 项」：${JSON.stringify(c.tally)}`);
+        else {
+          const [n, m] = (c.tally.match(/(\d+) \/ (\d+)/) || []).slice(1).map(Number);
+          if (n > m) bad(`门廊卡片 ${c.href} 上 已开放 ${n} > 目录 ${m} —— 数是从目录算的，出现这种结果就是算错了`);
+        }
+      }
+      console.log(`   GATE cards=${cards.length} [${cards.map(c => `${c.href}:${c.tally.replace(/\s+/g, '')}`).join(' ')}] nav=${(f.navItems || []).length} marketing=${(f.marketing || []).length}`);
     }
   }
 
@@ -1284,6 +1417,24 @@ async function measure(tag, url) {
     } else if (KLINE_PINS[base].mode !== 'empty') {
       fail.push(tag + ': K线 没交出 #88 的格子/年票读数（tapFacts 为空）—— 这一节的只读与 44px 没被测量过');
     }
+  }
+  // 问事框：答完之后那一帧必须被逐条读过。只测空输入框等于什么都没测（路由、来源标注、
+  // 未开放不给入口，全在提交之后才成立）。
+  if (QA_PINS[base]) {
+    const got = await evl(qaProbe(QA_PINS[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 问事探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': 问事结果不等于钉值 — ' + x);
+    console.log(miss && miss.length ? '    QA MISMATCH ' + miss.join(' | ')
+      : `    问事「${QA_PINS[base].q}」→ 入口 ${got.links} 个，回答 ${got.chars} 字，全部对得上`);
+  }
+  if (base === 'fengshui-filled') {
+    const got = await evl(FS_PROBE);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 户型探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': 户型规则层输出不等于钉值 — ' + x);
+    console.log(miss && miss.length ? '    FS MISMATCH ' + miss.join(' | ')
+      : `    户型规则层上屏 ${got.chars} 字，依据/不确定项/口径戳/边界话术齐备`);
   }
   // 动爻的金漆只在「最后一条记录正好是动爻」时才上屏 —— 实测约一半的跑法里根本没有对象
   // （每爻老阴/老阳各 1/8）。不把这个数打出来，一次绿会被读成「对比度没问题」，

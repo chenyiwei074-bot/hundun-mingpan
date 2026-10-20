@@ -48,6 +48,7 @@ export const CATALOG_STAMPS = {
   najia: 'jingfang-neiwai-v2',
   qishu: 'meihua-qishu-v1',
   commit: 'coin-commit-v1',
+  fengshui: 'fengshui-geometry-v1',
 };
 
 /** 六爻三式的口径戳都写在盘上，目录里的字符串必须与引擎导出一致。 */
@@ -114,6 +115,17 @@ export const INTENTS: IntentGroup[] = [
         reading: '以体为己、用以事，看生克定轻重；变卦看走向。三卦并排，取数过程可复核。',
         status: '可用',
         href: '/meihua',
+      },
+      {
+        slug: 'fengshui',
+        name: '户型 · 九宫标注',
+        question: '这个户型的采光、动线与分区关系，按我自己标的方位格子能推出什么。',
+        method: '把朝向、入户门、主窗与各房间摆进后天九宫，逐条确认后再让规则层推。',
+        basis: `规则层 ${CATALOG_STAMPS.fengshui}：只判同宫/相邻/对宫/通路四类几何关系，纯函数无随机；朝向未确认时日照那一层不出判定。`,
+        reading: '每条判定都列出它用了哪几项标注、以及说不准的地方；传统方位（八宅、玄空）那一层本站不做，因为没有可引的宅经原文。',
+        status: '可用',
+        href: '/fengshui',
+        note: '不上传户型图：图片要落地就得加存储与告知流程，那一半属于后端；本页所有标注只存在浏览器内存里。',
       },
     ],
   },
