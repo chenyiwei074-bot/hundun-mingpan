@@ -147,6 +147,8 @@ const STATIC_PAGES = [
   ['fengshui', '/fengshui'],
   // 户型页填一组标注之后的那一态：规则层的输出必须真的上屏（空页面过审没有意义）。
   ['fengshui-filled', '/fengshui'],
+  // 3D 那一态单独跑：它要等动态 import、要量首帧与帧率，混在 filled 里会把两个数都污染。
+  ['fengshui-3d', '/fengshui'],
   ['create', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
@@ -206,21 +208,35 @@ const QA_PINS = {
 };
 
 const AFTER = {
+  // 户型工作室那一态：载入合成样例 → 勾"我自己核对过" → 规则层实时出判定。
+  // 为什么用合成样例而不是拖角点：拖拽要真指针事件与坐标，样例是确定输入，
+  // 这一态要证的是"几何翻译成宫位之后判定真的上屏"，不是编辑器能不能拖。
+  // 两个动作之间必须让一拍：点完样例 React 还没重渲染，同一 tick 里 querySelector 拿到的
+  // 还是旧 DOM 上那个复选框（这里是 <details> 里旧表单那份），勾了个错的却看起来像勾过了。
+  // evl 开了 awaitPromise，所以钩子可以写成 async IIFE —— 别的钩子不需要同步，别照抄这个形状。
+  'fengshui-filled': `(async () => {
+    const find = t => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === t);
+    const s = find('样例 · 两室夹一厅');
+    if (!s) return '合成样例按钮不在页面上（工作室没渲染出来？）';
+    s.click();
+    await new Promise(r => setTimeout(r, 150));
+    const c = document.getElementById('fp-confirm');
+    if (!c) return '确认复选框 #fp-confirm 没渲染出来（几何没进去？）';
+    if (!c.checked) c.click();
+    await new Promise(r => setTimeout(r, 150));
+    return true; })()`,
+  'fengshui-3d': `(async () => {
+    const find = t => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === t);
+    const s = find('样例 · 两室夹一厅'); if (!s) return '合成样例按钮不在页面上';
+    s.click();
+    await new Promise(r => setTimeout(r, 150));
+    const c = document.getElementById('fp-confirm');
+    if (c && !c.checked) c.click();
+    await new Promise(r => setTimeout(r, 150));
+    const three = find('3D'); if (!three) return '视图切换里没有 3D 那一档';
+    three.click(); return true; })()`,
   // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
   // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
-  'fengshui-filled': `(() => {
-    const mark = (kind, palace) => { const b = document.querySelector(\`button[data-mark="\${kind}"][data-palace="\${palace}"]\`);
-      if (!b) return false; if (b.getAttribute('aria-pressed') !== 'true') b.click(); return true; };
-    // 门与窗都要标上：默认表单只有房间，规则层对"缺输入"的诚实回答就是不判定 ——
-    // 那一态由 fengshui 那个空态测，这一态要的是"输入齐了推不推得出东西"。
-    if (!mark('door', '离')) return '找不到"入户门在离"那个标记按钮';
-    if (!mark('window', '坎')) return '找不到"主窗在坎"那个标记按钮';
-    const c = document.querySelector('input[type=checkbox]');
-    if (!c) return '确认勾选框不在页面上（第一步就没法勾）';
-    if (!c.checked) c.click();
-    const b = [...document.querySelectorAll('button')].find(x => /算一遍/.test(x.textContent || ''));
-    if (!b) return '「按这些标注算一遍」按钮不在页面上';
-    b.click(); return true; })()`,
   'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
     if (!i) return '问事框输入框不在页面上（#qa-input-oriental）';
     const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -1536,6 +1552,37 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': 户型规则层输出不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    FS MISMATCH ' + miss.join(' | ')
       : `    户型规则层上屏 ${got.chars} 字，依据/不确定项/口径戳/边界话术齐备`);
+  }
+  // 3D 舞台那一态。两条路都算通过：真出了 canvas，或者真降级了且原因写在页面上。
+  // 不通过的是"什么都没发生"—— 黑屏、永久转圈、或者悄悄换了一张图却不说为什么。
+  if (base === 'fengshui-3d') {
+    await evl(`window.__fp = { frames: 0, t0: performance.now() };
+      (function loop(){ window.__fp.frames++; requestAnimationFrame(loop); })(); true`);
+    await sleep(2000);
+    const got = await evl(`(() => {
+      const fps = Math.round(window.__fp.frames / ((performance.now() - window.__fp.t0) / 1000) * 10) / 10;
+      const stage = document.querySelector('[data-fp-stage]');
+      const canvas = stage ? stage.querySelector('canvas') : null;
+      const reason = [...document.querySelectorAll('p.qn-alert')].map(p => (p.textContent || '').trim())
+        .filter(t => /等轴|帧率|上下文/.test(t));
+      const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
+        .find(t => /首帧/.test(t)) || null;
+      return { fps, canvas: !!canvas, canvasW: canvas ? canvas.width : 0, reason, readout,
+        scrollHijack: stage ? getComputedStyle(stage).touchAction : null,
+        bodyTouch: getComputedStyle(document.body).touchAction };
+    })()`);
+    if (!got || typeof got.fps !== 'number') fail.push(tag + ': 3D 探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else {
+      if (!got.canvas && !got.reason.length)
+        fail.push(`3D 既没有 canvas，也没有写明降级原因（fps ${got.fps}）—— 静默失败`);
+      if (got.canvas && got.canvasW < 100) fail.push(`canvas 宽度只有 ${got.canvasW}，尺寸没铺开的 3D 不算渲染出来`);
+      if (got.canvas && got.fps < 45) fail.push(`3D 帧率 ${got.fps}fps < 45（连续 2s 采样）`);
+      // 裁定：touch-action:none 只许落在舞台这一块，页面纵向滚动不能被劫持。
+      // 所以两头都要钉：舞台是 none（否则 OrbitControls 收不到手势），body 不是 none（否则整页滚不动）。
+      if (got.scrollHijack !== 'none') fail.push(`舞台 touch-action=${got.scrollHijack}，应为 none`);
+      if (got.bodyTouch !== 'auto') fail.push(`body touch-action=${got.bodyTouch}，页面滚动被劫持`);
+      console.log(`   3D canvas=${got.canvas} 宽=${got.canvasW} fps=${got.fps} 首帧读数="${got.readout ?? '无'}" 降级="${got.reason.join(' / ') || '无'}"`);
+    }
   }
   // 主题正反向断言（纠正一）。跑在 census 之前、AFTER 之后：/western 的问答卡插进来
   // 不该改变任何计算色，所以先后无所谓；但必须在滚动扫之前跑完，别拿别的段的位置说事。

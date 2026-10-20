@@ -268,11 +268,11 @@ export default function FloorPlanStudio() {
             {geom.开口.length === 0 && <p className="qn-note" style={{ margin: '6px 0 0' }}>一个开口都没标：采光、对流与动线三类判定都会写成"缺输入"，不猜。</p>}
             {geom.开口.map(o => (
               <div key={o.id} className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
-                <button type="button" className="qn-chip" style={{ minHeight: 44 }}
+                <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44 }}
                   onClick={() => setGeom(g => ({ ...g, 开口: g.开口.map(x => (x.id === o.id ? { ...x, 类型: x.类型 === '门' ? '窗' : '门' } : x)) }))}>
                   {o.类型}
                 </button>
-                <button type="button" className="qn-chip" style={{ minHeight: 44 }}
+                <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44 }}
                   onClick={() => setGeom(g => ({ ...g, 开口: g.开口.map(x => (x.id === o.id ? { ...x, 已确认: !x.已确认 } : x)) }))}>
                   {o.已确认 ? '已确认' : '未确认'}
                 </button>
@@ -291,7 +291,7 @@ export default function FloorPlanStudio() {
           </div>
 
           <label className="qn-note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, cursor: 'pointer' }}>
-            <input type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
+            <input id="fp-confirm" type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
               checked={已确认} onChange={e => set已确认(e.target.checked)} />
             <span>上面每一项几何与门窗都是我自己核对过的，可以让规则层据此判定。
               <span className="qn-note" style={{ display: 'block', marginTop: 2 }}>
@@ -346,6 +346,12 @@ function FloorReportView({ report, 跨宫, 格数, 跨度 }: {
           </ul>
         </div>
       )}
+      {/* 边界话术跟着判定走，不能只写在旧表单那一版里：新工作室出同样一份清单，
+          少了这句话，用户就有理由把"离采光面远"读成方位吉凶。 */}
+      <p className="qn-note" style={{ marginTop: 12 }}>
+        以上全部是几何与动线层面的观察（相邻、对宫、通路、同宫），不是方位吉凶。
+        八宅、玄空那一层本站不做：docs/classics 里没有可引的宅经原文，原典之外不发明。
+      </p>
     </section>
   );
 }
