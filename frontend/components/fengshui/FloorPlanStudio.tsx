@@ -16,12 +16,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { analyzeFloor } from '@/lib/fengshui/analysis';
-import { MAX_SPAN_M, buildWalkGrid, toFloorInput } from '@/lib/fengshui/geometry';
+import { MAX_SPAN_M, buildWalkGrid, openingSegment, toFloorInput } from '@/lib/fengshui/geometry';
 import type { FloorGeometry, Opening, Pt, RoomShape, Wall } from '@/lib/fengshui/geometry';
 import {
   RECOGNIZE_SPAN_M, buildRecognizeRequest, confidenceText, failReason, parseRecognize,
 } from '@/lib/fengshui/recognize';
 import type { RecognizeResult } from '@/lib/fengshui/recognize';
+import {
+  OPENING_LIMITS, addOpening, addWall, deleteOpening, deleteWall, moveRoomVertex, moveWallVertex,
+  resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
+} from '@/lib/fengshui/edit';
+import { ROOM_KINDS } from '@/lib/fengshui/types';
 import { isoSvg, planProject, planSvg } from '@/lib/fengshui/svg';
 import { SYNTHETIC_FLOORPLANS } from '@/lib/fengshui/synthetic';
 import { ACCEPT_MIME, validateFloorplanFile } from '@/lib/fengshui/upload';
@@ -101,6 +106,7 @@ export default function FloorPlanStudio() {
   const [朝向, set朝向] = useState<'南' | '北' | '未确认'>('未确认');
   const [已确认, set已确认] = useState(false);
   const [选中, set选中] = useState<string | null>(null);
+  const [选中墙, set选中墙] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
   const [视图, set视图] = useState<'俯视' | '等轴' | '3D'>('俯视');
@@ -111,7 +117,7 @@ export default function FloorPlanStudio() {
   const [识别态, set识别态] = useState<识别态>('未识别');
   const [识别汇总, set识别汇总] = useState<string | null>(null);
   const [visitorId, setVisitorId] = useState('');
-  const dragRef = useRef<{ 房: string; 点: number } | null>(null);
+  const dragRef = useRef<{ 种类: '房' | '墙'; id: string; 点: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // 访客 id 就是这次上传的归属凭据（服务端按它落盘、按它取图），只能在客户端拿。
@@ -180,10 +186,27 @@ export default function FloorPlanStudio() {
       Math.max(...all.map(p => p.y)) - Math.min(...all.map(p => p.y)));
   }, [geom]);
 
-  const moveVertex = (房id: string, idx: number, p: Pt) => setGeom(g => ({
-    ...g,
-    房间: g.房间.map(r => r.id === 房id ? { ...r, 外环: r.外环.map((q, i) => (i === idx ? { x: round(p.x), y: round(p.y) } : q)) } : r),
-  }));
+  /** 拖角点。房与墙走同一套手柄语义，但改的是各自的折线，所以种类必须带在拖拽现场里
+   *  —— 否则一次拖动能把墙的点写进房间，而画面看起来"也对"。 */
+  const moveHandle = (d: { 种类: '房' | '墙'; id: string; 点: number }, p: Pt) => {
+    const q = { x: round(p.x), y: round(p.y) };
+    setGeom(g => (d.种类 === '房' ? moveRoomVertex(g, d.id, d.点, q) : moveWallVertex(g, d.id, d.点, q)));
+  };
+
+  const 删墙 = (id: string) => {
+    const r = deleteWall(geom, id);
+    setGeom(r.几何);
+    if (选中墙 === id) set选中墙(null);
+    setNotice(r.连带删掉开口数
+      ? `删掉了这道墙，挂在它上面的 ${r.连带删掉开口数} 个门窗也一起删了 —— 开口必须钉在一段墙上，没有墙就没有洞。`
+      : '删掉了这道墙。');
+  };
+
+  const 加门窗 = (墙id: string, 类型: '门' | '窗') => {
+    const id = uid('o-');
+    setGeom(g => addOpening(g, id, 墙id, 类型));
+    setNotice(`已在墙上开了一个${类型}（宽 ${OPENING_LIMITS[类型].默认}m）。自己画的东西算已确认，置信度标"手工标注"。`);
+  };
 
   const svgPoint = (e: React.PointerEvent<SVGSVGElement>): Pt | null => {
     const svg = e.currentTarget;
@@ -194,6 +217,10 @@ export default function FloorPlanStudio() {
   };
 
   const sel = geom.房间.find(r => r.id === 选中) || null;
+  const selWall = geom.墙体.find(w => w.id === 选中墙) || null;
+  /** 墙上没有可读的名字（识别回来的只有 墙N，手工加的是 w-N），所以列表一律按序号称呼。
+   *  序号取自 墙体 数组本身，删掉一道墙后面的会自动改号 —— 不会出现"墙3"其实只有两道。 */
+  const 墙名 = (id: string) => `墙 ${geom.墙体.findIndex(w => w.id === id) + 1}`;
 
   return (
     <div className="qn-stack">
@@ -253,7 +280,7 @@ export default function FloorPlanStudio() {
       {geom.房间.length > 0 && (
         <>
           <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} style={{ width: '100%', height: 'auto', marginTop: 12, touchAction: 'none', background: 'var(--color-bg-card)', borderRadius: 10, border: 'var(--qn-hairline)' }}
-            onPointerMove={e => { const d = dragRef.current; if (!d) return; const p = svgPoint(e); if (p) moveVertex(d.房, d.点, p); }}
+            onPointerMove={e => { const d = dragRef.current; if (!d) return; const p = svgPoint(e); if (p) moveHandle(d, p); }}
             onPointerUp={() => { dragRef.current = null; }}
             onPointerLeave={() => { dragRef.current = null; }}>
             {plan.房间.map(r => (
@@ -267,7 +294,9 @@ export default function FloorPlanStudio() {
             ))}
             {geom.开口.map(o => {
               const w = geom.墙体.find(x => x.id === o.墙); if (!w) return null;
-              const a = w.折线[o.段], b = w.折线[o.段 + 1]; if (!a || !b) return null;
+              // 段→端点的解释只有一处（geometry.openingSegment）：2D、等轴、3D、判定读同一份几何。
+              const seg = openingSegment(o, w); if (!seg) return null;
+              const [a, b] = seg;
               const len = Math.hypot(b.x - a.x, b.y - a.y); const half = len ? (o.宽 / 2) / len : 0;
               const lo = Math.max(0, o.位 - half), hi = Math.min(1, o.位 + half);
               const f = plan.frame;
@@ -281,8 +310,17 @@ export default function FloorPlanStudio() {
               const q = planProject(p, plan.frame, plan.box);
               return <circle key={`${sel.id}-${i}`} cx={q.x} cy={q.y} r={9} fill="var(--color-bg-card)"
                 stroke="var(--color-accent-gold-text)" strokeWidth={2} style={{ cursor: 'grab', touchAction: 'none' }}
-                onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { 房: sel.id, 点: i }; }}
+                onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { 种类: '房', id: sel.id, 点: i }; }}
                 aria-label={`拖动 ${sel.名称} 的第 ${i + 1} 个角点`} />;
+            })}
+            {/* 墙端点的手柄只给选中的那道墙。墙本身不做点击目标：一条 2.5px 的线在
+               44px 命中区这一关过不去，所以选墙走下面那张卡里的 chip（真按钮、够大）。 */}
+            {selWall && selWall.折线.map((p, i) => {
+              const q = planProject(p, plan.frame, plan.box);
+              return <circle key={`${selWall.id}-v${i}`} cx={q.x} cy={q.y} r={9} fill="var(--color-bg-card)"
+                stroke="var(--color-danger)" strokeWidth={2} style={{ cursor: 'grab', touchAction: 'none' }}
+                onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { 种类: '墙', id: selWall.id, 点: i }; }}
+                aria-label={`拖动 ${墙名(selWall.id)} 的第 ${i + 1} 个端点`} />;
             })}
           </svg>
 
@@ -297,7 +335,7 @@ export default function FloorPlanStudio() {
               }))}
               disabled={!sel}>多一个角点</button>
             <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
-              onClick={() => setGeom(g => ({ ...g, 房间: g.房间.filter(r => r.id !== 选中), 开口: g.开口.filter(o => o.墙 !== 选中) }))}
+              onClick={() => setGeom(g => ({ ...g, 房间: g.房间.filter(r => r.id !== 选中) }))}
               disabled={!sel}>删掉这一间</button>
             <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
               onClick={() => {
@@ -305,6 +343,59 @@ export default function FloorPlanStudio() {
                 setGeom(g => ({ ...g, 房间: [...g.房间, { id, 名称: `房间 ${g.房间.length + 1}`, 用途: '储物', 外环: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 3 }, { x: 1, y: 3 }] }] }));
                 set选中(id);
               }}>加一间房</button>
+          </div>
+
+          {/* 用途与名称：识别回来的房间有一半叫"房间N"（用途只能先记储物），
+              而"厨卫相邻""私密区"那几条判据读的就是用途。没有这一排 chip，页面那句
+              "请逐间改对"就是一句做不到的承诺。 */}
+          <div className="qn-card" style={{ marginTop: 10 }}>
+            <p className="qn-axis">这一间的名称与用途{sel ? `（已选：${sel.名称}）` : '（先在俯视图里点一间房）'}</p>
+            <div className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+              <label htmlFor="fp-room-name" className="qn-meta" style={{ minWidth: 44 }}>名称</label>
+              <input id="fp-room-name" type="text" maxLength={12} value={sel?.名称 ?? ''} disabled={!sel}
+                style={{ minHeight: 44, flex: '1 1 140px', padding: '0 10px', borderRadius: 8, border: 'var(--qn-hairline)' }}
+                onChange={e => { if (选中) setGeom(g => setRoomName(g, 选中, e.target.value)); }} />
+            </div>
+            <div className="qn-row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              {ROOM_KINDS.map(k => (
+                <button key={k} type="button" id={`fp-kind-${k}`}
+                  className={`qn-chip${sel?.用途 === k ? ' qn-chip--on' : ''}`}
+                  style={{ minHeight: 44, minWidth: 44 }} disabled={!sel}
+                  onClick={() => { if (选中) setGeom(g => setRoomKind(g, 选中, k)); }}>{k}</button>
+              ))}
+            </div>
+            <p className="qn-note" style={{ margin: '8px 0 0' }}>用途决定它进不进"厨卫相邻""私密区"那几条判定；认不准就先照着改，改完这一条才算你的输入。</p>
+          </div>
+
+          {/* 墙体：加墙 / 选墙 / 删墙 / 在墙上开门窗。墙本身不做点击目标（2.5px 的线过不了
+              44px 命中区这一关），所以选墙走这里的 chip。 */}
+          <div className="qn-card" id="fp-walls" style={{ marginTop: 10 }}>
+            <p className="qn-axis">墙体（{geom.墙体.length} 道）</p>
+            {geom.墙体.map(w => {
+              const 段数 = w.闭合 ? w.折线.length : Math.max(0, w.折线.length - 1);
+              const 长 = Math.round(w.折线.reduce((s, p, i) => (i ? s + Math.hypot(p.x - w.折线[i - 1].x, p.y - w.折线[i - 1].y) : 0), 0) * 10) / 10;
+              const 名下 = geom.开口.filter(o => o.墙 === w.id).length;
+              return (
+                <div key={w.id} className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                  <button type="button" id={`fp-wall-${墙名(w.id).replace(' ', '')}`}
+                    className={`qn-chip${选中墙 === w.id ? ' qn-chip--on' : ''}`}
+                    style={{ minHeight: 44, minWidth: 44 }}
+                    onClick={() => set选中墙(选中墙 === w.id ? null : w.id)}>{墙名(w.id)}</button>
+                  <span className="qn-meta">{段数} 段 · 折线长 {长}m · 挂 {名下} 个门窗</span>
+                  <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, marginLeft: 'auto' }}
+                    onClick={() => 加门窗(w.id, '门')}>加门</button>
+                  <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
+                    onClick={() => 加门窗(w.id, '窗')}>加窗</button>
+                  <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
+                    onClick={() => 删墙(w.id)}>删墙</button>
+                </div>
+              );
+            })}
+            <div className="qn-row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              <button type="button" id="fp-add-wall" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
+                onClick={() => { const id = uid('w-'); setGeom(g => addWall(g, id)); set选中墙(id); setNotice('加了一道贯通包围盒的隔墙，拖它的红色端点摆正。'); }}>加一道墙</button>
+              {selWall && <span className="qn-meta">已选 {墙名(selWall.id)}：图上那两个红色端点可以拖。</span>}
+            </div>
           </div>
 
           {/* 视图切换：俯视=编辑用，等轴=降级看，3D=主看。三者读的是同一个 FloorGeometry，
@@ -354,22 +445,29 @@ export default function FloorPlanStudio() {
               「未确认」chip。不划界的话 hidden <details> 里的东西会被一起数进去。 */}
           <div className="qn-card" id="fp-openings" style={{ marginTop: 12 }}>
             <p className="qn-axis">门窗（识别来的都标着未确认）</p>
-            {geom.开口.length === 0 && <p className="qn-note" style={{ margin: '6px 0 0' }}>一个开口都没标：采光、对流与动线三类判定都会写成"缺输入"，不猜。</p>}
+            {geom.开口.length === 0 && <p className="qn-note" style={{ margin: '6px 0 0' }}>一个开口都没标：采光、对流与动线三类判定都会写成"缺输入"，不猜。要补的话，在下面「墙体」那一格里对着某道墙按「加门」「加窗」。</p>}
             {geom.开口.map(o => (
-              <div key={o.id} className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+              <div key={o.id} id={`fp-opening-${o.id}`} className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
                 <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44 }}
-                  onClick={() => setGeom(g => ({ ...g, 开口: g.开口.map(x => (x.id === o.id ? { ...x, 类型: x.类型 === '门' ? '窗' : '门' } : x)) }))}>
+                  onClick={() => setGeom(g => toggleOpeningKind(g, o.id))}
+                  title="点一下换成另一种：宽度会按新类型重新夹">
                   {o.类型}
                 </button>
                 <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44 }}
-                  onClick={() => setGeom(g => ({ ...g, 开口: g.开口.map(x => (x.id === o.id ? { ...x, 已确认: !x.已确认 } : x)) }))}>
+                  onClick={() => setGeom(g => setOpeningConfirmed(g, o.id, !o.已确认))}>
                   {o.已确认 ? '已确认' : '未确认'}
                 </button>
-                {/* 置信度不上百分比：模型常省略这个字段，服务端按 0.5 补，于是"0.5"既可能是
-                    真判断也可能是占位。把 50% 印出来等于给用户一个读不出来的精度。 */}
-                <span className="qn-meta">{o.置信度 == null ? '手工标注' : confidenceText(o.置信度).文本}</span>
+                <span className="qn-meta">{墙名(o.墙)} · 宽 {Math.round(o.宽 * 100) / 100}m · 位置 {Math.round(o.位 * 100)}% · {o.置信度 == null ? '手工标注' : confidenceText(o.置信度).文本}</span>
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44 }}
+                  onClick={() => setGeom(g => shiftOpening(g, o.id, -1))} aria-label={`把 ${o.类型} 沿墙往一头挪`}>◀</button>
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44 }}
+                  onClick={() => setGeom(g => shiftOpening(g, o.id, 1))} aria-label={`把 ${o.类型} 沿墙往另一头挪`}>▶</button>
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44 }}
+                  onClick={() => setGeom(g => resizeOpening(g, o.id, -1))} aria-label={`${o.类型} 变窄`}>窄</button>
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44 }}
+                  onClick={() => setGeom(g => resizeOpening(g, o.id, 1))} aria-label={`${o.类型} 变宽`}>宽</button>
                 <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, marginLeft: 'auto' }}
-                  onClick={() => setGeom(g => ({ ...g, 开口: g.开口.filter(x => x.id !== o.id) }))}>删</button>
+                  onClick={() => setGeom(g => deleteOpening(g, o.id))}>删</button>
               </div>
             ))}
           </div>

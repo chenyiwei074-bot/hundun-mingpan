@@ -13,9 +13,9 @@ import { join } from 'node:path';
 import { crc32, inflateRawSync } from 'node:zlib';
 import { analyzeFloor, FENGSHUI_BASIS } from '../../frontend/lib/fengshui/analysis';
 import {
-  assignPalace, buildWalkGrid, nearestWalkable, palaceCells, passable, reachableFrom, toFloorInput,
+  assignPalace, buildWalkGrid, nearestWalkable, openingPalace, palaceCells, passable, reachableFrom, toFloorInput,
 } from '../../frontend/lib/fengshui/geometry';
-import type { FloorGeometry, Opening, Wall } from '../../frontend/lib/fengshui/geometry';
+import type { FloorGeometry, Opening, Pt, Wall } from '../../frontend/lib/fengshui/geometry';
 import { isoSvg, planSvg } from '../../frontend/lib/fengshui/svg';
 import { PARTICLES, SCENE, particleBudget, tierFor } from '../../frontend/lib/fengshui/stage';
 import { MAX_BYTES, checkFloorplanFile, sniffImage } from '../../frontend/lib/fengshui/upload';
@@ -24,6 +24,12 @@ import {
   classifyStatus, confidenceText, failReason, parseRecognize, roomKindOf, toBase64,
 } from '../../frontend/lib/fengshui/recognize';
 import type { RecognizeResult } from '../../frontend/lib/fengshui/recognize';
+import {
+  OPENING_LIMITS, addOpening, addWall, deleteOpening, deleteWall, danglingOpenings, moveRoomVertex,
+  moveWallVertex, resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
+} from '../../frontend/lib/fengshui/edit';
+import { openingSegment } from '../../frontend/lib/fengshui/geometry';
+import { ROOM_KINDS } from '../../frontend/lib/fengshui/types';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import type { FloorInput, Palace, Room } from '../../frontend/lib/fengshui/types';
@@ -583,6 +589,150 @@ const base: FloorInput = {
   ok('harness/tests-three-states', /fengshui-recognize-fail/.test(census) && /fengshui-recognize-candidates/.test(census)
     && /FS_RECOGNIZE_PINS\[base\]/.test(census),
     '三态里两个后端落点各有自己的 harness 态与探针：只测失败就永远不知道成功体能不能被这套 UI 吃下');
+}
+
+// ── 10. 编辑闭环：页面承诺过的三件事，必须真有控件、真有不变式 ──
+{
+  const studio = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8');
+  const wall = (id: string, 折线: Pt[], 闭合 = false): Wall => ({ id, 折线, 闭合 });
+  const op = (over: Partial<Opening> = {}): Opening => ({
+    id: 'o1', 类型: '门', 墙: '外', 段: 0, 位: 0.5, 宽: 0.9, 置信度: null, 已确认: true, ...over,
+  });
+  const g0 = (): FloorGeometry => ({
+    墙体: [wall('外', [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 9 }, { x: 0, y: 9 }], true)],
+    房间: [{ id: 'r1', 名称: '客厅', 用途: '客厅', 外环: [{ x: .2, y: .2 }, { x: 4.4, y: .2 }, { x: 4.4, y: 8.8 }, { x: .2, y: 8.8 }] }],
+    开口: [],
+  });
+
+  ok('ed/pure-mutators-outside-component', /from '@\/lib\/fengshui\/edit'/.test(studio)
+    && !/function deleteWall|function addOpening/.test(studio),
+    '编辑操作住在 lib/fengshui/edit.ts：不变式（删墙会不会留下悬空开口）只有能单独跑的函数才钉得住');
+
+  // 删墙必须把它名下的开口一起带走，并且报回带走了几条。
+  const withOps = (): FloorGeometry => ({ ...g0(), 开口: [op({ id: 'a' }), op({ id: 'b', 类型: '窗' }), op({ id: 'c', 墙: '隔' })] });
+  const del = deleteWall({ ...withOps(), 墙体: [...g0().墙体, wall('隔', [{ x: 4.5, y: 0 }, { x: 4.5, y: 9 }])] }, '外');
+  ok('ed/delete-wall-cascades', del.几何.开口.length === 1 && del.几何.开口[0].id === 'c' && del.连带删掉开口数 === 2
+    && danglingOpenings(del.几何).length === 0,
+    `删掉「外」这道墙带走了挂在它上面的 2 个开口、留下「隔」上的 1 个，且没有任何开口指向不存在的墙（报回的条数 ${del.连带删掉开口数} 要让 UI 说得出口）`);
+
+  // 一串 mutator 跑下来，每一步都不许留下悬空引用。
+  let seq = g0();
+  const leaks: number[] = [];
+  [
+    (g: FloorGeometry) => addWall(g, 'w1'),
+    (g: FloorGeometry) => addOpening(g, 'oA', 'w1', '门'),
+    (g: FloorGeometry) => addOpening(g, 'oB', '外', '窗'),
+    (g: FloorGeometry) => moveWallVertex(g, 'w1', 0, { x: 5, y: 1 }),
+    (g: FloorGeometry) => shiftOpening(g, 'oA', 1),
+    (g: FloorGeometry) => resizeOpening(g, 'oA', 1),
+    (g: FloorGeometry) => toggleOpeningKind(g, 'oB'),
+    (g: FloorGeometry) => deleteOpening(g, 'oA'),
+    (g: FloorGeometry) => deleteWall(g, 'w1').几何,
+    (g: FloorGeometry) => moveRoomVertex(g, 'r1', 1, { x: 5, y: .2 }),
+    (g: FloorGeometry) => setRoomKind(g, 'r1', '卧室'),
+    (g: FloorGeometry) => setRoomName(g, 'r1', '次卧'),
+    (g: FloorGeometry) => setOpeningConfirmed(g, 'oB', false),
+  ].forEach((f, i) => { seq = f(seq); if (danglingOpenings(seq).length) leaks.push(i); });
+  ok('ed/no-mutator-leaves-dangling', leaks.length === 0 && seq.开口.length === 1,
+    `13 步 mutator 逐步查悬空开口：${leaks.length ? '第 ' + leaks.join('、') + ' 步留下悬空' : '全绿'}（最后剩 ${seq.开口.length} 个开口）`);
+
+  // 两种来源的语义必须按类型区分：null = 手工标注。
+  const hand = addOpening(g0(), 'oh', '外', '门').开口[0];
+  ok('ed/hand-vs-recognized-provenance', hand.置信度 === null && hand.已确认 === true,
+    `手工画的开口 置信度=null（这个类型里就是"手工标注"）且 已确认=true；识别回来的仍是 0.5 占位 + 未确认（见 rc/* 那两条）`);
+
+  // 门↔窗切换后宽度必须重新夹：4m 的"门"不能既画得出又算得进。
+  const wide = toggleOpeningKind({ 墙体: g0().墙体, 房间: [], 开口: [op({ 类型: '窗', 宽: 4.0 })] }, 'o1').开口[0];
+  const narrow = toggleOpeningKind({ 墙体: g0().墙体, 房间: [], 开口: [op({ 类型: '窗', 宽: 0.4 })] }, 'o1').开口[0];
+  ok('ed/toggle-reclamps-width', wide.类型 === '门' && wide.宽 === OPENING_LIMITS.门.max
+    && narrow.类型 === '门' && narrow.宽 === OPENING_LIMITS.门.min,
+    `4m 的窗换成门 → ${wide.宽}m（上限 ${OPENING_LIMITS.门.max}）；0.4m 的窗换成门 → ${narrow.宽}m（下限 ${OPENING_LIMITS.门.min}）`);
+
+  // 连按 60 次两个方向，宽度与位置都必须留在合法区间。
+  let wg = { 墙体: g0().墙体, 房间: [], 开口: [op({ 宽: 0.9 })] };
+  let pos = { 墙体: g0().墙体, 房间: [], 开口: [op()] };
+  const outOfRange: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    wg = resizeOpening(wg, 'o1', 1); pos = shiftOpening(pos, 'o1', 1);
+    const w1 = wg.开口[0], p1 = pos.开口[0];
+    if (w1.宽 > OPENING_LIMITS.门.max + 1e-9 || w1.宽 < OPENING_LIMITS.门.min - 1e-9) outOfRange.push(`宽 ${w1.宽}`);
+    if (p1.位 > 1 || p1.位 < 0) outOfRange.push(`位 ${p1.位}`);
+  }
+  for (let i = 0; i < 60; i++) { wg = resizeOpening(wg, 'o1', -1); pos = shiftOpening(pos, 'o1', -1); }
+  if (wg.开口[0].宽 !== OPENING_LIMITS.门.min || pos.开口[0].位 !== 0) outOfRange.push(`反方向没夹住：宽 ${wg.开口[0].宽} 位 ${pos.开口[0].位}`);
+  ok('ed/width-position-bounded', outOfRange.length === 0,
+    `各连按 60 次两个方向之后宽度停在 ${OPENING_LIMITS.门.min}–${OPENING_LIMITS.门.max}、位停在 0–1${outOfRange.length ? ' — 出界：' + outOfRange.slice(0, 3).join(' | ') : ''}（位出界会让渲染按 位±宽/2 取到墙外）`);
+
+  const added = addWall(g0(), 'w9').墙体.find(w => w.id === 'w9')!;
+  ok('ed/add-wall-spans-bbox', added.折线.length === 2 && added.折线[0].x === 4.5 && added.折线[0].y === 0
+    && added.折线[1].y === 9 && added.闭合 === false,
+    `加一道墙给的是"贯通包围盒的中线"（x=${added.折线[0].x}，y ${added.折线[0].y}→${added.折线[1].y}），不是丢在原地的一小截`);
+
+  const twoSeg = { 墙体: [wall('L', [{ x: 0, y: 0 }, { x: .4, y: 0 }, { x: .4, y: 8 }])], 房间: [], 开口: [] };
+  const picked = addOpening(twoSeg, 'ox', 'L', '门').开口[0];
+  ok('ed/add-opening-picks-longest-segment', picked.段 === 1 && picked.位 === 0.5,
+    `默认落在最长那一段的中点（实得 段=${picked.段} 位=${picked.位}）—— 最短段往往是门垛，落在那儿等于逼人一上手就拖`);
+  ok('ed/add-opening-refuses-unknown-wall', addOpening(g0(), 'oz', '没有这道墙', '门').开口.length === 0,
+    '墙不存在时不开口：宁可什么都不加，也不要造出一个指向空气的洞');
+
+  // 用途表只许有一份。
+  ok('ed/kinds-from-one-list', /ROOM_KINDS\.map/.test(studio)
+    && ROOM_KINDS.every(k => studio.includes(`fp-kind-${k}`) || /\{k\}/.test(studio))
+    && !/const KINDS\s*=\s*\[/.test(studio),
+    `用途那一排是从 types.ts 的 ROOM_KINDS（${ROOM_KINDS.length} 项）现铺的，组件里没有第二份清单`);
+
+  // 最关键的一条：文案里承诺过的每一件事，页面上必须真有对应的控件。
+  const promises: Array<[string, RegExp, string]> = [
+    ['请手动补', /加门|加窗/, '「请手动补门窗」→ 墙体那一格里要有「加门」「加窗」'],
+    ['请逐间改对', /fp-kind-/, '「请逐间改对」→ 要有 用途 chip（id 前缀 fp-kind-）'],
+    ['拖角点改成你家的样子', /种类: '房'/, '「拖角点」→ 房与墙的手柄要分得清（dragRef 带种类）'],
+    ['没有控件就说不出口', /加一道墙/, '墙要能自己加：识别漏了一道承重墙时用户得能补'],
+  ];
+  const unkept = promises.filter(([need, re, why]) => !re.test(studio) || !(studio.includes(need) || need === '没有控件就说不出口'))
+    .map(([, , why]) => why);
+  ok('copy/promise-has-control', unkept.length === 0 && /fp-room-name/.test(studio) && /宽 \{/.test(studio),
+    `页面上每一句"请你改"都必须有落到控件的通路${unkept.length ? ' — 这些承诺没有控件：' + unkept.join(' | ') : ''}（这一条存在的理由：批0 上线了"请手动补门窗""请逐间改对"两句话，而当时一个对应控件都没有）`);
+
+  // 闭合墙的最后一跨：四处解释必须给同一个答案。
+  const closed = g0().墙体[0];
+  const lastSeg = openingSegment(op({ 段: 3, 位: 0.5 }), closed);
+  ok('geo/closed-last-segment-resolves', !!lastSeg && lastSeg[0].x === 0 && lastSeg[0].y === 9 && lastSeg[1].x === 0 && lastSeg[1].y === 0,
+    `闭合墙的第 3 段（共 4 个点）就是"末点→首点"那一跨：${JSON.stringify(lastSeg)} —— 之前 3D 在这里取到 undefined 就把洞口整个画没`);
+  ok('geo/out-of-range-segment-is-null', openingSegment(op({ 段: 4 }), closed) === null
+    && openingSegment(op({ 段: -1 }), closed) === null
+    && openingSegment(op({ 段: 3 }), wall('开', [{ x: 0, y: 0 }, { x: 9, y: 0 }])) === null,
+    '越界的段号返回 null 而不是夹到最近一段：夹逼会把窗画到别的墙上，那是更难发现的错');
+  {
+    const cells: NonNullable<ReturnType<typeof palaceCells>> = [
+      { 宫: '乾', minX: 0, minY: 0, maxX: 3, maxY: 3 }, { 宫: '坎', minX: 3, minY: 0, maxX: 6, maxY: 3 },
+      { 宫: '艮', minX: 6, minY: 0, maxX: 9, maxY: 3 }, { 宫: '兑', minX: 0, minY: 3, maxX: 3, maxY: 6 },
+      { 宫: '中', minX: 3, minY: 3, maxX: 6, maxY: 6 }, { 宫: '震', minX: 6, minY: 3, maxX: 9, maxY: 6 },
+      { 宫: '坤', minX: 0, minY: 6, maxX: 3, maxY: 9 }, { 宫: '离', minX: 3, minY: 6, maxX: 6, maxY: 9 },
+      { 宫: '巽', minX: 6, minY: 6, maxX: 9, maxY: 9 },
+    ];
+    const win = op({ 段: 3, 位: 0.5, 类型: '窗', id: 'ow' });
+    const got = openingPalace(win, { ...g0(), 开口: [win] }, cells);
+    ok('geo/closed-segment-palace-not-clamped', got === '兑',
+      `左边那跨（x=0, y=4.5）上的窗必须落 兑；旧实现把 段=3 夹成 段=2 就变成底边中点、错归到 离 —— 这类错不报错，只是把结论挪一个宫`);
+    const iso = isoSvg({ ...g0(), 开口: [{ ...win, 已确认: true }] }, 720, 420);
+    ok('geo/closed-segment-drawn-in-iso', iso.faces.some(f => f.kind === 'opening'),
+      `等轴图也要把这个洞挖出来（faces ${iso.faces.filter(f => f.kind === 'opening').length} 个）—— 2D/等轴/3D/判定读同一份几何，看见的必须是同一个洞`);
+  }
+
+  // 段→端点这件事不许再有第二份实现。
+  const reimpl: string[] = [];
+  for (const f of ['FloorPlanStudio.tsx', 'FloorPlan3D.tsx']) {
+    const src = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', f), 'utf8');
+    if (/折线\[o\.段 \+ 1\]/.test(src) || /Math\.min\(op\.段/.test(src)) reimpl.push(f);
+  }
+  ok('geo/segment-resolver-single-source', reimpl.length === 0,
+    `组件里不再各自写 折线[段+1]、也没有夹段号（命中 ${reimpl.join('、') || '无'}）—— "同一份几何、四种视图"要求"这段墙从哪到哪"只有一个答案`);
+
+  // harness 必须真的把新控件跑一遍，而不是只存在源码里。
+  const census2 = readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8');
+  ok('harness/tests-editor', /'fengshui-edit'/.test(census2) && /fsEditProbe/.test(census2)
+    && /'加一道墙', '加门', '宽', '#fp-confirm'/.test(census2),
+    'fengshui-edit 态真的按了 加一间房→用途→加一道墙→加门→宽→确认并逐条钉回来（存在性归套件，改到画面归 harness）');
 }
 
 const summary = `fengshui acceptance: notes=${analyzeFloor(base).判定.length} stamp=${FENGSHUI_BASIS} pass=${pass} fail=${fail}`;

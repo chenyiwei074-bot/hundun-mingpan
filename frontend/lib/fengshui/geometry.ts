@@ -145,14 +145,27 @@ export function assignPalace(ring: Pt[], cells: NonNullable<ReturnType<typeof pa
   return { 宫: top.宫, 占比: Math.round(top.占比 * 1000) / 1000, 跨宫: top.占比 < PALACE_OVERLAP_MIN, 涉及宫: parts.map(p => p.宫) };
 }
 
+/** (墙, 段) → 该段的两端点。**全站只有这一处解释这个坐标对。**
+ *  闭合墙的第 n-1 段是"末点→首点"那一跨。之前这件事有四处各自实现、三种行为：
+ *  等轴图与 crossesWall 是对的；openingPalace 把最后一段夹回倒数第二段（于是那个开口
+ *  被归到隔壁宫的墙中点上）；3D 直接取到 undefined 就把洞口整个画没了。
+ *  读的是同一份 FloorGeometry，就必须只有一个人负责回答"这段墙从哪到哪"。 */
+export function openingSegment(op: Opening, wall: Wall): [Pt, Pt] | null {
+  const n = wall.折线.length;
+  if (n < 2) return null;
+  const 段数 = wall.闭合 ? n : n - 1;
+  if (op.段 < 0 || op.段 >= 段数) return null;
+  return [wall.折线[op.段], wall.折线[(op.段 + 1) % n]];
+}
+
 /** 开口中心落在哪一宫：取该段的中点参数位置，再按点归属。 */
 export function openingPalace(op: Opening, geom: FloorGeometry,
   cells: NonNullable<ReturnType<typeof palaceCells>>): Palace | null {
   const wall = geom.墙体.find(w => w.id === op.墙);
   if (!wall) return null;
-  const i = Math.min(op.段, wall.折线.length - 2);
-  if (i < 0) return null;
-  const a = wall.折线[i], b = wall.折线[i + 1];
+  const seg = openingSegment(op, wall);
+  if (!seg) return null;
+  const [a, b] = seg;
   const p = { x: a.x + (b.x - a.x) * op.位, y: a.y + (b.y - a.y) * op.位 };
   const hit = cells.find(c => p.x >= c.minX && p.x <= c.maxX && p.y >= c.minY && p.y <= c.maxY);
   return hit ? hit.宫 : null;
