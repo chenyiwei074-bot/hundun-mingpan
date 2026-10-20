@@ -15,6 +15,9 @@ import {
   assignPalace, buildWalkGrid, nearestWalkable, palaceCells, passable, reachableFrom, toFloorInput,
 } from '../../frontend/lib/fengshui/geometry';
 import type { FloorGeometry, Opening, Wall } from '../../frontend/lib/fengshui/geometry';
+import { isoSvg, planSvg } from '../../frontend/lib/fengshui/svg';
+import { PARTICLES, SCENE, particleBudget, tierFor } from '../../frontend/lib/fengshui/stage';
+import { checkFloorplanFile, sniffImage } from '../../frontend/lib/fengshui/upload';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import type { FloorInput, Palace, Room } from '../../frontend/lib/fengshui/types';
@@ -125,8 +128,12 @@ const base: FloorInput = {
     `"没做的那一层"要出现在未判定栏里，而不是悄悄少几条：${undirected.join(' | ') || '（空）'}`);
   const page = readFileSync(join(ROOT, 'frontend', 'app', 'fengshui', 'page.tsx'), 'utf8');
   const form = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanForm.tsx'), 'utf8');
-  ok('copy/declares-what-is-not-done', page.includes('不上传户型图') && form.includes('原典之外不发明'),
-    '页面上要写明两件事：不上传图、传统方位那一层不做（不做的东西不写出来，用户会以为藏在某处）');
+  // 改测试（2026-10-20 户型大改）：这一条原来钉的是"页面上写着不上传户型图"。
+  // 现在能上传了，那句文案若留着就是假话；原来那条断言的**意图**（不做的事要写明）不变，
+  // 换成钉新边界：同意之前图不出本机、7 天自动删、传统方位那一层仍然不做。
+  ok('copy/declares-boundaries', /勾选同意之前/.test(page) && /7 天后自动删/.test(page)
+    && !/不上传户型图/.test(page) && form.includes('原典之外不发明'),
+    '页面要写明三件事：同意前图不出本机、服务端 7 天自动删、方位吉凶那一层不做（旧那句"不上传户型图"必须已经不在了）');
   ok('comp/no-upload-no-network', !/type=["']file["']|FileReader|fetch\(|XMLHttpRequest|localStorage|sessionStorage/.test(form),
     '这一版没有上传控件、没有网络调用、没有本地存储：标注只活在页面内存里');
 }
@@ -259,6 +266,81 @@ const base: FloorInput = {
   ok('geo/row0-is-top', top === '乾坎艮', `九宫第 0 行取 minY 那一侧（图纸 y 向下）：实得 ${top}`);
   ok('geo/cells-cover-bbox', Math.min(...pc.map(c => c.minX)) === 0 && Math.max(...pc.map(c => c.maxX)) === 9
     && pc.length === 9, '九宫切的是整户包围盒，三行三列不留缝（用房间并集切会让 L 形宅的宫格随标注漂移）');
+}
+
+// ── 8. 上传校验、SVG 投影与场景参数 ──
+{
+  const studio = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8');
+  ok('up/pure-functions-outside-component', /from '@\/lib\/fengshui\/upload'/.test(studio)
+    && !/function sniffImage/.test(studio),
+    '校验函数住在 lib/fengshui/upload.ts 而不是组件里：抠源码 eval 那条路走不通（TS 类型标注），而且纯函数本来就不该在组件里');
+
+  const f = (name: string, type: string, size: number) => ({ name, type, size });
+  ok('up/oversize-rejected', checkFloorplanFile(f('a.png', 'image/png', 6 * 1024 * 1024)).ok === false,
+    '超过 5MB 直接拒（浏览器声明的类型先放行，真正的类型判定在字节那一步）');
+  ok('up/fake-mime-not-enough', checkFloorplanFile(f('a.png', 'image/png', 1024)).ok === true
+    && sniffImage(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0, 0, 0, 0, 0, 0, 0, 0])) === null,
+    '一个声称是 png、头四个字节是 %PDF 的文件：MIME 那关会过，字节那关必须拦住');
+  ok('up/real-headers-recognised', sniffImage(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])) === 'jpg'
+    && sniffImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47])) === 'png'
+    && sniffImage(new Uint8Array([82, 73, 70, 70, 0, 0, 0, 0, 87, 69, 66, 80])) === 'webp',
+    '三种真头各自认得出（jpg/png/webp），认不出来就返回 null 而不是猜一个');
+  ok('up/unknown-header-is-null', sniffImage(new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61])) === null,
+    'gif 的头就明说认不出，不把它当 jpg');
+
+  // SVG 投影：等轴图与 3D 读的是同一个 FloorGeometry，所以"降级图和 3D 不一样"没有第二条路可走
+  const svgGeom: FloorGeometry = {
+    墙体: [
+      { id: '外', 折线: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 3 }, { x: 0, y: 3 }], 闭合: true },
+      { id: '隔', 折线: [{ x: 4.5, y: 0 }, { x: 4.5, y: 3 }], 闭合: false },
+    ],
+    房间: [
+      { id: 'A', 名称: '客厅', 用途: '客厅', 外环: [{ x: .12, y: .12 }, { x: 4.38, y: .12 }, { x: 4.38, y: 2.88 }, { x: .12, y: 2.88 }] },
+      { id: 'B', 名称: '主卧', 用途: '卧室', 外环: [{ x: 4.62, y: .12 }, { x: 8.88, y: .12 }, { x: 8.88, y: 2.88 }, { x: 4.62, y: 2.88 }] },
+    ],
+    开口: [{ id: 'd1', 类型: '门', 墙: '隔', 段: 0, 位: 0.5, 宽: 0.9, 置信度: null, 已确认: true }],
+  };
+  const iso = isoSvg(svgGeom, 720, 420);
+  const plan = planSvg(svgGeom, 720, 420);
+  ok('svg/one-geometry-source', iso.faces.some(f => f.kind === 'room') && plan.房间.length === 2
+    && iso.faces.filter(x => x.kind === 'wall').length === 5,
+    `等轴图 ${iso.faces.length} 个面（墙 ${iso.faces.filter(x => x.kind === 'wall').length}、地 ${iso.faces.filter(x => x.kind === 'room').length}、洞 ${iso.faces.filter(x => x.kind === 'opening').length}），俯视 ${plan.房间.length} 间 —— 两者都只吃同一份几何`);
+  ok('svg/points-parseable', plan.房间.every(r => r.points.split(' ').length >= 3
+    && r.points.split(' ').every(p => /^-?[\d.]+,-?[\d.]+$/.test(p))),
+    '每个多边形至少 3 个点且坐标形如 x,y（拼错的 points 串在 SVG 里是静默不画，不是报错）');
+  ok('svg/unconfirmed-opening-not-cut', isoSvg({ ...svgGeom, 开口: svgGeom.开口.map(o => ({ ...o, 已确认: false })) }, 720, 420)
+    .faces.filter(x => x.kind === 'opening').length === 0,
+    '未确认的开口在降级图里也不该被挖出来');
+
+  // 场景参数：这些数字是批准过的，漂了要红
+  ok('scene/particle-caps', PARTICLES.每门 === 90 && PARTICLES.每窗 === 60 && PARTICLES.全局上限 === 420
+    && PARTICLES.移动减半 === 210 && PARTICLES.下限fps === 45 && PARTICLES.dpr上限 === 2,
+    `粒子与渲染预算逐字对得上参数稿：${PARTICLES.每门}/${PARTICLES.每窗}、上限 ${PARTICLES.全局上限}、移动 ${PARTICLES.移动减半}`);
+  ok('scene/no-postprocessing', SCENE.无网格地板 && SCENE.无后期特效 && SCENE.无贴图资源,
+    '不做网格地板、不堆后期、不用任何贴图资源（包体与版权都靠这一条干净）');
+  ok('scene/tier-by-device-memory', tierFor({ mobile: false, deviceMemory: 2 }) === 'minimal'
+    && tierFor({ mobile: true }) === 'half' && tierFor({ mobile: false }) === 'full',
+    'deviceMemory 能问就先降档，问不到才退回按 pointer 判');
+  ok('scene/budget-covers-door', particleBudget('full', 4, 4) === PARTICLES.全局上限,
+    `门多窗多也不能越过全局上限：4 门 4 窗要 ${4 * PARTICLES.每门 + 4 * PARTICLES.每窗} 个，实得 ${particleBudget('full', 4, 4)}`);
+
+  // 舞台色只有一份真值：CSS 变量。stage.ts 里不许再抄一遍 hex。
+  const stageSrc = readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'stage.ts'), 'utf8');
+  const hexInStage = (stageSrc.replace(/\/\*[\s\S]*?\*\//g, '').match(/#[0-9a-fA-F]{6}\b/g) || []);
+  ok('scene/colors-live-in-css', hexInStage.length <= 8 && /STAGE_TOKENS/.test(stageSrc) && /--color-fp-stage-bg/.test(stageSrc),
+    `stage.ts 只保留令牌名与兜底值（实测 ${hexInStage.length} 处 hex，全在 STAGE_FALLBACK 里），主色住在 globals.css 的 --color-fp-stage-*`);
+  const css = readFileSync(join(ROOT, 'frontend', 'app', 'globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const fpBg = css.match(/--color-fp-stage-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  const wxBg = css.match(/--color-western-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
+  ok('scene/stage-not-aliased-to-western', !!fpBg && fpBg !== wxBg,
+    `舞台底色 ${fpBg} 必须与西方主题底色 ${wxBg} 不同值 —— 同值会让人以为西方主题漏进了东方页，共用 token 更会让改西方配色连带改掉东方 3D`);
+
+  // 隐私：告知与同意这两件事必须各自有闸，文案一条、行为一条（上面 copy/declares-boundaries 管文案）
+  ok('privacy/consent-gates-request', /disabled=\{recognizing \|\| !consent\}/.test(studio),
+    '没勾同意，识别按钮就是禁用的 —— 告知文案不拦请求，这个 disabled 才拦');
+  ok('privacy/no-image-in-report', !/image|blob|dataUrl|objectURL/i.test(
+    readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'analysis.ts'), 'utf8')),
+    '规则层源码里没有任何图片字段：图不进判定输出，也就不会被顺手带进报告');
 }
 
 const summary = `fengshui acceptance: notes=${analyzeFloor(base).判定.length} stamp=${FENGSHUI_BASIS} pass=${pass} fail=${fail}`;

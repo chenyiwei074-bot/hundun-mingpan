@@ -730,6 +730,15 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-western-shadow: rgba(8, 3, 20, 0.5);
   --color-western-nav-bg: rgba(27, 16, 48, 0.86);   /* 导航是半透明吸顶，得单独一支，不能直接用 bg */
   --color-domain-western: #8b6fd0;   /* 深底上原来那支紫会糊掉，这一支才分得开 */
+  /* 东方户型的 3D 舞台：页面本体仍是浅底，深色只是卡片里的一块舞台。
+     刻意不复用 --color-western-* —— 同值会让人以为西方主题漏到了东方页，
+     共用更会让"改西方配色"连带改掉东方的 3D。色值与西方略偏（底色更深一档）。 */
+  --color-fp-stage-bg: #171226;
+  --color-fp-stage-floor: #241a3d;
+  --color-fp-stage-wall: #f3eeff;
+  --color-fp-stage-line: rgba(230, 220, 255, 0.14);
+  --color-fp-stage-gold: #d9b877;
+  --color-fp-stage-flow: #c9bfe0;
 }
 
 [data-mode="western"] {
