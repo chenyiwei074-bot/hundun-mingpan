@@ -337,13 +337,17 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
     const added = d.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++'));
     const removed = d.split('\n').filter(l => l.startsWith('-') && !l.startsWith('---'));
-    return added.length === 0 && removed.length > 0
-      && removed.every(l => /^\-\s*console\.(log|info|debug|warn|error|trace)\(/.test(l));
+    // 允许删空行（挨着被删语句的那一行本来就是空行）；除此之外只认 console.* 语句本身。
+    const notConsole = removed.filter(l => l.trim() !== '-' && !/^\-\s*console\.(log|info|debug|warn|error|trace)\(/.test(l));
+    return added.length === 0 && removed.length > 0 && notConsole.length === 0;
   };
   const engineOfflist = engine.filter(f => !inAllow(f));
   ok('algo/only-the-pairwise-export',
     engine.every(f => inAllow(f) || loggingOnlyRemoval(f)),
-    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行"新增 0 行、删的全是 console.* 语句"这一种）：实得 ${engine.join(' | ') || '（无）'}；清单外 ${engineOfflist.join(' | ') || '（无）'}`);
+    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行"新增 0 行、删的全是 console.* 语句"这一种）：实得 ${engine.join(' | ') || '（无）'}；清单外 ${engineOfflist.join(' | ') || '（无）'}${engineOfflist.length ? '；不合规的行 ' + engineOfflist.map(f => {
+      const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
+      return f.replace(/^frontend\/app\/lib\/core\//, '') + '[' + d.split('\n').filter(l => (l.startsWith('+') && !l.startsWith('+++')) || (l.startsWith('-') && !l.startsWith('---'))).join('').slice(0, 120) + ']';
+    }).join(' ') : ''}`);
   // 合盘层不许自带第二份地支/天干关系表 —— 复用算法层导出，是这批允许改算法层的交换条件。
   let hepanCopied: string[] = [];
   try {
