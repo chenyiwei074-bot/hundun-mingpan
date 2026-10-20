@@ -46,7 +46,7 @@ node tools/visual-harness/census.mjs \
 | `--liuyao-fixture=<file>` | 只覆盖摇卦那一张（临时拿另一张盘调试用） |
 | `--only=home,legal` | 按 tag 或 url 片段过滤。**写 tag，别写 `/western` 这种带斜杠的**：Git Bash 会把参数开头的 `/x` 改成本地路径（实测变成 `C:/Program Files/Git/western`），于是一个态都没筛到。筛到 0 个态现在直接判红，不再报"ALL PASSED — 0 states"。 |
 | `--no-shots` | 不截图，只出 census.json |
-| `--port` | CDP 端口，默认 9399，需空闲 |
+| `--port` | CDP 端口，默认 9399。**被占用时启动即硬失败（exit 3）并提示换 `--port=`** —— 见下面「并发跑会出假证据」 |
 
 id 从哪来：harness **只 GET 页面**，不建命盘、不下单、不点按钮。请自己先用一次
 真实流程（或复用一条测试数据）拿到 id。全站没有 `onmount` 写接口：前端只在提交
@@ -241,6 +241,30 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
 - `<tag>.png` — 逐态整页截图，tag 形如 `d1-chart-result`（d1=1280×900，m1=375×812）。
 - 退出码：0 全通过，1 有 FAIL，2 Chrome/CDP 起不来。
 
+## 并发跑会出假证据（2026-10-20 裁定 ②）
+
+两个 census 实例同时跑**不会报错**：第二个连的是同一个 `--port`（默认 9399）上已经起好的
+浏览器，于是两边互相把对方的页面导航走、注入脚本互相覆盖，sessionStorage 还会串页。
+现场是：一次全量跑出 **53 条红**，其中"降级盘上场景矩阵不存在""合盘 degraded 却有 8 块"
+这类根本不可能同时成立的东西混在一起 —— 全是并发串出来的，不是产品缺陷。第一次看到时我
+差点去修那个不存在的缺陷。
+
+所以启动前两道硬闸：
+
+1. **端口探测**：`net.connect` 到 `127.0.0.1:PORT`，连得上就 **exit 3** 并提示
+   `--port=<PORT+1>`。故意不用"试着 bind 一下看占不占得到"那种写法 —— bind 成功只证明
+   这个进程占得住它，而事故恰恰发生在"能连上"的时候。
+2. **每次运行一个独立临时 profile**（`--user-data-dir=<tmp>/hundun-vh-XXXXXX`）。不传这个参数时
+   Chrome 用的是这台机器的默认 profile，`localStorage`（比如 `hundun_visitor_id`）与 cookie
+   会跨运行相连，同一条命令看到的页面取决于上一跑留下了什么。
+   跑完删：先等浏览器真的 `close` 再删（Windows 上它还握着句柄时 `rmSync` 直接 EPERM），
+   再加同步重试；真删不掉就把路径打出来。启动时顺手回收 **24 小时以前**留下的同名目录
+   （只认 `hundun-vh-` 前缀，当前这次用的是新建路径，另一个换 `--port` 跑的实例也一样 ——
+   不可能误删正在用的）。
+
+`base=... profile=... cdp port=...` 每次开跑都打一行，出问题能认出是哪一次运行。
+退出码：0 全过 / 1 有断言红 / 2 起不了浏览器 / **3 端口被占**。
+
 ## 判负（exit 1）的硬契约
 
 `nav.qn-nav` 与 `footer.qn-footer` 各恰好 1 个；nav 高 56–57px；可见
@@ -325,7 +349,7 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
 （除命宫外都带"宫"），而 `ziwei-standard.ts` 实际产出不带，find 不到就只是少渲染四张卡。
 所以这条按 DOM 上的属性数，不读文案。
 
-## 两条别踩的实现事实
+## 别踩的实现事实
 
 1. **Chrome 的触摸模拟不可逆**。同一个 target 里开过 touch 之后，
    `setTouchEmulationEnabled(false)` 和 `setEmulatedMedia(pointer:'fine')` 都清不掉
@@ -335,6 +359,12 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
 2. **注入脚本之间必须有 `;`**。`addScriptToEvaluateOnNewDocument` 里相邻两个 IIFE
    没有分隔符会被解析成调用链并抛错，CLS/LCP observer 静默失效——所以有
    `window.__vhBooted` 这条硬断言。
+3. **时间起卦那几个态的读数跟着墙上时钟走**。`/meihua` 排的是"当下这一时刻"，
+   所以它的 `docH` / 文字长度在跨**时辰**（每 2 小时一档）的两跑之间会差一截 ——
+   实测：20:40 那一跑 `m1-meihua docH=2482 / bodyText=856`，21:20 那一跑
+   `2456 / 855`（跨过 21:00 的戌→亥），中间同一时辰内连跑三次数值一字不差。
+   拿两跑的数值做差之前先看它们是否在同一时辰内，别把时辰边界读成"某个改动改变了渲染"
+   （我这次就先怀疑到了临时 profile 头上）。
 
 ## 加页面
 

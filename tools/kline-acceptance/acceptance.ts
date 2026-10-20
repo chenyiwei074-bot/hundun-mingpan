@@ -370,6 +370,8 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // 意味着任何人 F12 就能看见一张别人的命盘，而且那两行不在 catch 里、跟着成功路径走。
   // harness 那条 CONSOLE 通道监听的是 Log.entryAdded，而 Log 域从未 enable —— 它在浏览器侧
   // 根本收不到东西，所以这条只能从源码侧钉（那个空通道另记 report-only）。
+  // 2026-10-20 裁定 ① 把口径写死了：console.error/warn 在错误路径里允许（排障要看得到），
+  // console.log/info/debug/trace 一律禁 —— 下面这条正是按这个口径实现的。
   const yqDir = join(ROOT, 'frontend', 'app', 'lib', 'core', 'yiqi-core');
   const yqFiles = readdirSync(yqDir).filter(f => f.endsWith('.ts'));
   const prints = yqFiles.flatMap(f => {

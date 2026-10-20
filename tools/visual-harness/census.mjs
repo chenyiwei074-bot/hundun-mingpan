@@ -17,8 +17,10 @@
 // number it produces comes from fixture copy, not from the service.
 
 import { spawn } from 'node:child_process';
-import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, mkdtempSync, rmSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { connect } from 'node:net';
 
 // ---------------------------------------------------------------- flags
 const arg = (name, dflt = undefined) => {
@@ -870,8 +872,64 @@ const qaProbe = p => `(() => {
  *  只测 SwiftShader 会漏 —— 实测过：漏了就把 39.2fps 判成产品回归。 */
 const SOFTWARE_GL = /swiftshader|basic render driver|llvmpipe|softpipe/i;
 const GPU = process.env.VH_GPU === '1';
+
+/** 端口有没有人监听。用 connect 而不是 bind：bind 成功只证明"这个进程"占得住它，
+ *  而真正的事故是第二个 census 连进了第一个已经起好的浏览器 —— 那一刻端口恰恰"能连上"。
+ *  连上就是证据。 */
+const portInUse = (port, host = '127.0.0.1') => new Promise(res => {
+  const s = connect({ port, host });
+  const done = v => { s.destroy(); res(v); };
+  s.setTimeout(700);
+  s.once('connect', () => done(true));
+  s.once('timeout', () => done(false));
+  s.once('error', () => done(false));
+});
+
+// 2026-10-20 裁定 ②：并发实例必须拒跑。两个 census 共用一个 CDP 端口时不会报任何错，
+// 第二个直接接进第一个的浏览器，于是两边互相把对方导航走、注入脚本互相覆盖，
+// 合盘的 sessionStorage 还串了页 —— 我第一次全量跑出 53 条红，全是假的。
+// 一次假的红比一次不跑更贵：它会让人去修不存在的产品缺陷。
+if (await portInUse(PORT)) {
+  console.error(
+    `CDP 端口 ${PORT} 上已经有人监听 —— 极可能是另一个 census 实例在跑。\n` +
+    '并发不报错，只会出一份看着像证据的假读数（共用同一个浏览器：互相导航 + 存储串页）。\n' +
+    `要么等它跑完，要么换端口：--port=${PORT + 1}`);
+  process.exit(3);
+}
+
+// 每次运行一个独立的临时 profile。不传 --user-data-dir 时 Chrome 用的是这台机器的默认 profile，
+// localStorage / cookie（比如 hundun_visitor_id）跨运行相连，
+// "这一跑看到的页面"取决于上一跑留下了什么 —— 而同一条命令本该给出可比的对像。
+const PROFILE = mkdtempSync(join(tmpdir(), 'hundun-vh-'));
+let profileCleaned = false;
+/** Windows 上浏览器还没退干净时删目录会 EPERM，所以要给它重试；
+ *  真删不掉就把路径打出来（留一地没人认领的临时目录，比一句"删失败"更糟）。 */
+const dropProfile = () => {
+  if (profileCleaned) return;
+  try {
+    rmSync(PROFILE, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+    profileCleaned = true;
+  } catch (e) {
+    console.log('  临时 profile 没删掉（可以手动清）：' + PROFILE + ' — ' + e.message);
+  }
+};
+process.on('exit', dropProfile);
+
+// 顺手回收历史遗留：只删 24 小时以前留下的那种目录。当前这一次用的是新建的路径，
+// 另一个实例（换了 --port 跑的）用的也是它自己新建的，都不可能被误删。
+try {
+  const staleCut = Date.now() - 24 * 60 * 60 * 1000;
+  for (const d of readdirSync(tmpdir())) {
+    if (!d.startsWith('hundun-vh-')) continue;
+    const p = join(tmpdir(), d);
+    try { if (statSync(p).mtimeMs < staleCut) rmSync(p, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 }); }
+    catch { /* 别人的进程还在用、或没权限 —— 跳过就是，回收是尽力而为 */ }
+  }
+} catch { /* tmpdir 读不了就不回收 */ }
+
 const chrome = spawn(CHROME, ['--headless=new', ...(GPU ? [] : ['--disable-gpu']), '--no-first-run',
-  '--no-sandbox', '--disable-dev-shm-usage', `--remote-debugging-port=${PORT}`, 'about:blank'],
+  '--no-sandbox', '--disable-dev-shm-usage', `--remote-debugging-port=${PORT}`,
+  `--user-data-dir=${PROFILE}`, 'about:blank'],
   { stdio: 'ignore' });
 chrome.on('error', e => { console.error('cannot start chrome:', e.message, '\nset --chrome=/path/to/chrome'); process.exit(2); });
 
@@ -1943,6 +2001,7 @@ for (const [tag, [id]] of Object.entries(LIUYAO_ROUTES)) {
 }
 
 console.log(`\nbase=${BASE}  out=${OUT}  stub=${STUB}  chrome=${CHROME}`);
+console.log(`cdp port=${PORT}  profile=${PROFILE}（每次运行独立，跑完删）`);
 console.log(`mode: ${STUB ? 'FIXTURES (local dev only)' : 'REAL BACKEND'}`);
 
 // Viewport phases run desktop-first and never interleave, and the orphan sweep has
@@ -2025,5 +2084,10 @@ if (fail.length) {
     (warns.length ? ` (with ${warns.length} warning(s) above — 含 KNOWN-CONTRAST)` : ''));
 }
 console.log('evidence written to ' + OUT);
-ws.close(); chrome.kill();
+ws.close();
+chrome.kill();
+// 等浏览器真的退出再删目录：Windows 上它还握着文件句柄时 rmSync 直接 EPERM，
+// 而 process.on('exit') 那个兜底是同步的，重试也救不了"进程还没退"这种情况。
+await new Promise(res => { chrome.once('close', res); setTimeout(res, 4000); });
+dropProfile();
 process.exit(fail.length ? 1 : 0);
