@@ -2080,6 +2080,42 @@ const fsEditProbe = p => `(() => {
     console.log(miss && miss.length ? '    SIZHU MISMATCH ' + miss.join(' | ')
       : '    四柱披露在屏：' + got.txt);
   }
+  // D4/D5 口径披露（批4）：紫微盘上那两行必须真的在屏上，且带口径戳。
+  // fixture 模式额外钉死那两个时刻 —— 它们是那份committed盘算出来的，不是手抄的。
+  if (base === 'chart-result') {
+    // 这两个时刻从**当前绑定的那张 fixture** 里读（不是另抄一份期望值，也不在 --chart-fixture
+    // 换盘时失效）；真盘模式 --chart-id 下不钉，因为那张盘是别人的生辰。
+    let pinCivil = null; let pinSolar = null;
+    if (!LIVE_CHART) {
+      try {
+        const tstBody = JSON.parse(CHART_BY_PATH['/chart/result/stubchart0001'] || '{}')?.chart?.bazi?.trueSolarTime;
+        pinCivil = tstBody?.civilTime ?? null;
+        pinSolar = tstBody?.trueSolarTime ?? null;
+      } catch { /* 读不到就不钉那两个值，结构断言照旧 */ }
+    }
+    const got = await evl(`(() => {
+      const n = document.getElementById('ziwei-caliber');
+      const miss = [];
+      if (!n) miss.push('紫微口径披露不在屏上（#ziwei-caliber）—— 引擎字段改了的话它就是会安静地整块消失');
+      else {
+        const txt = (n.innerText || '').replace(/\\s+/g, ' ').trim();
+        const ps = n.querySelectorAll('p').length;
+        if (n.getAttribute('data-caliber') !== 'ziwei-clock-hour-v1') miss.push('口径戳不是 ziwei-clock-hour-v1，实得 ' + n.getAttribute('data-caliber'));
+        if (ps < 2) miss.push('只有 ' + ps + ' 行，时辰与年界两行都该在');
+        if (!/时辰/.test(txt)) miss.push('没有「时辰」那一行');
+        if (!/年界/.test(txt)) miss.push('没有「年界」那一行');
+        if (!/未做真太阳时校正/.test(txt)) miss.push('没明说紫微这一侧未做真太阳时校正');
+        if (/已跨时辰/.test(txt)) miss.push('披露替这张盘判了"已跨时辰"—— 那需要时辰边界，属安星输入');
+        ${pinCivil ? `if (!txt.includes(${JSON.stringify(pinCivil)})) miss.push('钟表时刻没上屏（该有 ${pinCivil}）');` : ''}
+        ${pinSolar ? `if (!txt.includes(${JSON.stringify(pinSolar)})) miss.push('真太阳时时刻没上屏（该有 ${pinSolar}）');` : ''}
+      }
+      return { miss, txt: n ? (n.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 60) : null };
+    })()`);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 紫微口径探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 紫微口径披露不合格 — ' + x);
+    if (miss && !miss.length) console.log('    紫微口径在屏：' + got.txt);
+  }
   // D1 配额那一行：桩现在照 getQuota 原样返回 unlimited:true，所以这一行必须显示"内测免费"。
   // 这一条同时管两件事：前端确实去读了额度，以及桩没有再假装有配额。
   if (/^create/.test(base)) {

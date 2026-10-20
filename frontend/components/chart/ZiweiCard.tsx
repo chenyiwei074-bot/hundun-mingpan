@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { describeZiweiCaliber } from '@/lib/chart/ziwei-caliber';
 
 // ===== 类型 =====
 interface GongInfo {
@@ -103,9 +104,10 @@ function getGongConfig(gong: GongInfo): string {
 }
 
 // ===== 组件 =====
-export default function ZiweiCard({ ziwei }: Props) {
+export default function ZiweiCard({ ziwei, bazi }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['命宫']));
   const gongs: GongInfo[] = ziwei?.gongs || [];
+  const caliber = describeZiweiCaliber({ bazi, ziwei });
 
   const toggle = (name: string) => {
     setExpanded(prev => {
@@ -132,6 +134,15 @@ export default function ZiweiCard({ ziwei }: Props) {
         <p className='qn-eyebrow' style={{ marginBottom: 6 }}>分析依据</p>
         <h3 className='qn-title'>紫微十二宫 · 个人化解读</h3>
       </header>
+
+      {/* 紫微与八字同页展示，但取数的时辰与年界并不同一套。不说清的话，
+          用户只能看到"两盘对不上"，看不到是哪一格让它们对不上。 */}
+      <div className='qn-card' id='ziwei-caliber' data-caliber={caliber.口径}
+        style={{ marginBottom: 24, display: 'grid', gap: 7 }}>
+        {caliber.行.map(line => (
+          <p key={line} className='qn-meta' style={{ margin: 0 }}>{line}</p>
+        ))}
+      </div>
 
       {/* 5个重点宫位 */}
       <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
