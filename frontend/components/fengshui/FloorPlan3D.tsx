@@ -160,17 +160,42 @@ function build(THREE: Three, Controls: ControlsCtor, host: HTMLElement, geom: Fl
     scene.add(mesh);
   }
 
+  /**
+   * 墙全部并进"每种材质一个 mesh"。
+   * 原来每段墙一个 BoxGeometry + 一个 Mesh：一套普通户型 30–50 段墙就是 30–50 个 draw call，
+   * 软件渲染下实测 42.9fps（下限 45）。合并后一个材质一次提交，阴影也只需走一遍。
+   */
+  const 模板 = keep(new THREE.BoxGeometry(1, 1, 1));
+  const 模板位 = 模板.getAttribute('position') as THREE.BufferAttribute;
+  const 模板法 = 模板.getAttribute('normal') as THREE.BufferAttribute;
+  const 模板索 = 模板.getIndex() as THREE.BufferAttribute;
+  const 批 = new Map<THREE.Material, { pos: number[]; nrm: number[]; idx: number[] }>();
+  const 暂向 = new THREE.Vector3();
+  const 暂欧 = new THREE.Euler();
+  const 暂四 = new THREE.Quaternion();
+  const 暂阵 = new THREE.Matrix4();
+  const 暂法阵 = new THREE.Matrix3();
+
   /** 一段墙的一个矩形块：起点终点（图纸平面）+ 上下高度。 */
   const addBox = (ax: number, ay: number, bx: number, by: number, z0: number, z1: number, mat: THREE.Material) => {
     const len = Math.hypot(bx - ax, by - ay);
     if (len < 1e-4 || z1 <= z0) return;
-    const mesh = new THREE.Mesh(keep(new THREE.BoxGeometry(len, z1 - z0, SCENE.墙厚)), mat);
+    let b = 批.get(mat);
+    if (!b) { b = { pos: [], nrm: [], idx: [] }; 批.set(mat, b); }
     const c = to3((ax + bx) / 2, (ay + by) / 2, (z0 + z1) / 2);
-    mesh.position.set(c[0], c[1], c[2]);
-    mesh.rotation.y = -Math.atan2(by - ay, bx - ax);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    scene.add(mesh);
+    暂向.set(c[0], c[1], c[2]);
+    暂欧.set(0, -Math.atan2(by - ay, bx - ax), 0);
+    暂四.setFromEuler(暂欧);
+    暂阵.compose(暂向, 暂四, new THREE.Vector3(len, z1 - z0, SCENE.墙厚));
+    暂法阵.getNormalMatrix(暂阵);
+    const base = b.pos.length / 3;
+    for (let i = 0; i < 模板位.count; i++) {
+      暂向.fromBufferAttribute(模板位, i).applyMatrix4(暂阵);
+      b.pos.push(暂向.x, 暂向.y, 暂向.z);
+      暂向.fromBufferAttribute(模板法, i).applyMatrix3(暂法阵).normalize();
+      b.nrm.push(暂向.x, 暂向.y, 暂向.z);
+    }
+    for (let i = 0; i < 模板索.count; i++) b.idx.push(模板索.getX(i) + base);
   };
 
   for (const w of geom.墙体) {
@@ -203,6 +228,20 @@ function build(THREE: Three, Controls: ControlsCtor, host: HTMLElement, geom: Fl
       if (cursor < 1) { const p = at(cursor); addBox(p.x, p.y, b.x, b.y, 0, SCENE.墙高, wallMat); }
     }
   }
+
+  // 每种材质一次提交：整片墙一个 mesh，门口那一缕金另一个 mesh。
+  for (const [mat, b] of 批) {
+    if (!b.pos.length) continue;
+    const geo = keep(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(b.nrm, 3));
+    geo.setIndex(b.idx);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  }
+  批.clear();
 
   // 气流场：窗是汇，门是源。距离场只在可通行的边上扩展，所以粒子永远走不出墙。
   const grid = buildWalkGrid(geom, PARTICLES.步长);

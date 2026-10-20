@@ -208,33 +208,8 @@ const QA_PINS = {
 };
 
 const AFTER = {
-  // 户型工作室那一态：载入合成样例 → 勾"我自己核对过" → 规则层实时出判定。
-  // 为什么用合成样例而不是拖角点：拖拽要真指针事件与坐标，样例是确定输入，
-  // 这一态要证的是"几何翻译成宫位之后判定真的上屏"，不是编辑器能不能拖。
-  // 两个动作之间必须让一拍：点完样例 React 还没重渲染，同一 tick 里 querySelector 拿到的
-  // 还是旧 DOM 上那个复选框（这里是 <details> 里旧表单那份），勾了个错的却看起来像勾过了。
-  // evl 开了 awaitPromise，所以钩子可以写成 async IIFE —— 别的钩子不需要同步，别照抄这个形状。
-  'fengshui-filled': `(async () => {
-    const find = t => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === t);
-    const s = find('样例 · 两室夹一厅');
-    if (!s) return '合成样例按钮不在页面上（工作室没渲染出来？）';
-    s.click();
-    await new Promise(r => setTimeout(r, 150));
-    const c = document.getElementById('fp-confirm');
-    if (!c) return '确认复选框 #fp-confirm 没渲染出来（几何没进去？）';
-    if (!c.checked) c.click();
-    await new Promise(r => setTimeout(r, 150));
-    return true; })()`,
-  'fengshui-3d': `(async () => {
-    const find = t => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === t);
-    const s = find('样例 · 两室夹一厅'); if (!s) return '合成样例按钮不在页面上';
-    s.click();
-    await new Promise(r => setTimeout(r, 150));
-    const c = document.getElementById('fp-confirm');
-    if (c && !c.checked) c.click();
-    await new Promise(r => setTimeout(r, 150));
-    const three = find('3D'); if (!three) return '视图切换里没有 3D 那一档';
-    three.click(); return true; })()`,
+  // 户型工作室那两态改走 TRUSTED（真实 CDP 点击），不再用脚本 .click()：
+  // 见上面 TRUSTED 的注释 —— 合成点击不计入 hadRecentInput，会把用户不被扣分的展开算成回归。
   // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
   // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
   'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
@@ -730,7 +705,15 @@ const qaProbe = p => `(() => {
 })()`;
 
 // ---------------------------------------------------------------- chrome + cdp
-const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-first-run',
+// --disable-gpu 下 WebGL 走 SwiftShader（纯 CPU 光栅化），帧率量的是这台机器的 CPU，
+// 不是用户的手机。3D 门禁的数字必须带着"哪个渲染器"这个标签才有意义，
+// 所以留一个开关：VH_GPU=1 时不传 --disable-gpu，用来对照。
+/** 软件光栅化的几种名字。这台 Windows 上 --disable-gpu 给的是
+ *  "Microsoft Basic Render Driver"（WARP/CPU），Linux 上是 SwiftShader，Mesa 上是 llvmpipe。
+ *  只测 SwiftShader 会漏 —— 实测过：漏了就把 39.2fps 判成产品回归。 */
+const SOFTWARE_GL = /swiftshader|basic render driver|llvmpipe|softpipe/i;
+const GPU = process.env.VH_GPU === '1';
+const chrome = spawn(CHROME, ['--headless=new', ...(GPU ? [] : ['--disable-gpu']), '--no-first-run',
   '--no-sandbox', '--disable-dev-shm-usage', `--remote-debugging-port=${PORT}`, 'about:blank'],
   { stdio: 'ignore' });
 chrome.on('error', e => { console.error('cannot start chrome:', e.message, '\nset --chrome=/path/to/chrome'); process.exit(2); });
@@ -1270,6 +1253,22 @@ function check(tag, v) {
     if (after >= 0.1) bad(`交互后 CLS +${after}（累计 ${v.cls}）—— 有内容在点击之后把页面推走了`);
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
+    // 把"页面被滚了一下/被夹紧"与"内容真的被推走"分开。CLS 用视口坐标算，
+    // 文档变矮导致 scrollY 被夹紧时，视口里所有元素都会同向平移，分数上看着像布局位移。
+    const p = v.perf || {};
+    if (p.preScroll && p.postScroll) {
+      const dy = p.postScroll.y - p.preScroll.y;
+      const dh = p.postScroll.h - p.preScroll.h;
+      const clampable = p.preScroll.y + p.postScroll.vh > p.postScroll.h;
+      console.log(`   SCROLL y ${p.preScroll.y}→${p.postScroll.y} (Δ${dy}) · docH ${p.preScroll.h}→${p.postScroll.h} (Δ${dh}) · vh ${p.postScroll.vh}`
+        // Δ 非零时先怀疑探针自己：TRUSTED 那条路每次都 scrollIntoView 把目标滚到中间，
+        // 这是探针造成的，不是页面自己滚的。把它说成"页面自己滚了"就会引出一个假缺陷。
+        + (dy !== 0 ? ` · 滚动变了 ${dy}px${TRUSTED[base] ? '（探针自己 scrollIntoView 打的，不是页面行为）' : clampable ? '（文档变矮把 scrollY 夹紧）' : ''}` : ''));
+      // 这里只印不判：dy 现在已知主要是探针自己 scrollIntoView 造成的，
+      // 而 CLS 的判定在上面的 after>=0.1 那条里，它用的是可信点击下的真实读数。
+      // 曾经这里还有一条"dy 非零就判红"的断言，理由是"文档高度塌陷"——
+      // 实测 docH 是 907→2843（变大），那个假设不成立，所以删掉，不留一条理由写错的闸。
+    }
   }
   if (!!v.pointerCoarse !== !!v.wantTouch) bad(`pointer mismatch: asked ${v.wantTouch ? 'coarse' : 'fine'}, page sees ${v.pointerCoarse ? 'coarse' : 'fine'}`);
   for (const c of (v.cssInkData || [])) bad(`stylesheet paints data colour as ink: ${c}`);
@@ -1471,6 +1470,16 @@ async function shotSection(tag, sel) {
   console.log('    shot ' + tag + '--section.png ← ' + sel);
 }
 
+// 需要"真人级"点击的态：点完之后会插入大块内容的，必须走 CDP 的真实输入。
+// 为什么：CLS 的定义里，500ms 内有过用户输入的位移不计分（entry.hadRecentInput）。
+// element.click() 是脚本合成的，永远不会置这个标志，于是"用户点一下展开内容"这种
+// 本不该扣分的位移被记成了 0.329 的回归。用 Input.dispatchMouseEvent 打真实事件，
+// 测出来的才是用户实际会被扣的分 —— 这是把量法修对，不是把闸门放宽。
+const TRUSTED = {
+  'fengshui-filled': ['样例 · 两室夹一厅', '#fp-confirm'],
+  'fengshui-3d': ['样例 · 两室夹一厅', '#fp-confirm', '3D'],
+};
+
 async function measure(tag, url) {
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
@@ -1482,10 +1491,43 @@ async function measure(tag, url) {
     // would land in CLS and look like a load regression. Mark both load values first:
     // content the click reveals is also a fresh LCP candidate, which reads as a
     // multi-second load regression on a page that paints fine.
-    await evl('window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp');
+    await evl(`window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp;
+      // 交互前的滚动现场。CLS 用视口坐标算位移，所以"页面被滚了一下"和"内容真的被推走"
+      // 在分数里长得一模一样 —— 分不清就只能猜。这三个数就是为了不猜。
+      window.__preScroll = { y: Math.round(window.scrollY),
+        h: document.documentElement.scrollHeight, vh: window.innerHeight };
+      true`);
     const ok = await evl(AFTER[base]);
     if (ok !== true) fail.push(tag + ': 该状态没到位（' + (typeof ok === 'string' ? ok : JSON.stringify(ok)) + '）—— 这一屏从未被测量');
     else { await sleep(800); console.log('    clicked expand control'); }
+  }
+  if (TRUSTED[base]) {
+    await evl(`window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp;
+      window.__preScroll = { y: Math.round(window.scrollY),
+        h: document.documentElement.scrollHeight, vh: window.innerHeight }; true`);
+    const miss = [];
+    for (const target of TRUSTED[base]) {
+      // 先把目标滚进视口再取中心点：CDP 的 Input 坐标是视口 CSS 像素，
+      // 元素在折叠线以下时按文档坐标打会点到别的东西上，而且点错了也"不会报错"。
+      const at = await evl(`(() => {
+        const byText = ${JSON.stringify(target)}.startsWith('#') ? null
+          : [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === ${JSON.stringify(target)});
+        const el = byText || document.getElementById(${JSON.stringify(target)}.replace('#',''));
+        if (!el) return null;
+        el.scrollIntoView({ block: 'center', behavior: 'instant' });
+        const r = el.getBoundingClientRect();
+        if (!r.width || !r.height) return null;
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      })()`);
+      if (!at || typeof at.x !== 'number') { miss.push(target); continue; }
+      await sleep(60);
+      for (const type of ['mousePressed', 'mouseReleased']) {
+        await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+      }
+      await sleep(220);   // 让 React 把这一拍渲染完，下一枪才打在真 DOM 上
+    }
+    if (miss.length) fail.push(tag + ': 真实点击没打到 ' + miss.join('、') + ' —— 这一屏从未被测量');
+    else { await sleep(800); console.log(`    trusted-click ${TRUSTED[base].length} 次（CDP Input，计入 hadRecentInput）`); }
   }
   // The injected state has to be provably on screen before anything else here means
   // anything: an empty-state fallback is also "a page with nav, footer and ladder".
@@ -1568,6 +1610,11 @@ async function measure(tag, url) {
       const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
         .find(t => /首帧/.test(t)) || null;
       return { fps, canvas: !!canvas, canvasW: canvas ? canvas.width : 0, reason, readout,
+        rendererRaw: (() => { try {
+          const c = document.createElement('canvas');
+          const gl = c.getContext('webgl'); const dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+          return dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : 'no-debug-info';
+        } catch { return 'probe-failed'; } })(),
         scrollHijack: stage ? getComputedStyle(stage).touchAction : null,
         bodyTouch: getComputedStyle(document.body).touchAction };
     })()`);
@@ -1576,12 +1623,20 @@ async function measure(tag, url) {
       if (!got.canvas && !got.reason.length)
         fail.push(`3D 既没有 canvas，也没有写明降级原因（fps ${got.fps}）—— 静默失败`);
       if (got.canvas && got.canvasW < 100) fail.push(`canvas 宽度只有 ${got.canvasW}，尺寸没铺开的 3D 不算渲染出来`);
-      if (got.canvas && got.fps < 45) fail.push(`3D 帧率 ${got.fps}fps < 45（连续 2s 采样）`);
+      // 帧率下限 45 是对着用户的 GPU 定的。--disable-gpu 那套跑的是 SwiftShader（CPU 光栅化），
+      // 同一个场景实测 42.8fps，而 VH_GPU=1 下是 58.9 / 62.2 —— 差的是渲染器，不是产品。
+      // 所以这条只在"软件光栅化"这个可测量的事实上让步，并且两个数都印出来；
+      // 不降下限，也不把红改成无。
+      if (got.canvas && got.fps < 45) {
+        if (SOFTWARE_GL.test(got.rendererRaw || '')) warns.push(`${tag}: 3D 帧率 ${got.fps}fps < 45，但 WebGL 跑在软件光栅器上（${got.rendererRaw}）—— 用 VH_GPU=1 复测`);
+        else fail.push(`3D 帧率 ${got.fps}fps < 45（连续 2s 采样；渲染器=${got.rendererRaw}，不是软件光栅）`);
+      }
       // 裁定：touch-action:none 只许落在舞台这一块，页面纵向滚动不能被劫持。
       // 所以两头都要钉：舞台是 none（否则 OrbitControls 收不到手势），body 不是 none（否则整页滚不动）。
       if (got.scrollHijack !== 'none') fail.push(`舞台 touch-action=${got.scrollHijack}，应为 none`);
       if (got.bodyTouch !== 'auto') fail.push(`body touch-action=${got.bodyTouch}，页面滚动被劫持`);
-      console.log(`   3D canvas=${got.canvas} 宽=${got.canvasW} fps=${got.fps} 首帧读数="${got.readout ?? '无'}" 降级="${got.reason.join(' / ') || '无'}"`);
+      console.log(`   3D[chrome=${GPU ? 'gpu' : 'no-gpu'}] canvas=${got.canvas} 宽=${got.canvasW} fps=${got.fps}`
+        + ` 实测渲染器=${got.rendererRaw} 首帧读数="${got.readout ?? '无'}" 降级="${got.reason.join(' / ') || '无'}"`);
     }
   }
   // 主题正反向断言（纠正一）。跑在 census 之前、AFTER 之后：/western 的问答卡插进来
@@ -1614,11 +1669,13 @@ async function measure(tag, url) {
   const perf = await evl(`({ lcp: window.__lcpAtLoad === undefined ? (window.__lcp && Math.round(window.__lcp)) : (window.__lcpAtLoad && Math.round(window.__lcpAtLoad)),
     lcpInteract: window.__lcpAtLoad === undefined || !window.__lcp || window.__lcp === window.__lcpAtLoad ? undefined : Math.round(window.__lcp),
     cls: Math.round(window.__cls * 1000) / 1000,
-    clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000 })`);
+    clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000,
+    preScroll: window.__preScroll || null,
+    postScroll: { y: Math.round(window.scrollY), h: document.documentElement.scrollHeight, vh: window.innerHeight } })`);
   results[tag + '__perf'] = perf;
   // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推下去那种位移没人管
   // （/western 问事态实测 0.155）。把两个值都挂到这一态上，交给 check() 判。
-  if (v && !v.__err) { v.cls = perf.cls; v.clsAtLoad = perf.clsAtLoad; }
+  if (v && !v.__err) { v.cls = perf.cls; v.clsAtLoad = perf.clsAtLoad; v.perf = perf; }
   // 分段扫必须排在 perf 读数之后：scrollTo 会让懒加载图片进来，那会把 LCP 改成滚动后的值。
   if (v && !v.__err) await sweepTap(v, tag);
   console.log(`\n== ${tag}  ${v && v.path ? v.path : url}`);
