@@ -7,6 +7,7 @@ import ChartOverview from '@/components/chart/ChartOverview';
 import BaziCard from '@/components/chart/BaziCard';
 import ScenarioMatrix from '@/components/bazi/ScenarioMatrix';
 import LifeCurve from '@/components/bazi/LifeCurve';
+import HepanSection from '@/components/chart/HepanSection';
 import ZiweiCard from '@/components/chart/ZiweiCard';
 import DoubleVerify from '@/components/chart/DoubleVerify';
 import { saveReport } from '@/lib/report/saveReport';
@@ -165,6 +166,9 @@ export default function ChartResultPage() {
             整节静悄悄消失，用户分不清是"这站没这功能"还是"我的盘没算出来"。 */}
         <ScenarioMatrix chart={enrichedChartData.bazi} />
         <LifeCurve chart={enrichedChartData.bazi} />
+        {/* 合盘：同样无条件挂载。没有对方数据时它自己显示一张能当场填的表，
+            而不是整节消失 —— 那一栏的隐私边界（本机算、不进 API/报告/台账）也在这节里说。 */}
+        <HepanSection chartData={enrichedChartData} />
 
         {/* AI 解读卡：盘面先出，这一栏按状态机给话。没有百分比、没有「预计 X 秒」——
             免费模型的耗时实测 94–116 秒但随负载浮动，编一个进度条就是撒谎。 */}

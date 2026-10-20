@@ -119,9 +119,9 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
   const forged = reconcile(base({ toolSlug: '../../../../etc/passwd', available: true }), 'oriental', CATALOGS.oriental);
   ok('gate/forged-slug-rejected', forged.toolSlug === null && !forged.available && forged.needsClarification,
     `伪造 slug 一律抹掉并转追问：实得 ${JSON.stringify(forged.toolSlug)}`);
-  const closed = reconcile(base({ toolSlug: 'hepan', available: true }), 'oriental', CATALOGS.oriental);
+  const closed = reconcile(base({ toolSlug: 'xingming', available: true }), 'oriental', CATALOGS.oriental);
   ok('gate/closed-slug-rejected', closed.toolSlug === null && !closed.available,
-    '目录里存在但未开放的 slug 也不许给入口（合盘在表里，但今天没有门）');
+    '目录里存在但未开放的 slug 也不许给入口（xingming「姓名合盘（五格剖象）」在表里，但今天没有门）');
   // 上面那条只钉"不给入口"。harness 的 western-ask 那一态抓到过更细的一种假：
   // 入口是没了，可回答里还留着"进入「西洋占星」还要补：日期、时辰、地点" —— 半开的门。
   const halfOpen = reconcile(
@@ -165,11 +165,11 @@ async function sectionFallbacks() {
   ok('fallback/server-result-used', srv.source === 'server' && srv.result.toolSlug === 'liuyao' && srv.degraded === null,
     '服务端正常返回时用的是它的结果（不是本机那份）');
 
-  const srvForged = await run(async () => json({ mode: 'oriental', toolSlug: 'hepan', confidence: 0.99,
+  const srvForged = await run(async () => json({ mode: 'oriental', toolSlug: 'xingming', confidence: 0.99,
     needsClarification: false, clarification: null, missingFields: [], available: true }), 'oriental', '想摇一卦');
   ok('fallback/server-still-reconciled', srvForged.source === 'server' && srvForged.result.toolSlug === null
     && !srvForged.result.available,
-    '服务端说"未开放的合盘可用"也不作数：白名单核对对本机与服务端两条路一视同仁');
+    '服务端说"未开放的 xingming 可用"也不作数：白名单核对对本机与服务端两条路一视同仁');
 
   const junk = await run(async () => json({ hello: 'world' }), 'oriental', '想摇一卦');
   ok('fallback/bad-shape-uses-local', junk.source === 'local' && /形状/.test(junk.degraded || ''),
@@ -300,10 +300,10 @@ async function sectionServer() {
     prompt.includes('未开放') && prompt.includes('askable'),
     '未开放的工具也进白名单，但标成 askable=false —— 让模型知道"有这个东西但今天不能推"');
 
-  const forged = S.acceptModelResult('oriental', { mode: 'oriental', toolSlug: 'hepan', confidence: 0.99,
+  const forged = S.acceptModelResult('oriental', { mode: 'oriental', toolSlug: 'xingming', confidence: 0.99,
     needsClarification: false, clarification: null, missingFields: [], available: true, href: 'https://evil/x' });
   ok('srv/model-forged-slug-dropped', !!forged && forged.toolSlug === null && !forged.available
-    && !('href' in forged), `模型说"未开放的合盘可用"也不作数：${JSON.stringify(forged && forged.toolSlug)}`);
+    && !('href' in forged), `模型说"未开放的 xingming 可用"也不作数：${JSON.stringify(forged && forged.toolSlug)}`);
   const cross = S.acceptModelResult('oriental', { mode: 'oriental', toolSlug: 'tarot-draw', confidence: 0.9,
     needsClarification: false, clarification: null, missingFields: [], available: true });
   ok('srv/model-cross-mode-dropped', !!cross && cross.toolSlug === null,
