@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
-  MAX_BODY, PROTOCOL, acceptModelResult, askModel, localFallback, readUpstream, validateRequest,
+  MAX_BODY, PROTOCOL, acceptModelResult, askModel, checkBodyBytes, localFallback, readUpstream, validateRequest,
 } from '@/lib/assistant/server-route';
 import type { Mode } from '@/lib/assistant/types';
 
@@ -21,24 +21,29 @@ export async function POST(req: Request) {
   const started = Date.now();
   let raw: unknown = null;
   try {
-    // 字节上限先看 content-length。MAX_BODY 按 JS 字符数算，中文一个字占 3 字节，
-    // 只卡字符数等于把真正的体积上限放大了三倍 —— 兜底的硬闸在 nginx（client_max_body_size），
-    // 这里这一条只是让明显的超大请求不必先读进内存再丢。
+    // content-length 先看一眼：明显的超大请求不必读进内存再丢。这是软闸，
+    // 硬闸在 nginx 的 client_max_body_size；两者都拦不住"分块传输不带 length"，
+    // 所以读完之后还要按真实 UTF-8 字节再量一次（checkBodyBytes）。
     const clen = Number(req.headers.get('content-length') || '0');
-    if (clen > 0 && clen > MAX_BODY * 4) {
-      return NextResponse.json({ success: false, error: '请求体过大' }, { status: 413 });
+    if (clen > 0 && clen > MAX_BODY) {
+      return NextResponse.json({ success: false, error: '请求体过大',
+        errors: [{ field: 'body', code: 'body_too_large', msg: `content-length ${clen} > ${MAX_BODY}` }] }, { status: 413 });
     }
-    const text = await req.text();
-    if (text.length > MAX_BODY) {
-      return NextResponse.json({ success: false, error: '请求体过大' }, { status: 413 });
-    }
-    raw = text ? JSON.parse(text) : null;
+    const body = await req.text();
+    const over = checkBodyBytes(body);
+    if (over) return NextResponse.json({ success: false, error: over.errors[0].msg, errors: over.errors }, { status: over.status });
+    raw = body ? JSON.parse(body) : null;
   } catch {
-    return NextResponse.json({ success: false, error: '请求体不是合法 JSON' }, { status: 400 });
+    return NextResponse.json({ success: false, error: '请求体不是合法 JSON',
+      errors: [{ field: 'body', code: 'body_shape', msg: '请求体不是合法 JSON' }] }, { status: 400 });
   }
 
   const v = validateRequest(raw);
-  if (!v.ok) return NextResponse.json({ success: false, error: v.error }, { status: v.status });
+  if (!v.ok) {
+    // 结构化错误一次报全：只回一句人话，客户端就没法按字段定位，
+    // 而"发现第一个错就返回"会让人一屏一屏地试错。
+    return NextResponse.json({ success: false, error: v.errors[0].msg, errors: v.errors }, { status: v.status });
+  }
 
   const u = readUpstream();
   if (!u) {
