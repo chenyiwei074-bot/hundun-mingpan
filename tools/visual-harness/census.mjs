@@ -612,7 +612,29 @@ ws.addEventListener('message', ev => {
 await send('Runtime.enable');
 
 // ---------------------------------------------------------------- measurement
+// 两条 44px 通道与分段扫共用的同一段定义，只写一份。
+// 上一轮之所以出「small=21 到底是哪 21 个」这种读不懂的数，就是因为
+// smallTargets 数全文、tap 探针按视口过滤，两边各写各的「在与视口相交」。
+// 现在两者跑在同一个 evaluate（TAP_AUDIT）里，共用 inView，不可能再分叉。
+const VH_SHARED = String.raw`
+  // nav before footer: region() matched footer first for elements inside the nav
+  const region = el => { if (el.closest('svg')) return 'svg'; if (el.closest('nav')) return 'nav';
+    if (el.closest('footer')) return 'footer'; if (el.closest('main')) return 'main'; return 'other'; };
+  // 与视口相交：rect 本来就是视口坐标，所以这里只能用 0..innerHeight，
+  // 不能拿"文档坐标的段窗口"去比 —— 那样除了第一段，后面每一段都在判错元素
+  // （分段扫第一版就是这么错的：滚到 788px 那一段，窗口写成 [788,1688]，
+  // 而屏幕上元素的 rect 仍在 0..900 里，于是整段命中 0 个，green 是假的）。
+  // 分段的意义就在于 scrollTo 之后"视口"自己换了位置，判定式始终只有一条。
+  const inView = r => !!r.width && !!r.height && r.bottom > 0 && r.top < innerHeight
+    && r.right > 0 && r.left < innerWidth;
+  const TAP = 44;
+  // No <label>: a label with no associated control is not a pointer target, and the
+  // form labels here are 422x20 blocks that would drown the real findings.
+  const ctlSel = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=tab],[role=radio],[role=button],[role=checkbox],[role=option]';
+`;
+
 const CENSUS = String.raw`(() => {
+  ${VH_SHARED}
   // The ladder is read out of the page's own tokens, never restated here. A
   // hardcoded copy drifts from the source of truth silently, and it can quietly
   // start passing a page that gained a size nobody ruled in. Reading the declared
@@ -655,9 +677,6 @@ const CENSUS = String.raw`(() => {
         for (const b of cands) { g.push(b); g.push(mix(glow, b)); } cands = uniq(g); }
     }
     return cands; };
-  // nav before footer: region() matched footer first for elements inside the nav
-  const region = el => { if (el.closest('svg')) return 'svg'; if (el.closest('nav')) return 'nav';
-    if (el.closest('footer')) return 'footer'; if (el.closest('main')) return 'main'; return 'other'; };
 
   // token identity, collisions, and "data colour must not be used as ink"
   const probe = document.createElement('span'); probe.style.display = 'none'; document.body.appendChild(probe);
@@ -704,7 +723,7 @@ const CENSUS = String.raw`(() => {
     }
   }
 
-  const R = {}; const touch = {}; const off = []; const inked = [];
+  const R = {}; const off = []; const inked = [];
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   const seen = new Set(); let n;
   while ((n = walker.nextNode())) {
@@ -734,69 +753,13 @@ const CENSUS = String.raw`(() => {
           on: 'rgb(' + onBg.join(',') + ')', size, weight: cs.fontWeight, ratio: Math.round(worst * 100) / 100 });
       }
     }
-    const ctl = el.closest('a,button,[role=radio],[role=tab]');
-    if (ctl) { const b = ctl.getBoundingClientRect();
-      if (b.height < 44 || b.width < 44) {
-        const k = g + '|' + (ctl.textContent.trim().slice(0, 12) || '?') + '|' + Math.round(b.width) + 'x' + Math.round(b.height);
-        touch[k] = (touch[k] || 0) + 1; } }
+    // 44px 那两条通道不在这里数：文本走查只看得到"含文字的可点元素"，
+    // 图标按钮（弹窗那个 32px 关闭 X）天生看不见。它们统一交给 TAP_AUDIT 分段扫。
   }
 
-  // ---- Tap targets v2: *effective* tappability, not just the painted box. ----
-  // The pass above has two blind spots that made a green small=0 meaningless:
-  //  (a) it only ever saw a control that contains a text node, so an icon-only
-  //      button -- the launcher's 32px close X -- is invisible to it;
-  //  (b) it read getBoundingClientRect, so a control that deliberately grows its
-  //      hit area past its visual box (::after overflow) still reads as "small".
-  // Rule: a control whose own box is already >=44x44 passes. Otherwise a centred
-  // 44x44 box is probed at its four corners with elementFromPoint, and every corner
-  // must resolve to the control or a descendant of it. A pseudo-element hit is
-  // attributed by the browser to its originating element, so a real 44px hit area
-  // passes; a clipped one (ancestor overflow:hidden) or one stolen by an adjacent
-  // control's overlapping hit area fails -- which is the correct outcome, because
-  // overlapping expansions cause mis-taps rather than fixing them.
-  // Why >=44x44 short-circuits instead of being probed: these controls are pills
-  // (border-radius 999px), and the browser clips hit-testing to the rounded shape,
-  // so the corner of a 56x44 pill's own bounding box is genuinely not part of it.
-  // Measured, not assumed. Probing such a control reports a miss no user can hit.
-  const TAP = 44;
-  const tapIssues = [];
-  const ctlSeen = new Set();
-  // No <label>: a label with no associated control is not a pointer target, and the
-  // form labels here are 422x20 blocks that would drown the real findings.
-  const ctlSel = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=tab],[role=radio],[role=button],[role=checkbox],[role=option]';
-  for (const el of document.querySelectorAll(ctlSel)) {
-    if (ctlSeen.has(el)) continue;
-    if (el.disabled || el.getAttribute('aria-hidden') === 'true') continue;
-    const r = el.getBoundingClientRect();
-    if (!r.width || !r.height) continue;
-    const cs = getComputedStyle(el);
-    if (cs.visibility === 'hidden' || +cs.opacity < 0.1 || cs.pointerEvents === 'none') continue;
-    if (r.bottom <= 0 || r.top >= innerHeight || r.right <= 0 || r.left >= innerWidth) continue;
-    ctlSeen.add(el);
-    if (r.width >= TAP && r.height >= TAP) continue;
-    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-    // Only audit a control reachable at its own centre. When a modal is open,
-    // everything behind its backdrop is inert -- reporting those as small targets
-    // would be noise, not a finding. That is the state the home AFTER-click creates.
-    const self = document.elementFromPoint(cx, cy);
-    if (!self || !(self === el || el.contains(self))) continue;
-    const half = TAP / 2 - 0.5;
-    let miss = 0, untestable = 0;
-    for (const [dx, dy] of [[-half, -half], [half, -half], [-half, half], [half, half]]) {
-      const x = cx + dx, y = cy + dy;
-      // A corner pushed outside the viewport cannot be judged -- the edge of the
-      // document sits there for a reason unrelated to this control.
-      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) { untestable++; continue; }
-      const hit = document.elementFromPoint(x, y);
-      if (!hit || !(hit === el || el.contains(hit))) miss++;
-    }
-    if (miss && untestable < 4) {
-      const txt = (el.textContent || '').trim().replace(/\s+/g, ' ');
-      const label = txt.slice(0, 12) || (el.getAttribute('aria-label') || '').trim().slice(0, 12) || '(icon-only)';
-      tapIssues.push(region(el) + '|' + label + '|' + Math.round(r.width) + 'x' + Math.round(r.height) +
-        '|miss' + miss + (txt ? '' : '|ICON'));
-    }
-  }
+  // ---- 44px 两条通道见下面的 TAP_AUDIT：CENSUS 不再自己数。----
+  // 它们要靠 elementFromPoint，天生只能判"当前这一段视口"里的东西，所以必须由外层
+  // 分段滚动逐段调用；留在 CENSUS 里就意味着每扫一段都要重跑一遍全文走查。
 
   // ---- Clipped-by-overflow must announce itself (ruling 2026-10-17). ----
   // "可见内容宽 <= 容器，或有显式可滚动标记". A scroller whose content is wider than the
@@ -865,14 +828,90 @@ const CENSUS = String.raw`(() => {
     bodyDisplay: getComputedStyle(document.body).display,
     regions: {}, offLadder: off,
     overflowClips: clips, kongMarks: kong, plate,
-    smallTargets: Object.keys(touch).sort(),
-    tapIssues: [...new Set(tapIssues)].sort(),
     clsSrc: (window.__clsSrc || []).slice(0, 8),
   };
   for (const [k, v] of Object.entries(R)) out.regions[k] = {
     sizes: [...v.sizes.keys()].sort((a, b) => a - b),
     aaCount: v.aa.length, aa: v.aa.slice(0, 20) };
   return out;
+})()`;
+
+// ---- Tap targets: *effective* tappability, not just the painted box. ----
+// Two blind spots made a green small=0 meaningless before:
+//  (a) the text walker only ever saw a control that contains a text node, so an
+//      icon-only button -- the launcher's 32px close X -- was invisible to it;
+//  (b) it read getBoundingClientRect, so a control that deliberately grows its hit
+//      area past its visual box (::after overflow) still read as "small".
+// Rule: a control whose own box is already >=44x44 passes. Otherwise a centred
+// 44x44 box is probed at its four corners with elementFromPoint, and every corner
+// must resolve to the control or a descendant of it. A pseudo-element hit is
+// attributed by the browser to its originating element, so a real 44px hit area
+// passes; a clipped one (ancestor overflow:hidden) or one stolen by an adjacent
+// control's overlapping hit area fails -- which is the correct outcome, because
+// overlapping expansions cause mis-taps rather than fixing them.
+// Why >=44x44 short-circuits instead of being probed: these controls are pills
+// (border-radius 999px), and the browser clips hit-testing to the rounded shape,
+// so the corner of a 56x44 pill's own bounding box is genuinely not part of it.
+// Measured, not assumed. Probing such a control reports a miss no user can hit.
+// Both numbers come out of this ONE loop, so "small" and "TAP44" can never again
+// describe two different populations -- that is what the 2026-10-19 ruling asks for.
+const TAP_AUDIT = String.raw`(() => {` + VH_SHARED + String.raw`
+  const small = new Set(); const issues = new Set(); const seen = new Set();
+  let inWindow = 0;
+  const why = {};
+  const note = (el, k) => { const key = k + ' ' + el.nodeName.toLowerCase() + '.' + String(el.className || '').split(' ')[0].slice(0, 24);
+    why[key] = (why[key] || 0) + 1; };
+  for (const el of document.querySelectorAll(ctlSel)) {
+    if (seen.has(el)) continue;
+    if (el.disabled || el.getAttribute('aria-hidden') === 'true') { note(el, 'skip-disabled/aria-hidden'); continue; }
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) { note(el, 'skip-zero-box'); continue; }
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || +cs.opacity < 0.1) { note(el, 'skip-invisible'); continue; }
+    if (cs.pointerEvents === 'none') { note(el, 'skip-pointer-none'); continue; }
+    if (!inView(r)) { note(el, 'out-of-window'); continue; }
+    seen.add(el); inWindow++;
+    note(el, 'IN-WINDOW');
+
+    el.setAttribute('data-vh-t', '1');   // 段间重叠会重复数到同一个元素，用标记取全文去重
+
+    const txt = (el.textContent || '').trim().replace(/\s+/g, ' ');
+    const label = txt.slice(0, 12) || (el.getAttribute('aria-label') || '').trim().slice(0, 12) || '(icon-only)';
+    // 尺寸带一位小数 + 类名：上一轮那条"43.6px 的 summary"就是被四舍五入成 44 之后
+    // 再也认不出是谁的 —— 只报"44x44 没达标"没法修，也没法核。
+    const cls = (el.getAttribute('class') || el.nodeName.toLowerCase()).split(' ')[0].slice(0, 18);
+    const box = Math.round(r.width * 10) / 10 + 'x' + Math.round(r.height * 10) / 10 + '.' + cls;
+    if (r.width < TAP || r.height < TAP) {
+      el.setAttribute('data-vh-s', '1');   // 同一个元素被相邻两段都数到，计数按 DOM 身份去重
+      small.add(region(el) + '|' + label + '|' + box);
+    }
+    if (r.width >= TAP && r.height >= TAP) continue;   // 见上面那条"圆角药丸不能探角"的实测结论
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    // Only audit a control reachable at its own centre. When a modal is open,
+    // everything behind its backdrop is inert -- reporting those as tap failures
+    // would be noise, not a finding. That is the state the home AFTER-click creates.
+    const self = document.elementFromPoint(cx, cy);
+    if (!self || !(self === el || el.contains(self))) continue;
+    const half = TAP / 2 - 0.5;
+    let miss = 0, untestable = 0;
+    for (const [dx, dy] of [[-half, -half], [half, -half], [-half, half], [half, half]]) {
+      const x = cx + dx, y = cy + dy;
+      // A corner pushed outside the window cannot be judged -- the edge of the
+      // document sits there for a reason unrelated to this control.
+      if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) { untestable++; continue; }
+      const hit = document.elementFromPoint(x, y);
+      if (!hit || !(hit === el || el.contains(hit))) miss++;
+    }
+    if (miss && untestable < 4)
+      issues.add(region(el) + '|' + label + '|' + box +
+        '|miss' + miss + (txt ? '' : '|ICON'));
+  }
+  return { small: [...small].sort(), issues: [...issues].sort(), inWindow,
+    distinct: document.querySelectorAll('[data-vh-t]').length,
+    smallTotal: document.querySelectorAll('[data-vh-s]').length,
+    dump: ['scrollY=' + Math.round(window.scrollY) + ' docTop=' + Math.round(document.documentElement.scrollTop)
+      + ' 视口高=' + innerHeight + ' 命中 ' + inWindow + ' / 标记 ' + document.querySelectorAll('[data-vh-t]').length]
+      .concat(Object.entries(why).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, n]) => '   ' + n + '  ' + k)) };
 })()`;
 
 const fail = [];
@@ -1054,6 +1093,67 @@ function check(tag, v) {
 }
 const hexOf = rgb => { const m = String(rgb).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return m ? '#' + [1, 2, 3].map(i => (+m[i]).toString(16).padStart(2, '0')).join('') : null; };
 
+// 裁定 2026-10-19：长页按视口分段扫，别再靠一次性脚本「滚到某一节」。
+// 只有 44px 那两条通道要分段（它们靠 elementFromPoint，天生只判得出当前窗口里的东西）；
+// AA、字阶、shell、footer 与滚动无关，一律只读 band 0，下面用一次末段 CENSUS 反证这一点。
+const TAP_BANDS = 40;   // 一次 TAP_AUDIT 只遍历可点元素，很便宜；封顶只为兜住异常长的页
+async function sweepTap(v, tag) {
+  const docH = Math.max(v.docH || 0, H);
+  const need = Math.max(1, Math.ceil(docH / (H * 0.9)));   // 段间留 10% 重叠：跨段元素至少完整落进一段
+  const bands = Math.min(need, TAP_BANDS);
+  const small = new Set(); const issues = new Set();
+  let distinct = 0, smallTotal = 0, lastY = 0, broken = 0;
+  for (let i = 0; i < bands; i++) {
+    const y = i === 0 ? 0 : Math.min(Math.round(docH * i / bands), Math.max(0, docH - H));
+    if (i > 0) {
+      await evl(`window.scrollTo({ top: ${y}, behavior: 'instant' }); true`);
+      await sleep(120);   // sticky、以及要一帧后才稳定的布局：不给这一帧就是拿上一段的位置测
+      lastY = y;
+    }
+    const s = await evl(TAP_AUDIT);
+    if (!s || !Array.isArray(s.small) || !Array.isArray(s.issues)) {
+      broken++;
+      fail.push(`${tag}: 第 ${i + 1}/${bands} 段 tap 探针跑不起来 ${JSON.stringify(s).slice(0, 100)}`
+        + ' —— 这一段的 44px 通道没被测过，不算通过');
+      continue;
+    }
+    distinct = Math.max(distinct, s.distinct || 0);
+    smallTotal = Math.max(smallTotal, s.smallTotal || 0);
+    if (process.env.QN_TAP_DUMP) (s.dump || []).forEach(d => console.log('      ' + d));
+    for (const k of s.small) small.add(k);
+    for (const k of s.issues) issues.add(k);
+  }
+  // 「读数与滚动无关」不能只是我这么说：末段再跑一遍全文 CENSUS，与 band 0 比。
+  // 不等就说明内容是滚下来才渲染的，那 band 0 那份根本不代表这一屏，直接红。
+  if (bands > 1) {
+    await evl(`window.scrollTo({ top: ${lastY}, behavior: 'instant' }); true`);
+    await sleep(120);
+    const s = await evl(CENSUS);
+    const aa = s && !s.__err ? ((s.regions || {}).main || {}).aaCount : null;
+    const off = s && !s.__err ? ((s.offLadder || []).length) : null;
+    if (aa === null) fail.push(`${tag}: 末段对照 CENSUS 跑不起来 —— 「读数与滚动无关」这条没被验证过`);
+    else if (aa !== ((v.regions.main || {}).aaCount || 0) || off !== (v.offLadder || []).length)
+      fail.push(`${tag}: 读数随滚动变化（main AA ${(v.regions.main || {}).aaCount}→${aa}、`
+        + `off-ladder ${(v.offLadder || []).length}→${off}）—— 内容是滚下来才渲染的，band 0 那份不算这一屏`);
+  }
+  await evl(`window.scrollTo({ top: 0, behavior: 'instant' });`
+    + ` document.querySelectorAll('[data-vh-t],[data-vh-s]').forEach(e => { e.removeAttribute('data-vh-t'); e.removeAttribute('data-vh-s'); }); true`);
+  v.smallTargets = [...small].sort();
+  v.tapIssues = [...issues].sort();
+  v.tapBands = bands; v.tapDistinct = distinct; v.tapIncomplete = broken;
+  v.tapSmallTotal = smallTotal;
+  if (need > bands)
+    warns.push(`${tag}: 页面 ${docH}px 高、需要 ${need} 段，按 ${TAP_BANDS} 段封顶，`
+      + `段距 ${(docH / bands).toFixed(0)}px > ${(H * 0.9).toFixed(0)}px，中间可能有带没逐段审到`);
+  // 空过断言：整页扫下来一个可点元素都没进过窗口，只可能是探针或滚动坏了。
+  if (!broken && distinct === 0)
+    fail.push(`${tag}: 分了 ${bands} 段扫，窗口内可点元素去重 0 个 —— tap 通道这一态是空过，`
+      + '不接受（宁可红，不要一个静默的小=0）');
+  console.log(`   TAP SWEEP ${bands} 段 / 全文 ${docH}px，窗口内可点元素去重 ${distinct} 个，`
+    + `其中 <44 的 ${smallTotal} 个 / ${v.smallTargets.length} 种标签×尺寸`
+    + `（TAP44 未达 ${v.tapIssues.length}${broken ? '，有 ' + broken + ' 段没跑起来' : ''}）`);
+}
+
 async function measure(tag, url) {
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
@@ -1128,11 +1228,13 @@ async function measure(tag, url) {
     cls: Math.round(window.__cls * 1000) / 1000,
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000 })`);
   results[tag + '__perf'] = perf;
+  // 分段扫必须排在 perf 读数之后：scrollTo 会让懒加载图片进来，那会把 LCP 改成滚动后的值。
+  if (v && !v.__err) await sweepTap(v, tag);
   console.log(`\n== ${tag}  ${v && v.path ? v.path : url}`);
   console.log(`   perf ${JSON.stringify(perf)}   ${STUB ? '[FETCH STUB — not a live measurement]' : '[real backend]'}`);
   if (v && !v.__err) {
     const m = v.regions.main || {};
-    console.log(`   coarse=${v.pointerCoarse} ovfX=${v.overflowX} text=${v.bodyText} ladder=${JSON.stringify(v.ladder)} | main AA=${m.aaCount || 0} sizes=${JSON.stringify(m.sizes)} | nav AA=${(v.regions.nav || {}).aaCount || 0} | footer AA=${(v.regions.footer || {}).aaCount || 0} | small=${(v.smallTargets || []).length}`);
+    console.log(`   coarse=${v.pointerCoarse} ovfX=${v.overflowX} text=${v.bodyText} ladder=${JSON.stringify(v.ladder)} | main AA=${m.aaCount || 0} sizes=${JSON.stringify(m.sizes)} | nav AA=${(v.regions.nav || {}).aaCount || 0} | footer AA=${(v.regions.footer || {}).aaCount || 0} | small=${v.tapSmallTotal || 0}个/${(v.smallTargets || []).length}种`);
     if (v.foot) console.log(`   nav=${v.nav && v.nav.h}px shell=${v.shell && v.shell.w}px foot=${v.foot.top}->${v.foot.bottom} docH=${v.docH}${v.docH <= H + 1 ? ' (dead band ' + (H - v.foot.bottom) + 'px)' : ''}`);
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
