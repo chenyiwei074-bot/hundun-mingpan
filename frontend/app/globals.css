@@ -516,7 +516,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
+  /* 2026-10-20：44px 是本站硬规则（触控与鼠标同一档）。此前桌面档 34px 被真盘 harness 的
+     ±21.5 邻域探针抓到（大运 chip 125.5x34）。不做"桌面放宽"：规则只有一档，验收才不会靠解释。 */
+  min-height: 44px;
   padding: 0 14px;
   border-radius: 999px;
   font-family: inherit;
