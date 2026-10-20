@@ -8,7 +8,7 @@
 //     node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
 //     tools/kline-acceptance/acceptance.ts --out=.kline.txt
 import { execSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import { getZhiCangGanFull } from '../../frontend/app/lib/core/yiqi-core/bazi';
@@ -31,6 +31,9 @@ const lines: string[] = [];
 let pass = 0; let fail = 0;
 const skips: string[] = [];   // 判定不了的必须说出来，不能算过
 const say = (s: string) => lines.push(s);
+/** 字样扫描前先剥注释 —— 这个仓库踩过四次：模块自己的注释里写着"不许这样做"，
+ *  不剥掉的话反向断言会被作者本人的说明喂绿。 */
+const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const ok = (id: string, cond: boolean, detail: string) => {
   if (cond) pass++; else fail++;
   say(`${cond ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
@@ -325,9 +328,22 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // zhi-relations（合冲那批）与 gan-relations（合盘要的成对天干）。扩的是点名清单，不是"随便动"：
   // 新增第三个文件仍然红；两个文件各自的行为不变由全枚举 golden 钉住。
   const ENGINE_ALLOW = new Set(['bazi-enrich/zhi-relations.ts', 'bazi-enrich/gan-relations.ts']);
+  // 2026-10-20 既有缺陷批 P2 裁定「yiqi-core 的调试打印删掉」，那必然要动 bazi.ts —— 清单外的第三个算法层文件。
+  // 没有把清单放宽，而是加一道只放行"纯删日志"的窄门：该文件新增行数必须为 0，
+  // 且删掉的每一行都得是一条 console.* 语句。这样它照常挡住任何行为改动（哪怕只改一个字符），
+  // 放过的只有这次唯一被授权的那种变化。
+  const inAllow = (f: string) => [...ENGINE_ALLOW].some(x => f.replace(/\\/g, '/').endsWith(x));
+  const loggingOnlyRemoval = (f: string) => {
+    const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
+    const added = d.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++'));
+    const removed = d.split('\n').filter(l => l.startsWith('-') && !l.startsWith('---'));
+    return added.length === 0 && removed.length > 0
+      && removed.every(l => /^\-\s*console\.(log|info|debug|warn|error|trace)\(/.test(l));
+  };
+  const engineOfflist = engine.filter(f => !inAllow(f));
   ok('algo/only-the-pairwise-export',
-    engine.every(f => { const p = f.replace(/\\/g, '/'); return [...ENGINE_ALLOW].some(x => p.endsWith(x)); }),
-    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}：实得 ${engine.join(' | ') || '（无）'}`);
+    engine.every(f => inAllow(f) || loggingOnlyRemoval(f)),
+    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行"新增 0 行、删的全是 console.* 语句"这一种）：实得 ${engine.join(' | ') || '（无）'}；清单外 ${engineOfflist.join(' | ') || '（无）'}`);
   // 合盘层不许自带第二份地支/天干关系表 —— 复用算法层导出，是这批允许改算法层的交换条件。
   let hepanCopied: string[] = [];
   try {
@@ -345,6 +361,21 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   ok('algo/export-surface-minimal', /export function zhiPairRelations/.test(rel)
     && (rel.match(/^export /gm) || []).length === 4,
     `算法层的导出面只多这一个函数（现在四个：ZhiRelation 类型、detectZhiRelations、zhiPairRelations + 类型）：实得 ${(rel.match(/^export /gm) || []).length} 个 export`);
+
+  // 引擎里不许有无条件的调试打印。这不是风格问题：每次排盘往控制台打两行「🔍 八字计算结果」，
+  // 意味着任何人 F12 就能看见一张别人的命盘，而且那两行不在 catch 里、跟着成功路径走。
+  // harness 那条 CONSOLE 通道监听的是 Log.entryAdded，而 Log 域从未 enable —— 它在浏览器侧
+  // 根本收不到东西，所以这条只能从源码侧钉（那个空通道另记 report-only）。
+  const yqDir = join(ROOT, 'frontend', 'app', 'lib', 'core', 'yiqi-core');
+  const yqFiles = readdirSync(yqDir).filter(f => f.endsWith('.ts'));
+  const prints = yqFiles.flatMap(f => {
+    const code = strip(readFileSync(join(yqDir, f), 'utf8'));
+    const loose = code.match(/console\.(log|info|debug|trace)\(/g) || [];
+    const marker = code.match(/console\.\w+\([^)]*(?:🔍|计算结果)[^)]*\)/g) || [];
+    return [...loose, ...marker].map(m => `${f}: ${m.slice(0, 48)}`);
+  });
+  ok('core/no-unconditional-engine-prints', prints.length === 0,
+    `yiqi-core 里不许有 console.log/info/debug/trace，也不许有消息体带 🔍 或「计算结果」的调试打印（那两行是这次删掉的）：命中 ${prints.join(' | ') || '0 处'}；扫了 ${yqFiles.length} 个文件`);
 }
 
 const fails = lines.filter(l => l.startsWith('FAIL'));

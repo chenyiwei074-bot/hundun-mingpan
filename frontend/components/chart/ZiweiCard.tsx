@@ -10,7 +10,12 @@ interface GongInfo {
 }
 interface Props { ziwei: any; bazi?: any; }
 
-const KEY_GONGS = ['命宫','官禄宫','财帛宫','夫妻宫','福德宫'];
+/** 重点宫位那五张卡的选取名。
+ *  这里写的必须是引擎实际产出的名字：`ziwei-standard.ts:22 GONG_NAMES` 除命宫外都不带"宫"
+ *  （'官禄'/'财帛'/'夫妻'/'福德'），而 `yiqi-core/types.ts:154 ZiweiGong` 声明成全带"宫"。
+ *  按声明写死的那批名字永远 find 不到，结果是重点区只剩命宫一张卡、"其余七宫"实为十一宫，
+ *  而页面不报任何错 —— 假声明最贵的一次。名字对不对由 tools/ziwei-acceptance 逐条钉。 */
+export const KEY_GONGS = ['命宫', '官禄', '财帛', '夫妻', '福德'];
 
 // 四化是「变化」编码，走 --color-sihua-* 家族；与五行数据色分层，不混用。
 // 值已落（色卡方案①修正版）；色只当圆点用，文字一律墨色，见 globals.css 的 .qn-sihua。
@@ -138,7 +143,7 @@ export default function ZiweiCard({ ziwei }: Props) {
           const detail = STAR_DETAIL[primaryStar];
 
           return (
-            <div key={gong.gong} className='qn-card' style={{ padding: 0 }}>
+            <div key={gong.gong} data-zw-key={gong.gong} className='qn-card' style={{ padding: 0 }}>
               {/* 宫位头部 */}
               <button
                 onClick={() => toggle(gong.gong)}
@@ -226,7 +231,8 @@ export default function ZiweiCard({ ziwei }: Props) {
         })}
       </div>
 
-      {/* 其余7个宫位 - 紧凑网格 */}
+      {/* 其余宫位 - 紧凑网格。数量按实际分区写，不写死"七"：
+          写死的那一次刚好就是 KEY_GONGS 名字对不上、其余变成十一宫的那一次。 */}
       <button onClick={() => {
         const allOpen = otherGongs.every(g => expanded.has(g.gong));
         setExpanded(prev => {
@@ -235,7 +241,7 @@ export default function ZiweiCard({ ziwei }: Props) {
           return next;
         });
       }} className='qn-btn qn-btn--quiet' style={{ width: '100%', minHeight: 44, marginBottom: 16 }}>
-        {otherGongs.every(g => expanded.has(g.gong)) ? '收起全部宫位详情' : '展开其余七宫详情'}
+        {otherGongs.every(g => expanded.has(g.gong)) ? '收起全部宫位详情' : `展开其余${otherGongs.length}宫详情`}
       </button>
 
       <div className='grid grid-cols-2 md:grid-cols-4' style={{ gap: 12, marginBottom: 16 }}>
@@ -244,7 +250,7 @@ export default function ZiweiCard({ ziwei }: Props) {
           const mainStars = gong.mainStars || [];
           const detail = STAR_DETAIL[mainStars[0] || ''];
           return (
-            <div key={gong.gong} className='qn-card' style={{ padding: 14, textAlign: 'center', cursor: 'pointer' }} onClick={() => toggle(gong.gong)}>
+            <div key={gong.gong} data-zw-other={gong.gong} className='qn-card' style={{ padding: 14, textAlign: 'center', cursor: 'pointer' }} onClick={() => toggle(gong.gong)}>
               <div className='qn-cap'>{gong.gong}</div>
               <div className='qn-meta' style={{ color: 'var(--color-text-primary)', fontWeight: 500, marginTop: 4 }}>
                 {mainStars.length > 0 ? mainStars.join(' ') : <span style={{ color: 'var(--color-text-secondary)' }}>—</span>}

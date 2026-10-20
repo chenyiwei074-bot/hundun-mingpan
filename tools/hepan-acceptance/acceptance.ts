@@ -16,9 +16,9 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import { enrichBazi } from '../../frontend/app/lib/core/bazi-enrich/enrich';
-import { ganPair, detectGanRelations } from '../../frontend/app/lib/core/bazi-enrich/gan-relations';
-import { GAN_WUXING, shengKe } from '../../frontend/app/lib/core/bazi-enrich/tables';
-import type { Tiangan } from '../../frontend/app/lib/core/bazi-enrich/tables';
+import { ganPair, detectGanRelations, judgePillars } from '../../frontend/app/lib/core/bazi-enrich/gan-relations';
+import { GAN_WUXING, ZHI_WUXING, shengKe } from '../../frontend/app/lib/core/bazi-enrich/tables';
+import type { Dizhi, Tiangan } from '../../frontend/app/lib/core/bazi-enrich/tables';
 import { analyzeHepan } from '../../frontend/lib/hepan/engine';
 import { HEPAN_BASIS, HEPAN_FORBIDDEN } from '../../frontend/lib/hepan/types';
 import type { HepanParty, HepanReport } from '../../frontend/lib/hepan/types';
@@ -125,6 +125,28 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
   // 甲乙同为木，既不合也不生克；"同"只留给同一干。这一条若判错，合盘里大量对子会被叫成"同"。
   ok('core/gan-wuxing-same-not-tong', ganPair('甲' as Tiangan, '乙' as Tiangan) === null && ganPair('甲' as Tiangan, '甲' as Tiangan) === '天干同',
     '同为木的两个不同天干之间没有任何关系；"天干同"只指同一支干（否则合盘会把半数配对读成"同"）');
+
+  // P2（既有缺陷批）：judgePillars 的判词并集里不许有进不去的成员。
+  // shengKe 在 WuXing 上是全函数，五种返回值正好对上五档判词，所以原来并集里那个
+  // '天地异气无生克' 永远赋不上值 —— 而它写在导出的类型上，下游照着它写一个
+  // if (verdict === '天地异气无生克') 就是一个永假分支，与藏干那次同一类（声明比运行时宽）。
+  const 判词五 = ['盖头', '截脚', '天干生地支', '地支生天干', '天地同气'];
+  const G10 = '甲乙丙丁戊己庚辛壬癸'.split('') as Tiangan[];
+  const Z12 = '子丑寅卯辰巳午未申酉戌亥'.split('') as Dizhi[];
+  const seen = new Map<string, number>();
+  let 越界: string[] = [];
+  for (const g of G10) for (const z of Z12) {
+    const v = judgePillars({ 年: { gan: g, zhi: z }, 月: { gan: g, zhi: z }, 日: { gan: g, zhi: z }, 时: { gan: g, zhi: z } })[0].verdict;
+    seen.set(v, (seen.get(v) || 0) + 1);
+    if (!判词五.includes(v)) 越界.push(`${g}${z}→${v}`);
+  }
+  const 缺档 = 判词五.filter(w => !seen.has(w));
+  ok('core/judge-pillars-total-and-reachable', 越界.length === 0 && 缺档.length === 0 && seen.size === 5,
+    `10×12 全组合跑下来，判词必须一个都不越界、五档每一档都真的出现（并集里多写一档 = 下游一个永假分支；少出现一档 = 表里少了一类关系）：越界 ${越界.join('、') || '0 处'} / 缺档 ${缺档.join('、') || '0 档'} / 分布 ${[...seen.entries()].map(([k, n]) => k + n).join(' ')}`);
+  const 声明 = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'gan-relations.ts'), 'utf8');
+  const 并集 = (声明.match(/verdict:\s*([^;]+);/s) || ['', ''])[1].replace(/[\s'"]/g, '').split('|');
+  ok('core/judge-pillars-declaration-matches-runtime', 并集.length === 5 && 判词五.every(w => 并集.includes(w)),
+    `PillarVerdict.verdict 的并集必须与运行时能产出的五档逐字相等（多出来的那一档就是这次删掉的 '天地异气无生克'，写而不可达比不写更贵）：声明 ${并集.join('/')} / 运行时 ${判词五.join('/')}`);
 }
 
 // ── 2. 真盘对照：八条立项在两张完整的盘上都应出得来 ──

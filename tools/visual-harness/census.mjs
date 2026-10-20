@@ -154,6 +154,10 @@ const STATIC_PAGES = [
   // 3D 那一态单独跑：它要等动态 import、要量首帧与帧率，混在 filled 里会把两个数都污染。
   ['fengshui-3d', '/fengshui'],
   ['create', '/create'],
+  // 农历态从没被审过：闰月开关、日期下拉、农历换算提示都只在 calendar==='农历' 时存在，
+  // 而 create 那一态停在默认的公历上。本批把三处 qn-chip 的内联 minHeight:30 摘掉，
+  // 不新增这一态就没法证明 44px 真的成立了。
+  ['create-lunar', '/create'],
   // 建盘页的「双人合盘」那一栏本批接管成真输入（多了同意框、闰月开关、对方的地区三件），
   // 不测这一 tab 就等于这批新加的控件一个 44px 读数都没有 —— 与"只审到输入态"同一类假绿。
   ['create-double', '/create'],
@@ -218,6 +222,25 @@ const QA_PINS = {
 };
 
 const AFTER = {
+  // 农历态：先把历法切到农历，再把年/月设成 2025 年 6 月（该年闰六月），闰月开关才会出现。
+  // select 是 React 受控的，必须走 HTMLSelectElement 的原生 setter + change 事件，
+  // 直接赋 .value 不触发 onChange，后面那一步就永远等不到闰月 chip（这种绿最骗人）。
+  'create-lunar': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const btn = t => [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === t);
+    const cal = btn('农历'); if (!cal) return '历法切换里的「农历」不在页面上';
+    cal.click();
+    const selSet = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+    // 认列靠内容不靠 nth-child：年列里必有四位数字 option，月列里必有 '12'。
+    // 按位置索引的话，页面上多加一个下拉（比如时辰）就会整体错位，而且不报错。
+    const yrs = [...document.querySelectorAll('select')].filter(s => [...s.options].some(o => /^\\d{4}$/.test((o.textContent || '').trim())));
+    const mons = [...document.querySelectorAll('select')].filter(s => [...s.options].some(o => (o.textContent || '').trim() === '12'));
+    if (!yrs.length || !mons.length) return '年或月的下拉没找到（页面结构与探针假设不符）';
+    selSet.call(yrs[0], '2025'); yrs[0].dispatchEvent(new Event('change', { bubbles: true }));
+    selSet.call(mons[0], '6'); mons[0].dispatchEvent(new Event('change', { bubbles: true }));
+    for (let n = 0; n < 30 && !btn('闰6月'); n++) await wait(50);
+    if (!btn('闰6月')) return '选了 2025 年 6 月却没出现「闰6月」开关（该年闰六月；出现了说明派生判据变了）';
+    return true; })()`,
   // 户型工作室那两态改走 TRUSTED（真实 CDP 点击），不再用脚本 .click()：
   // 见上面 TRUSTED 的注释 —— 合成点击不计入 hadRecentInput，会把用户不被扣分的展开算成回归。
   // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
@@ -492,6 +515,35 @@ const HEPAN_PINS = {
     noScoreIn: ['评分', '匹配度', '吉', '凶', '宜忌', '%'],
   },
 };
+
+// 紫微十二宫那张卡（P1-1）：重点宫位五张 + 其余七张，两边不重不漏，标签上的宫数与分区一致。
+// 这一节红过一次的方式很特别 —— 页面不报错，只是四张卡不见了，因为宫名照 types.ts 的
+// ZiweiGong 声明写（除命宫外都带"宫"），而引擎实际产出不带。所以这里按 DOM 上的 data 属性数，
+// 不读文案：文案可以对，分区才是被交付的东西。
+const ZIWEI_PINS = {
+  'chart-result': { key: ['命宫', '官禄', '财帛', '夫妻', '福德'], other: 7 },
+  'chart-hepan': { key: ['命宫', '官禄', '财帛', '夫妻', '福德'], other: 7 },
+};
+
+const ziweiProbe = p => `(() => {
+  const out = [];
+  const key = [...document.querySelectorAll('[data-zw-key]')];
+  const other = [...document.querySelectorAll('[data-zw-other]')];
+  if (!key.length && !other.length) return { miss: ['card: data-zw-key / data-zw-other 一个都没有（紫微那张卡没渲染）'] };
+  const names = key.map(e => e.getAttribute('data-zw-key'));
+  const others = other.map(e => e.getAttribute('data-zw-other'));
+  if (names.length !== ${p.key.length}) out.push('重点卡=' + names.length + '（应为 ${p.key.length}；少一张就是那个宫名查不到，而它不报错，只是不出现）');
+  (${JSON.stringify(p.key)}).forEach(x => { if (names.indexOf(x) < 0) out.push('缺重点卡:' + x); });
+  if (others.length !== ${p.other}) out.push('其余宫=' + others.length + '（应为 ${p.other}）');
+  const both = names.filter(x => others.indexOf(x) >= 0);
+  if (both.length) out.push('同一宫同时出现在两组:' + both.join('、'));
+  if (new Set(names.concat(others)).size !== 12) out.push('两组去重后=' + new Set(names.concat(others)).size + '（十二宫必须全覆盖，少一个就是有一个宫在页面上根本不存在）');
+  const btn = [...document.querySelectorAll('button')].find(b => /其余\\d+宫详情|收起全部宫位详情/.test(b.textContent || ''));
+  if (!btn) out.push('其余宫那一排没有展开按钮');
+  else if (!/收起/.test(btn.textContent || '') && (btn.textContent || '').indexOf('其余${p.other}宫详情') < 0)
+    out.push('按钮写的宫数与分区不一致：屏上「' + (btn.textContent || '').trim() + '」/ 实数 ${p.other} 宫');
+  return { miss: out, key: names.length, other: others.length };
+})()`;
 
 const hepanProbe = p => `(() => {
   const out = [];
@@ -1590,6 +1642,8 @@ const TRUSTED = {
   // 建盘页那一栏的同意框/闰月开关都是这一批新加的；先真实点开 tab 再测，
   // 否则这些控件从来没有出现在任何一屏里。
   'create-double': ['双人合盘'],
+  // 闰月开关是 AFTER 选完 2025/6 才出现的；真实点它一下，既是测命中区也是测状态翻转。
+  'create-lunar': ['闰6月'],
 };
 
 async function measure(tag, url) {
@@ -1710,7 +1764,18 @@ async function measure(tag, url) {
     console.log(miss && miss.length ? '    HEPAN PIN MISMATCH ' + miss.join(' | ')
       : (HEPAN_PINS[base].mode === 'degraded'
         ? '    合盘 降级态：0 块、表单入口在、四条隐私声明都在屏上'
-        : `    合盘 ${got.blocks} 个立项块，八条手推关系全中`));
+        // 真盘模式下 text 被清空（八条关系随盘而变），这时候打「八条全中」就是谎报，
+        // 所以把这一跑实际核了几条文句打出来。
+        : `    合盘 ${got.blocks} 个立项块，结构断言全中；关系文案钉值这一跑核了 ${hepanPins.text.length} 条`));
+  }
+  // 紫微那张卡：分区数与宫名都要核。0 张重点卡不是"没测到"，是这一节整块没渲染 —— 得说出来。
+  if (ZIWEI_PINS[base]) {
+    const got = await evl(ziweiProbe(ZIWEI_PINS[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 紫微探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': 紫微分区不等于钉值 — ' + x);
+    console.log(miss && miss.length ? '    ZIWEI PIN MISMATCH ' + miss.join(' | ')
+      : `    紫微 重点 ${got.key} 张 + 其余 ${got.other} 张 = 十二宫全覆盖，宫名逐个命中`);
   }
   // 问事框：答完之后那一帧必须被逐条读过。只测空输入框等于什么都没测（路由、来源标注、
   // 未开放不给入口，全在提交之后才成立）。
