@@ -371,9 +371,10 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
 `__clsAtLoad` / `__lcpAtLoad`，`lcp` 报载入相的值，交互后的值单独放 `lcpInteract`。
 控件找不到时**判负**（"这一半页面从没被测过"），不会静默少测。
 
-`/create` 现在有三个态，各管一件事：`create`（默认的公历单人）、`create-double`
+`/create` 现在有四个态，各管一件事：`create`（默认的公历单人）、`create-double`
 （真实点开「双人合盘」那一栏 —— 合盘接管后新增的同意框与对方闰月开关都在里面）、
-`create-lunar`（点「农历」再把年/月设成 2025 年 6 月，把闰月开关逼出来）。第三个态存在的原因
+`create-lunar`（点「农历」再把年/月设成 2025 年 6 月，把闰月开关逼出来）、
+`create-sizhu`（点「四柱」，钉那句"这条不会存进我的报告"真的在提交键之前就在屏上）。第三个态存在的原因
 是这批摘掉了三处 `.qn-chip` 上的内联 `minHeight:30`，不新增态就没法证明 44px 真的生效了；
 农历这一整套输入以前从未被任何一屏量过。设 select 必须走 `HTMLSelectElement` 的原生 setter
 加 `change` 事件，直接赋 `.value` 不触发 onChange，下一步就永远等不到那个 chip。

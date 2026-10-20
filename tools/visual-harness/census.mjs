@@ -172,6 +172,9 @@ const STATIC_PAGES = [
   // 建盘页的「双人合盘」那一栏本批接管成真输入（多了同意框、闰月开关、对方的地区三件），
   // 不测这一 tab 就等于这批新加的控件一个 44px 读数都没有 —— 与"只审到输入态"同一类假绿。
   ['create-double', '/create'],
+  // 建盘页的「四柱直批」那一态：后端 calendar 只收 公历/农历，这一条永远存不进服务器。
+  // 要钉的是"这话在提交之前就写在屏上"，不是等用户事后发现报告列表里没有它。
+  ['create-sizhu', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
   // 结果态（step==='done'）单独占一个状态：同一 URL，但 AFTER 钩子会真摇一卦把它推到位。
@@ -1835,6 +1838,8 @@ const TRUSTED = {
   // 建盘页那一栏的同意框/闰月开关都是这一批新加的；先真实点开 tab 再测，
   // 否则这些控件从来没有出现在任何一屏里。
   'create-double': ['双人合盘'],
+  // 四柱那一档会把日期区整块换掉，必须真实点击才量得到换完之后那一屏（也才不计 CLS）。
+  'create-sizhu': ['四柱'],
   // 闰月开关是 AFTER 选完 2025/6 才出现的；真实点它一下，既是测命中区也是测状态翻转。
   'create-lunar': ['闰6月'],
 };
@@ -2051,6 +2056,26 @@ const fsEditProbe = p => `(() => {
 
 // 3D 舞台那一态。两条路都算通过：真出了 canvas，或者真降级了且原因写在页面上。
   // 不通过的是"什么都没发生"—— 黑屏、永久转圈、或者悄悄换了一张图却不说为什么。
+  if (base === 'create-sizhu') {
+    // 那句话必须**在提交键之前**就在屏上，而且要说清"不会存进我的报告"。
+    const got = await evl(`(() => {
+      const n = document.getElementById('create-persist-note');
+      const txt = n ? (n.innerText || '').replace(/\\s+/g, ' ').trim() : null;
+      const miss = [];
+      if (!txt) miss.push('选了四柱之后 #create-persist-note 不在屏上（这话得说在提交之前）');
+      else {
+        if (!txt.includes('四柱直批')) miss.push('那句里没有「四柱直批」');
+        if (!txt.includes('不会存进')) miss.push('那句里没有明说不会存进服务器');
+        if (!txt.includes('刷新')) miss.push('那句里没说刷新就没了（用户需要知道怎么留档）');
+      }
+      return { miss, txt: txt ? txt.slice(0, 90) : null };
+    })()`);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 四柱披露探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 四柱披露不合格 — ' + x);
+    console.log(miss && miss.length ? '    SIZHU MISMATCH ' + miss.join(' | ')
+      : '    四柱披露在屏：' + got.txt);
+  }
   if (base === 'fengshui-edit') {
     const got = await evl(fsEditProbe(FS_EDIT_PINS));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
