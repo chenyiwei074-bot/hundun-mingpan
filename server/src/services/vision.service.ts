@@ -70,7 +70,7 @@ class TimeoutError extends Error {}
 
 async function callOnce(opts: {
   baseUrl: string; apiKey: string; model: string; provider: VisionProviderName;
-  imageDataUrl: string; timeoutMs: number;
+  imageDataUrl: string; timeoutMs: number; maxTokens: number;
 }): Promise<{ raw: string; ms: number }> {
   const started = Date.now();
   const ac = new AbortController();
@@ -83,7 +83,7 @@ async function callOnce(opts: {
       body: JSON.stringify({
         model: opts.model,
         temperature: 0.2,
-        max_tokens: 2048,
+        max_tokens: opts.maxTokens,
         messages: [{
           role: 'user',
           content: [
@@ -118,13 +118,13 @@ function extractJson(raw: string): unknown {
 export async function recognizeFloorPlan(imageDataUrl: string, opts?: { timeoutMs?: number }): Promise<VisionOutcome> {
   const deadline = Date.now() + (opts?.timeoutMs ?? 110000);
   const candidates: Array<{
-    provider: VisionProviderName; baseUrl: string; apiKey: string; model: string;
+    provider: VisionProviderName; baseUrl: string; apiKey: string; model: string; maxTokens: number;
   }> = [];
   if (process.env.VISION_API_KEY && process.env.VISION_MODEL) {
     candidates.push({
       provider: 'custom', apiKey: process.env.VISION_API_KEY,
       baseUrl: process.env.VISION_BASE_URL || 'https://api.openai.com/v1',
-      model: process.env.VISION_MODEL,
+      model: process.env.VISION_MODEL, maxTokens: 2048,
     });
   }
   if (process.env.FREE_AI_API_KEY) {
@@ -132,6 +132,8 @@ export async function recognizeFloorPlan(imageDataUrl: string, opts?: { timeoutM
       provider: 'glm-4v', apiKey: process.env.FREE_AI_API_KEY,
       baseUrl: process.env.FREE_AI_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
       model: process.env.VISION_FREE_MODEL || 'glm-4v-flash',
+      // 智谱 v4 chat completions 对 max_tokens 的上限是 1024（超了直接 1210 报错）
+      maxTokens: 1024,
     });
   }
   if (process.env.DEEPSEEK_API_KEY) {
@@ -139,6 +141,7 @@ export async function recognizeFloorPlan(imageDataUrl: string, opts?: { timeoutM
       provider: 'deepseek', apiKey: process.env.DEEPSEEK_API_KEY,
       baseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
       model: process.env.VISION_DEEPSEEK_MODEL || process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      maxTokens: 2048,
     });
   }
   if (!candidates.length) {
@@ -154,9 +157,11 @@ export async function recognizeFloorPlan(imageDataUrl: string, opts?: { timeoutM
       const { raw, ms } = await callOnce({ ...c, imageDataUrl, timeoutMs: budget });
       attempts.push({ provider: c.provider, ok: true, ms });
       let parsed: unknown;
-      try { parsed = extractJson(raw); } catch { return { ok: false, code: 'bad_json', message: '模型没回 JSON', attempts }; }
+      try { parsed = extractJson(raw); } catch {
+        return { ok: false, code: 'bad_json', message: '模型没回 JSON：' + raw.replace(/\s+/g, ' ').slice(0, 200), attempts };
+      }
       const p = PlanSchema.safeParse(parsed);
-      if (!p.success) return { ok: false, code: 'bad_json', message: 'JSON 形状不符：' + p.error.issues.slice(0, 3).map(i => i.path.join('.') + ' ' + i.message).join('; '), attempts };
+      if (!p.success) return { ok: false, code: 'bad_json', message: 'JSON 形状不符：' + p.error.issues.slice(0, 3).map(i => i.path.join('.') + ' ' + i.message).join('; ') + ' | 原文：' + raw.replace(/\s+/g, ' ').slice(0, 160), attempts };
       if (p.data.ok === false) return { ok: false, code: 'not_floorplan', message: p.data.reason || '模型认为这不是户型图', attempts };
       const clamp = (v: number) => Math.max(0, Math.min(1, v));
       const plan: RecognizedPlan = {
