@@ -687,7 +687,7 @@ const OBSERVERS = `(() => {
       window.__cls += e.value;
       if (e.value > 0.01 && window.__clsSrc.length < 14) window.__clsSrc.push({
         v: Math.round(e.value * 1000) / 1000, time: Math.round(e.startTime),
-        t: (e.sources || []).slice(0, 3).map(s => {
+        t: (e.sources || []).slice(0, 9).map(s => {
           const n = s.node, o = s.previousRect, x = s.currentRect;
           const d = (o && x) ? 'dy=' + Math.round(x.top - o.top) + ' dx=' + Math.round(x.left - o.left) + ' h=' + Math.round(x.height) : 'inserted/removed';
           const cn = n && n.className ? String(n.className).slice(0, 34) : (n ? n.nodeName : '?');
@@ -1008,7 +1008,18 @@ const CENSUS = String.raw`(() => {
 // Both numbers come out of this ONE loop, so "small" and "TAP44" can never again
 // describe two different populations -- that is what the 2026-10-19 ruling asks for.
 const TAP_AUDIT = String.raw`(() => {` + VH_SHARED + String.raw`
-  const small = new Set(); const issues = new Set(); const seen = new Set();
+  const small = new Set(); const issues = new Set(); const inline = new Set(); const seen = new Set();
+  const inlineExempt = el => {
+    if (el.tagName !== 'A' || !el.hasAttribute('href')) return false;
+    const cs = getComputedStyle(el);
+    if (!/^(inline|inline-block|inline-flex)$/.test(cs.display)) return false;
+    const p = el.parentElement;
+    if (!p || !/^(P|LI|DD|DT)$/.test(p.tagName)) return false;
+    const around = side => { let n = el[side]; while (n) { if ((n.textContent || '').trim()) return true; n = n[side]; } return false; };
+    if (!around('previousSibling') && !around('nextSibling')) return false;   // 整行只有它 = 独立入口，不豁免
+    const pr = p.getBoundingClientRect(), r = el.getBoundingClientRect();
+    return pr.width > 0 && r.width <= pr.width * 0.6;
+  };
   let inWindow = 0;
   const why = {};
   const note = (el, k) => { const key = k + ' ' + el.nodeName.toLowerCase() + '.' + String(el.className || '').split(' ')[0].slice(0, 24);
@@ -1054,11 +1065,14 @@ const TAP_AUDIT = String.raw`(() => {` + VH_SHARED + String.raw`
       const hit = document.elementFromPoint(x, y);
       if (!hit || !(hit === el || el.contains(hit))) miss++;
     }
-    if (miss && untestable < 4)
-      issues.add(region(el) + '|' + label + '|' + box +
-        '|miss' + miss + (txt ? '' : '|ICON'));
+    if (miss && untestable < 4) {
+      const key = region(el) + '|' + label + '|' + box + '|miss' + miss + (txt ? '' : '|ICON');
+      // WCAG 2.5.5 的 inline 例外只豁免"句子里的交叉引用链接"，不豁免任何按钮/输入框。
+      // 判据写窄：必须是 <a href>、行内 display、前后都有正文、且不超过所在块六成宽。
+      (inlineExempt(el) ? inline : issues).add(key);
+    }
   }
-  return { small: [...small].sort(), issues: [...issues].sort(), inWindow,
+  return { small: [...small].sort(), issues: [...issues].sort(), inline: [...inline].sort(), inWindow,
     distinct: document.querySelectorAll('[data-vh-t]').length,
     smallTotal: document.querySelectorAll('[data-vh-s]').length,
     dump: ['scrollY=' + Math.round(window.scrollY) + ' docTop=' + Math.round(document.documentElement.scrollTop)
@@ -1158,6 +1172,18 @@ function check(tag, v) {
   if (v.bodyText < 100) bad(`page rendered almost no text (${v.bodyText} chars) — did the data load?`);
   if (!v.booted) bad('boot script never ran: CLS/LCP observers are dead, so the perf numbers are meaningless');
   if (v.overflowX > 0) bad(`horizontal overflow ${v.overflowX}px`);
+  // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推走那种位移没人管
+  // （/western 问事态实测 0.106，元凶是提交按钮在 flex-wrap 里换了行）。
+  // 分工要说清：交互引起的位移直接红；加载期就有的位移单独喊（本轮量到六爻结果页 0.17–0.24，
+  // 那是既有缺陷，不在这一批里顺手修，但绝不能因为"没人断言"而继续被读成没问题）。
+  if (typeof v.cls !== 'number') bad('CLS 没测到（observer 或 perf 读数坏了）—— 这一态的位移没被测量过');
+  else {
+    const load = typeof v.clsAtLoad === 'number' ? v.clsAtLoad : v.cls;
+    const after = Math.round((v.cls - load) * 1000) / 1000;
+    if (after >= 0.1) bad(`交互后 CLS +${after}（累计 ${v.cls}）—— 有内容在点击之后把页面推走了`);
+    if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
+    console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
+  }
   if (!!v.pointerCoarse !== !!v.wantTouch) bad(`pointer mismatch: asked ${v.wantTouch ? 'coarse' : 'fine'}, page sees ${v.pointerCoarse ? 'coarse' : 'fine'}`);
   for (const c of (v.cssInkData || [])) bad(`stylesheet paints data colour as ink: ${c}`);
 
@@ -1206,6 +1232,14 @@ function check(tag, v) {
   }
   for (const i of (v.inkedDataColors || [])) bad(`DATA COLOUR USED AS INK ${i.color} ${i.size}px "${i.text}" in ${i.region}`);
   for (const s of (v.smallTargets || []).filter(x => x.startsWith('nav|') || x.startsWith('footer|'))) bad(`sub-44 target in shell: ${s}`);
+  // D1：44px 的"有效可点"以前只打印不判定，于是 375px 上一堆 13x13 / 43x44 / 17px
+  // 的违例都能带着 ALL PASSED 出门。现在违例直接红；句中交叉引用链接按 WCAG 2.5.5
+  // 的 inline 例外豁免，但必须逐条印出来（豁免不是一个可以悄悄变大的桶）。
+  for (const s of (v.tapIssues || [])) bad(`TAP44 有效命中区不可点：${s}`);
+  if ((v.tapInline || []).length) {
+    console.log(`   TAP44-INLINE ${v.tapInline.length} 条按句中链接豁免：${v.tapInline.join(' | ')}`);
+    warns.push(`${tag}: ${v.tapInline.length} 条句中链接不足 44px（inline 豁免，仍要看得见）`);
+  }
 
   for (const [k, want] of Object.entries(WX_FROZEN)) {
     const got = v.tokens['wx-' + k];
@@ -1282,7 +1316,7 @@ async function sweepTap(v, tag) {
   const docH = Math.max(v.docH || 0, H);
   const need = Math.max(1, Math.ceil(docH / (H * 0.9)));   // 段间留 10% 重叠：跨段元素至少完整落进一段
   const bands = Math.min(need, TAP_BANDS);
-  const small = new Set(); const issues = new Set();
+  const small = new Set(); const issues = new Set(); const inline = new Set();
   let distinct = 0, smallTotal = 0, lastY = 0, broken = 0;
   for (let i = 0; i < bands; i++) {
     const y = i === 0 ? 0 : Math.min(Math.round(docH * i / bands), Math.max(0, docH - H));
@@ -1303,6 +1337,7 @@ async function sweepTap(v, tag) {
     if (process.env.QN_TAP_DUMP) (s.dump || []).forEach(d => console.log('      ' + d));
     for (const k of s.small) small.add(k);
     for (const k of s.issues) issues.add(k);
+    for (const k of (s.inline || [])) inline.add(k);
   }
   // 「读数与滚动无关」不能只是我这么说：末段再跑一遍全文 CENSUS，与 band 0 比。
   // 不等就说明内容是滚下来才渲染的，那 band 0 那份根本不代表这一屏，直接红。
@@ -1321,6 +1356,7 @@ async function sweepTap(v, tag) {
     + ` document.querySelectorAll('[data-vh-t],[data-vh-s]').forEach(e => { e.removeAttribute('data-vh-t'); e.removeAttribute('data-vh-s'); }); true`);
   v.smallTargets = [...small].sort();
   v.tapIssues = [...issues].sort();
+  v.tapInline = [...inline].sort();
   v.tapBands = bands; v.tapDistinct = distinct; v.tapIncomplete = broken;
   v.tapSmallTotal = smallTotal;
   if (need > bands)
@@ -1458,6 +1494,9 @@ async function measure(tag, url) {
     cls: Math.round(window.__cls * 1000) / 1000,
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000 })`);
   results[tag + '__perf'] = perf;
+  // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推下去那种位移没人管
+  // （/western 问事态实测 0.155）。把两个值都挂到这一态上，交给 check() 判。
+  if (v && !v.__err) { v.cls = perf.cls; v.clsAtLoad = perf.clsAtLoad; }
   // 分段扫必须排在 perf 读数之后：scrollTo 会让懒加载图片进来，那会把 LCP 改成滚动后的值。
   if (v && !v.__err) await sweepTap(v, tag);
   console.log(`\n== ${tag}  ${v && v.path ? v.path : url}`);

@@ -92,7 +92,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
         十神一律取自盘面同一张表，不另立评分模型。
       </p>
 
-      <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8, rowGap: 12 }}>
         {view.段.map((s, i) => (
           <button key={s.段序} type="button" data-seg={s.段序}
             className={`qn-chip${i === segIdx ? ' qn-chip--on' : ''}`}

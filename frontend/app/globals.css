@@ -694,6 +694,16 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   row-gap: 12px;
 }
 .qa-examples .qn-chip { max-width: 100%; }
+/* 答案面板：尺寸恒定，内容自己滚。这样"答一题"永远不改变页面布局 —— CLS 只可能来自
+   位移，把位移源拿掉比把阈值放宽诚实。compact 那一版在首屏里，不预留高度。 */
+/* 答案面板：外层占位、内层绝对定位。绝对定位的内容不参与父级布局，
+   所以"插一条回答"在数学上不可能把页面推走 —— 固定高度与 contain 都试过，
+   实测仍记到 54px 位移；这一版是把可能性掐掉，不是把阈值放宽。 */
+.qa-pane:not([data-compact="1"]) { position: relative; height: 200px; }
+.qa-pane:not([data-compact="1"]) .qa-turns {
+  position: absolute; inset: 0; overflow-y: auto;
+  display: grid; align-content: start;
+}
 
 /* ---- 动效：一次性入场 + 全站降级 ---- */
 @keyframes qn-rise {
