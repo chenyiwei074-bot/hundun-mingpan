@@ -1,5 +1,6 @@
 ﻿import { Router } from 'express';
 import { createLiuYao } from '../controllers/liuyao.controller';
+import { recognize, getFloorPlanImage } from '../controllers/fengshui.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
 import {
@@ -13,6 +14,9 @@ import {
 } from '../controllers/chart.controller';
 
 const router = Router();
+
+router.post('/fengshui/recognize', recognize);
+router.get('/fengshui/image/:id', getFloorPlanImage);
 
 router.post('/receipts', submitReceipt);
 router.get('/receipts/:recordHash', getReceiptStatus);
