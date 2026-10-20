@@ -11,6 +11,7 @@
 //     不是每帧做碰撞检测补救出来的。
 
 import { useEffect, useRef, useState } from 'react';
+import { randomFloat } from '@/lib/crypto/random';
 // 只取类型：值形式的 three 一律在函数内部动态 import，否则这 141KB 会跟着 /fengshui 的首屏包走。
 import type * as THREE from 'three';
 import { buildWalkGrid, cellCenter, nearestWalkable, passable } from '@/lib/fengshui/geometry';
@@ -234,7 +235,7 @@ function build(THREE: Three, Controls: ControlsCtor, host: HTMLElement, geom: Fl
     粒子 = { 格: new Int32Array(上限).fill(-1), 计时: new Float32Array(上限) };
     for (let k = 0; k < 上限; k++) {
       粒子.格[k] = 门格[k % 门格.length];
-      粒子.计时[k] = Math.random() * (grid.步长 / PARTICLES.速度);   // 错开起步，不要整排同帧跳格
+      粒子.计时[k] = randomFloat() * (grid.步长 / PARTICLES.速度);   // 错开起步，不要整排同帧跳格
     }
   }
 
@@ -392,7 +393,7 @@ function step(g: WalkGrid, 距离: Int32Array, 门格: number[], 粒子: { 格: 
       bestD = 距离[j];
     }
     // 到窗（距离 0）或者无路可走 → 从某个门重新出发，形成持续的进风→出风流向
-    粒子.格[k] = bestD <= 0 || best === cell ? 门格[Math.floor(Math.random() * 门格.length)] : best;
+    粒子.格[k] = bestD <= 0 || best === cell ? 门格[Math.floor(randomFloat() * 门格.length)] : best;
   }
   attr.needsUpdate = true;
 }

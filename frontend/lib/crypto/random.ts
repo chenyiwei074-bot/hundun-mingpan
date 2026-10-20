@@ -55,3 +55,11 @@ export function randomToken(len: number): string {
   }
   return out.join('');
 }
+
+/** [0,1) 均匀浮点：CSPRNG 取 4 字节 / 2^32。只用于视觉抖动等非安全用途，但同样不走 Math.random ——
+ *  站内规则是活文件零 Math.random（tools/random-acceptance 扫全仓），视觉代码也不例外。 */
+export function randomFloat(): number {
+  const b = new Uint32Array(1);
+  crypto.getRandomValues(b);
+  return b[0] / 4294967296;
+}

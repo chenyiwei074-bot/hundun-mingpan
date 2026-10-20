@@ -233,7 +233,10 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 24 }));
   const keysOf = (o: { dependencies?: object; devDependencies?: object }) =>
     Object.keys({ ...o.dependencies, ...o.devDependencies }).sort();
-  const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k));
+  // 2026-10-20：three/@types/three 经批准引入（户型 WebGL 舞台），是本批唯一白名单；
+  // 其余任何新依赖仍判红。
+  const SANCTIONED_DEPS = new Set(['three', '@types/three']);
+  const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k) && !SANCTIONED_DEPS.has(k));
   ok('dep/no-new-package', added.length === 0,
     `本批零新依赖：与 origin/main 的 package.json 键集逐字比，新增项必须为 0（比关键词靠谱 —— lunar-typescript 本来就在）：实得新增 ${added.join('、') || '无'}`);
   const routes = existsSync(join(ROOT, 'frontend', 'app', 'scenarios')) || existsSync(join(ROOT, 'frontend', 'app', 'bazi'));

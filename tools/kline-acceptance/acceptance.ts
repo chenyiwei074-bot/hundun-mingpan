@@ -298,7 +298,10 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 24 }));
   const keysOf = (o: { dependencies?: object; devDependencies?: object }) =>
     Object.keys({ ...o.dependencies, ...o.devDependencies }).sort();
-  const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k));
+  // 2026-10-20：three/@types/three 经批准引入（户型 WebGL 舞台），是本批唯一白名单；
+  // 其余任何新依赖仍判红。
+  const SANCTIONED_DEPS = new Set(['three', '@types/three']);
+  const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k) && !SANCTIONED_DEPS.has(k));
   ok('dep/no-new-package', added.length === 0, `零新依赖：实得新增 ${added.join('、') || '无'}`);
   // 批范围断言只能读"这个分支提交了什么"，不能读工作区。
   // 教训（2026-10-19 的 #89）：原来这里读 `git diff origin/main` 与 `git ls-files --others`，
