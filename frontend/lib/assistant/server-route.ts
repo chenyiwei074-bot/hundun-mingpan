@@ -24,21 +24,77 @@ const CATALOGS: Record<Mode, ToolEntry[]> = {
 };
 export const catalogFor = (mode: Mode): ToolEntry[] => CATALOGS[mode];
 
-export type Validation = { ok: true; mode: Mode; text: string } | { ok: false; error: string; status: number };
+/** UTF-8 字节数。原来用 text.length 当"字节上限"，中文一个字算 1 而实际占 3 字节，
+ *  上限被悄悄放大三倍 —— 闸门的宽度必须由它自己声称的单位来量。 */
+export function utf8Length(s: string): number {
+  return new TextEncoder().encode(s).length;
+}
 
-/** 手写校验（不引 zod：前端 package.json 里没有它，为一个路由加依赖不划算）。 */
+export type FieldCode =
+  | 'body_shape' | 'body_too_large'
+  | 'protocol_missing' | 'protocol_mismatch'
+  | 'mode_missing' | 'mode_invalid'
+  | 'text_missing' | 'text_type' | 'text_empty' | 'text_too_long' | 'text_control_char';
+
+export interface FieldError { field: 'body' | 'protocol' | 'mode' | 'text'; code: FieldCode; msg: string }
+
+export type Validation =
+  | { ok: true; mode: Mode; text: string }
+  | { ok: false; errors: FieldError[]; status: number };
+
+/**
+ * 手写校验（不引 zod：零新依赖是默认规矩，这里用到的只有"形状 + 枚举 + 长度 + 控制字符"）。
+ * 结构化错误码 + 一次报全：只回一句人话，客户端就没法按字段定位，
+ * 而"发现第一个错就返回"会让人一屏一屏地试错。
+ */
 export function validateRequest(raw: unknown): Validation {
-  if (!raw || typeof raw !== 'object') return { ok: false, error: '请求体必须是 JSON 对象', status: 400 };
+  const errors: FieldError[] = [];
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { ok: false, errors: [{ field: 'body', code: 'body_shape', msg: '请求体必须是 JSON 对象' }], status: 400 };
+  }
   const o = raw as Record<string, unknown>;
-  if (o.protocol !== PROTOCOL) return { ok: false, error: `protocol 必须是 ${PROTOCOL}`, status: 400 };
-  if (o.mode !== 'oriental' && o.mode !== 'western') return { ok: false, error: 'mode 只认 oriental/western', status: 400 };
-  if (typeof o.text !== 'string') return { ok: false, error: 'text 必须是字符串', status: 400 };
-  const text = o.text.trim();
-  if (text.length === 0) return { ok: false, error: 'text 不能为空', status: 400 };
-  if (Array.from(text).length > MAX_TEXT) return { ok: false, error: `text 最长 ${MAX_TEXT} 字`, status: 413 };
-  // 控制字符与换行不进模型 prompt：它们是最容易把一段话变成两条指令的东西
-  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) return { ok: false, error: 'text 含控制字符', status: 400 };
-  return { ok: true, mode: o.mode, text };
+
+  if (o.protocol === undefined || o.protocol === null || o.protocol === '')
+    errors.push({ field: 'protocol', code: 'protocol_missing', msg: '缺 protocol' });
+  else if (typeof o.protocol !== 'string' || o.protocol !== PROTOCOL)
+    errors.push({ field: 'protocol', code: 'protocol_mismatch', msg: `protocol 必须是 ${PROTOCOL}` });
+
+  if (o.mode === undefined || o.mode === null || o.mode === '')
+    errors.push({ field: 'mode', code: 'mode_missing', msg: '缺 mode' });
+  else if (o.mode !== 'oriental' && o.mode !== 'western')
+    errors.push({ field: 'mode', code: 'mode_invalid', msg: 'mode 只认 oriental / western' });
+
+  if (o.text === undefined || o.text === null)
+    errors.push({ field: 'text', code: 'text_missing', msg: '缺 text' });
+  else if (typeof o.text !== 'string')
+    errors.push({ field: 'text', code: 'text_type', msg: 'text 必须是字符串' });
+  else {
+    const text = o.text.trim();
+    if (text.length === 0) errors.push({ field: 'text', code: 'text_empty', msg: 'text 不能为空' });
+    else {
+      // 按码点计字：emoji 用 .length 会被数两遍，先咬的是贴一句带 emoji 的话的真人
+      if (Array.from(text).length > MAX_TEXT)
+        errors.push({ field: 'text', code: 'text_too_long', msg: `text 最长 ${MAX_TEXT} 字（实得 ${Array.from(text).length}）` });
+      // 控制字符与换行不进 prompt：它们是最容易把一段话变成两条指令的东西
+      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text))
+        errors.push({ field: 'text', code: 'text_control_char', msg: 'text 含控制字符' });
+    }
+  }
+
+  if (errors.length) {
+    const big = errors.some(e => e.code === 'text_too_long' || e.code === 'body_too_large');
+    return { ok: false, errors, status: big ? 413 : 400 };
+  }
+  return { ok: true, mode: o.mode as Mode, text: (o.text as string).trim() };
+}
+
+/** 请求体字节闸。放在 parse 之前：先量体积再解析，否则"用一个超大 body 拖垮解析"这条还在。
+ *  返回 null 表示通过；不返回 Validation 是因为它没有"成功时的 mode/text"可给。 */
+export function checkBodyBytes(text: string): { errors: FieldError[]; status: number } | null {
+  const n = utf8Length(text);
+  if (n > MAX_BODY)
+    return { status: 413, errors: [{ field: 'body', code: 'body_too_large', msg: `请求体 ${n} 字节，上限 ${MAX_BODY}` }] };
+  return null;
 }
 
 /** 白名单只进 prompt：模型看不到本站的路由表，也就不可能被诱导说出别的路径。 */
