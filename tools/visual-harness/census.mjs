@@ -520,9 +520,14 @@ const HEPAN_PINS = {
 // 这一节红过一次的方式很特别 —— 页面不报错，只是四张卡不见了，因为宫名照 types.ts 的
 // ZiweiGong 声明写（除命宫外都带"宫"），而引擎实际产出不带。所以这里按 DOM 上的 data 属性数，
 // 不读文案：文案可以对，分区才是被交付的东西。
+const ZIWEI_BASE = { key: ['命宫', '官禄', '财帛', '夫妻', '福德'], other: 7 };
 const ZIWEI_PINS = {
-  'chart-result': { key: ['命宫', '官禄', '财帛', '夫妻', '福德'], other: 7 },
-  'chart-hepan': { key: ['命宫', '官禄', '财帛', '夫妻', '福德'], other: 7 },
+  'chart-result': { ...ZIWEI_BASE },
+  // 三张降级盘上的紫微半边都是完整的（fixture 只摘 bazi 那几路径），所以这张卡同样在屏上 ——
+  // 以前没有任何一态数过它，"降级盘"于是只在场景矩阵和 K线那两节被证明过。
+  'chart-result-empty': { ...ZIWEI_BASE },
+  'chart-result-barren': { ...ZIWEI_BASE },
+  'chart-hepan': { ...ZIWEI_BASE },
 };
 
 const ziweiProbe = p => `(() => {
