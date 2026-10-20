@@ -56,7 +56,11 @@ export type PillarVerdict = {
   pillar: Pillar;
   gan: Tiangan;
   zhi: Dizhi;
-  verdict: '盖头'|'截脚'|'天干生地支'|'地支生天干'|'天地同气'|'天地异气无生克';
+  /** 五行之间没有"既不同、也不生、也不克"的第六种情形：shengKe 在 WuXing 上是全函数
+   *  (tables.ts:42)，返回值只有 生/克/同/被生/被克 五种，五种各有判词。原并集里那个
+   *  '天地异气无生克' 永远进不去，声明却允许它出现 —— 与藏干那次同一个毛病（声明比运行时宽，
+   *  下游就会照着写一个永远为假的分支）。已删，枚举齐不齐由套件用 10×12 全组合钉。 */
+  verdict: '盖头'|'截脚'|'天干生地支'|'地支生天干'|'天地同气';
 };
 
 export function judgePillars(siZhu: Record<Pillar, {gan: Tiangan, zhi: Dizhi}>): PillarVerdict[] {

@@ -315,7 +315,7 @@ export default function CreatePage() {
               onClick={() => isP
                 ? setForm(p => ({ ...p, partnerIsLeapMonth: !p.partnerIsLeapMonth }))
                 : setForm(p => ({ ...p, isLeapMonth: !p.isLeapMonth }))}
-              className="qn-chip" style={{ minWidth: 46, padding: '0 12px', minHeight: 30, fontSize: 'var(--qn-fs-meta)',
+              className="qn-chip" style={{ minWidth: 46, padding: '0 12px', fontSize: 'var(--qn-fs-meta)',
                 border: 'none', borderRadius: 6,
                 background: (isP ? partnerIsLeapOn : isLeapOn) ? '#ffffff' : 'transparent',
                 color: (isP ? partnerIsLeapOn : isLeapOn) ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
@@ -404,7 +404,7 @@ export default function CreatePage() {
                     <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'rgba(0,0,0,0.04)' }}>
                       {['公历','农历','四柱'].map(cal => (
                         <button key={cal} type="button" onClick={() => setField('calendar', cal)} className="qn-chip"
-                          style={{ minWidth: 46, padding: '0 12px', minHeight: 30, fontSize: 'var(--qn-fs-meta)',
+                          style={{ minWidth: 46, padding: '0 12px', fontSize: 'var(--qn-fs-meta)',
                             border: 'none', borderRadius: 6,
                             background: form.calendar === cal ? '#ffffff' : 'transparent',
                             color: form.calendar === cal ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
@@ -425,7 +425,7 @@ export default function CreatePage() {
                       <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'rgba(0,0,0,0.04)' }}>
                         {['公历','农历'].map(cal => (
                           <button key={cal} type="button" onClick={() => setField('calendar', cal as '公历'|'农历')} className="qn-chip"
-                            style={{ minWidth: 46, padding: '0 12px', minHeight: 30, fontSize: 'var(--qn-fs-meta)',
+                            style={{ minWidth: 46, padding: '0 12px', fontSize: 'var(--qn-fs-meta)',
                               border: 'none', borderRadius: 6,
                               background: form.calendar === cal ? '#ffffff' : 'transparent',
                               color: form.calendar === cal ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
