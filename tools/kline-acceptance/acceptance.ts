@@ -348,28 +348,41 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   //  A. 纯注释/空行（给声明补文档，编译器看不见的那种改动）；
   //  B. 只碰 crossed 这一格的计算 —— 行里必须出现 crossed / ziChenIndex，别的一律挡。
   // 这样下一个借"顺手修口径"去动四柱计算的人仍然直接红，而这两条放过的正是被授权的那两种。
-  const commentOrBlank = (l: string) => /^\s*(\/\/|\/\*|\*|$)/.test(l.slice(1));
-  const commentOnlyLines = (d: string[]) => d.length > 0 && d.every(commentOrBlank);
+  // 空行、注释、以及只含一个花括号的行都不带行为 —— helper 的 `+}` 要是算"别的代码"，
+  // 这道门就变成"只准改一行"，下一个合法批次照样被挡。
+  const inertLine = (l: string) => {
+    const b = l.slice(1).trim();
+    return b === '' || /^(\/\/|\/\*|\*)/.test(b) || /^[{}]$/.test(b);
+  };
+  const commentOnlyLines = (d: string[]) => d.length > 0 && d.every(inertLine);
+  // 放行的是"crossed 这一格的计算"这一段，认得三种行：字段本身、那个新 helper 的签名与注释、
+  // 以及 helper 里那句取格表达式 —— 逐字点名，别的算术一律挡在外面。
+  const CROSSED_SHAPE = /crossed|ziChenIndex|Math\.floor\(\(hour \+ 1\) \/ 2\)/;
   const crossedFlagLines = (d: string[]) => d.length > 0
-    && d.filter(l => !commentOrBlank(l) && !/crossed|ziChenIndex/.test(l)).length === 0;
+    && d.filter(l => !inertLine(l) && !CROSSED_SHAPE.test(l)).length === 0;
   const commentOnlyChange = (f: string) => commentOnlyLines(diffOf(f));
   const crossedFlagOnly = (f: string) => crossedFlagLines(diffOf(f));
   // 两道窄门自己的牙齿，喂**假 diff** 给分类器 —— 不依赖仓库当下改了什么。
   // 拿真实文件当反例的那种写法会自己失效：下一个只改了注释的批次会让"反例"变成正例。
   ok('algo/crossed-hatch-is-narrow',
     crossedFlagLines(['-    crossed: { hour: a !== b, day: !s },', '+    crossed: { hour: ziChenIndex(x) !== ziChenIndex(c), day: !s },'])
+    && crossedFlagLines(['+function ziChenIndex(hour: number): number {', '+  return Math.floor((hour + 1) / 2) % 12;', '+}', '+'])
     && commentOnlyLines(['+  /** 时辰是两小时一格 */'])
     && !crossedFlagLines(['+    const dayGan = getDayGan(x);'])
     && !crossedFlagLines(['-  const solar = Solar.fromYmdHms(a, b, c, 23, 0, 0);', '+  const solar = Solar.fromYmdHms(a, b, c, 0, 0, 0);'])
+    && !crossedFlagLines(['+  return Math.floor((hour + 2) / 2) % 12;'])
     && !commentOnlyLines(['+  const a = 1;']) && !commentOnlyLines([]) && !crossedFlagLines([]),
-    '窄门只放过"只碰 crossed 那一格"和"纯注释"两种：往分类器里塞一行普通取数代码必须判 false，'
+    '窄门只放过"只碰 crossed 那一格"和"纯注释"两种：普通取数代码、改了格法算术的行都必须判 false，'
     + '空 diff 两条都判 false（没改动也算通过就是空过）');
-  const engineOfflist = engine.filter(f => !inAllow(f));
-  ok('algo/only-the-pairwise-export',
-    engine.every(f => inAllow(f) || loggingOnlyRemoval(f) || commentOnlyChange(f) || crossedFlagOnly(f)),
-    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行三种：新增 0 行且删的全是 console.* 语句 / 纯注释空行 / 只碰 crossed 那一格）：实得 ${engine.join(' | ') || '（无）'}；清单外 ${engineOfflist.join(' | ') || '（无）'}${engineOfflist.length ? '；不合规的行 ' + engineOfflist.map(f => {
+  // 报错要指名"哪个文件是被什么放过的 / 哪个是真不合规"。以前这里直接把清单外全列出来，
+  // 于是纯注释的 types.ts 也一起上榜，读的人会去查一个根本没失败的档案。
+  const engineBad = engine.filter(f => !inAllow(f) && !loggingOnlyRemoval(f) && !commentOnlyChange(f) && !crossedFlagOnly(f));
+  const why = (f: string) => loggingOnlyRemoval(f) ? '纯删日志' : commentOnlyChange(f) ? '纯注释' : crossedFlagOnly(f) ? '只碰 crossed' : '不合规';
+  ok('algo/only-the-pairwise-export', engineBad.length === 0,
+    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行三种：新增 0 行且删的全是 console.* 语句 / 纯注释空行 / 只碰 crossed 那一格）：实得 ${engine.map(f => f.replace(/^frontend\/app\/lib\/core\//, '') + '=' + (inAllow(f) ? '点名放行' : why(f))).join(' | ') || '（无）'}`
+    + `${engineBad.length ? '；被挡住的 ' + engineBad.map(f => {
       const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
-      return f.replace(/^frontend\/app\/lib\/core\//, '') + '[' + d.split('\n').filter(l => (l.startsWith('+') && !l.startsWith('+++')) || (l.startsWith('-') && !l.startsWith('---'))).join('').slice(0, 120) + ']';
+      return f.replace(/^frontend\/app\/lib\/core\//, '') + '[' + d.split('\n').filter(l => (l.startsWith('+') && !l.startsWith('+++')) || (l.startsWith('-') && !l.startsWith('---'))).join('').slice(0, 160) + ']';
     }).join(' ') : ''}`);
   // 合盘层不许自带第二份地支/天干关系表 —— 复用算法层导出，是这批允许改算法层的交换条件。
   let hepanCopied: string[] = [];
