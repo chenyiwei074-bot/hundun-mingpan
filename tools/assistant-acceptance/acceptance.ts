@@ -210,6 +210,22 @@ async function sectionFallbacks() {
     '组件里不写死任何工具路由，入口一律由目录查出来的 tool.href 给');
 }
 
+// ── 5b. 端点常量必须等于真实路由（缺陷①，运维 2026-10-21 裁定：这是硬错）──
+{
+  // 为什么这条以前不存在：第 4 节那几条回落测试都从外面注入 fetchImpl，
+  // 于是 askRoute 里那个 URL 常量**从来没被执行过** —— 路径写歪了照样全绿。
+  // 这类"桩替掉了真实出口，常量就没人管"的形状，只能在这里钉死。
+  const client = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'assistant', 'route-client.ts'), 'utf8'));
+  const got = (client.match(/ROUTE_ENDPOINT\s*=\s*['"]([^'"]+)['"]/) || ['', ''])[1];
+  const routeFile = join(ROOT, 'frontend', 'app', 'api', 'assistant', 'route.ts');
+  ok('route/client-endpoint-found', got.startsWith('/api/'),
+    `route-client.ts 里必须有一个 ROUTE_ENDPOINT 字面量（读不到下面几条就没得比）：实得「${got}」`);
+  ok('route/endpoint-matches-route', got === '/api/assistant',
+    `客户端打的必须是 Next 的路由路径 /api/assistant —— 路由文件是 app/api/assistant/route.ts，多一段 '/route' 就是永远 404、每次都静默回落本机（缺陷①）：实得「${got}」`);
+  ok('route/server-route-exists', stripComments(readFileSync(routeFile, 'utf8')).includes('export'),
+    'app/api/assistant/route.ts 必须真的导出 handler（否则上面那条比对的是两个都不存在的东西）');
+}
+
 // ── 6. 服务端那一半：/api/assistant 的校验器与白名单（不引新依赖）──
 async function sectionServer() {
   const S = await import('../../frontend/lib/assistant/server-route');

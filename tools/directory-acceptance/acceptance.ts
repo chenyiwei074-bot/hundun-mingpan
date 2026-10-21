@@ -16,6 +16,7 @@ import { FENGSHUI_BASIS } from '../../frontend/lib/fengshui/analysis';
 import { HEPAN_BASIS } from '../../frontend/lib/hepan/types';
 import { CATALOG_STAMPS, CLOSED_TOOLS, HOME_FEATURED_SLUGS, INTENT_ENTRIES, INTENTS, LAUNCHER_SLUGS, LIUYAO_BASIS_TEXT, LIVE_HREFS, TOOLS_INDEX, TOOL_BY_SLUG, homeCard } from '../../frontend/lib/tools/catalog';
 import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS } from '../../frontend/lib/tools/western-catalog';
+import { statusCounts, statusTally } from '../../frontend/lib/tools/status';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -142,18 +143,109 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const hashEntries = (home.match(/href\s*:\s*["']#["']/g) || []).length;
   ok('shell/no-hash-placeholder', hashEntries === 0,
     `门廊与工作页不得留 href="#" 的占位入口（未开放一律走「无 href + 无按钮 + 写明原因」，与目录页同一做法）：残留 ${hashEntries} 处`);
-  ok('shell/tools-entry-linked', /href\s*=\s*["']\/tools["']/.test(stripComments(readFileSync(GATE, 'utf8'))),
-    '目录页必须从门廊可达（钉门廊那一个文件，不是"三个文件里随便哪个有就行"）');
+  // 裁定 ①（批10）：/tools 从门廊搬走，挂在两页工作页的页脚。这条不是删掉而是改指 ——
+  // 它防的是"目录页变成孤儿"（从任何工作页都进不去），搬位置照样要有人钉。
+  // 门廊那侧反过来钉"不许再出现"：门廊一旦留一条聚合入口，它就又开始当第三个地方。
+  const gateSrc = stripComments(readFileSync(GATE, 'utf8'));
+  const workFiles: Array<[string, string]> = [
+    ['东方 OrientalBody', ORIENTAL],
+    ['共用框架 ModeLanding', join(FE, 'components', 'home', 'ModeLanding.tsx')],
+  ].map(([name, f]) => [name, stripComments(readFileSync(f, 'utf8'))] as [string, string]);
+  const missing = workFiles.filter(([, src]) => !/href\s*=\s*["']\/tools["']/.test(src)).map(([name]) => name);
+  ok('shell/tools-entry-linked', !/href\s*[:=]\s*["']\/tools["']/.test(gateSrc) && missing.length === 0,
+    '门廊上不许再有 /tools；两页工作页各自都要有一条 /tools（东方在正文底部、西方在共用页脚）—— 目录页要从工作页可达，缺的是：'
+    + `${missing.join('、') || '无'}`);
+  // ① 的另一半：两栏各是一个 <a>，栏内不许嵌套第二个可点元素。
+  // 嵌套一次，键盘就要在同一块地方走两遍，读屏报出来的层级也是假的。
+  const anchors = (gateSrc.match(/<Link\b/g) || []).length;
+  const nested = (gateSrc.match(/<(button|input|select|textarea|a)\b/g) || []).length;
+  // 源码里只该有 1 个 <Link>：它在 ENTRIES.map 里，运行时渲染成两栏。
+  // "两栏"这个数是 harness 从 DOM 数的（a.domain-card 恰好 2），这里钉的是另一件事：
+  // 栏内不许有第二种可点元素，也不许有人再往门廊上加第三个入口。
+  ok('gate/panel-is-single-anchor', anchors === 1 && nested === 0,
+    `门廊源码只许有一个 <Link>（两栏由同一个 map 产出）且没有任何 <button>/<a>/表单元素：实得 Link ${anchors} 个 / 其它可点 ${nested} 处`);
+  ok('gate/no-in-page-back-link', !/domain-back/.test(gateSrc) && !/domain-back/.test(stripComments(readFileSync(ORIENTAL, 'utf8'))),
+    '换体系这条路只走导航（工作页导航里有「返回选择」），正文里再来一条就是同一个动作的两个出处');
 }
 
-// ── 6. 目录页自身：未开放条目不渲染链接 ──
+// ── 6. 目录页自身 + 状态单源（裁定 ⑤）──
 {
   const page = stripComments(readFileSync(join(APP, 'tools', 'page.tsx'), 'utf8'));
-  ok('dir/page-gates-link', /t\.status\s*!==\s*'未开放'\s*&&\s*t\.href\s*\?/.test(page),
-    '目录页渲染入口的条件必须是「非未开放 且 有 href」双闸门，单靠数据正确不够');
+  const statusSrc = stripComments(readFileSync(join(APP, '..', 'lib', 'tools', 'status.ts'), 'utf8'));
+  // 双闸门本身仍在，只是从"每个页面各写一遍"收成一份；这条因此改钉两件事：
+  // 判据在 status.ts 里存在，而消费它的页面不许再自己写第二份。
+  ok('dir/page-gates-link', /status\s*!==\s*'未开放'\s*&&\s*!!t\.href/.test(statusSrc)
+    && /isLiveEntry/.test(page) && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(page),
+    '「非未开放 且 有 href」这道双闸门只许存在于 lib/tools/status.ts 一份，目录页吃它而不是重写一遍');
   const statusLabels = ['可用', '部分可用', '未开放'];
-  ok('dir/status-vocabulary', statusLabels.every(s => page.includes(s) || ALL_TOOLS.some(t => t.status === s)),
-    `状态只允许 ${statusLabels.join('/')} 三档，且页面给出定义（读者能据此判断标签含义）`);
+  ok('dir/status-vocabulary', statusLabels.every(s => statusSrc.includes(s)) && page.includes('「可用」') && page.includes('「未开放」'),
+    `状态只允许 ${statusLabels.join('/')} 三档（定义在 status.ts），且目录页给出每一档是什么意思（读者能据此判断标签含义）`);
+
+  // ⑤ 的牙齿：状态表全站只有一份，且没有任何 var() 指向一支并不存在的令牌。
+  // 缺陷③的形状就是 `var(--color-border-strong, rgba(0,0,0,.22))` —— 全站从来没定义过那支令牌，
+  // 回退值在 #241a3d 上等于没画，而带 fallback 的 var() 让这件事**看起来**是有意的。
+  const srcFiles: Array<[string, string]> = [];
+  const walk = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) { if (!['node_modules', '.next'].includes(e.name)) walk(join(dir, e.name)); }
+      else if (/\.(ts|tsx)$/.test(e.name)) srcFiles.push([join(dir, e.name).replace(/\\/g, '/'), stripComments(readFileSync(join(dir, e.name), 'utf8'))]);
+    }
+  };
+  walk(FE);
+  const tables = srcFiles.filter(([, src]) => /const STATUS_DOT\b/.test(src)).map(([f]) => f.replace(FE.replace(/\\/g, '/') + '/', ''));
+  ok('dir/status-dot-single-source', tables.length === 1 && tables[0] === 'lib/tools/status.ts',
+    `STATUS_DOT 这张表全站只许有一份（在 lib/tools/status.ts），别处再写一份就会各配各的：实得 ${tables.join('、') || '0 份'}`);
+  const dotUsers = srcFiles.filter(([, src]) => /STATUS_DOT\[/.test(src) && !/from '@\/lib\/tools\/status'/.test(src)).map(([f]) => f);
+  ok('dir/status-dot-imported', dotUsers.length === 0,
+    `用圆点表就必须 import 那一份，不许在页面里另起：违规 ${dotUsers.join('、') || '无'}`);
+  const css = stripComments(readFileSync(join(APP, 'globals.css'), 'utf8'));
+  // 范围：--color-* 与 --qn-*（令牌只有这两个前缀是"定义在 globals.css、由 var() 消费"的）。
+  // 本批第一次跑，这条就咬到了我自己刚写的一行 —— 计数行那档字号我写成了
+  // var(--qn-fs-sub)，全站没有那支令牌，字号会安静地继承成 15px，屏上看着"还行"、
+  // 阶梯却已经不在它那一档。这正是这类 var() 拼错最典型的落地形状。
+  const defined = new Set([...css.matchAll(/(--(?:color|qn)-[\w-]+)\s*:/g)].map(m => m[1]));
+  const usedVars = new Map<string, Array<{ file: string; fallback: boolean }>>();
+  const relOf = (f: string) => f.replace(FE.replace(/\\/g, '/') + '/', '');
+  for (const [f, src] of [...srcFiles, ['app/globals.css', css]] as Array<[string, string]>) {
+    for (const m of src.matchAll(/var\((--(?:color|qn)-[\w-]+)(\s*,)?/g)) {
+      const list = usedVars.get(m[1]) || [];
+      list.push({ file: relOf(f), fallback: !!m[2] });
+      usedVars.set(m[1], list);
+    }
+  }
+  const undefinedVars = [...usedVars.entries()].filter(([name]) => !defined.has(name));
+  // 量出来 4 支未定义令牌、共 5 处使用（缺陷③同一类，只是还没咬到人）：
+  // 带 fallback 的那三支现在渲染的就是 fallback —— 看着对、名字是假的，而且写错永远不会红；
+  // FloorPlanStudio 那两处**不带** fallback：属性按 invalid-at-computed-value 处理，
+  // 于是"未确认"那一档的描边退回继承值 = 没有颜色，那是看得见的缺陷。
+  // 本批不顺手改（分别归回执卡与批C 户型），但用带理由 + 失配判红的清单钉住：不许新增，也不许长在地基里。
+  const UNDEFINED_ALLOWLIST: Array<{ name: string; file: string; why: string }> = [
+    { name: '--color-border', file: 'app/liuyao/result/[id]/ReceiptPanel.tsx', why: '带 fallback，渲染的是 fallback；改它要单独排（回执卡）' },
+    { name: '--color-border-subtle', file: 'components/bazi/LifeCurve.tsx', why: '带 fallback；与 --color-hairline 同义不同名' },
+    { name: '--color-border-subtle', file: 'components/bazi/ScenarioMatrix.tsx', why: '带 fallback；场景矩阵两处' },
+    { name: '--color-danger', file: 'components/fengshui/FloorPlanStudio.tsx', why: '不带 fallback = 未确认那一档没有颜色，P2，归批C' },
+    { name: '--color-fp-stage-open', file: 'components/fengshui/FloorPlanStudio.tsx', why: '不带 fallback；舞台"开放"那一格的填充色，归批C' },
+  ];
+  const keyOf = (n: string, f: string) => `${n}@${f}`;
+  const gotKeys = new Set(undefinedVars.flatMap(([n, us]) => us.map(u => keyOf(n, u.file))));
+  const listedKeys = new Set(UNDEFINED_ALLOWLIST.map(e => keyOf(e.name, e.file)));
+  const fresh = [...gotKeys].filter(k => !listedKeys.has(k));
+  const stale = UNDEFINED_ALLOWLIST.filter(e => !gotKeys.has(keyOf(e.name, e.file)));
+  ok('dir/no-undefined-css-var', fresh.length === 0 && stale.length === 0,
+    `var() 引用的 --color-* / --qn-* 必须在 globals.css 里有定义（带 fallback 的名字写错永远不会红，只是安静画成回退值；不带的那种属性直接失效）。`
+    + `清单外新增 ${fresh.join(' | ') || '0 处'}；清单里已不成立 ${stale.map(e => keyOf(e.name, e.file)).join(' | ') || '0 处'}（成立就报"已不成立"，那是要从清单删掉的信号，不是好消息该留着）`);
+  for (const e of UNDEFINED_ALLOWLIST) say(`MEASURED 未定义令牌 ${e.name} @ ${e.file} —— ${e.why}`);
+  ok('dir/status-tokens-defined', ['--color-status-open', '--color-status-partial', '--color-status-closed']
+    .every(t => css.includes(t + ':')) && /\[data-mode="western"\][\s\S]*?--color-status-open/.test(css),
+    '三个状态点各有令牌，且西方作用域真的重指向过（只定义浅底那一份 = 深底上那一档从没被量过）');
+  // 三数相加必须等于总数：门廊那行、目录页那行都靠它说话，缺一个状态词就是少报一类。
+  const oriental = statusCounts(INTENTS);
+  const western = statusCounts(WESTERN_INTENTS);
+  ok('dir/status-counts-add-up', [oriental, western].every(c => c.open + c.partial + c.closed === c.total)
+    && oriental.live === oriental.open + oriental.partial,
+    `三档相加必须等于总项数，且"有入口的"= 可用 + 部分可用：东方 ${oriental.open}+${oriental.partial}+${oriental.closed}=${oriental.total}（live ${oriental.live}）/ 西方 ${western.open}+${western.partial}+${western.closed}=${western.total}（live ${western.live}）`);
+  say(`MEASURED 门廊栏底那两行实际会印：「${statusTally(oriental)}」与「${statusTally(western)}」—— `
+    + `这是 lib/tools/status.ts 现算的，harness 从屏上读回来对同一份（旧写法「已开放 9 / 10」把部分可用混进分子）`);
 }
 
 // ── 7. 首屏四类意图与游客 id 单源（裁定 ① 的数据侧；视觉侧由 harness 的 first-screen 探针测）──
@@ -243,10 +335,10 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     ...(code.match(/href\s*=\s*["']\/[^"']*["']/g) || []),
     ...(code.match(/href\s*:\s*['"]\/[^'"]*['"]/g) || []),
   ].map(s => s.replace(/^.*[:=]\s*["']/, '').replace(/["']$/, '')))];
-  const allowed = ['/oriental', '/western', '/tools'];
+  const allowed = ['/oriental', '/western'];
   const offside = hrefs.filter(h => !allowed.includes(h));
   ok('gate/only-two-entries', hrefs.filter(h => h === '/oriental' || h === '/western').length === 2 && offside.length === 0,
-    `门廊上只准出现 /oriental、/western 两个体系入口（外加指向目录那一条 /tools）：实得 ${hrefs.sort().join(' ')}，越界 ${offside.join(' | ') || '无'}`);
+    `门廊上只准出现 /oriental、/western 两个体系入口（裁定 ① 之后连 /tools 也不在这里，它归两页工作页的页脚）：实得 ${hrefs.sort().join(' ')}，越界 ${offside.join(' | ') || '无'}`);
   ok('gate/entries-resolve', ['/oriental', '/western'].every(h => routeExists(h)),
     '两个体系入口都必须有真的 page.tsx（门廊是全站第一跳，这里断链等于整站进不去）');
   ok('gate/no-second-tool-list', !/HOME_FEATURED_SLUGS|LAUNCHER_SLUGS|homeCard|TOOL_BY_SLUG/.test(code)
@@ -256,9 +348,10 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('gate/counts-derived-from-catalogs',
     /import\s*\{[^}]*INTENTS[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code)
     && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(code)
-    && !/已开放\s*[0-9]/.test(code),
-    '门廊卡片上的数必须由两套目录现算（写死一个数字，目录一改它就开始说谎）：硬编码计数命中 '
-    + `${(code.match(/已开放\s*[0-9]+/g) || []).join('、') || '无'}`);
+    && /import\s*\{[^}]*statusTally[^}]*\}\s*from '@\/lib\/tools\/status'/.test(code)
+    && !/已开放\s*[0-9]/.test(code) && !/(可用|未开放|共)\s*[0-9]/.test(code),
+    '门廊栏底那三个数必须由两套目录现算、并且走 lib/tools/status.ts 那一份计数（写死一个数字，目录一改它就开始说谎）：硬编码计数命中 '
+    + `${(code.match(/(已开放|可用|未开放|共)\s*[0-9]+/g) || []).join('、') || '无'}`);
 
   const wTools = WESTERN_INTENTS.flatMap(g => g.tools);
   ok('west/status-vocabulary', wTools.every(t => ['可用', '部分可用', '未开放'].includes(t.status)),
@@ -283,6 +376,60 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     + '有了就得同时有导出它的引擎与 dir/stamps-equal-engine 那一类对拍');
   say(`MEASURED 西方目录：${wTools.length} 项，已开放 ${WESTERN_LIVE_HREFS.length} 项，未开放 ${WESTERN_CLOSED_TOOLS.length} 项`
     + `（${WESTERN_CLOSED_TOOLS.join('、')}）—— 门廊卡片上那个数就是从这里现算的`);
+
+  // 缺陷6（批10 报、运维 2026-10-21 裁"改目录那侧"）：目录里那句「不上传户型图」与实装相反，
+  // 而这句由 /tools 页原样渲染 —— 用户在同一个站里读到两句相反的话。
+  // 钉双向：note 不许再有"不上传"这类话，而工作室真的有 file input 时 note 必须说清"可选上传"。
+  {
+    const fsNote = TOOL_BY_SLUG['fengshui']?.note || '';
+    const studio = stripComments(readFileSync(join(FE, 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+    const uploadLib = stripComments(readFileSync(join(FE, 'lib', 'fengshui', 'upload.ts'), 'utf8'));
+    const hasPicker = /type="file"/.test(studio) && /ACCEPT_MIME/.test(studio);
+    const deniesUpload = /不上传户型图|图片不落地|不上传/.test(fsNote);
+    ok('dir/fengshui-note-matches-upload', hasPicker && !deniesUpload
+      && /上传可选/.test(fsNote) && /7 天/.test(fsNote) && /不进入报告|不进.*回执/.test(fsNote),
+      `户型的隐私声明必须与实装一致（实装：有选图入口 = ${hasPicker}；note 里还有"不上传"= ${deniesUpload}）：${fsNote}`);
+    // note 里写的格式与上限不许是第二个事实源 —— 与 lib/fengshui/upload.ts 现读值对齐。
+    const mimes = (uploadLib.match(/ACCEPT_MIME\s*=\s*\[([^\]]*)\]/) || ['', ''])[1];
+    const maxMb = Number((uploadLib.match(/MAX_BYTES\s*=\s*([0-9]+)\s*\*\s*1024\s*\*\s*1024/) || ['', '0'])[1]);
+    const claimed = ['jpg', 'png', 'webp'].filter(k => fsNote.includes(k));
+    const claimedMb = Number((fsNote.match(/≤\s*([0-9]+)MB/) || ['', '0'])[1]);
+    ok('dir/fengshui-note-claims-are-true', claimed.length === 3 && /jpeg/.test(mimes) && /png/.test(mimes) && /webp/.test(mimes)
+      && claimedMb > 0 && claimedMb === maxMb,
+      `note 里承诺的格式与体积上限必须等于 upload.ts 的实际闸门（声明 ${claimed.join('/')} ≤${claimedMb}MB，闸门 ${maxMb}MB、MIME ${mimes.replace(/\s+/g, '')}）`);
+  }
+
+  // 死文件守卫（运维 2026-10-21 裁的范围：两份 qingnang CSS + frontend/app 下的 *_bak*）。
+  // 量过的删除理由要说清：这两份 300KB 的样式表在源码里零引用，构建产物里也没有它们的
+  // [data-theme=zen] —— 它们的问题不是"把包弄大"，而是挂在生产域上可被 /qingnang.css 直链下载，
+  // 并且在 Tailwind 的扫描目录里留着两份与 globals.css 冲突的令牌源。
+  {
+    const gone = ['app/qingnang-full.css', 'public/qingnang.css'].filter(rel => existsSync(join(FE, rel)));
+    const baks = readdirSync(APP).filter(n => /_bak|\.bak|_backup|_old/i.test(n));
+    ok('dir/no-dead-vendored-files', gone.length === 0 && baks.length === 0,
+      `已裁掉的死文件不许回来（回来就等于多一份令牌源 + 一条能被直链下载的死样式表）：仍在 ${[...gone, ...baks.map(n => 'app/' + n)].join('、') || '0 个'}`);
+    // 产物侧的守卫要能被真的执行到，所以 `.next` 不在时是 SKIP 并说明，而不是默默通过。
+    const cssFiles: string[] = [];
+    const walkBuild = (dir: string) => {
+      let entries;
+      try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walkBuild(p);
+        else if (e.name.endsWith('.css')) cssFiles.push(p);
+      }
+    };
+    walkBuild(join(FE, '.next', 'static'));
+    if (cssFiles.length) {
+      // 产物也走同一把刀：将来若打包器留下注释，注释里那句选择器不能算"包里有 zen"，
+      // 反过来也不能让一条被注释掉的选择器冒充"已经清干净"。
+      const bundle = cssFiles.map(f => stripComments(readFileSync(f, 'utf8'))).join('\n');
+      ok('dir/bundle-free-of-dead-styles', !/\[data-theme=zen\]/.test(bundle) && !/\.mk-[a-z]/.test(bundle),
+        `构建产物里不许有 zen 主题选择器或静态稿的 mk- 类（静态稿在 docs/ 下、不在扫描范围内，这条钉的是"别把它请进生产"）：包 ${cssFiles.length} 个 / ${(bundle.length / 1024).toFixed(0)}KB`);
+    } else {
+      say('SKIP  dir/bundle-free-of-dead-styles  没有 .next 里的 CSS 产物可读 —— 先 build 再跑，否则这条什么都没测');
+    }
+  }
 }
 
 const summary = `directory acceptance: tools=${ALL_TOOLS.length} open=${OPEN.length} pass=${pass} fail=${fail}`;

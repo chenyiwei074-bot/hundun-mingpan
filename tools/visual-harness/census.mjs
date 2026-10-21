@@ -925,6 +925,183 @@ const themeProbe = kind => `(() => {
   return { miss: out, ...got };
 })()`;
 
+// 静态稿那三态在真盘上的对应物：default（刚加载）→ hover（CDP 真指针挪进栏里）→
+// focus-visible（真键盘 Tab 进去）。两件事必须说清：
+//  - el.focus() 不会点亮 :focus-visible，只有键盘导航会；所以这里一发一发按 Tab。
+//  - 悬停态的文字对比度要拿**合成后的底**再算一次：叠层一亮，浅底变亮、墨底变暖，
+//    这正是 ④ 禁 filter:brightness() 的原因 —— 那种改法这一层读不到，也就骗过了判定。
+const OUTLINE_EAST = 'rgb(122, 95, 49)';    // --color-accent-gold-text #7a5f31
+const OUTLINE_INK = 'rgb(227, 205, 150)';   // --color-accent-gold-on-ink #e3cd96（裁定③：深底用这一支）
+async function gateInteraction(tag) {
+  const bad = m => { fail.push(tag + ': ' + m); console.log('    FAIL ' + m); };
+  const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
+  const v0 = await evl(GATE_STATE_PROBE);
+  if (!v0 || !Array.isArray(v0.cards) || !v0.cards.length) { bad('门廊两栏一个都没读到（选择器 a.domain-card 失效）'); return; }
+  if (v0.cards.length !== 2) bad(`门廊应当恰好两栏，实得 ${v0.cards.length} 栏`);
+  for (const c of v0.cards) {
+    if (c.nested !== 0) bad(`栏 ${c.href} 里嵌了 ${c.nested} 个可点/可聚焦元素 —— 裁定①要的是整栏只有一个 <a>`);
+    if (norm(c.filter) !== 'none') bad(`栏 ${c.href} 上有 filter:${c.filter}：它改渲染结果而不改声明，对比度判定会被骗过（裁定④）`);
+    if (c.veilOpacity !== 0) bad(`默认态那一层悬停叠层不该亮着：opacity=${c.veilOpacity}`);
+    for (const t of c.worst) if (!t.ok) bad(`AA(栏) ${t.ratio} ${t.size}px/${t.weight} ${t.fg} on ${t.ground} "${t.text}"`);
+    // 那行数（形状 + 三档相加）不在这里判 —— 它在 check() 里由 firstScreen 那份读数判，
+    // 两处各判一次就会在两处各漂一次。
+  }
+  const rects = await evl(`[...document.querySelectorAll('a.domain-card')].map(c => { const r = c.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), mode: c.getAttribute('data-mode') }; })`);
+  // 悬停只在"这一轮模拟的是能悬的指针"时跑：触屏下 (hover: none)，:hover 本来就不该有读数，
+  // 硬跑会把一条不存在的要求量成红。跳过要打印，不许静默。
+  if (TOUCH) {
+    console.log('    SKIP hover：本轮是触屏档（hover:none），悬停态只在桌面档量');
+  } else if (rects && rects.length >= 2) {
+    for (const r of rects) {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: r.x, y: r.y, button: 'none' });
+      await sleep(300);   // 叠层过渡 0.18s，等它亮到位再读，否则读到的是中间帧
+      const hv = await evl(GATE_STATE_PROBE);
+      const c = hv && hv.cards.find(x => x.mode === r.mode);
+      if (!c) { bad(`悬停后读不到 ${r.mode} 栏`); continue; }
+      if (!(c.veilOpacity > 0 && c.veilOpacity <= 0.08)) bad(`${r.mode} 栏悬停叠层 opacity=${c.veilOpacity}，应在 (0, .08]：要么没亮，要么亮过头`);
+      if (norm(c.filter) !== 'none') bad(`${r.mode} 栏悬停用了 filter:${c.filter}（裁定④禁的是这个，不是叠层）`);
+      const lit = c.worst.filter(t => !t.ok);
+      for (const t of lit) bad(`悬停后 AA 掉档 ${r.mode}：${t.ratio} ${t.size}px ${t.fg} on ${t.ground} "${t.text}"`);
+      console.log(`    HOVER[${r.mode}] veil=${c.veilOpacity} 底=${c.ground}→合成=${c.worst[0] && c.worst[0].ground} 最差=${Math.min(...c.worst.map(t => t.ratio || 99))}:1`);
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 1, y: 1, button: 'none' });
+      await sleep(240);
+    }
+    const off = await evl(GATE_STATE_PROBE);
+    for (const c of off.cards) if (c.veilOpacity !== 0) bad(`${c.mode} 栏指针移开后叠层还亮着：opacity=${c.veilOpacity}`);
+  } else bad('悬停找不到两栏的中心点（rects=' + JSON.stringify(rects) + '）');
+  // 键盘：Tab 一发一发按，把两栏都走一遍（导航在前，所以要按若干下）。
+  // 两栏各自都要钉一次：只验第一栏的话，"深底那一支焦点环"这条裁定就永远没被量过。
+  const focusSeen = {};
+  for (let i = 0; i < 24 && Object.keys(focusSeen).length < 2; i++) {
+    for (const type of ['keyDown', 'keyUp']) {
+      await send('Input.dispatchKeyEvent', { type, key: 'Tab', code: 'Tab', text: '\t',
+        windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9 });
+    }
+    await sleep(60);
+    const landed = await evl(`(() => { const a = document.activeElement; if (!a) return null;
+      const c = a.closest ? a.closest('a.domain-card') : null; if (!c) return null;
+      const cs = getComputedStyle(c);
+      const lum = s => { const m = String(s).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/); if (!m) return null;
+        const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+        return 0.2126 * f(+m[1] / 255) + 0.7152 * f(+m[2] / 255) + 0.0722 * f(+m[3] / 255); };
+      // 焦点环的对比度必须**在这一拍**算：焦点一移开，outline 就不再是 :focus-visible 那一条了，
+      // 下一发 evl 读到的会是没聚焦时的样式，那个数没有任何意义。
+      const x = lum(cs.outlineColor), y = lum(cs.backgroundColor);
+      return { mode: c.getAttribute('data-mode'), focusVisible: c.matches(':focus-visible'),
+        outline: [cs.outlineStyle, cs.outlineWidth, cs.outlineColor].join('|'), ground: cs.backgroundColor,
+        ratio: (x === null || y === null) ? null : Math.round(((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)) * 100) / 100 }; })()`);
+    if (landed && !focusSeen[landed.mode]) focusSeen[landed.mode] = landed;
+  }
+  const modes = Object.keys(focusSeen);
+  if (!modes.length) bad('按了 24 下 Tab 也没把焦点送进任何一栏 —— 两栏不可键盘到达');
+  else {
+    if (modes.length < 2) bad(`键盘只到得了 ${modes.join('/')}，两栏都该 Tab 得到`);
+    for (const mode of modes) {
+      const landed = focusSeen[mode];
+      const [style, width, color] = landed.outline.split('|');
+      if (!landed.focusVisible) bad(`${mode} 栏拿到了焦点但 :focus-visible 没点亮 —— 判定读到的那圈描边不是用户看到的`);
+      if (style !== 'solid') bad(`${mode} 栏焦点环是 ${style}，应为 solid`);
+      if (!(parseFloat(width) >= 2)) bad(`${mode} 栏焦点环宽 ${width}，应 ≥2px`);
+      const want = mode === 'western' ? OUTLINE_INK : OUTLINE_EAST;
+      if (norm(color) !== want) bad(`${mode} 栏焦点环是 ${color}，裁定③要的是 ${want}（墨底用 #e3cd96，浅底用 #7a5f31）`);
+      if (landed.ratio === null) bad(`${mode} 栏焦点环对比度算不出来（颜色解析失败）`);
+      else if (landed.ratio < 3) bad(`${mode} 栏焦点环对底只有 ${landed.ratio}:1，非文本下限 3:1`);
+      console.log(`    FOCUS[${mode}] ${landed.outline} 对底 ${landed.ratio}:1`);
+    }
+  }
+  await evl('document.activeElement && document.activeElement.blur && document.activeElement.blur(); true');
+}
+
+// 状态圆点的对比度（裁定 ⑤ 的另一半）。钉的是**屏上真渲出来的那个点**：
+// 源码里 var() 指对了、但落到底不是量过的那一块，照样掉下 3:1；西方那一档原来更狠 ——
+// 它 var() 的是一支全站从没定义过的令牌，于是安静地画成近乎透明。
+// 下限 3:1（非文本），并且每个徽章必须带文字：只靠颜色区分状态，色觉之外的人就读不到。
+const DOT_STATES = { tools: 'three', western: 'one' };
+const dotProbe = want => `(() => {
+  const lum = s => { const m = String(s).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?/); if (!m) return null;
+    const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    const a = m[4] === undefined ? 1 : +m[4];
+    return { l: 0.2126 * f(+m[1] / 255) + 0.7152 * f(+m[2] / 255) + 0.0722 * f(+m[3] / 255), a }; };
+  // 底：沿祖先找第一层不透明背景色。徽章与它那块卡都是实色，没算渐变层
+  // （要算的那一类由主审计的 bgSet 负责，这里不重复一套口径）。
+  const ground = el => { for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+      const c = getComputedStyle(n).backgroundColor || ''; const L = lum(c);
+      if (L && L.a > 0.9) return c; }
+    return 'rgb(255, 255, 255)'; };
+  const ratio = (fg, bg) => { const x = lum(fg), y = lum(bg); if (!x || !y) return null;
+    return Math.round(((Math.max(x.l, y.l) + 0.05) / (Math.min(x.l, y.l) + 0.05)) * 100) / 100; };
+  const out = []; const seen = {};
+  const dots = [...document.querySelectorAll('.qn-badge__dot')];
+  for (const d of dots) {
+    const cs = getComputedStyle(d);
+    if (cs.visibility === 'hidden' || +cs.opacity < 0.1 || !d.getClientRects().length) continue;
+    const g = ground(d.parentElement);
+    const r = ratio(cs.backgroundColor, g);
+    const badge = d.closest('.qn-badge');
+    const label = ((badge && badge.innerText) || '').replace(/\\s+/g, '').trim();
+    seen[label] = (seen[label] || 0) + 1;
+    if (!(cs.borderRadius || '').startsWith('5')) out.push('圆点不是圆点（border-radius=' + cs.borderRadius + '）');
+    const size = Math.round(parseFloat(cs.width) * 10) / 10;
+    if (!(size >= 6 && size <= 10)) out.push('点径 ' + size + 'px，不在 6–10 那一档');
+    if (r === null) out.push('颜色算不出来（探针解析失败） on ' + g);
+    else if (r < 3) out.push(label + ' 点 ' + r + ':1 < 3:1（' + cs.backgroundColor + ' on ' + g + '）');
+    if (!/可用|未开放/.test(label)) out.push('徽章没有文字，只有颜色：' + JSON.stringify(label));
+  }
+  const miss = [...new Set(out)];
+  const kinds = Object.keys(seen);
+  if (!dots.length) miss.push('这一页一个状态徽章都没有（.qn-badge__dot = 0）—— 这一态从未被测到，不是通过');
+  else if ('${want}' === 'three' && kinds.length < 3) miss.push('三档状态没集齐，实得 ' + kinds.join('/'));
+  return { miss, n: dots.length, kinds: seen };
+})()`;
+
+// 门廊两栏的悬停与焦点。为什么必须走 CDP 真指针 / 真键盘：
+// :hover 与 :focus-visible 都不是能"设"出来的状态，el.focus() 也不会点亮 focus-visible，
+// 用 JS 直接把样式写上去等于自测一张自己画的假状态。
+const GATE_STATE_PROBE = `(() => {
+  const cards = [...document.querySelectorAll('a.domain-card')];
+  const lum = s => { const m = String(s).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?/); if (!m) return null;
+    const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    return { l: 0.2126 * f(+m[1] / 255) + 0.7152 * f(+m[2] / 255) + 0.0722 * f(+m[3] / 255), a: m[4] === undefined ? 1 : +m[4] }; };
+  const over = (fg, bg) => { const x = lum(fg), y = lum(bg); if (!x || !y) return null;
+    return Math.round(((Math.max(x.l, y.l) + 0.05) / (Math.min(x.l, y.l) + 0.05)) * 100) / 100; };
+  // 前景合成：veil 压在栏底上，文字读到的底是合成后的那一块，不是 var() 里那个原始值。
+  // alpha 用叠层自己的 computed opacity 乘上去 —— 这正是裁定④要的东西：叠层能被读出来，
+  // filter:brightness() 就读不出来（它改的是渲染结果，不改声明）。
+  const mix = (top, alpha, bottom) => {
+    const m = String(top).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
+    const n = String(bottom).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
+    if (!m || !n) return bottom;
+    const ch = i => Math.round(+m[i] * alpha + +n[i] * (1 - alpha));
+    return 'rgb(' + [ch(1), ch(2), ch(3)].join(', ') + ')';
+  };
+  return {
+    cards: cards.map(c => {
+      const cs = getComputedStyle(c);
+      const veil = c.querySelector('.domain-card__veil');
+      const vcs = veil ? getComputedStyle(veil) : null;
+      const alpha = vcs ? +vcs.opacity : 0;
+      const ground = alpha > 0 ? mix(vcs.backgroundColor, alpha, cs.backgroundColor) : cs.backgroundColor;
+      const texts = [...c.querySelectorAll('p,h1,h2,span')].filter(e => (e.innerText || '').trim().length
+        && !e.querySelector('p,h1,h2,span')).map(e => {
+        const t = getComputedStyle(e);
+        const px = parseFloat(t.fontSize);
+        return { text: (e.innerText || '').replace(/\\s+/g, '').slice(0, 14), size: px, weight: +t.fontWeight,
+          fg: t.color, ground, ratio: over(t.color, ground) }; });
+      return { mode: c.getAttribute('data-mode'), href: c.getAttribute('href'),
+        rect: (r => ({ w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) }))(c.getBoundingClientRect()),
+        ground: cs.backgroundColor, filter: cs.filter, veilOpacity: vcs ? +vcs.opacity : null,
+        veilColor: vcs ? vcs.backgroundColor : null,
+        outline: [cs.outlineStyle, cs.outlineWidth, cs.outlineColor],
+        nested: c.querySelectorAll('a,button,input,select,textarea,[tabindex],[role=button]').length,
+        focusVisible: c.matches(':focus-visible'),
+        tally: ((c.querySelector('.domain-card__tally') || {}).innerText || '').replace(/\\s+/g, ' ').trim(),
+        worst: texts.map(t => ({ ...t, ok: t.ratio !== null && (t.size >= 24 || (t.size >= 19 && t.weight >= 700) ? t.ratio >= 3 : t.ratio >= 4.5) })) };
+    }),
+    active: document.activeElement ? document.activeElement.className : '',
+  };
+})()`;
+
 // 纠正一还有一句「全部走变量，禁止硬编码色」。这一条只能静态查：计算样式分不出
 // "这个 rgb 是写死的还是 token 展开的"，浏览器里看到的一切都一样。
 // 扫之前必须剥掉 /* */ —— 注释里就出现过 #fff（"输入框写死了浅色值"那句正是拿它举例），
@@ -1429,7 +1606,10 @@ const CENSUS = String.raw`(() => {
     docH: document.documentElement.scrollHeight,
     shell: shell ? (() => { const cs = getComputedStyle(shell); const w = Math.round(shell.getBoundingClientRect().width);
       const s = shell.querySelector('.qn-shell') || shell;
-      return { tag: shell.tagName.toLowerCase(), w, max: getComputedStyle(s).maxWidth, cls: s.className.slice(0, 40) }; })() : null,
+      // clientW：Chrome 的 innerWidth 含滚动条（本机 15px），clientWidth 不含。
+      // 满幅那一支判据若拿 innerWidth 比，会把每一张没有 max-width 的页都判成"壳塌了"。
+      return { tag: shell.tagName.toLowerCase(), w, max: getComputedStyle(s).maxWidth, cls: s.className.slice(0, 40),
+        clientW: document.documentElement.clientWidth }; })() : null,
     bodyDisplay: getComputedStyle(document.body).display,
     regions: {}, offLadder: off,
     overflowClips: clips, kongMarks: kong, plate,
@@ -1597,7 +1777,32 @@ const FIRST_SCREEN = `(() => {
     // 数是从目录算出来渲染的，这里把它读回来，与 GATE_EXPECT 对 —— 门廊说谎就在这露馅。
     domainCards: [...document.querySelectorAll('a.domain-card')].map(a => ({
       href: a.getAttribute('href'), fold: inFold(a),
-      tally: ((a.querySelector('.qn-axis') || {}).innerText || '').replace(/\s+/g, ' ').trim() })) };
+      // 类名跟着门廊改版换了（原来那行挂在 .qn-axis 上）。这里必须跟着换，
+      // 否则读回来的是空串，形状判定会在"什么都没读到"上一直绿着。
+      tally: ((a.querySelector('.domain-card__tally') || {}).innerText || '').replace(/\s+/g, ' ').trim() })),
+    // 导航是 position:fixed，不占文档流 —— 页面主体必须自己让出那 56px。
+    // 这条判据是批A 补的：门廊改版后 h1 顶到 49px，被吸顶导航压掉上半截，而当时
+    // 没有任何一条断言看这件事（宽度、溢出、命中区、对比度全都过了 —— 压住的字照样是"够对比度的字"）。
+    // 只查"自己带文字"的元素：整块背景压在那条半透明带底下是设计，字被压住不是。
+    navClash: (() => {
+      const nav = document.querySelector('.qn-nav');
+      if (!nav) return [];
+      const nb = nav.getBoundingClientRect().bottom;
+      const bad = [];
+      for (const e of document.querySelectorAll('main *')) {
+        if (e.children.length) continue;
+        if (!(e.innerText || '').trim()) continue;
+        const cs = getComputedStyle(e);
+        if (cs.visibility === 'hidden' || +cs.opacity < 0.1) continue;
+        const r = e.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        if (r.top < nb - 1 && r.bottom > 4) {
+          bad.push((e.tagName + '.' + (e.className || '')).slice(0, 34) + ' top=' + Math.round(r.top) + '「' + (e.innerText || '').trim().slice(0, 12) + '」');
+          if (bad.length >= 4) break;
+        }
+      }
+      return bad;
+    })() };
 })()`;
 
 function check(tag, v) {
@@ -1616,6 +1821,12 @@ function check(tag, v) {
   if (v.bodyText < 100) bad(`page rendered almost no text (${v.bodyText} chars) — did the data load?`);
   if (!v.booted) bad('boot script never ran: CLS/LCP observers are dead, so the perf numbers are meaningless');
   if (v.overflowX > 0) bad(`horizontal overflow ${v.overflowX}px`);
+  // 吸顶导航是 position:fixed，不占文档流 —— 每一态都在 scrollY=0 量一次"正文有没有被它压住"。
+  // 这条是批A 补的：门廊改版后 h1 顶到 49px（导航底 57px），上半截字被压在毛玻璃底下，
+  // 而宽度 / 溢出 / 命中区 / 对比度四条判据全都绿 —— 被压住的那半截字仍然是"够对比度的字"。
+  for (const c of ((v.firstScreen && v.firstScreen.navClash) || [])) {
+    bad(`正文压在吸顶导航底下（主体没让出那 56px）：${c}`);
+  }
   // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推走那种位移没人管
   // （/western 问事态实测 0.106，元凶是提交按钮在 flex-wrap 里换了行）。
   // 分工要说清：交互引起的位移直接红；加载期就有的位移单独喊（本轮量到六爻结果页 0.17–0.24，
@@ -1652,6 +1863,12 @@ function check(tag, v) {
     const cap = parseInt(v.shell.max, 10) || 1e9;
     const want = Math.min(cap, v.iw || W);
     if (Math.abs(v.shell.w - want) > 1) bad(`SHELL COLLAPSED: ${v.shell.tag}.${v.shell.cls.split(' ')[0]} is ${v.shell.w}px, expected ${want}px`);
+  } else if (v.shell && v.shell.max === 'none') {
+    // 满幅版式（门廊两栏，以及东方页那种没有 max-width 的 main）没有上限可核对 —— 旧写法在这里
+    // 直接跳过，于是"壳塌成内容宽"这一整类缺陷在这些页上根本不会被测到。跳过换成另一条判据：
+    // 壳必须铺满可用的视口宽（clientWidth，不含滚动条）。
+    const want = v.shell.clientW || v.iw || W;
+    if (Math.abs(v.shell.w - want) > 1) bad(`SHELL COLLAPSED(满幅): ${v.shell.tag}.${v.shell.cls.split(' ')[0] || '(无类名)'} 是 ${v.shell.w}px，满幅应为 ${want}px`);
   }
   // footer sits on the bottom of the viewport when the page is short
   if (v.foot && v.docH <= (v.ih || H) + 1) {
@@ -1734,11 +1951,16 @@ function check(tag, v) {
         bad(`门廊两张卡的入口必须是 ${want.join(' 与 ')}，实得 ${JSON.stringify(got)}`);
       for (const c of cards) {
         if (!c.fold) bad(`门廊卡片 ${c.href} 不在首屏内（这就是"进来先选体系"这件事没做到）`);
-        if (!/^已开放 \d+ \/ \d+ 项/.test(c.tally || ''))
-          bad(`门廊卡片 ${c.href} 上那行数读不成「已开放 N / M 项」：${JSON.stringify(c.tally)}`);
+        // 裁定①的补充：那行不再写「已开放 9 / 10」—— 分子把"部分可用"（有入口但缺一段）
+        // 也算进去了，读者看不出 9 里有几项是半开的。改成三档并列 + 总数，并当场验相加等于总数。
+        const m = /^可用 (\d+) · 部分可用 (\d+) · 未开放 (\d+) · 共 (\d+) 项$/.exec(c.tally || '');
+        if (!m) bad(`门廊卡片 ${c.href} 上那行数读不成「可用 N · 部分可用 N · 未开放 N · 共 N 项」：${JSON.stringify(c.tally)}`);
         else {
-          const [n, m] = (c.tally.match(/(\d+) \/ (\d+)/) || []).slice(1).map(Number);
-          if (n > m) bad(`门廊卡片 ${c.href} 上 已开放 ${n} > 目录 ${m} —— 数是从目录算的，出现这种结果就是算错了`);
+          const [open, partial, closed, total] = m.slice(1).map(Number);
+          if (open + partial + closed !== total)
+            bad(`门廊卡片 ${c.href} 上 ${open}+${partial}+${closed}≠${total} —— 数是从目录现算的，出现这种结果就是算错了`);
+          if (total === 0) bad(`门廊卡片 ${c.href} 上总项数 0：那一侧的目录没读进来（空目录会安静地印出 0）`);
+          if (open > total || closed > total) bad(`门廊卡片 ${c.href} 上单项大于总数：${open}/${partial}/${closed} vs ${total}`);
         }
       }
       console.log(`   GATE cards=${cards.length} [${cards.map(c => `${c.href}:${c.tally.replace(/\s+/g, '')}`).join(' ')}] nav=${(f.navItems || []).length} marketing=${(f.marketing || []).length}`);
@@ -2288,6 +2510,17 @@ const fsEditProbe = p => `(() => {
       return [...ink.querySelectorAll('*')].filter(e => gold(e) && lit(e)).length; })()`);
     console.log('    金漆压在点亮行上的 AA 对象 ' + n + ' 个' + (n === 0 ? '（本轮 AA 检查没有对象，不是「已通过」）' : ''));
   }
+  // 状态圆点（裁定 ⑤ 的屏侧）。钉值不齐就判红，不接受"这一屏恰好没对象"当通过 ——
+  // 与金漆那一档同一教训：0 个对象不是通过，是没测。
+  if (DOT_STATES[base]) {
+    const got = await evl(dotProbe(DOT_STATES[base]));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 状态点探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 状态点不达标 — ' + x);
+    console.log(`   STATUS-DOT 点=${got && got.n} 各档=${JSON.stringify(got && got.kinds)}`);
+  }
+  // 门廊两栏的 default / hover / focus 三态（静态稿那三条并排，这里要在真盘上同样成立）。
+  if (base === 'home') await gateInteraction(tag);
   const v = await evl(CENSUS);
   if (v && !v.__err) { v.iw = W; v.ih = H; v.wantTouch = TOUCH; v.url = url; v.firstScreen = fold; }
   results[tag] = v;

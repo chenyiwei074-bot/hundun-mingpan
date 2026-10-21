@@ -477,10 +477,11 @@ export default function OrientalBody() {
         <div className="hero-inner">
           <div className="hero-art fx fx-stage"><HeroPan /></div>
           <div className="hero-copy">
-            {/* 换体系的正路是回门廊重选，不是在工作页里塞一个小开关。 */}
-            <Link href="/" className="domain-back">← 返回选择体系</Link>
+            {/* 换体系的那条路走导航（工作页导航里有「返回选择」），正文里不再重复一次：
+                同一个动作出现两次，第二次就会与第一次漂移。
+                旧 tagline「Ai+传统命理研究平台」退役 —— 它把站说成"AI 算命"，而这里 AI 只解释、不算命。 */}
             <h1 className="h1 fx fx-title">混沌</h1>
-            <p className="hero-sub fx fx-sub">Ai+传统命理研究平台</p>
+            <p className="hero-sub fx fx-sub">东方玄学 · 工具箱</p>
             <div className="hero-actions fx fx-cta">
               <button onClick={() => setShowLauncher(true)} className="btn-primary">
                 开始使用 <span aria-hidden="true">→</span>

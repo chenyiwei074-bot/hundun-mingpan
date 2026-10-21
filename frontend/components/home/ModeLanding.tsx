@@ -34,8 +34,9 @@ export default function ModeLanding({ mode, children }: {
   return (
     <main className="qn-shell qn-shell--wide" data-mode={mode}>
       <header className="qn-rise" style={{ paddingTop: 24 }}>
-        <Link href="/" className="domain-back">← 返回选择体系</Link>
-        <p className="qn-eyebrow" style={{ marginTop: 14 }}>{c.eyebrow}</p>
+        {/* 「← 返回选择体系」这一条搬进了导航（工作页导航里有「返回选择」）。
+            同一件事在页面上出现两次，第二次就会与第一次漂移。 */}
+        <p className="qn-eyebrow" style={{ marginTop: 0 }}>{c.eyebrow}</p>
         <h1 className="qn-hero">{c.title}</h1>
         <p className="qn-meta" style={{ marginTop: 10, maxWidth: '62ch' }}>{c.lead}</p>
       </header>
@@ -49,6 +50,9 @@ export default function ModeLanding({ mode, children }: {
           排盘与抽取由各自的规则引擎执行，模型只做解释与引导。
         </p>
         <p className="qn-linkrow">
+          {/* 裁定 ①：/tools 从门廊挪走，挂在两页工作页的页脚。门廊上再留一条聚合入口，
+              它就又变成"第三个地方"，两栏选体系这件事也被稀释了。 */}
+          <Link className="qn-link" href="/tools">工具状态与取数口径</Link>
           <Link className="qn-link" href="/">返回选择体系</Link>
         </p>
       </section>

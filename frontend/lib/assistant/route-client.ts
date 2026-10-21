@@ -9,7 +9,11 @@ import { ASSISTANT_PROTOCOL, parseRouteResult, reconcile } from './types';
 import type { AssistantRouteResult, Mode } from './types';
 import { routeLocal } from './intent';
 
-const ROUTE_ENDPOINT = '/api/assistant/route';
+// 缺陷①（批10 核出、运维已裁）：这里原来打的是 '/api/assistant/route'，
+// 而路由文件 app/api/assistant/route.ts 导出的路径是 '/api/assistant' —— 多出来的那一段
+// 让服务端那一发永远 404，每次都静默回落本机，页面却把回落说成"这一轮来自本机"。
+// 路径与路由必须一致由 tools/assistant-acceptance 的 route/endpoint-matches-route 钉住。
+const ROUTE_ENDPOINT = '/api/assistant';
 const TIMEOUT_MS = 6000;
 
 export interface RouteOutcome {

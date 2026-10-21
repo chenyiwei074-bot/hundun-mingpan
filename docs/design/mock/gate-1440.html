@@ -32,7 +32,7 @@
         <h1 class="mk-title">东方玄学</h1>
         <p class="mk-lead">从八字、六爻到风水，在传统体系中寻找问题的脉络。</p>
         <p class="mk-cta">进入东方世界 →</p>
-        <p class="mk-count">已开放 8 / 10 项 · 部分可用 1 · 未开放 1</p>
+        <p class="mk-count">可用 8 · 部分可用 1 · 未开放 1 · 共 10 项</p>
       </div>
     </a>
 
@@ -58,13 +58,13 @@
         <h1 class="mk-title">西方玄学</h1>
         <p class="mk-lead">从占星、塔罗到数字象征，探索不同的自我理解方式。</p>
         <p class="mk-cta">进入西方世界 →</p>
-        <p class="mk-count">已开放 0 / 5 项 · 未开放 5</p>
+        <p class="mk-count">可用 0 · 部分可用 0 · 未开放 5 · 共 5 项</p>
       </div>
     </a>
   </div>
 
   <div class="mk-states" aria-label="三态对照">
-    <div class="mk-s--east"><small>DEFAULT</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">底 #f5f2ea · 提示行 #b23a2e · 焦点环 #7a5f31</p></div>
+    <div class="mk-s--east"><small>DEFAULT</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">底 #f5f2ea · 提示行 #7a5f31 · 焦点环 #7a5f31</p></div>
     <div class="mk-s--east mk-s--hover"><small>HOVER（叠加层 opacity .045 + 文案上移 2px）</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">不用 filter:brightness()</p></div>
     <div class="mk-s--east mk-s--focus"><small>FOCUS-VISIBLE</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">outline 2px #7a5f31 / offset 2px</p></div>
     <div class="mk-s--west"><small>DEFAULT</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">底 #1b1030 · 提示行 #d9b877 · 正文 #f3eeff</p></div>
@@ -75,6 +75,8 @@
 
 <p class="mk-note">键盘顺序：品牌 → 东方栏 → 西方栏，Tab 两下就能到第二个入口；整栏是最小命中区（1440 下每栏约 720×900，远超 44px）。
 两栏文字对比度：#1d1d1f on #f5f2ea = 15.04:1、#5f5f66 = 5.82:1、#b23a2e = 5.31:1、#7a5f31 = 5.35:1；#f3eeff on #1b1030 = 15.2:1、#c9bfe0 ≈ 9:1、#d9b877 ≈ 7:1。
-"已开放 0 / 5 项"这一行是故意的 —— 西方五个工具全未开放，门廊不把它说成可用。</p>
+"可用 0 · 部分可用 0 · 未开放 5"这一行是故意的 —— 西方五个工具全未开放，门廊不把它说成可用。
+旧写法「已开放 9 / 10 项」（生产上此刻印的就是这个数）把「部分可用」混进了分子，读者看不出 9 项里有几项是半开的；三档并列之后，可用 8 + 部分可用 1 + 未开放 1 = 共 10 项，harness 当场验这个相加。
+提示行的颜色落地时改用了 --color-accent-gold-text(#7a5f31) 而不是朱砂(#b23a2e)：那一支在本站的意思是「凶」，不该当行动色。</p>
 </body>
 </html>
