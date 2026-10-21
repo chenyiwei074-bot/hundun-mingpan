@@ -217,9 +217,14 @@ const ORPHAN_PAGES = [
 // 目录里"有入口"的 href 全集，从 catalog.ts 源码现读。问事框回答里出现的每一个链接
 // 都必须落在这个集合里 —— 这一条是防"模型/代码幻觉出一个入口"的最后一道，写死一份清单
 // 就会与目录漂移，所以宁可去读源文件。
+// 读的是源码，必须先剥注释：注释掉的一行 `href: '/xxx'` 会悄悄把白名单放宽，这道闸门就
+// 松了而没有任何信号（globals.css 那处 token 审计同一做法）。
+// 这里只能内联写这两行 replace —— census.mjs 由 node 直接当 ESM 跑，import 不了
+// tools/_lib/codesrc.ts 那个 TypeScript 件。
+const CATALOG_SRC = readFileSync(join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const CATALOG_HREFS = [...new Set(
-  (readFileSync(join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8')
-    .match(/href:\s*['"]\/[^'"]+['"]/g) || []).map(s => s.replace(/.*['"](\/[^'"]+)['"]/, '$1')))];
+  (CATALOG_SRC.match(/href:\s*['"]\/[^'"]+['"]/g) || []).map(s => s.replace(/.*['"](\/[^'"]+)['"]/, '$1')))];
 
 // 问事框两态的钉值。期望全部是照 lib/assistant/intent.ts 的关键词表人工推出来的
 // （与 kline 那 144 组成对表同一做法），不是跑一遍再把输出抄回来。
@@ -1880,6 +1885,29 @@ const TRUSTED = {
 const STUB_ONLY = new Set(['fengshui-recognize-fail', 'fengshui-recognize-candidates']);
 const LIVE_ONLY = new Set(['fengshui-recognize-wire']);
 
+// 2026-10-21 裁定：live 全量只跑只读态 —— 生产库已经有真实客户盘，测试数据一条都不许落库。
+// 这张表是**读产品代码逐条确认**的，不是按页面名猜的：每一行都指向"哪一下会 POST"。
+// 为什么必须有这张表而不是"live 下别传 --chart-id"：不传 id 只挡住了八字那两态，
+// 而六爻结果那四态是 fixture 注入 sessionStorage 跑的，live 模式照样会跑（原来的注释写着
+// "live 模式也一样 —— 这个页面不请求 API"，实测是错的：app/liuyao/result/[id]/page.tsx:33
+// 只要 sessionStorage 里有盘就 saveReport，也就是**挂载即写**）。
+const WRITE_STATES = {
+  'chart-result': '挂载即 POST /api/reports 两次（chart/result/[id]/page.tsx:99-133，bazi + ziwei，带姓名/生日/出生地）',
+  'chart-result-empty': '同上（同一个页面，盘缺 siZhu 也照样保存报告）',
+  'chart-result-barren': '同上',
+  'chart-hepan': '同上（同一个页面，只是被真人点击推到"已并排"）',
+  'liuyao-result': '挂载即 POST /api/reports（liuyao/result/[id]/page.tsx:33-41，sessionStorage 有盘就写一条）',
+  'liuyao-result-time': '同上',
+  'liuyao-result-number': '同上',
+  'liuyao-result-legacy': '同上',
+  'oriental-ask': '点「问一下」POST /api/assistant（lib/assistant/route-client.ts:45；问题文本进去，后端没这条路由时回落本机）',
+  'western-ask': '同上',
+  'fengshui-recognize-fail': '点「送给模型提候选」POST /api/fengshui/recognize（图真的发给供应商）',
+  'fengshui-recognize-candidates': '同上',
+};
+// fengshui-recognize-wire 不在表里是**有意的**：它在 Request stage 就被 CDP Fetch abort 掉，
+// 那一发永远到不了服务端 —— 拦下来看的就是真实出站，放过去就失去这一态存在的理由。
+
 async function measure(tag, url) {
   // 契约态必须在导航之前就开拦截：POST 是点出来的，但拦晚一发的风险不值得留。
   const wireBase = tag.replace(/^(d1|m1)-/, '');
@@ -2379,12 +2407,25 @@ if (!STUB) {
   if (keep('report', '/report')) pages.push(['report', '/report/stub-locked', false]);
 }
 
-// 六爻结果态：只有注入 fixture 才画得出来，live 模式也一样 —— 这个页面不请求 API。
+// 六爻结果态：只有注入 fixture 才画得出来。**live 模式不跑**（挂载即 saveReport，见 WRITE_STATES）。
 // 四种盘各测一遍：三种起卦方式（摇卦 / 时间 / 报数）+ 一张去掉口径版本戳的老盘。
 for (const [tag, [id]] of Object.entries(LIUYAO_ROUTES)) {
   if (!keep(tag, '/liuyao/result')) continue;
   if (LIUYAO_BY_PATH['/liuyao/result/' + id]) pages.push([tag, '/liuyao/result/' + id, false]);
   else console.log(`\nSKIP ${tag}: 盘面来自 sessionStorage，--liuyao-id 渲染不出它，缺 fixture 就是缺 fixture`);
+}
+
+// live 只读闸门：把会写的态从这一趟里摘掉，**跑前**就把清单打在日志最前面（裁定要求）。
+const liveBlocked = [];
+if (!STUB) {
+  for (let i = pages.length - 1; i >= 0; i--) {
+    const t = pages[i][0];
+    if (WRITE_STATES[t]) { liveBlocked.push(t); pages.splice(i, 1); }
+  }
+  if (liveBlocked.length) {
+    console.log(`\nLIVE 只读模式：下面 ${liveBlocked.length} 个态被摘掉，因为它们会 POST 到生产（裁定：测试数据不许落库）`);
+    for (const t of new Set(liveBlocked)) console.log(`  - ${t}: ${WRITE_STATES[t]}`);
+  }
 }
 
 console.log(`\nbase=${BASE}  out=${OUT}  stub=${STUB}  chrome=${CHROME}`);
@@ -2460,7 +2501,9 @@ if (!cssBad.length) console.log('CSS-TOKEN western 作用域内零写死色，we
 // 参数开头的 /western）就整轮什么都没测，退出码还是 0。筛过就必须筛到东西。
 const ranStates = Object.keys(results).filter(k => !k.endsWith('__perf')).length;
 if (ONLY.length && ranStates === 0) {
-  fail.push(`--only=${ONLY.join(',')} 一个态都没匹配到（0 态）—— 拼错了，这一轮不算通过`);
+  fail.push(`--only=${ONLY.join(',')} 一个态都没匹配到（0 态）—— 拼错了，这一轮不算通过`
+    + `${liveBlocked.length ? `。另一种可能不是拼错：live 只读刚把 ${liveBlocked.length} 个会 POST 的态摘掉了（${[...new Set(liveBlocked)].join('、')}），`
+      + '筛出来的恰好全是被摘掉的那些时，请在 --stub 下跑这些态' : ''}`);
 }
 if (fail.length) {
   console.log(`${fail.length} FAILURE(S)`);
@@ -2469,6 +2512,13 @@ if (fail.length) {
   console.log(`ALL CHECKS PASSED — ${ranStates} states` +
     (exempts.length ? ` (with ${exempts.length} exempted violation(s) above)` : '') +
     (warns.length ? ` (with ${warns.length} warning(s) above — 含 KNOWN-CONTRAST)` : ''));
+}
+// 跑完把"因只读而被摘掉的态"再报一次（裁定要求跑前列清单、跑后报跳过项 ——
+// 只报一遍的话，日志一翻过那段就没人知道这一趟少跑了 12 个态）。
+if (!STUB) {
+  console.log(`live 只读：这一趟跑 ${ranStates} 个态，因会 POST 而跳过 ${liveBlocked.length} 个`
+    + `${liveBlocked.length ? '（' + [...new Set(liveBlocked)].join('、') + '）。' : '。'}`
+    + '这些态只能在 --stub 下测，或对着本机后端跑 —— 生产库不接测试数据。');
 }
 console.log('evidence written to ' + OUT);
 ws.close();

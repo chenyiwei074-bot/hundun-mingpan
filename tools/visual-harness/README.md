@@ -208,7 +208,7 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 | `fengshui-recognize-wire` | `/fengshui` | 契约那一枪的**网络层**核对：CDP Fetch 拦下真实出站请求，验 Content-Type / 体里正好两个键 / base64 前缀 / visitorId 合服务端形状，然后 abort 并验页面落在「失败」。**只在去 `--stub` 时跑** |
 | `fengshui-edit` | `/fengshui` | 编辑闭环：真加一道墙、在墙上开个门、调宽、改一间房的用途，再逐条钉回来（墙体数、开口数、未确认数、用途 chip 是否真的选中、手工门有没有进判定、3D 是否解禁） |
 
-三条纪律写在这里：
+三条纪律写在这里（第 4 条是 2026-10-21 加的，所以现在是四条）：
 
 1. **门廊的数不许写死。** 卡片上「已开放 N / M 项」是页面从两套目录现算出来的，harness 只读
    回来验形状与 N ≤ M；数与目录是否相等由 `directory-acceptance` 的 `gate/*` 在源码侧钉。
@@ -225,9 +225,41 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
    两种 SKIP 都要打印原因，静默少跑一个态和跑错一样糟。
    版面 / 对比度 / 命中区那些与后端无关的审计，两种模式下都照跑。
 
+4. **live 全量只跑只读态，会 POST 的态一律跳过并把原因打出来（2026-10-21 裁定）。**
+   生产库已经有真实客户盘，测试数据一条都不许落库。`WRITE_STATES` 那张表是**读产品代码逐条确认**的，
+   不是按页面名猜的 —— 最容易漏的一类不是"点了提交"，而是**挂载即写**：
+   `app/liuyao/result/[id]/page.tsx:33` 只要 sessionStorage 里有盘就 `saveReport`，
+   而 census 原来那句注释写着"live 模式也一样 —— 这个页面不请求 API"，实测是错的，
+   四种六爻盘在 live 下全跑过，每跑一次落四行报告。八字那张同理（`chart/result/[id]/page.tsx:99-133`
+   挂载即存 bazi + ziwei 两份，带姓名/生日/出生地）。
+   跑前把被摘掉的态列在日志最前面，跑完再报一次跳过数；`--only` 筛出来恰好全是被摘掉的态时，
+   那条"0 态"红会附带说明是只读闸门摘的，不是拼错了。
+   `GET /api/charts/quota` 这类只读请求照常真跑（本机没有后端时它是 404，页面落「未知」，
+   那一档的钉值只在有后端的地方有效）。`fengshui-recognize-wire` 不在跳过表里是有意的：
+   它在 Request stage 就被 CDP Fetch abort，那一发永远到不了服务端。
+
 React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
 的关键词表人工推出来的，与 kline 那 144 组成对表同一做法。
+
+## 通用规则：任何比较代码文本的闸门，先剥注释（2026-10-21 裁定）
+
+这条不只管 harness，管 `tools/` 下**所有**套件。公共件在 `tools/_lib/codesrc.ts`：
+`stripComments`（剥 `//` 与 `/* */`）与 `stripLiterals`（再剥字符串/模板/正则字面量）。
+判据是"这一处 `readFileSync` 外面有没有包一层剥注释"，而这条判据本身也被机检：
+`tools/kline-acceptance` 的 `gate/text-comparing-gates-strip-comments` 扫 `tools/` 下每个 `.ts`，
+列出没包的读点（读 `.json`/`.png` 这类无注释工件除外）。
+
+为什么值得单独立一条：**反向判据**（"这行不许出现 X"）被注释命中只是假红，吵人；
+**正向判据**（"X 必须出现在代码里"）被注释满足是假绿 —— 那一格代码早就删了，闸门还在替它说话。
+本仓一天内各咬到一次：① tst 同步表的 `forbid` 正则命中了 ops 照搬时保留的说明注释
+「原来 return '海中金'」，三份已同步的文件报成 PENDING；② 批7 新加的引用扫描把另一套件
+reason 文案里"server 别留 runZiweiTests"那句话算成了调用点。
+
+第一次按这条全量清扫就抓到一条真假绿：`honesty/boundary-on-pages` 要求回执那句边界声明
+「不证明掷钱这个动作真的发生过」出现在起卦页 —— 它一直绿，因为那句话只在
+`app/liuyao/create/page.tsx` 的 JSX 注释里，屏上那行只印了「已锁定 … seedHash …」。
+这条断言的消息本来就写着"不能只活在注释里"，判据与意图一直是对的，只是没人剥注释。
 
 ## 户型识别三态：桩怎么造、文件怎么塞、以及一次假绿（2026-10-20）
 
