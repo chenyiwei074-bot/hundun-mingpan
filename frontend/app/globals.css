@@ -9,8 +9,11 @@
   --color-bg-nav: rgba(250, 250, 249, 0.85);
   --color-bg-footer: #fafaf8;
   --color-text-primary: #1d1d1f;
-  /* secondary 供正文次级文字，取到 4.52:1 过 AA；muted 保留线上实渲值，只用于标签/辅助信息 */
-  --color-text-secondary: #707076;
+  /* secondary 供正文次级文字。批B（2026-10-21）从 #707076 升到 #5f5f66：
+     #707076 在白卡上是 4.52:1 —— 那是刀刃值，换个底就掉下来（门廊那张纸上是 4.40，直接不达标）。
+     13px 次文是全站用量最大的一档，留 0.02 的余量等于没留。升到 #5f5f66 后：白卡 6.39、
+     浅灰页底 5.87、门廊纸 5.66。全站 AA 由 harness 重测（这一档一改就是几十处）。 */
+  --color-text-secondary: #5f5f66;
   --color-text-muted: #86868b;
   --color-hairline: #c7c7cc;
 
@@ -61,9 +64,9 @@
   /* 东方栏的纸底。比页面底 #f5f5f7 暖一档，是为了两栏"一扇浅一扇深"读起来像两处地方，
      而不是一张卡贴在灰底上。 */
   --color-gate-paper: #f5f2ea;
-  /* 计数行那 13px 的字色。不能用 --color-text-secondary(#707076)：它在这张纸上不到 AA 4.5
-     （白卡上刚好 4.5，换个底就掉下来 —— 这类"按底重测"是本站的老坑）。#5f5f66 在纸上与白卡上都过。 */
-  --color-gate-muted: #5f5f66;
+  /* 计数行那 13px 的字色以前在这里另立一支（--color-gate-muted: #5f5f66）：
+     因为 --color-text-secondary 当时是 #707076，在这张纸上只有 4.40:1，不达 AA。
+     批B 把 secondary 本身升到 #5f5f66 之后，那支就成了同值副本 —— 副本删掉，只留一处。 */
 
   /* ===== 工具状态圆点（值与 lib/tools/status.ts 一一对应，西方在下方重指向）=====
      非文本对比度下限 3:1。浅底与墨底不可能共用一支金：#b2955d（旧值）在白底只有 2.87:1，
@@ -712,6 +715,17 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   min-height: calc(100dvh - var(--qn-nav-h, 56px));
 }
 .gate-head { padding: 22px 24px 6px; }
+/* h1 下面这一行是运维 2026-10-21 补的：站是干什么的要在门廊就说清。
+   用 title 档（18px）而不是 body：它跟 h1 是一组，不能与下面那段说明同字号，
+   否则首屏顶部三行字一样大，读起来没有轻重。 */
+.gate-head__tagline {
+  margin: 6px 0 0;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  font-size: var(--qn-fs-title);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
 .gate-head__note {
   margin: 10px 0 0;
   max-width: 62ch;
@@ -798,7 +812,7 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   margin: 0;
   font-size: var(--qn-fs-meta);
   letter-spacing: 0.04em;
-  color: var(--color-gate-muted);
+  color: var(--color-text-secondary);
   font-weight: 400;
 }
 .domain-card[data-mode="western"] .domain-card__tally { color: var(--color-western-muted); }
@@ -820,6 +834,14 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 }
 
 /* ---- 问事框 ---- */
+/* 问事框那一行：输入框 + 按钮。nowrap 是刻意的 —— 以前它们挤在 flexWrap:'wrap' 里，
+   按钮文字在「问一下 / 在想」之间变长就会让整行重排（实测按钮跳到下一行、整页被推下去
+   54px、CLS 0.106）。输入框自己 min-width:0，永远让得起。 */
+.qa-row { display: flex; gap: 8px; flex-wrap: nowrap; align-items: stretch; }
+.qa-row .qn-textarea { flex: 1 1 auto; min-width: 0; }
+.qa-submit { min-width: 84px; flex: 0 0 auto; }
+.qa-keys { margin: 0; letter-spacing: 0.02em; }
+
 .qa-examples {
   display: flex; flex-wrap: wrap; gap: 8px;
   /* 会换行的 .qn-chip 容器行距必须 >10：chip 的 44px 命中带上下各伸出 5px，
@@ -833,6 +855,16 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
    所以"插一条回答"在数学上不可能把页面推走 —— 固定高度与 contain 都试过，
    实测仍记到 54px 位移；这一版是把可能性掐掉，不是把阈值放宽。 */
 .qa-pane:not([data-compact="1"]) { position: relative; height: 200px; }
+/* compact（东方 hero 里那一版）以前完全不预留，于是每问一句就把下面的意图区与整页推一次：
+   实测桌面 1280×900 —— 一条回答 CLS 0.039，两条 0.103（超 0.1 判红）。
+   375 那一档恰好为 0 只是因为 hero 比视口高、被推走的东西本来就在屏外，不是没问题。
+   预留 132px + 内部滚动：答案再长也不改变页面高度；空着的那一块有提示文字（下面组件里
+   两种模式都渲染），所以预留不是"留一截空白"。 */
+.qa-pane[data-compact="1"] { position: relative; height: 132px; margin-top: 10px; }
+.qa-pane[data-compact="1"] .qa-turns {
+  position: absolute; inset: 0; overflow-y: auto;
+  display: grid; align-content: start;
+}
 .qa-pane:not([data-compact="1"]) .qa-turns {
   position: absolute; inset: 0; overflow-y: auto;
   display: grid; align-content: start;

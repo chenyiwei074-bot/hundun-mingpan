@@ -55,10 +55,24 @@ export async function askRoute(args: {
     // 不是错误：页面照常给目录式结果。
     if (!res.ok) return { ...local(), degraded: `服务端返回 ${res.status}` };
     const json = await res.json().catch(() => null);
-    const parsed = json && typeof json === 'object'
-      ? parseRouteResult((json as { data?: unknown }).data ?? json) : null;
+    const body = json && typeof json === 'object'
+      ? (((json as { data?: unknown }).data ?? json) as Record<string, unknown>) : null;
+    const parsed = body ? parseRouteResult(body) : null;
     if (!parsed) return { ...local(), degraded: '服务端返回的形状不符合 ' + ASSISTANT_PROTOCOL };
     if (parsed.mode !== args.mode) return { ...local(), degraded: '服务端答的是另一套体系，按没答处理' };
+    // 这一轮到底是谁算的，以**响应里说的那一句**为准，不以"HTTP 200"为准。
+    // 2026-10-22 实测生产：/api/assistant 回 200，但 data 里带着 source:"local" 与
+    // degraded:"上游回的形状不合协议" —— 服务端自己也回落了本机目录。只看 HTTP 状态就标
+    // 「这一轮来自服务端路由」，等于把一次本机关键词匹配说成模型算的，正是这条链路最不该犯的错。
+    const who = body?.source;
+    if (who === 'local') {
+      const why = typeof body?.degraded === 'string' && body.degraded ? body.degraded : '服务端说它用的也是本机目录';
+      return { result: reconcile(parsed, args.mode, args.catalog), source: 'local', degraded: why };
+    }
+    if (who !== 'server') {
+      // 没报来源 = 不知道是谁算的。宁可退回"本机"这一档并写明原因，也不要替它认下"服务端算的"。
+      return { ...local(), degraded: '服务端没说明这一轮是谁算的，按没用到处理' };
+    }
     return { result: reconcile(parsed, args.mode, args.catalog), source: 'server', degraded: null };
   } catch (e) {
     const why = (e as Error)?.name === 'AbortError' ? `服务端 ${TIMEOUT_MS / 1000}s 没回话` : '服务端不可达';

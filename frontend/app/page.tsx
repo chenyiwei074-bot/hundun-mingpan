@@ -86,6 +86,8 @@ export default function GatePage() {
       <header className="gate-head qn-rise">
         <p className="qn-eyebrow">混沌 · 两套体系</p>
         <h1 className="qn-hero">先选一套体系</h1>
+        {/* 运维 2026-10-21 补的一行：站是干什么的，得在门廊就说清，不靠页面标题去猜。 */}
+        <p className="gate-head__tagline">东方与西方玄学工具箱</p>
         <p className="gate-head__note">
           东方与西方各有一套历法口径、取数规则和解读方式，两边不共用算法，也不互相换算。
           排盘、卦象与方位判定都由对应工具计算，模型只做解释与引导。

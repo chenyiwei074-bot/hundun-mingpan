@@ -203,12 +203,15 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 | `oriental` | `/oriental` | 原首页那一整套（首屏四类意图、启动器、核心引擎）—— `AFTER['oriental']` 点的是「开始使用」 |
 | `western` | `/western` | 西方工作页（目录全未开放那一态） |
 | `oriental-ask` / `western-ask` | 同上两条 | **问事框提交之后**那一帧：回答卡、来源标注、该给的入口 / 不该给的入口 |
+| `oriental-choices` / `oriental-chosen` | `/oriental` | 批B：命中两个同分工具 → 两枚 chip、系统一枚都不替选；再点其中一枚 → 入口出现、来源换成「你在并列的候选里自己挑的」、chip 必须收起 |
+| `western-example` | `/western` | 批B：点西方那一系的示例问题（示例不再按状态过滤）→ 必须落到「还没开放」那一支，零入口 |
+| `oriental-ime` | `/oriental` | 批B：中文输入法门闩。组词中按 Enter → 一轮都不许多；组词结束再按 → 必须发出去。两步都量，只量后一步的话"根本没实现门闩"也能过 |
 | `fengshui` / `fengshui-filled` | `/fengshui` | 空表单，以及勾了确认、点了"算一遍"之后的规则层输出 |
 | `fengshui-recognize-fail` / `-candidates` | `/fengshui?recognize=503` / `=ok` | 识别三态里两个后端落点：503 失败、成功但待确认。查询串只给桩看，页面自己不读。**只在 `--stub` 下钉值**（见下面第 3 条纪律） |
 | `fengshui-recognize-wire` | `/fengshui` | 契约那一枪的**网络层**核对：CDP Fetch 拦下真实出站请求，验 Content-Type / 体里正好两个键 / base64 前缀 / visitorId 合服务端形状，然后 abort 并验页面落在「失败」。**只在去 `--stub` 时跑** |
 | `fengshui-edit` | `/fengshui` | 编辑闭环：真加一道墙、在墙上开个门、调宽、改一间房的用途，再逐条钉回来（墙体数、开口数、未确认数、用途 chip 是否真的选中、手工门有没有进判定、3D 是否解禁） |
 
-三条纪律写在这里（第 4 条是 2026-10-21 加的，第 5 条是同批的改版纪律，所以现在是五条）：
+纪律写在这里（第 4 条是 2026-10-21 的 live 只读裁定，第 5、6、7 条是同天的改版批A/批B 补的）：
 
 1. **门廊的数不许写死。** 栏底那一行是页面从两套目录现算出来的，harness 只读回来验形状与
    "三档相加 = 总数"；数与目录是否相等由 `directory-acceptance` 的 `gate/*` 在源码侧钉。
@@ -264,8 +267,20 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
      被压住的那半截字照样是"够对比度的字"。判据两头验过：撤掉 `padding-top` 就点出两行，装上返回空。
      只查带文字的元素：整块背景压在那条半透明带底下是设计，字不是。
 
-React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
-点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
+6. **来源与降级理由钉"配对"，不钉某一句（批B）。** 桩下 `/api/assistant` 回 404 → 必然回落本机，
+   那就必须同时写着「这一轮由本机目录匹配给出，未经模型」**和**「服务端这一轮没用上：服务端返回 404」；
+   真后端答了 → 只许写「这一轮来自服务端路由」，不许还挂着降级理由。四种组合里两种合法两种是 bug，
+   钉配对关系一次覆盖两种模式；各钉一句的话，缺陷① 修好那天这套钉值就集体过期。
+   并列那一支同理：chip 少于两枚就判红 —— "系统替你选了一个"在屏上看起来跟"匹配成功"一模一样。
+7. **预留高度这件事，两种模式都要量，而且要量"第二次"。** 东方 hero 里那一版问事框以前不预留
+   （怕把四类意图挤出首屏，那是另一条钉着的契约）。实测桌面 1280×900：一条回答 CLS 0.039、
+   两条就 0.103 超线；而 375 那一档两次都是 0 —— 不是没问题，是 hero 比视口高、被推走的东西本来就在屏外。
+   现在 compact 也预留 132px + 内部滚动，空着的那一块渲染提示文字（预留不等于留一截空白），
+   `FIRST-SCREEN intents=4/4` 在两种视口都还在。批B 之前这个交互从未被量过第二次。
+
+React 受控 input 在探针里必须走**该元素自己那一族**的原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
+点提交就是空跑一趟 —— 那种绿最骗人）。批B 把问事框换成 `<textarea>` 之后，写死 `HTMLInputElement.prototype`
+会直接 wrong-this 抛错，所以 `askHook` 按 `instanceof HTMLTextAreaElement` 选原型。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
 的关键词表人工推出来的，与 kline 那 144 组成对表同一做法。
 
 ## 通用规则：任何比较代码文本的闸门，先剥注释（2026-10-21 裁定）

@@ -61,6 +61,16 @@ const FIELD_LABEL: Record<NeedField, string> = {
   date: '日期或生日', time: '出生时辰', gender: '性别', place: '出生地点', question: '要问的那件事',
 };
 
+/**
+ * 「进这个工具还要补什么」的唯一算法。
+ * 单独导出是因为用户在并列里挑了一个之后也要算同一件事 —— 让页面自己抄一份 needs 表
+ * 就是第二个真相（这张表随 ROUTER_SPECS 与 DETECT 变，抄的那份不会跟着变）。
+ */
+export function needsFor(slug: string, text: string): string[] {
+  const t = norm(text);
+  return (ROUTER_SPECS[slug]?.needs ?? []).filter(f => !DETECT[f](t)).map(f => FIELD_LABEL[f]);
+}
+
 export function routeLocal(mode: Mode, text: string, catalog: ToolEntry[], otherCatalog: ToolEntry[]): AssistantRouteResult {
   const trimmed = text.trim();
   const { top, second, t } = score(mode, trimmed, catalog);
@@ -79,13 +89,16 @@ export function routeLocal(mode: Mode, text: string, catalog: ToolEntry[], other
   }
 
   const tie = second && second.hit === top.hit;
-  const missing = (ROUTER_SPECS[top.tool.slug]?.needs ?? []).filter(f => !DETECT[f](t)).map(f => FIELD_LABEL[f]);
+  const missing = needsFor(top.tool.slug, trimmed);
   const confidence = Math.min(0.95, 0.35 + 0.2 * top.hit);
 
   if (tie) {
     return {
       mode, toolSlug: null, confidence, needsClarification: true,
       clarification: `这句话同时像「${top.tool.name}」和「${second!.tool.name}」，你要先看哪一个？`,
+      // 并列不再只写成一句话：把两个 slug 一起交出去，由页面做成 chip 让用户挑。
+      // 挑不挑得成由 reconcile 查目录决定，这里只负责"说清有哪两个可能"。
+      candidates: [top.tool.slug, second!.tool.slug],
       missingFields: [], available: false,
     };
   }
