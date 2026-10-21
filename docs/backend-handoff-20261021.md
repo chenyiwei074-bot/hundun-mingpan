@@ -237,14 +237,37 @@ D4 等口径戳一起落地。但这是你的排期，按你说的走。
    - `bazi.ts`：换日判断改吃 `rollsToNextDay(hour, mode)`（本地那份 `hour === 23 && mode !== 'MIDNIGHT_00'` 删掉）、
      调用校正时传 `dayBoundaryMode: birthInfo.dayBoundaryMode`、删掉 `console.error('[晚子时处理]…')`。
    行为面仍是"只影响提示"：20736 组地支关系 digest 与 bazi 8/8 一字未变，A==C / A==B 照常 5/5。
-2. **三条打印要不要一起处理，等你一句**。闸门已扩成"`yiqi-core` 里 `console.error/warn` 必须在 catch 块内"，
-   这三条不在 catch 里、本批没被授权删，所以先进 allowlist 并各带理由（allowlist 条目若对应的打印不见了会判红，防它长毛）：
+2. ~~**三条打印要不要一起处理，等你一句**~~ —— **已裁，见 §8e（批7 全删了，allowlist 现在是空的）**。
+   下面三条原文留着，因为其中第二条记的是"这条不只是打印问题"那个判断的来处：
    - `jieqi.ts` 的「[节气校正] … 在…前，使用…月」—— **与晚子时那条同一类**：交节前出生是无辜的，
      每次排盘都往控制台写一行。删掉最干净，但它没在你的裁定里。
    - `nayin.ts` 查表未命中时 `console.warn('未找到纳音')` —— 这条不只是打印问题：
      **它紧接着 `return '海中金'`**，把"没命中"当成"命中了、答案是海中金"发给下游。真要修的是那个兜底。
    - `ziwei-standard.ts` 的 `runZiweiTests()` 桩 —— 只有 `runAllTests()` 会调，全仓 grep 过页面与 API 都没有调用点，
      不在排盘路径上，危害最小。
+
+## 8e. 批7（2026-10-21 深夜）三条裁定落地，运维这边剩四件同步
+
+| 裁定 | 前端改了什么 | 行为面 |
+|---|---|---|
+| ① `jieqi.ts` 打印 | 删掉 `console.error('[节气校正] …')` 那一行，**取哪一月的逻辑一字未动** | 只少一行控制台输出 |
+| ② `ziwei-standard.ts` 桩 | 整块删 `runZiweiTests()`，并把 `yiqi-core/index.ts` 里 `runAllTests()` 的 ziwei 那一半一起摘掉 | 这函数返回 `{passed:0, failed:0}`，而 `summary.success = totalFailed === 0` —— **"没实现"在汇总里长得和"全过"一模一样**，所以不能只删打印留桩 |
+| ③ `nayin.ts` 兜底（P0） | 未命中从 `console.warn` + `return '海中金'` 改成 `throw new Error('纳音表里没有「戊辰」…')` | 查不到时**排盘直接失败**，不再往下发假值 |
+
+**为什么 ③ 不是打印问题**：量过 —— 现有那张表 60 甲子全覆盖且与《纳音歌》逐组全等（0 组不合），
+所以现网历史报告里应当没有假纳音；但 120 个干支对里有 60 个是奇偶不同的非法组合，
+**它们过去全部安静返回"海中金"**（实测 60/60）。证伪抓到的样子是这样的：
+把表里 `戊辰` 一条删掉，合盘就输出「我年命纳音「海中金」属金，对方「大林木」属木，两者是「克」」——
+结构完整、语气正常、来源是假数据。改完之后同一处删改变成 `纳音表里没有「戊辰」`，报表起不来。
+
+### 要运维做的四件（`tst-acceptance` 逐条打 PENDING，照搬后自己变 SYNCED）
+
+1. `server/src/core/yiqi-core/nayin.ts` —— 抄 `if (!nayin) { throw new Error(...) }` 那一支，
+   并删掉 `return '海中金'`。**`render.service.ts` 会读 `naYin`**，这一份不跟，下次谁改表就是往报告里写假纳音。
+2. `server/src/core/yiqi-core/jieqi.ts` —— 只删那一行 `console.error`。
+3. `server/src/core/yiqi-core/ziwei-standard.ts` —— 删 `runZiweiTests()`。
+4. `server/src/core/yiqi-core/index.ts` —— 删 `runZiweiTests` 的 import 与 `runAllTests` 返回里的 `ziwei` 那一半
+   （这是**减字段**，如果有别的代码读 `runAllTests().ziwei` 会编译失败；前端这边全仓 grep 过没有调用点）。
 
 ## 已经修好、不用再管的（推翻旧记录）
 

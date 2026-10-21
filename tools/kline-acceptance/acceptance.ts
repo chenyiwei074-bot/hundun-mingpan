@@ -15,6 +15,7 @@ import { getZhiCangGanFull } from '../../frontend/app/lib/core/yiqi-core/bazi';
 import { getShiShen, DIZHI } from '../../frontend/app/lib/core/bazi-enrich/tables';
 import { zhiPairRelations } from '../../frontend/app/lib/core/bazi-enrich/zhi-relations';
 import { SHISHEN_MAP } from '../../frontend/app/lib/core/yiqi-core/ganzhi';
+import { getNaYin, getNaYinWuXing } from '../../frontend/app/lib/core/yiqi-core/nayin';
 import type { BaziChart } from '../../frontend/app/lib/core/yiqi-core/types';
 import {
   buildKline, eventLabel, KLINE_BASIS, KLINE_LANES, KLINE_GROUPS,
@@ -434,14 +435,12 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // 晚子时那条就是例子：23 点出生是无辜的，可它每次排盘都往控制台写一行。
   // 例外走 allowlist（档案:行号片段:理由），且每条都要还命中得上一一失配就判红，
   // 否则 allowlist 只会越长越像地基，没人敢删。
-  const PRINT_ALLOWLIST: { where: string; reason: string }[] = [
-    { where: 'jieqi.ts|节气校正' , reason: '待裁：与 bazi.ts 晚子时同一类的正常路径信息性打印（交节前用上一个月柱）。'
-      + '本批只授权删了晚子时那条，这条没授权删，先记账不静默改。' },
-    { where: 'nayin.ts|未找到纳音', reason: '待裁：查表未命中时的兜底，不在 catch 里（是 if (!nayin)）。'
-      + '顺带记一笔：它 return 了假定的默认纳音 海中金，未命中被当成命中往下游发。' },
-    { where: 'ziwei-standard.ts|测试功能待实现', reason: 'runZiweiTests() 里的桩，只有 runAllTests() 会调；'
-      + '全仓 grep 过，页面与 API 都没有调用点，不在排盘路径上。' },
-  ];
+  // 2026-10-21 裁定②（批6）建的这张 allowlist，批7 把里面三条全部裁掉了：
+  // jieqi「节气校正」删打印、ziwei-standard 的 runZiweiTests 桩整块删、
+  // nayin 未命中的 return '海中金' 改成抛错（顺带那条 warn 也没了）。
+  // 留空数组是**最严**的状态：catch 外一处打印都不许有。条目一有失配照样判红，
+  // 所以谁往回加例外，就得同时把理由写清楚。
+  const PRINT_ALLOWLIST: { where: string; reason: string }[] = [];
   // 从打印那一行往上找包住它的那个 { ，看它前面是不是 catch。
   // 够用且可核对：字符串里出现裸花括号会看错，而这一批的打印都没有；真要扩到那种文件再说。
   const insideCatch = (lines: string[], idx: number): boolean => {
@@ -492,6 +491,59 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     && !/hour === 23/.test(baziSrc) && !/console\.error\('\[晚子时处理\]/.test(baziSrc),
     '晚子时换日只剩 true-solar-time.ts 里那一份实现，bazi.ts 改用它（crossed.day 也要按同一口径回答）；'
     + `bazi.ts 里残留的 \`hour === 23\` ${(baziSrc.match(/hour === 23/g) || []).length} 处、晚子时打印 ${/晚子时处理/.test(baziSrc) ? '仍在' : '已删'}`);
+
+  // ── 裁定③（P0 数据造假）：纳音表 60 甲子全覆盖 + 查不到就抛，不再兜一个假值往下游发 ──
+  // 金标准按《纳音歌》的甲子顺序手写（引擎那张表是按五行分类排的），所以这是对照不是抄一遍。
+  // 歌里"沙中金/砂石金""桑柘木/桑拓木"两种写法都有，这里取引擎用的那种，
+  // 因为这条钉的是"60 组一组都不许缺"，不是钉异体字。
+  const GAN60 = '甲乙丙丁戊己庚辛壬癸'.split('');
+  const ZHI60 = '子丑寅卯辰巳午未申酉戌亥'.split('');
+  const NAYIN_GE = [
+    '海中金', '炉中火', '大林木', '路旁土', '剑锋金', '山头火', '涧下水', '城头土', '白蜡金', '杨柳木',
+    '泉中水', '屋上土', '霹雳火', '松柏木', '长流水', '沙中金', '山下火', '平地木', '壁上土', '金箔金',
+    '覆灯火', '天河水', '大驿土', '钗钏金', '桑柘木', '大溪水', '沙中土', '天上火', '石榴木', '大海水',
+  ];
+  const jiazi: string[] = [];
+  const nayinDiff: string[] = [];
+  const wxDiff: string[] = [];
+  for (let i = 0; i < 60; i++) {
+    const g = GAN60[i % 10], z = ZHI60[i % 12];
+    const gold = NAYIN_GE[Math.floor(i / 2)];
+    jiazi.push(g + z);
+    let got = '';
+    try { got = getNaYin(g as never, z as never); } catch { got = '（抛错）'; }
+    if (got !== gold) nayinDiff.push(`${g}${z} 歌=${gold} 引擎=${got}`);
+    // 纳音名的最后一个字就是它的五行：合盘、场景矩阵都是从这里取五行，中间没有第二份表。
+    else if (getNaYinWuXing(got as never) !== gold[gold.length - 1]) wxDiff.push(`${g}${z} ${gold}->${getNaYinWuXing(got as never)}`);
+  }
+  ok('core/nayin-covers-all-60-jiazi', nayinDiff.length === 0 && wxDiff.length === 0,
+    `60 甲子逐组取纳音，与《纳音歌》全等（${jiazi.length} 组，缺任一组都会让排盘直接抛 —— 这是批7 要的效果，`
+    + `但前提是一张都不缺）；纳音名末字与 getNaYinWuXing 自洽 ${wxDiff.length} 处不合：`
+    + `${nayinDiff.slice(0, 6).join(' | ') || '0 组不合'}${wxDiff.length ? ' | 五行不合 ' + wxDiff.slice(0, 4).join(' | ') : ''}`);
+  // 120 个干支对里 60 个是奇偶不同、根本不存在的组合。改抛错之前它们全部安静返回"海中金"（实测 60/60），
+  // 合盘拿着这种假值会排出一句完整而错误的「我属金、对方属木，两者是克」。
+  const accepted: string[] = [];
+  for (const g of GAN60) for (const z of ZHI60) {
+    if (GAN60.indexOf(g) % 2 === ZHI60.indexOf(z) % 2) continue;
+    try { accepted.push(`${g}${z}=${getNaYin(g as never, z as never)}`); } catch { /* 抛错才算拒了 */ }
+  }
+  ok('core/nayin-refuses-nonexistent-pair', accepted.length === 0,
+    `60 个"天干地支奇偶不同"的非法组合必须全部抛错，实得 ${accepted.length} 个还安静给值`
+    + `${accepted.length ? '：' + accepted.slice(0, 4).join(' | ') : ''} —— 查不到与查到是同一回事，就是把事故发往下游`);
+  const nayinSrc = strip(readFileSync(join(yqDir, 'nayin.ts'), 'utf8'));
+  // 只看"未命中那一支"里写了什么：整档禁 `return '海中金'` 会误伤表里合法的映射
+  // （我把 戊辰 改成 海中金 做证伪时，那条粗断言也跟着红，红得没道理）。
+  const missBranch = (() => {
+    const at = nayinSrc.indexOf('if (!nayin) {');
+    if (at < 0) return null;
+    const rest = nayinSrc.slice(at);
+    const end = rest.indexOf('\n  }');
+    return end < 0 ? rest : rest.slice(0, end);
+  })();
+  ok('core/nayin-has-no-fabricated-default',
+    !!missBranch && /throw new Error\(/.test(missBranch) && !/return /.test(missBranch) && !/console\.warn\(/.test(missBranch),
+    `钉的是"兜底别再长回来"：未命中那一支里只许 throw，不许 return 一个假纳音、也不许打一行就往下走（注释已剥）。`
+    + `实得：${missBranch ? missBranch.trim().replace(/\s+/g, ' ').slice(0, 72) : '找不到 if (!nayin) 那一支（改写法了就重写这条）'}`);
 }
 
 const fails = lines.filter(l => l.startsWith('FAIL'));

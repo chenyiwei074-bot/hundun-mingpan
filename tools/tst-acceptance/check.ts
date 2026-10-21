@@ -197,7 +197,7 @@ say(`  ${sbMove && !sameBucket.crossed.hour ? 'PASS' : 'FAIL'} crossed/same-buck
 // 运维照搬之后每一行自己变 SYNCED，谁也不用回来改断言。
 // 一次改动的落点会跨文件（① 同时动 true-solar-time.ts 与 bazi.ts 的换日调用），
 // 所以这里是一张表，不是一个档案名 —— 少一个档案就等于漏报。
-const SYNC_CHECKS: { file: string; want: [RegExp, string][]; forbid?: [RegExp, string][]; note: string }[] = [
+const SYNC_CHECKS: { file: string; want?: [RegExp, string][]; forbid?: [RegExp, string][]; note: string }[] = [
   {
     file: 'true-solar-time.ts',
     want: [
@@ -218,11 +218,37 @@ const SYNC_CHECKS: { file: string; want: [RegExp, string][]; forbid?: [RegExp, s
     forbid: [[/console\.error\('\[晚子时处理\]/, '晚子时那条正常路径打印']],
     note: '裁定①（共享换日规则）+ 裁定②（删晚子时 console.error）',
   },
+  // 批7 裁定③（P0）：纳音查不到不许再兜一个假值发给下游。
+  {
+    file: 'nayin.ts',
+    want: [[/if \(!nayin\) \{[\s\S]{0,160}throw new Error\(/, '未命中改成抛错']],
+    forbid: [
+      [/return '海中金'/, '兜底 return 海中金（把"查不到"伪装成"查到是海中金"）'],
+      [/console\.warn\(`未找到纳音/, '未命中的正常路径打印'],
+    ],
+    note: '裁定③ P0：server 那份 render.service.ts 会读 naYin，假纳音会一路进报告',
+  },
+  // 批7 裁定①②：两条正常路径打印删掉、一个假汇总的桩整块删。
+  {
+    file: 'jieqi.ts',
+    forbid: [[/\[节气校正\]/, '交节当日的信息性 console.error']],
+    note: '批7 裁定：删打印不改行为（月柱取哪一节由返回值表达）',
+  },
+  {
+    file: 'ziwei-standard.ts',
+    forbid: [[/runZiweiTests/, 'runZiweiTests 桩（打一行"待实现"就报 0 failed）']],
+    note: '批7 裁定：死代码整块删；同时 index.ts 里 runAllTests 的 ziwei 那一半也要跟着摘掉',
+  },
+  {
+    file: 'index.ts',
+    forbid: [[/runZiweiTests/, 'runAllTests 里 ziwei 那一半（passed:0/failed:0 会被 summary 当成 success）']],
+    note: '批7 裁定：汇总宁可少一半，不要"没实现"长得和"全过"一样',
+  },
 ];
 for (const sc of SYNC_CHECKS) {
   let src = '';
   try { src = readFileSync(join(ROOT, 'server', 'src', 'core', 'yiqi-core', sc.file), 'utf8'); } catch { /* 后端没有这个档案就是没有，下面按未同步报 */ }
-  const missing = sc.want.filter(([re, what]) => !re.test(src)).map(([, what]) => what);
+  const missing = (sc.want || []).filter(([re, what]) => !re.test(src)).map(([, what]) => what);
   const stillThere = (sc.forbid || []).filter(([re]) => re.test(src)).map(([, what]) => what);
   const parts = [...missing.map(m => '缺 ' + m), ...stillThere.map(s => '仍有 ' + s)];
   say(`  ${parts.length ? 'PENDING' : 'SYNCED'} server-copy/${sc.file}  `
