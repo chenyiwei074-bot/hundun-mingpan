@@ -84,18 +84,18 @@ export function validateBirthInfo(birthInfo: BirthInfo): { valid: boolean; error
  * 运行所有算法测试
  * @returns 综合测试结果
  */
-// 2026-10-21 裁定：删掉 ziwei 那一半。runZiweiTests() 是个桩，打一行"待实现"就 return
-// { passed: 0, failed: 0 } —— 而 failed===0 会被 summary 当成 success，
-// 也就是"没实现"在汇总里长得和"全过"一模一样。宁可少一半，不要假的一半。
-export function runAllTests(): {
-  bazi: ReturnType<typeof runBaziTests>;
+export function runAllTests(): { 
+  bazi: ReturnType<typeof runBaziTests>; 
   summary: { totalPassed: number; totalFailed: number; success: boolean }
 } {
   const baziResults = runBaziTests();
-
+  // 2026-10-21 裁定：ziwei 那一半删掉。runZiweiTests() 是个桩，打一行"待实现"就 return
+  // { passed: 0, failed: 0 }，而 failed===0 会被 summary 当成 success ——
+  // "没实现"在汇总里长得和"全过"一模一样。宁可少一半，不要假的一半。
+  
   const totalPassed = baziResults.passed;
   const totalFailed = baziResults.failed;
-
+  
   return {
     bazi: baziResults,
     summary: {
