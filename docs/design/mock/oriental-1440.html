@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>东方玄学工作页 · 首屏 · 1440</title>
+<meta name="viewport" content="width=1440">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<p class="mk-note">hundunmp.vip 东方玄学工作页首屏 · 1440×900 · 问事框是页面核心（对话入口，不是导航栏里的搜索框）· 工具名与状态取自 lib/tools/catalog.ts 现读值</p>
+
+<div class="mk-sheet mk-view--wide">
+  <nav class="mk-nav">
+    <a class="mk-brandmark" href="#gate">混沌</a>
+    <span class="mk-here">东方玄学</span>
+    <span class="mk-spacer"></span>
+    <a href="#gate">返回选择</a>
+    <a href="#reports">我的报告</a>
+  </nav>
+
+  <header class="mk-hero">
+    <p class="mk-eyebrow">东 方 玄 学 · 工 具 箱</p>
+    <h1>你想探寻什么？</h1>
+    <p>告诉我你正在面对的问题，我会帮你找到合适的东方玄学工具。排盘、卦象与方位判定都由对应工具计算，我不代替它们下结论。</p>
+  </header>
+
+  <section class="mk-composer">
+    <div class="box">
+      <label for="q">问一句（中文）</label>
+      <textarea id="q" class="mk-textarea" placeholder="例如：我最近适不适合换工作？或者帮我看看这个户型的布局。"></textarea>
+      <div class="mk-row">
+        <button class="mk-btn" type="button">开始分析</button>
+        <span class="mk-hint">Enter 发送 · Shift + Enter 换行 · 中文输入法组词中不会误发</span>
+      </div>
+      <ul class="mk-examples">
+        <li><button class="mk-chip" type="button">看看近期事业方向</button></li>
+        <li><button class="mk-chip" type="button">我想为一件事起六爻</button></li>
+        <li><button class="mk-chip" type="button">帮我分析这个户型的风水</button></li>
+        <li><button class="mk-chip" type="button">看看我的八字命盘</button></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="mk-intents" aria-label="四类意图">
+    <a class="mk-intent" href="#create"><b>认识自己</b><em>看一个人的结构：四柱命盘与本命星宿，都按出生那一刻的历法事实取数。</em><i>去排盘 →</i></a>
+    <a class="mk-intent" href="#liuyao"><b>问一件事</b><em>针对具体一事起卦：六爻看细节与成败，梅花看当下之象与体用。</em><i>去起卦 →</i></a>
+    <a class="mk-intent" href="#huangli"><b>择时看周期</b><em>什么时候动手，以及一段周期正走到哪里。</em><i>看黄历 →</i></a>
+    <a class="mk-intent" href="#xiu"><b>看关系</b><em>两个人之间的结构差与配合度。</em><i>去对照 →</i></a>
+  </section>
+
+  <div class="mk-fold"><span>首屏折线 · 900px（四类意图已在首屏内）</span></div>
+
+  <section class="mk-tools">
+    <h2>认识自己</h2>
+    <div class="mk-grid">
+      <article class="mk-tool"><h3>八字 &amp; 紫微斗数</h3><p>我这个人是什么样的一套结构，现在正走在哪一段。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>二十八宿 · 本命宿</h3><p>我出生那天值哪一宿，与另一个人的宿性怎么配。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+    </div>
+
+    <h2>问一件事</h2>
+    <div class="mk-grid">
+      <article class="mk-tool mk-tool--lead"><h3>户型 · 九宫标注</h3>
+        <p>这个户型的采光、动线与分区关系，按我自己标的方位格子能推出什么。选图或手工画 → 定朝向（可「朝向未确认」）→ 标房间与门窗 → 说你最在意什么 → 结果逐条指回图上位置。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>六爻纳甲</h3><p>这一件事会怎么发展，哪一爻在动，应期与吉凶在哪。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>梅花易数</h3><p>眼前这个象怎么读，体用生克往哪边偏。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+    </div>
+
+    <h2>择时看周期</h2>
+    <div class="mk-grid">
+      <article class="mk-tool"><h3>黄历宜忌</h3><p>某一天通书写宜什么、忌什么，神煞与冲煞怎么摆。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>大运 · 流年 · 人生曲线</h3><p>我这几年的起伏节奏，哪几段是上坡哪几段是换挡。<br><small>缺的那一段：命盘里已有大运流年，独立曲线视图未做（属自研评分，做时须写明非还原）。</small></p>
+        <span class="mk-badge mk-badge--partial"><i></i>部分可用</span></article>
+    </div>
+
+    <h2>看关系</h2>
+    <div class="mk-grid">
+      <article class="mk-tool"><h3>合盘（两人对照）</h3><p>我和另一个人的命局摆在一起时，盘面上读得到哪些对应关系。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>合宿（星宿）</h3><p>我们俩的宿性相生还是相克，谁在供力。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool mk-tool--closed"><h3>姓名合盘（五格剖象）</h3><p>两个姓名之间的五行适配。<br><small>未做：五格剖象是近代日本体系，与站内引擎不同源，做的话要单列口径与来源。没有入口，因此这里不放按钮。</small></p>
+        <span class="mk-badge mk-badge--closed"><i></i>未开放</span></article>
+    </div>
+  </section>
+
+  <footer class="mk-foot">
+    <a href="#tools">工具状态与取数口径</a><a href="#privacy">隐私</a><a href="#terms">条款</a><a href="#disclaimer">免责声明</a>
+    <span>结果凭证与公开存证能力仍在建设中 —— 页面只在报告里给"查看记录凭证"，状态分未提交 / 未锚定 / 等待锚定 / 状态未知。</span>
+  </footer>
+
+  <div class="mk-states" aria-label="关键控件三态">
+    <div class="mk-s--east"><small>DEFAULT</small><p class="mk-s-title">开始分析</p><p class="mk-s-cta">白字 on #b23a2e = 5.94:1 · 高 46px</p></div>
+    <div class="mk-s--east mk-s--hover"><small>HOVER</small><p class="mk-s-title">帮我分析这个户型的风水（chip）</p><p class="mk-s-cta">底 #fbf7ef，字色不变</p></div>
+    <div class="mk-s--east mk-s--focus"><small>FOCUS-VISIBLE</small><p class="mk-s-title">输入框聚焦</p><p class="mk-s-cta">边框 #b23a2e + 3px 金色内阴影（文本框不用 outline）</p></div>
+  </div>
+</div>
+
+<p class="mk-note">秩序检查：导航（品牌 / 当前位置 / 返回选择 / 我的报告）→ 标题 → 问事框 → 四类意图 → 工具分组 → 页脚。
+工具卡三点：名称 + 一句用途 + 状态徽章（点 + 文字，不靠颜色单独表达）；部分可用与未开放都写清楚缺什么，未开放不给链接。
+问事框提交后的四支结果（命中一个 / 多个待选 / 资料不足追问 / 命中未开放）在批B 里出同规格的第二屏稿。</p>
+</body>
+</html>

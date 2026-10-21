@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>东方玄学工作页 · 首屏 · 375</title>
+<meta name="viewport" content="width=375">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<p class="mk-note">同一张东方工作页 · 移动 375×812 · 单手可达：输入框与主按钮在前 2/3，主按钮拉满宽 · 无横向滚动</p>
+
+<div class="mk-sheet mk-view--narrow">
+  <nav class="mk-nav">
+    <a class="mk-brandmark" href="#gate">混沌</a>
+    <span class="mk-here">东方</span>
+    <span class="mk-spacer"></span>
+    <a href="#gate">返回</a>
+    <a href="#reports">报告</a>
+  </nav>
+
+  <header class="mk-hero">
+    <p class="mk-eyebrow">东 方 玄 学</p>
+    <h1>你想探寻什么？</h1>
+    <p>告诉我你正在面对的问题，我会帮你找到合适的东方玄学工具。</p>
+  </header>
+
+  <section class="mk-composer">
+    <div class="box mk-box">
+      <label for="q">问一句（中文）</label>
+      <textarea id="q" class="mk-textarea" placeholder="例如：我最近适不适合换工作？或者帮我看看这个户型的布局。"></textarea>
+      <div class="mk-row">
+        <button class="mk-btn" type="button">开始分析</button>
+      </div>
+      <span class="mk-hint">Enter 发送 · Shift + Enter 换行</span>
+      <ul class="mk-examples">
+        <li><button class="mk-chip" type="button">看看近期事业方向</button></li>
+        <li><button class="mk-chip" type="button">我想为一件事起六爻</button></li>
+        <li><button class="mk-chip" type="button">帮我分析这个户型的风水</button></li>
+        <li><button class="mk-chip" type="button">看看我的八字命盘</button></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="mk-intents" aria-label="四类意图">
+    <a class="mk-intent" href="#create"><b>认识自己</b><i>去排盘 →</i></a>
+    <a class="mk-intent" href="#liuyao"><b>问一件事</b><i>去起卦 →</i></a>
+    <a class="mk-intent" href="#huangli"><b>择时看周期</b><i>看黄历 →</i></a>
+    <a class="mk-intent" href="#xiu"><b>看关系</b><i>去对照 →</i></a>
+  </section>
+
+  <div class="mk-fold"><span>首屏折线 · 812px</span></div>
+
+  <section class="mk-tools">
+    <h2>认识自己</h2>
+    <div class="mk-grid">
+      <article class="mk-tool"><h3>八字 &amp; 紫微斗数</h3><p>我这个人是什么样的一套结构，现在正走在哪一段。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>二十八宿 · 本命宿</h3><p>我出生那天值哪一宿，与另一个人的宿性怎么配。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+    </div>
+
+    <h2>问一件事</h2>
+    <div class="mk-grid">
+      <article class="mk-tool mk-tool--lead"><h3>户型 · 九宫标注</h3>
+        <p>按我自己标的方位格子推采光、动线与分区关系。选图或手工画 → 定朝向 → 标房间与门窗 → 说你最在意什么 → 结果指回图上位置。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>六爻纳甲</h3><p>这一件事会怎么发展，哪一爻在动，应期与吉凶在哪。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>梅花易数</h3><p>眼前这个象怎么读，体用生克往哪边偏。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+    </div>
+
+    <h2>择时看周期</h2>
+    <div class="mk-grid">
+      <article class="mk-tool"><h3>黄历宜忌</h3><p>某一天通书写宜什么、忌什么，神煞与冲煞怎么摆。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>大运 · 流年 · 人生曲线</h3><p>我这几年的起伏节奏，哪几段是上坡哪几段是换挡。<br><small>缺的那一段：独立曲线视图未做。</small></p>
+        <span class="mk-badge mk-badge--partial"><i></i>部分可用</span></article>
+    </div>
+
+    <h2>看关系</h2>
+    <div class="mk-grid">
+      <article class="mk-tool"><h3>合盘（两人对照）</h3><p>我和另一个人的命局摆在一起时，盘面上读得到哪些对应关系。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool"><h3>合宿（星宿）</h3><p>我们俩的宿性相生还是相克，谁在供力。</p>
+        <span class="mk-badge mk-badge--open"><i></i>可用</span></article>
+      <article class="mk-tool mk-tool--closed"><h3>姓名合盘（五格剖象）</h3><p>两个姓名之间的五行适配。<br><small>未做：体系不同源，没有入口，因此这里不放按钮。</small></p>
+        <span class="mk-badge mk-badge--closed"><i></i>未开放</span></article>
+    </div>
+  </section>
+
+  <footer class="mk-foot">
+    <a href="#tools">工具状态与取数口径</a><a href="#privacy">隐私</a><a href="#terms">条款</a>
+  </footer>
+
+  <div class="mk-states" aria-label="三态对照">
+    <div class="mk-s--east"><small>DEFAULT</small><p class="mk-s-title">开始分析</p><p class="mk-s-cta">46px 高 · 满宽，拇指区</p></div>
+    <div class="mk-s--east mk-s--hover"><small>按压（active）</small><p class="mk-s-title">看看我的八字命盘（chip）</p><p class="mk-s-cta">chip 44px 高，行间距 12px 不重叠</p></div>
+    <div class="mk-s--east mk-s--focus"><small>FOCUS（外接键盘）</small><p class="mk-s-title">认识自己 → 去排盘</p><p class="mk-s-cta">outline 2px #7a5f31</p></div>
+  </div>
+</div>
+
+<p class="mk-note">移动版三条纪律：① chip 换行时行间距必须 >10px，否则 44px 命中带互相抢点（这条踩过）；
+② 四类意图在移动上收掉 lead 长句，只留名称与去向，句子留在结果里说；③ 装饰层不出血，避免横向溢出。</p>
+</body>
+</html>

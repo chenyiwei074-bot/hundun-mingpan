@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>门廊 · 1440（视口 1440×900）</title>
+<meta name="viewport" content="width=1440">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<p class="mk-note">hundunmp.vip 体系选择门廊 · 桌面 1440×900 · 两栏各占 50%，整栏即链接（栏内不嵌任何第二个可点元素）· 计数行与全部文案取自 lib/tools/catalog.ts 现读值 · 稿子不上生产路由</p>
+
+<div class="mk-sheet mk-view--wide">
+  <div class="mk-gate">
+    <header class="mk-brand"><b>混沌</b><i>东方与西方玄学工具箱</i></header>
+
+    <a class="mk-panel mk-panel--east" href="#oriental">
+      <div class="mk-art" aria-hidden="true">
+        <div class="mk-ink-block"></div>
+        <svg class="mk-ridge" viewBox="0 0 800 260" fill="none" preserveAspectRatio="none">
+          <path d="M0 210 L120 150 L215 196 L330 118 L452 190 L560 138 L688 200 L800 156" stroke="rgba(29,29,31,.18)" stroke-width="1"/>
+          <path d="M0 240 L160 206 L300 244 L470 200 L640 246 L800 214" stroke="rgba(29,29,31,.10)" stroke-width="1"/>
+        </svg>
+        <svg class="mk-hex" viewBox="0 0 92 106" fill="none">
+          <g stroke="rgba(122,95,49,.55)" stroke-width="6">
+            <line x1="6" y1="14" x2="86" y2="14"/><line x1="6" y1="38" x2="38" y2="38"/><line x1="54" y1="38" x2="86" y2="38"/>
+            <line x1="6" y1="62" x2="86" y2="62"/><line x1="6" y1="86" x2="38" y2="86"/><line x1="54" y1="86" x2="86" y2="86"/>
+          </g>
+        </svg>
+      </div>
+      <div class="mk-copy">
+        <p class="mk-eyebrow">八字 · 六爻 · 风水</p>
+        <h1 class="mk-title">东方玄学</h1>
+        <p class="mk-lead">从八字、六爻到风水，在传统体系中寻找问题的脉络。</p>
+        <p class="mk-cta">进入东方世界 →</p>
+        <p class="mk-count">已开放 8 / 10 项 · 部分可用 1 · 未开放 1</p>
+      </div>
+    </a>
+
+    <a class="mk-panel mk-panel--west" href="#western">
+      <div class="mk-art" aria-hidden="true">
+        <svg class="mk-ecl" viewBox="0 0 240 240" fill="none">
+          <circle cx="120" cy="120" r="112" stroke="rgba(230,220,255,.14)"/>
+          <circle cx="120" cy="120" r="74" stroke="rgba(230,220,255,.10)"/>
+          <g stroke="rgba(217,184,119,.42)">
+            <line x1="120" y1="8" x2="120" y2="24"/><line x1="232" y1="120" x2="216" y2="120"/>
+            <line x1="120" y1="232" x2="120" y2="216"/><line x1="8" y1="120" x2="24" y2="120"/>
+          </g>
+          <circle cx="196" cy="63" r="4" fill="rgba(243,238,255,.75)"/>
+        </svg>
+        <div class="mk-moon" aria-hidden="true">
+          <i style="background:linear-gradient(90deg,#f3eeff 0 45%,#241a3d 45%)"></i>
+          <i style="background:#f3eeff"></i>
+          <i style="background:#2e2249;border:1px solid rgba(230,220,255,.24)"></i>
+        </div>
+      </div>
+      <div class="mk-copy">
+        <p class="mk-eyebrow">占星 · 塔罗 · 数字象征</p>
+        <h1 class="mk-title">西方玄学</h1>
+        <p class="mk-lead">从占星、塔罗到数字象征，探索不同的自我理解方式。</p>
+        <p class="mk-cta">进入西方世界 →</p>
+        <p class="mk-count">已开放 0 / 5 项 · 未开放 5</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="mk-states" aria-label="三态对照">
+    <div class="mk-s--east"><small>DEFAULT</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">底 #f5f2ea · 提示行 #b23a2e · 焦点环 #7a5f31</p></div>
+    <div class="mk-s--east mk-s--hover"><small>HOVER（叠加层 opacity .045 + 文案上移 2px）</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">不用 filter:brightness()</p></div>
+    <div class="mk-s--east mk-s--focus"><small>FOCUS-VISIBLE</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">outline 2px #7a5f31 / offset 2px</p></div>
+    <div class="mk-s--west"><small>DEFAULT</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">底 #1b1030 · 提示行 #d9b877 · 正文 #f3eeff</p></div>
+    <div class="mk-s--west mk-s--hover"><small>HOVER（叠加层 opacity .06，取淡金）</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">星点层不透明度上限 .18</p></div>
+    <div class="mk-s--west mk-s--focus"><small>FOCUS-VISIBLE</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">outline 2px #e3cd96（实测 11.55:1）</p></div>
+  </div>
+</div>
+
+<p class="mk-note">键盘顺序：品牌 → 东方栏 → 西方栏，Tab 两下就能到第二个入口；整栏是最小命中区（1440 下每栏约 720×900，远超 44px）。
+两栏文字对比度：#1d1d1f on #f5f2ea = 15.04:1、#5f5f66 = 5.82:1、#b23a2e = 5.31:1、#7a5f31 = 5.35:1；#f3eeff on #1b1030 = 15.2:1、#c9bfe0 ≈ 9:1、#d9b877 ≈ 7:1。
+"已开放 0 / 5 项"这一行是故意的 —— 西方五个工具全未开放，门廊不把它说成可用。</p>
+</body>
+</html>
