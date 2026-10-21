@@ -1334,9 +1334,35 @@ const STUB_BOOT = `(() => {
 
 await send('Page.enable');
 await send('Runtime.enable');
+// 2026-10-21 裁定（细化）：只读与否要按**动作**分，而且要用网络观测证明，不许拿"我读代码觉得没有 POST"当结论。
+// 这里记两本账：
+//   1) 页内账本（下面这个 init script 包住 window.fetch 与 XHR.open）—— 它在 --stub 下也记得到，
+//      因为桩替换的也是 window.fetch，而"挂载到底发不发写请求"这件事在注入盘的那一趟就能观测到，
+//      不必等到生产去发现（发现了就已经落库了）。
+//   2) 浏览器账本（CDP Network，见下）—— 只有真发出去的请求才会进，用来在 live 上兜底：
+//      页内账本说没写、Network 说有写（比如页面用了别的通道），两本账不合就要炸给人看。
+// 注册顺序要紧：这一段必须排在 STUB_BOOT 之后，才能包住桩过的那一份 fetch。
+const NET_LEDGER = `(() => {
+  window.__net = window.__net || [];
+  const push = (m, u) => { try { window.__net.push({ m: String(m || 'GET').toUpperCase(), u: String(u).slice(0, 140) }); } catch (e) {} };
+  if (typeof window.fetch === 'function') {
+    const f = window.fetch;
+    window.fetch = function () {
+      try {
+        const a0 = arguments[0], a1 = arguments[1];
+        push((a1 && a1.method) || (a0 && a0.method) || 'GET', (a0 && a0.url) || String(a0));
+      } catch (e) {}
+      return f.apply(window, arguments);
+    };
+  }
+  const ox = window.XMLHttpRequest && window.XMLHttpRequest.prototype.open;
+  if (ox) window.XMLHttpRequest.prototype.open = function (m, u) { push(m, u); return ox.apply(this, arguments); };
+})()`;
 // The separator matters: two adjacent IIFEs without one parse as a call chain and
 // throw, which silently kills the CLS/LCP observers.
 await send('Page.addScriptToEvaluateOnNewDocument', { source: STUB ? OBSERVERS + ';\n' + STUB_BOOT : OBSERVERS });
+await send('Page.addScriptToEvaluateOnNewDocument', { source: NET_LEDGER });
+
 if (HAS_CHART) {
   // 按 pathname 选盘，选不中就清掉键 —— 否则上一张盘会顺着 sessionStorage 活到下一页，
   // 「完整盘」与「无四柱盘」两张测的其实是同一份内容，census 看不出来。
@@ -1386,8 +1412,21 @@ ws.addEventListener('message', ev => {
   void send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'ConnectionRefused' });
 });
 await send('Runtime.enable');
+// 浏览器那本账：CDP Network 看见的每一发非 GET 请求（真发出去的才算，--stub 下页内桩不会到这里 —— 所以两本账要分开报）。
+const netWrites = [];
+let mountWrites = [];   // 同一个态在"挂载落定"那一刻的页内账本快照
+ws.addEventListener('message', ev => {
+  const m = JSON.parse(ev.data);
+  if (m.method !== 'Network.requestWillBeSent') return;
+  const r = (m.params && m.params.request) || {};
+  const meth = String(r.method || 'GET').toUpperCase();
+  if (meth === 'GET' || meth === 'HEAD' || meth === 'OPTIONS') return;
+  netWrites.push(`${meth} ${String(r.url || '').slice(0, 120)}`);
+});
+await send('Network.enable');
 
 // ---------------------------------------------------------------- measurement
+
 // 两条 44px 通道与分段扫共用的同一段定义，只写一份。
 // 上一轮之所以出「small=21 到底是哪 21 个」这种读不懂的数，就是因为
 // smallTargets 数全文、tap 探针按视口过滤，两边各写各的「在与视口相交」。
@@ -1750,6 +1789,7 @@ async function shot(name, full = false) {
 
 async function goto(url) {
   consoleErrors.length = 0; pageErrors.length = 0;
+  netWrites.length = 0;   // 每个态一本新账，别把上一页的写算到这一页头上
   const r = await send('Page.navigate', { url: BASE + url });
   if (r.__error) throw new Error('navigate rejected ' + url + ': ' + JSON.stringify(r.__error));
   await sleep(2600);
@@ -2107,26 +2147,33 @@ const TRUSTED = {
 const STUB_ONLY = new Set(['fengshui-recognize-fail', 'fengshui-recognize-candidates']);
 const LIVE_ONLY = new Set(['fengshui-recognize-wire']);
 
-// 2026-10-21 裁定：live 全量只跑只读态 —— 生产库已经有真实客户盘，测试数据一条都不许落库。
-// 这张表是**读产品代码逐条确认**的，不是按页面名猜的：每一行都指向"哪一下会 POST"。
-// 为什么必须有这张表而不是"live 下别传 --chart-id"：不传 id 只挡住了八字那两态，
-// 而六爻结果那四态是 fixture 注入 sessionStorage 跑的，live 模式照样会跑（原来的注释写着
-// "live 模式也一样 —— 这个页面不请求 API"，实测是错的：app/liuyao/result/[id]/page.tsx:33
-// 只要 sessionStorage 里有盘就 saveReport，也就是**挂载即写**）。
-const WRITE_STATES = {
-  'chart-result': '挂载即 POST /api/reports 两次（chart/result/[id]/page.tsx:99-133，bazi + ziwei，带姓名/生日/出生地）',
-  'chart-result-empty': '同上（同一个页面，盘缺 siZhu 也照样保存报告）',
-  'chart-result-barren': '同上',
-  'chart-hepan': '同上（同一个页面，只是被真人点击推到"已并排"）',
-  'liuyao-result': '挂载即 POST /api/reports（liuyao/result/[id]/page.tsx:33-41，sessionStorage 有盘就写一条）',
-  'liuyao-result-time': '同上',
-  'liuyao-result-number': '同上',
-  'liuyao-result-legacy': '同上',
-  'oriental-ask': '点「问一下」POST /api/assistant（lib/assistant/route-client.ts:45；问题文本进去，后端没这条路由时回落本机）',
-  'western-ask': '同上',
-  'fengshui-recognize-fail': '点「送给模型提候选」POST /api/fengshui/recognize（图真的发给供应商）',
-  'fengshui-recognize-candidates': '同上',
+// 2026-10-21 细化裁定：只读与否**按动作分，不按整页分**；而"挂载到底写不写"必须是网络观测的结果，
+// 不是"我读了代码觉得没写"—— 那正是这类假绿的老路。两本账都在 measure() 里：
+// 页内账本（包住 window.fetch 与 XHR.open，--stub 下也记）+ 浏览器账本（CDP Network，只记真发出去的）。
+//
+// 观测怎么做的：分类必须在"不可能落库"的那一趟做 —— 本机 --stub 注入盘、页面照常跑完挂载，
+// 量"挂载落定那一刻"账本里有几发非 GET；桩把请求吞了，所以一条数据都不入库。
+// 拿生产去"试一下有没有写"就是先斩后奏。2026-10-21 量到的结果：
+//   chart-result / -empty / -barren / chart-hepan   挂载 2 发：POST /api/reports
+//   liuyao-result / -time / -number / -legacy       挂载 1 发：POST /api/reports
+//   create 四态、liuyao-create、liuyao-done、report、verify、dashboard、tools、三个静态页  挂载 0 发
+//   全程 == 挂载：本 harness 的每一次点击（换历法、勾闰月、展开四柱、摇满六爻、并排对照、
+//   户型加墙开门）都没发过写请求 —— 会写的只有"识别"与"问事"这两类动作，按动作处理。
+const MOUNT_WRITES = {
+  'chart-result': '挂载 2 发 POST /api/reports（观测值；页面加载就把八字 + 紫微两份报告写回库，inputJson 带姓名·生日·出生地）',
+  'chart-result-empty': '挂载 2 发 POST /api/reports（观测值；盘缺 siZhu 那张一样写）',
+  'chart-result-barren': '挂载 2 发 POST /api/reports（观测值；贫盘一样写）',
+  'chart-hepan': '挂载 2 发 POST /api/reports（观测值；与有没有点过"并排对照"无关，同一张页面）',
+  'liuyao-result': '挂载 1 发 POST /api/reports（观测值；sessionStorage 里有盘就写一条）',
+  'liuyao-result-time': '挂载 1 发 POST /api/reports（观测值）',
+  'liuyao-result-number': '挂载 1 发 POST /api/reports（观测值）',
+  'liuyao-result-legacy': '挂载 1 发 POST /api/reports（观测值）',
 };
+// 真正的分界不是"是不是 POST"，是"这个端点动不动库"：/api/assistant 线上没有这条路由（网关 404，
+// 页面回落本机目录匹配），送出去的是一个问事字符串；/api/reports 那一类才是往客户库里写行。
+// 所以 live 下：命中这张表的请求 = 硬失败；没命中的非 GET 照样打印出来给人看见，但不判负。
+const WRITE_DENY = ['/api/reports', '/api/charts', '/api/chart/', '/api/liuyao', '/api/receipt', '/api/fengshui/recognize'];
+const deniedOf = list => list.filter(x => WRITE_DENY.some(f => x.includes(f)));
 // fengshui-recognize-wire 不在表里是**有意的**：它在 Request stage 就被 CDP Fetch abort 掉，
 // 那一发永远到不了服务端 —— 拦下来看的就是真实出站，放过去就失去这一态存在的理由。
 
@@ -2142,6 +2189,12 @@ async function measure(tag, url) {
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
   const base = tag.replace(/^(d1|m1)-/, '');
+  // 挂载阶段到底发不发写请求，要**观测**出来 —— 不许拿"我读了代码觉得没有"当结论（2026-10-21 细化裁定）。
+  // 页内账本在 --stub 下同样记（桩替换的也是 window.fetch），所以"这一页挂载就写"这件事能在本机
+  // 注入盘的那一趟看到，不必拿生产去试 —— 试出来就已经落库了。
+  mountWrites = await evl('(() => { try { return (window.__net || [])' +
+    '.filter(function (x) { return x.m !== "GET" && x.m !== "HEAD" && x.m !== "OPTIONS"; })' +
+    '.map(function (x) { return x.m + " " + x.u; }); } catch (e) { return []; } })()') || [];
   // 首屏必须在任何点击/滚动之前抓，晚了测的就不是首屏了。
   const fold = await evl(FIRST_SCREEN);
   if (AFTER[base]) {
@@ -2609,6 +2662,27 @@ const fsEditProbe = p => `(() => {
     console.log(miss.length ? '    WIRE CONTRACT MISMATCH ' + miss.join(' | ')
       : `    契约上线核对过：1 发 POST、${Object.keys(wirePauses[0].headers).length} 个头、体 ${wirePauses[0].postData.length} 字，页面落在「${ui && ui.state}」`);
   }
+  // 两本账对完再收：页内账本记的是"页面想发"（桩下也记得到），Network 记的是"真的发出去了"。
+  const ledgerAll = await evl('(() => { try { return (window.__net || [])' +
+    '.filter(function (x) { return x.m !== "GET" && x.m !== "HEAD" && x.m !== "OPTIONS"; })' +
+    '.map(function (x) { return x.m + " " + x.u; }); } catch (e) { return []; } })()') || [];
+  const mountN = mountWrites.length, allN = ledgerAll.length;
+  const denyMount = deniedOf(mountWrites), denyAll = deniedOf(ledgerAll);
+  console.log(`    写请求账：挂载 ${mountN} 发${mountN ? ' [' + mountWrites[0] + ']' : ''} · 全程页内 ${allN} 发`
+    + (STUB ? '（--stub：桩吞掉，没有真请求）'
+      // Network 的 requestWillBeSent 对"被 Fetch 拦停"的那一发也会亮，所以不能写成"真发出去"——
+      // 契约态这一发根本没到服务端。
+      : wire ? ` · 网络层看到 ${netWrites.length} 发，全部在 Request stage 被拦停（没到服务端）`
+        : ` · 真发出去 ${netWrites.length} 发`)
+    + (!STUB && !wire && allN > denyAll.length ? `，其中不落库的 ${allN - denyAll.length} 发（如 /api/assistant）` : ''));
+  if (!STUB && !wire) {
+    // live 的硬约束用**观测**判：挂载或全程只要有发向落库端点的写请求，这一态就不是只读。
+    // 判据与被测对象分开 —— 分类表写错了，这里也会自己爆出来。
+    if (denyMount.length) fail.push(`${tag}: 挂载阶段观测到 ${denyMount.length} 发落库写请求（${denyMount.join(' | ').slice(0, 110)}）`
+      + ' —— 这一态不是只读，live 下必须摘掉（MOUNT_WRITES 少记了一条）');
+    if (denyAll.length) fail.push(`${tag}: 这一趟真发出去 ${denyAll.length} 发落库写请求（${denyAll.join(' | ').slice(0, 110)}）`
+      + ' —— live 只读跑出了写，测试数据可能已经落库，必须查');
+  }
   check(tag, v);
   if (SECTION_SHOTS[base]) await shotSection(tag, SECTION_SHOTS[base]);
   await shot(tag, true);
@@ -2640,7 +2714,7 @@ if (!STUB) {
   if (keep('report', '/report')) pages.push(['report', '/report/stub-locked', false]);
 }
 
-// 六爻结果态：只有注入 fixture 才画得出来。**live 模式不跑**（挂载即 saveReport，见 WRITE_STATES）。
+// 六爻结果态：只有注入 fixture 才画得出来。**live 模式不跑** —— 观测到它挂载就写一条报告（见 MOUNT_WRITES）。
 // 四种盘各测一遍：三种起卦方式（摇卦 / 时间 / 报数）+ 一张去掉口径版本戳的老盘。
 for (const [tag, [id]] of Object.entries(LIUYAO_ROUTES)) {
   if (!keep(tag, '/liuyao/result')) continue;
@@ -2649,15 +2723,20 @@ for (const [tag, [id]] of Object.entries(LIUYAO_ROUTES)) {
 }
 
 // live 只读闸门：把会写的态从这一趟里摘掉，**跑前**就把清单打在日志最前面（裁定要求）。
+// live 只读闸门：只摘**挂载就会写库**的那些态（判据是观测值，见 MOUNT_WRITES 上面那段），
+// 其余态照跑 —— 会写的动作（识别那一下、问事那一下）另有处置：前者在 STUB_ONLY 里不点，
+// 后者打的端点不落库， Network 账本会把它打印出来但不判负。
 const liveBlocked = [];
 if (!STUB) {
   for (let i = pages.length - 1; i >= 0; i--) {
     const t = pages[i][0];
-    if (WRITE_STATES[t]) { liveBlocked.push(t); pages.splice(i, 1); }
+    if (MOUNT_WRITES[t]) { liveBlocked.push(t); pages.splice(i, 1); }
   }
   if (liveBlocked.length) {
-    console.log(`\nLIVE 只读模式：下面 ${liveBlocked.length} 个态被摘掉，因为它们会 POST 到生产（裁定：测试数据不许落库）`);
-    for (const t of new Set(liveBlocked)) console.log(`  - ${t}: ${WRITE_STATES[t]}`);
+    console.log(`\nLIVE 只读模式：下面 ${liveBlocked.length} 个态被摘掉 —— 观测到它们**挂载就写库**（生产库不接测试数据）`);
+    for (const t of new Set(liveBlocked)) console.log(`  - ${t}: ${MOUNT_WRITES[t]}`);
+    console.log('  这份分类是量出来的不是读代码读出来的：本机 --stub 下注入盘跑一遍，读"挂载落定"那一刻的页内账本；'
+      + '要新增或撤销一条，重跑那趟观测，别改这张表的措辞。');
   }
 }
 
