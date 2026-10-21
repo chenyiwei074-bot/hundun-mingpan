@@ -1,16 +1,10 @@
+import type { CreateChartPayload } from '@/lib/api/contract';
+
 const API_BASE = "/api";
 
-export async function createChart(data: {
-  visitor_id: string;
-  name: string;
-  gender: string;
-  calendar: string;
-  birthday: string;
-  /** 农历闰月位。additive：老客户端不传，后端未接收时按平月处理。 */
-  isLeapMonth?: boolean;
-  birthPlace: string;
-  currentPlace: string;
-}) {
+/** 类型直接引契约层：`gender`/`calendar` 以前是裸 string，
+ *  于是 '四柱' 这种后端枚举里没有的值也能通过类型检查发出去（D6 就是这么中的）。 */
+export async function createChart(data: CreateChartPayload) {
   const res = await fetch(API_BASE + "/chart/create", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -25,9 +19,7 @@ export async function getChartStatus(id: string) {
 }
 
 export async function getChartResult(id: string) {
-  const url = API_BASE + "/chart/result/" + id;
-  console.log("[DEBUG getChartResult] Fetching:", url);
-  const res = await fetch(url);
+  const res = await fetch(API_BASE + "/chart/result/" + id);
   const json = await res.json();
   return { ...json, httpStatus: res.status };
 }

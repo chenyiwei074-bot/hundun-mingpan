@@ -205,6 +205,7 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 | `oriental-ask` / `western-ask` | 同上两条 | **问事框提交之后**那一帧：回答卡、来源标注、该给的入口 / 不该给的入口 |
 | `fengshui` / `fengshui-filled` | `/fengshui` | 空表单，以及勾了确认、点了"算一遍"之后的规则层输出 |
 | `fengshui-recognize-fail` / `-candidates` | `/fengshui?recognize=503` / `=ok` | 识别三态里两个后端落点：503 失败、成功但待确认。查询串只给桩看，页面自己不读 |
+| `fengshui-edit` | `/fengshui` | 编辑闭环：真加一道墙、在墙上开个门、调宽、改一间房的用途，再逐条钉回来（墙体数、开口数、未确认数、用途 chip 是否真的选中、手工门有没有进判定、3D 是否解禁） |
 
 两条纪律写在这里：
 
@@ -231,10 +232,17 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
 - 桩里带一个 `window.__recCalls` 计数，探针钉的是**"请求打了 1 次"这个测量**，不是源码 grep。
   "5xx 不自动重试"用 grep 挡不住 `setTimeout` 循环；数一次请求才叫证据。
 
-文件注入走页面内构造：`atob` → `Uint8Array` → `new File(...)` → `DataTransfer` →
-`input.files = dt.files` → 派发 `change`。没用 CDP 的 `DOM.setFileInputFiles`，因为这条路径
-要测的正是"选完图之后页面自己做了什么"（本地校验、读字节、量宽高比、出预览），
-页面内构造的 File 与真用户那一个进的是同一个 `onChange`。
+文件注入走 TRUSTED 里的 **`'@file'`** 那一步，不在 `AFTER` 里做：先对 `h1` 这种**非交互**位置打一发
+真实 `Input.dispatchMouseEvent`（把 `hadRecentInput` 置起来），再在页面里构造
+`atob` → `Uint8Array` → `new File(...)` → `DataTransfer` → `input.files = dt.files` → 派发 `change`。
+两个理由：
+
+1. **不用 `DOM.setFileInputFiles`。** 这条路径要测的正是"选完图之后页面自己做了什么"
+   （本地校验、读字节、量宽高比、出预览），而 `setFileInputFiles` 绕过了 `accept` 之外的所有判断。
+2. **不放在 `AFTER` 里。** `TRUSTED` 在自己的循环前会**再快照一次** `__clsAtLoad`，于是
+   "预览卡出现、把下面整块推下去"那段位移被算进"加载期 CLS"。真人选图是用户输入，按定义不计分 ——
+   第一版就是这么量出两条 0.139 的**假** warn，改成 `@file` 之后 `CLS load=0`（两视口四态都是 0）。
+   不打「选户型图」那一枪，是因为它会唤起原生文件对话框，headless 下有挂住的风险。
 
 **踩到的一次假绿，值得记下来**：`fixtures/floorplan-sample.png` 第一版是我手写 CRC-32 生成的，
 我又用**同一份算法**去验它，于是"CRC 全对"而 Chrome 从不解码 —— `readImageAspect` 静默落到 1，
@@ -363,9 +371,10 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
 `__clsAtLoad` / `__lcpAtLoad`，`lcp` 报载入相的值，交互后的值单独放 `lcpInteract`。
 控件找不到时**判负**（"这一半页面从没被测过"），不会静默少测。
 
-`/create` 现在有三个态，各管一件事：`create`（默认的公历单人）、`create-double`
+`/create` 现在有四个态，各管一件事：`create`（默认的公历单人）、`create-double`
 （真实点开「双人合盘」那一栏 —— 合盘接管后新增的同意框与对方闰月开关都在里面）、
-`create-lunar`（点「农历」再把年/月设成 2025 年 6 月，把闰月开关逼出来）。第三个态存在的原因
+`create-lunar`（点「农历」再把年/月设成 2025 年 6 月，把闰月开关逼出来）、
+`create-sizhu`（点「四柱」，钉那句"这条不会存进我的报告"真的在提交键之前就在屏上）。第三个态存在的原因
 是这批摘掉了三处 `.qn-chip` 上的内联 `minHeight:30`，不新增态就没法证明 44px 真的生效了；
 农历这一整套输入以前从未被任何一屏量过。设 select 必须走 `HTMLSelectElement` 的原生 setter
 加 `change` 事件，直接赋 `.value` 不触发 onChange，下一步就永远等不到那个 chip。

@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { randomFloat } from '@/lib/crypto/random';
 // 只取类型：值形式的 three 一律在函数内部动态 import，否则这 141KB 会跟着 /fengshui 的首屏包走。
 import type * as THREE from 'three';
-import { buildWalkGrid, cellCenter, nearestWalkable, passable } from '@/lib/fengshui/geometry';
+import { buildWalkGrid, cellCenter, nearestWalkable, openingSegment, passable } from '@/lib/fengshui/geometry';
 import type { FloorGeometry, WalkGrid } from '@/lib/fengshui/geometry';
 import { BUDGET, CAMERA, LIGHTS, PARTICLES, SCENE, SURFACE, particleBudget, readStage, tierFor } from '@/lib/fengshui/stage';
 
@@ -250,8 +250,11 @@ function build(THREE: Three, Controls: ControlsCtor, host: HTMLElement, geom: Fl
   if (grid) {
     for (const o of geom.开口.filter(x => x.已确认)) {
       const w = geom.墙体.find(x => x.id === o.墙);
-      const a = w?.折线[o.段], b = w?.折线[o.段 + 1];
-      if (!a || !b) continue;
+      // 走同一个 openingSegment：这里原来是 折线[段+1]，闭合墙的最后一跨取到 undefined，
+      // 于是那个洞口在 3D 里整个不存在 —— 而 2D、等轴图与判定都看得见它。
+      const seg = w ? openingSegment(o, w) : null;
+      if (!seg) continue;
+      const [a, b] = seg;
       const i = nearestWalkable(grid, { x: a.x + (b.x - a.x) * o.位, y: a.y + (b.y - a.y) * o.位 });
       if (i == null) continue;
       (o.类型 === '门' ? 门格 : 窗格).push(i);

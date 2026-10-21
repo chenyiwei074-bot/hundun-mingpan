@@ -161,6 +161,9 @@ const STATIC_PAGES = [
   // 只测失败就永远不知道成功体能不能被这套 UI 吃下；只测成功就永远不知道失败会不会假装成功。
   ['fengshui-recognize-fail', '/fengshui?recognize=503'],
   ['fengshui-recognize-candidates', '/fengshui?recognize=ok'],
+  // 编辑闭环那一态：真的加一道墙、在墙上开个门、调宽、改一间房的用途，然后逐条钉回来。
+  // 这批补的是"页面承诺过但没有控件"的缺陷，所以判据必须落在控件真的能改动画面上。
+  ['fengshui-edit', '/fengshui'],
   ['create', '/create'],
   // 农历态从没被审过：闰月开关、日期下拉、农历换算提示都只在 calendar==='农历' 时存在，
   // 而 create 那一态停在默认的公历上。本批把三处 qn-chip 的内联 minHeight:30 摘掉，
@@ -169,6 +172,9 @@ const STATIC_PAGES = [
   // 建盘页的「双人合盘」那一栏本批接管成真输入（多了同意框、闰月开关、对方的地区三件），
   // 不测这一 tab 就等于这批新加的控件一个 44px 读数都没有 —— 与"只审到输入态"同一类假绿。
   ['create-double', '/create'],
+  // 建盘页的「四柱直批」那一态：后端 calendar 只收 公历/农历，这一条永远存不进服务器。
+  // 要钉的是"这话在提交之前就写在屏上"，不是等用户事后发现报告列表里没有它。
+  ['create-sizhu', '/create'],
   ['liuyao', '/liuyao'],
   ['liuyao-create', '/liuyao/create'],
   // 结果态（step==='done'）单独占一个状态：同一 URL，但 AFTER 钩子会真摇一卦把它推到位。
@@ -275,13 +281,10 @@ const AFTER = {
     return true; })()`,
   // 户型工作室那两态改走 TRUSTED（真实 CDP 点击），不再用脚本 .click()：
   // 见上面 TRUSTED 的注释 —— 合成点击不计入 hadRecentInput，会把用户不被扣分的展开算成回归。
-  // 户型识别两态：先把那张 200×100 的 PNG 塞进 <input type=file>，再走 TRUSTED 点同意与识别。
-  // 为什么在页面里造 File 而不是 CDP 的 DOM.setFileInputFiles：这条路径要测的正是"选完图之后
-  // 页面自己做了什么"（读字节、量宽高比、出预览、没同意就不许发请求）。页面内构造的 File
-  // 与真用户那一个进的是同一个 onChange，而 setFileInputFiles 绕过了 accept 之外的所有判断。
-  // 字节取自 fixtures/floorplan-sample.png，套件里有一条闸门钉两者逐字节相同，不会分家。
-  'fengshui-recognize-fail': FS_PICK,
-  'fengshui-recognize-candidates': FS_PICK,
+  // 户型识别两态的文件注入不放这儿了 —— 挪进 TRUSTED 的 '@file' 那一步。
+  // 原因：AFTER 跑完之后、TRUSTED 之前会**再快照一次** __clsAtLoad，于是"选完图 → 预览卡出现
+  // → 下面整块被推下去"这段位移被算进"加载期 CLS"。而真人选图是**用户输入**，
+  // 500ms 内的位移按定义不计分。那两条 0.139 的 warn 是量法错了，不是产品回归。
   // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
   // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
   'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
@@ -1127,7 +1130,11 @@ const STUB_BOOT = `(() => {
     if (url.includes('/api/chart/result/')) { let p = null; try { p = JSON.parse(sessionStorage.getItem('chart_preview') || 'null'); } catch (e) {}
       return J({ success: true, data: { chartData: p && p.chart, name: p && p.chartName } }); }
     if (url.includes('/api/chart/status/')) return J({ success: true, data: { status: 'done' } });
-    if (url.includes('/api/chart/quota')) return J({ success: true, data: { used: 0, remaining: 3, limit: 3 } });
+    // 形状必须照 chart.controller.ts 的 getQuota 原样给：{used:0, remaining:null, limit:null, unlimited:true}。
+    // 这里以前给的是 {remaining:3, limit:3} —— 那是桩自己在假装有配额，
+    // 于是 D1 那行 UI 在桩下会显示"还可排 3 / 共 3 次"，而线上显示"内测免费"：
+    // 同一个组件在两处读到两种事实，harness 就再也证不了任何关于额度的判据。
+    if (url.includes('/api/chart/quota')) return J({ success: true, data: { used: 0, remaining: null, limit: null, unlimited: true } });
     if (url.includes('/api/reports?')) return J({ success: true, data: LIST });
     if (url.includes('/api/reports/')) { const k = url.split('/api/reports/')[1].split('?')[0]; return FIX[k] ? J({ success: true, data: FIX[k] }) : J({ success: false, error: '报告不存在' }); }
     // No fixture for this endpoint. Answering success:true + {} made
@@ -1823,14 +1830,20 @@ const TRUSTED = {
   // 识别两态：勾同意与按"送给模型提候选"都会改版面，必须真实事件。顺序有意义 ——
   // 不先勾同意，那个按钮是 disabled，点了等于没点，而 harness 因为打到了元素也不会报错。
   // 这条正好也是 privacy/consent-gates-request 那条闸门的浏览器侧证据。
-  'fengshui-recognize-fail': ['#fp-consent', '送给模型提候选'],
-  'fengshui-recognize-candidates': ['#fp-consent', '送给模型提候选'],
+  'fengshui-recognize-fail': ['@file', '#fp-consent', '送给模型提候选'],
+  'fengshui-recognize-candidates': ['@file', '#fp-consent', '送给模型提候选'],
+  // 编辑闭环：顺序有意义。加一间房会顺手选中它，「厨房」那颗 chip 在没有选中房间时是禁用的，
+  // 先点它就是空跑一趟（而 harness 因为打到了元素也不会报错 —— 这类假绿最费人）。
+  // 「加门」取的是页面上第一道墙那一行，「宽」取的是第一个开口那一行。
+  'fengshui-edit': ['手工画', '加一间房', '厨房', '加一道墙', '加门', '宽', '#fp-confirm'],
   // 勾同意与按对照这两下都会改版面，必须真实事件。顺序有意义：不先勾同意，
   // 「并排对照」是 disabled，点了等于没点，而 harness 会因为打到了元素而不报错。
   'chart-hepan': ['#hp-consent', '并排对照'],
   // 建盘页那一栏的同意框/闰月开关都是这一批新加的；先真实点开 tab 再测，
   // 否则这些控件从来没有出现在任何一屏里。
   'create-double': ['双人合盘'],
+  // 四柱那一档会把日期区整块换掉，必须真实点击才量得到换完之后那一屏（也才不计 CLS）。
+  'create-sizhu': ['四柱'],
   // 闰月开关是 AFTER 选完 2025/6 才出现的；真实点它一下，既是测命中区也是测状态翻转。
   'create-lunar': ['闰6月'],
 };
@@ -1862,6 +1875,23 @@ async function measure(tag, url) {
         h: document.documentElement.scrollHeight, vh: window.innerHeight }; true`);
     const miss = [];
     for (const target of TRUSTED[base]) {
+      if (target === '@file') {
+        // 真人选图 = 一次真实输入。先对页面上一个**非交互**的位置（h1）打一发真实点击，
+        // 把 hadRecentInput 置起来，再注入文件 —— 于是"预览卡出现把下面推下去"这段位移
+        // 按 CLS 定义不计分，量出来的才是用户真会被扣的分。
+        // 不打「选户型图」那一枪：它会唤起原生文件对话框，headless 下有挂住的风险。
+        const at = await evl(`(() => { const h = document.querySelector('h1');
+          if (!h) return null; const r = h.getBoundingClientRect();
+          return { x: r.left + 4, y: r.top + 4 }; })()`);
+        if (at && typeof at.x === 'number') {
+          for (const type of ['mousePressed', 'mouseReleased']) {
+            await send('Input.dispatchMouseEvent', { type, x: at.x, y: at.y, button: 'left', clickCount: 1 });
+          }
+        }
+        const inj = await evl(FS_PICK);
+        if (inj !== true) miss.push('@file → ' + (typeof inj === 'string' ? inj : JSON.stringify(inj)));
+        continue;
+      }
       // 先把目标滚进视口再取中心点：CDP 的 Input 坐标是视口 CSS 像素，
       // 元素在折叠线以下时按文档坐标打会点到别的东西上，而且点错了也"不会报错"。
       const at = await evl(`(() => {
@@ -1992,8 +2022,128 @@ async function measure(tag, url) {
     console.log(miss && miss.length ? `    RECOGNIZE MISMATCH ${miss.join(' | ')} ／ chip=[${got ? got.chips : '?'}]`
       : `    识别态 ${got.state}，请求打了 ${got.calls} 次（>1 就是自动重试），未确认开口 ${got.unconfirmed} 个，3D disabled=${got.disabled3d}`);
   }
-  // 3D 舞台那一态。两条路都算通过：真出了 canvas，或者真降级了且原因写在页面上。
+  // 编辑闭环态的钉值。每一条都是"按了某个新按钮之后画面真的变了"的证据，
+// 而不是"按钮存在" —— 存在性由 fengshui-acceptance 的 copy/promise-has-control 管。
+const FS_EDIT_PINS = {
+  walls: '墙体（3 道）', openings: 2, 未确认: 1, doorWidth: '宽 1m', 手工: '手工标注',
+  kindOn: '厨房', report: ['厨房', '房间 3 间', '入户门所在宫'],
+  // 手工加的那道门必须真的喂进判定：加之前那一行是"入户门所在宫：未标"。
+  notReport: ['入户门所在宫：未标'], d3enabled: true,
+};
+const fsEditProbe = p => `(() => {
+  const txt = sel => { const el = document.querySelector(sel); return el ? (el.innerText || '').replace(/\\s+/g, ' ').trim() : null; };
+  const walls = txt('#fp-walls'), opens = txt('#fp-openings');
+  const sec = [...document.querySelectorAll('section')].find(s => /规则层结果/.test(s.innerText || ''));
+  const rep = sec ? (sec.innerText || '').replace(/\\s+/g, ' ') : null;
+  const chips = t => [...document.querySelectorAll('.qn-chip')].filter(b => (b.textContent || '').trim() === t);
+  const d3 = chips('3D')[0];
+  const out = [];
+  if (!walls) out.push('墙体那一格不在页面上（#fp-walls）');
+  if (!opens) out.push('门窗那一格不在页面上（#fp-openings）');
+  if (walls && !walls.includes(${JSON.stringify(p.walls)})) out.push('墙体数应为「' + ${JSON.stringify(p.walls)} + '」，实得「' + walls.slice(0, 40) + '」');
+  if (opens && (opens.match(/手工标注|模型把握/g) || []).length !== ${p.openings}) out.push('开口行应有 ${p.openings} 条，实得 ' + (opens.match(/手工标注|模型把握/g) || []).length);
+  if (opens && !opens.includes(${JSON.stringify(p.doorWidth)})) out.push('按过一次「宽」之后新门应显示 ' + ${JSON.stringify(p.doorWidth)});
+  if (opens && !opens.includes(${JSON.stringify(p.手工)})) out.push('手工画的开口要标「手工标注」（置信度 null），不能冒充模型给的');
+  // 门窗格里"未确认" chip 的个数：starter 那道门是识别语义（未确认），手工新加的那道算已确认。
+  const unconf = [...document.querySelectorAll('#fp-openings .qn-chip')].filter(b => (b.textContent || '').trim() === '未确认').length;
+  if (unconf !== ${p.未确认}) out.push('门窗格里未确认的开口应剩 ${p.未确认} 个（自己画的那个算已确认），实得 ' + unconf);
+  const kc = [...document.querySelectorAll('.qn-chip')].find(b => (b.textContent || '').trim() === ${JSON.stringify(p.kindOn)});
+  if (!kc) out.push('用途 chip「' + ${JSON.stringify(p.kindOn)} + '」不在页面上');
+  else if (!kc.className.includes('qn-chip--on')) out.push('点了「' + ${JSON.stringify(p.kindOn)} + '」之后它不是选中态（用途没写回几何）');
+  if (!rep) out.push('规则层结果那一块没出现');
+  ${JSON.stringify(p.report)}.forEach(s => { if (rep && !rep.includes(s)) out.push('规则层输出里找不到「' + s + '」（编辑没喂进判定）'); });
+  ${JSON.stringify(p.notReport || [])}.forEach(s => { if (rep && rep.includes(s)) out.push('规则层输出里还有「' + s + '」—— 手工加的门窗没有参与判定'); });
+  if (!d3) out.push('「3D」chip 不在页面上');
+  else if (d3.disabled !== !${p.d3enabled}) out.push('勾了确认之后「3D」的 disabled=' + d3.disabled + '，应为 ' + !${p.d3enabled});
+  return { miss: out, walls, openings: opens ? opens.length : 0, d3: d3 ? !d3.disabled : null };
+})()`;
+
+// 3D 舞台那一态。两条路都算通过：真出了 canvas，或者真降级了且原因写在页面上。
   // 不通过的是"什么都没发生"—— 黑屏、永久转圈、或者悄悄换了一张图却不说为什么。
+  if (base === 'create-sizhu') {
+    // 那句话必须**在提交键之前**就在屏上，而且要说清"不会存进我的报告"。
+    const got = await evl(`(() => {
+      const n = document.getElementById('create-persist-note');
+      const txt = n ? (n.innerText || '').replace(/\\s+/g, ' ').trim() : null;
+      const miss = [];
+      if (!txt) miss.push('选了四柱之后 #create-persist-note 不在屏上（这话得说在提交之前）');
+      else {
+        if (!txt.includes('四柱直批')) miss.push('那句里没有「四柱直批」');
+        if (!txt.includes('不会存进')) miss.push('那句里没有明说不会存进服务器');
+        if (!txt.includes('刷新')) miss.push('那句里没说刷新就没了（用户需要知道怎么留档）');
+      }
+      return { miss, txt: txt ? txt.slice(0, 90) : null };
+    })()`);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 四柱披露探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 四柱披露不合格 — ' + x);
+    console.log(miss && miss.length ? '    SIZHU MISMATCH ' + miss.join(' | ')
+      : '    四柱披露在屏：' + got.txt);
+  }
+  // D4/D5 口径披露（批4）：紫微盘上那两行必须真的在屏上，且带口径戳。
+  // fixture 模式额外钉死那两个时刻 —— 它们是那份committed盘算出来的，不是手抄的。
+  if (base === 'chart-result') {
+    // 这两个时刻从**当前绑定的那张 fixture** 里读（不是另抄一份期望值，也不在 --chart-fixture
+    // 换盘时失效）；真盘模式 --chart-id 下不钉，因为那张盘是别人的生辰。
+    let pinCivil = null; let pinSolar = null;
+    if (!LIVE_CHART) {
+      try {
+        const tstBody = JSON.parse(CHART_BY_PATH['/chart/result/stubchart0001'] || '{}')?.chart?.bazi?.trueSolarTime;
+        pinCivil = tstBody?.civilTime ?? null;
+        pinSolar = tstBody?.trueSolarTime ?? null;
+      } catch { /* 读不到就不钉那两个值，结构断言照旧 */ }
+    }
+    const got = await evl(`(() => {
+      const n = document.getElementById('ziwei-caliber');
+      const miss = [];
+      if (!n) miss.push('紫微口径披露不在屏上（#ziwei-caliber）—— 引擎字段改了的话它就是会安静地整块消失');
+      else {
+        const txt = (n.innerText || '').replace(/\\s+/g, ' ').trim();
+        const ps = n.querySelectorAll('p').length;
+        if (n.getAttribute('data-caliber') !== 'ziwei-clock-hour-v1') miss.push('口径戳不是 ziwei-clock-hour-v1，实得 ' + n.getAttribute('data-caliber'));
+        if (ps < 2) miss.push('只有 ' + ps + ' 行，时辰与年界两行都该在');
+        if (!/时辰/.test(txt)) miss.push('没有「时辰」那一行');
+        if (!/年界/.test(txt)) miss.push('没有「年界」那一行');
+        if (!/未做真太阳时校正/.test(txt)) miss.push('没明说紫微这一侧未做真太阳时校正');
+        if (/已跨时辰/.test(txt)) miss.push('披露替这张盘判了"已跨时辰"—— 那需要时辰边界，属安星输入');
+        ${pinCivil ? `if (!txt.includes(${JSON.stringify(pinCivil)})) miss.push('钟表时刻没上屏（该有 ${pinCivil}）');` : ''}
+        ${pinSolar ? `if (!txt.includes(${JSON.stringify(pinSolar)})) miss.push('真太阳时时刻没上屏（该有 ${pinSolar}）');` : ''}
+      }
+      return { miss, txt: n ? (n.innerText || '').replace(/\\s+/g, ' ').trim().slice(0, 60) : null };
+    })()`);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 紫微口径探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 紫微口径披露不合格 — ' + x);
+    if (miss && !miss.length) console.log('    紫微口径在屏：' + got.txt);
+  }
+  // D1 配额那一行：桩现在照 getQuota 原样返回 unlimited:true，所以这一行必须显示"内测免费"。
+  // 这一条同时管两件事：前端确实去读了额度，以及桩没有再假装有配额。
+  if (/^create/.test(base)) {
+    const q = await evl(`(() => {
+      const n = document.getElementById('create-quota');
+      const txt = n ? (n.innerText || '').replace(/\\s+/g, ' ').trim() : null;
+      const miss = [];
+      if (!n) miss.push('额度那一行不在页面上（#create-quota）');
+      else {
+        if (n.getAttribute('data-quota-kind') !== '内测免费') miss.push('data-quota-kind 是 ' + n.getAttribute('data-quota-kind') + '，桩给的应是 内测免费');
+        if (!/不限次数/.test(txt || '')) miss.push('那一行没写"不限次数"，实得「' + txt + '」');
+        if (/\\d/.test(txt || '')) miss.push('那一行出现了数字（' + txt + '）—— 额度只能来自服务端，不许有兜底常量');
+      }
+      return { miss, txt };
+    })()`);
+    const miss = q && Array.isArray(q.miss) ? q.miss : null;
+    if (!miss) fail.push(tag + ': 额度探针跑不起来 ' + JSON.stringify(q).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 配额显示不等于钉值 — ' + x);
+    if (miss && !miss.length) console.log('    配额行：' + q.txt);
+  }
+  if (base === 'fengshui-edit') {
+    const got = await evl(fsEditProbe(FS_EDIT_PINS));
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 编辑探针跑不起来 ' + JSON.stringify(got).slice(0, 180));
+    else for (const x of miss) fail.push(tag + ': 编辑闭环不等于钉值 — ' + x);
+    console.log(miss && miss.length ? `    EDIT MISMATCH ${miss.join(' | ')}`
+      : `    编辑闭环：${(got.walls || '').slice(0, 14)}、手工门窗已进判定、3D disabled=${!got.d3}`);
+  }
   if (base === 'fengshui-3d') {
     await evl(`window.__fp = { frames: 0, t0: performance.now() };
       (function loop(){ window.__fp.frames++; requestAnimationFrame(loop); })(); true`);

@@ -3,6 +3,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createChart as apiCreateChart, trackEvent } from '@/app/lib/api';
+import { canPersist, validateCreateChart } from '@/lib/api/contract';
+import type { CreateChartPayload } from '@/lib/api/contract';
+import { describeQuota, fetchQuota } from '@/lib/api/quota';
+import type { QuotaView } from '@/lib/api/quota';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
@@ -32,6 +36,8 @@ function getDayOptions(year: string, month: string, isLunar = false, isLeapMonth
 export default function CreatePage() {
   const router = useRouter();
   const [visitorId, setVisitorId] = useState('');
+  // 初值必须是"未知"，不能先渲染一个数字再被服务端纠正 —— 那一闪就是假信息。
+  const [quota, setQuota] = useState<QuotaView>(() => describeQuota(null));
   const [tab, setTab] = useState<'single'|'double'>('single');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,6 +59,14 @@ export default function CreatePage() {
   });
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
+  // 额度只在拿到访客 id 之后读一次（服务端按 visitor_id 查）。读失败保持"未知"，
+  // 不重试也不阻塞：这一行是说明，不是闸门。
+  useEffect(() => {
+    if (!visitorId) return;
+    let alive = true;
+    fetchQuota(visitorId).then(v => { if (alive) setQuota(v); });
+    return () => { alive = false; };
+  }, [visitorId]);
   // 换年或换月就把闰月标记清掉：标记本身只在「所选月正好是该年闰月」时才生效，
   // 但留着 true 会让用户改回那个月时发现自己悄悄回到了闰月盘。可见的输入不该藏状态。
   const setField = (f: string, v: string) => setForm(p => ({
@@ -184,9 +198,33 @@ export default function CreatePage() {
         clearPartner();
       }
 
-      // 后端持久化
-      // calendar 保持「用户输入的历法」；闰月单独用一个 additive 字段带过去，
-      // 后端未接收该字段前会按平月排——所以这块必须与后端 lunar 同步同批上线。
+      // 后端持久化。先过一遍取值契约（D6）：后端不收的取值一律不发。
+      // calendar 与 birthday 的值语义是冻结的（"用户的原始输入"），所以这里不为了过校验
+      // 把 '四柱' 改写成别的值 —— 那会让同一列新旧行分叉成两种意思。能做的是"不发 + 明说"。
+      const persist = canPersist(form.calendar);
+      if (persist.能) {
+        const payload: CreateChartPayload = {
+          visitor_id: visitorId, name: chartName, gender: form.gender,
+          calendar: form.calendar, birthday, isLeapMonth: isLeapOn,
+          birthPlace: birthPlace || '未指定', currentPlace: currentPlace || '未指定',
+        };
+        const v = validateCreateChart(payload);
+        if (!v.ok) {
+          // 走到这里说明前端自己造出了后端不接受的值 —— 是缺陷，不是要绕的坎。
+          // 所以停下来把字段和原因说出来，而不是换个兜底 id 继续走（那正是原来的静默）。
+          setError(`这份请求后端不会收（${v.field}）：${v.why} 已停在本页，没有发出去。`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (!persist.能) {
+        // 四柱直批：只走本机引擎。为什么存不进服务器，页面上方那句已经写在提交键之前了。
+        const fallbackId = 'local_' + Date.now().toString(36);
+        router.push('/chart/loading/' + fallbackId);
+        return;
+      }
+
       const res = await apiCreateChart({
         visitor_id: visitorId, name: chartName, gender: form.gender,
         calendar: form.calendar, birthday, isLeapMonth: isLeapOn,
@@ -299,8 +337,11 @@ export default function CreatePage() {
             </select>
           </div>
           )}
-          <button type="button" onClick={() => setForm(p => ({ ...p, unknownTime: !p.unknownTime }))} className="qn-cap qn-hit"
-            style={{ color: 'var(--color-accent-gold-text)', letterSpacing: '0.02em', marginTop: 16, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}>
+          {/* 真盒子，不靠 .qn-hit::after 往外撑：撑出来的 44px 会和上下相邻控件的
+              撑出区互相抢角，命中的是别人。文字型开关自己占满 44 高才点得准。 */}
+          <button type="button" onClick={() => setForm(p => ({ ...p, unknownTime: !p.unknownTime }))} className="qn-cap"
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, minWidth: 44, padding: '0 12px',
+              color: 'var(--color-accent-gold-text)', letterSpacing: '0.02em', marginTop: 8, border: 'none', background: 'transparent', cursor: 'pointer' }}>
             {form.unknownTime ? '精确时间' : '时辰选择'}
           </button>
         </div>
@@ -413,6 +454,13 @@ export default function CreatePage() {
                       ))}
                     </div>
                   </div>
+                  {/* 选了「四柱」就把话说在前面，而不是等提交之后让用户猜为什么没存上。
+                      后端 calendar 只收 公历/农历，这条永远存不进「我的报告」。 */}
+                  {form.calendar === '四柱' && (
+                    <p className="qn-note" id="create-persist-note" style={{ marginTop: 8 }}>
+                      {canPersist('四柱').原因}
+                    </p>
+                  )}
                   {renderDateGroup('')}
                 </div>
               )}
@@ -463,6 +511,12 @@ export default function CreatePage() {
               )}
 
               {error && <div className="qn-alert" role="alert">{error}</div>}
+
+              {/* D1：额度这一行只报服务端说了什么，读不到就说读不到。
+                  它不是闸门 —— 本机引擎算得出盘，配额只管"能不能存进服务器"那一侧。 */}
+              <p className="qn-meta" id="create-quota" data-quota-kind={quota.kind} style={{ margin: '4px 0 10px' }}>
+                {quota.文本}
+              </p>
 
               <button type="submit" disabled={loading} className="qn-btn qn-btn--solid qn-btn--block" style={{ minHeight: 50 }}>
                 {loading ? '生成中...' : '生成我的双盘命格'}
