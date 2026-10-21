@@ -589,6 +589,35 @@ const base: FloorInput = {
   ok('harness/tests-three-states', /fengshui-recognize-fail/.test(census) && /fengshui-recognize-candidates/.test(census)
     && /FS_RECOGNIZE_PINS\[base\]/.test(census),
     '三态里两个后端落点各有自己的 harness 态与探针：只测失败就永远不知道成功体能不能被这套 UI 吃下');
+
+  // 钉"哪一态在哪一种运行模式下成立"。不钉这个，下一个改 harness 的人会把这两态在
+  // live 下照常跑：钉值必然对不上（假红），或者更糟 —— 那一枪把用户的图真的送给供应商。
+  // 必须先剥注释：这一批 census 里的注释本身就写着 STUB_ONLY / LIVE_ONLY / 态名，
+  // 拿原文去扫，代码没了断言还绿 —— 同一个坑这仓库已经踩过几次了。
+  const censusJs = census.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  ok('harness/stub-only-modes-are-marked',
+    /const STUB_ONLY = new Set\(\[\s*'fengshui-recognize-fail',\s*'fengshui-recognize-candidates'\s*\]\)/.test(censusJs)
+    && /STUB_ONLY\.has\(base\)&&!STUB/.test(censusJs.replace(/\s+/g, ''))
+    && /FS_RECOGNIZE_PINS\[base\]/.test(censusJs) && /if \(!STUB\)/.test(censusJs),
+    '两个注入态在 live 下既不点（不烧真实调用）也不钉，SKIP 说得出原因；交互与探针两头都真的分了岔');
+  ok('harness/wire-state-observes-the-network',
+    /'fengshui-recognize-wire'/.test(censusJs)
+    && /send\('Fetch\.enable'/.test(censusJs) && /Fetch\.requestPaused/.test(censusJs)
+    && /send\('Fetch\.failRequest'/.test(censusJs) && /await send\('Fetch\.disable'\)/.test(censusJs),
+    '契约态走的是 CDP Fetch：enable → 收 requestPaused → failRequest → disable 四段都要在。'
+    + '少最后那段 disable，拦到一发不应答，后面每一态都挂在 pending 上');
+  ok('harness/wire-checks-wire-not-init', /content-type/.test(censusJs) && /imageBase64,visitorId/.test(censusJs)
+    && /data:image\/png;base64,/.test(censusJs) && /\[A-Za-z0-9_-\]\{8,64\}/.test(censusJs),
+    '契约态判的是上线可见的那四样：Content-Type 头、体里正好这两个键、base64 前缀、'
+    + 'visitorId 合服务端 VISITOR_RE 的形状。桩里那份 window.__recReq 读的是 fetch() 的参数，'
+    + '参数对不等于上线对 —— 去掉 Content-Type 后浏览器会自己补一个 text/plain，只有网络层看得见');
+  ok('harness/wire-is-live-only', /const LIVE_ONLY = new Set\(\[/
+    && /'fengshui-recognize-wire'/.test(/const LIVE_ONLY[\s\S]*?\]/.exec(censusJs)?.[0] || '')
+    && /LIVE_ONLY\.has\(tag\)&&STUB/.test(censusJs.replace(/\s+/g, '')),
+    '--stub 下 window.fetch 被桩换掉，网络层根本没这一发，拦不到不等于契约不合 —— '
+    + '所以契约态在桩模式下必须 SKIP 而不是判负（并且 SKIP 要打印出来）');
+  ok('harness/wire-counts-one-request', /应有 1 发，实得/.test(censusJs) && /pattern 没命中/.test(censusJs),
+    '出站只该一发（多于一发就是自动重试），而 0 发要报成"这一态成了空跑"而不是静默通过');
 }
 
 // ── 10. 编辑闭环：页面承诺过的三件事，必须真有控件、真有不变式 ──
