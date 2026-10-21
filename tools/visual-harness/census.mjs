@@ -279,6 +279,12 @@ const QA_PINS = {
   },
 };
 
+/** 交互之后不许有任何位移的那几态：答案面板预留过高度（.qa-pane 两条规则），内容在自己盒子里滚。
+ *  判定写成"态名列表"而不是点名某个 CSS 文件 —— 约束的是一类行为（预留过高度的面板），
+ *  以后再有预留的面板加进这张表就行。 */
+const RESERVED_PANES = ['oriental-ask', 'oriental-choices', 'oriental-chosen', 'oriental-ime',
+  'western-ask', 'western-example'];
+
 /** 问事框那一类 AFTER 钩子的公共形状：填句子 → 点提交 → 等回答卡出现。
  *  等是必须的：`askRoute` 里那一发 fetch 是异步的，不等就点下一样东西，
  *  测到的是"提交前的那一屏"，而那种屏永远不会有入口。 */
@@ -1367,6 +1373,10 @@ const evl = async expression => {
 // ---------------------------------------------------------------- boot script
 // Paint observers run on every page. The fetch stub is only installed when --stub
 // was asked for, so a default run measures the real service.
+// 位移"来源"记录的门槛。默认 0.01（跟 Web Vitals 的最小计分粒度一致，日志不至于淹掉）。
+// 调它不是为了放宽判定 —— 判定读的是总分；是为了查那种 1~2px 的小位移到底是谁动的：
+// QN_CLS_SRC_MIN=0.0001 node tools/visual-harness/census.mjs ... --only=western-ask
+const CLS_SRC_MIN = Number(process.env.QN_CLS_SRC_MIN || 0.01);
 const OBSERVERS = `(() => {
   window.__vhBooted = 1;
   window.__cls = 0; window.__lcp = null; window.__clsSrc = [];
@@ -1374,7 +1384,7 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { for (const e of list.getEntries()) {
       if (e.hadRecentInput) continue;
       window.__cls += e.value;
-      if (e.value > 0.01 && window.__clsSrc.length < 14) window.__clsSrc.push({
+      if (e.value > ${CLS_SRC_MIN} && window.__clsSrc.length < 14) window.__clsSrc.push({
         v: Math.round(e.value * 1000) / 1000, time: Math.round(e.startTime),
         t: (e.sources || []).slice(0, 9).map(s => {
           const n = s.node, o = s.previousRect, x = s.currentRect;
@@ -1950,6 +1960,14 @@ function check(tag, v) {
     const load = typeof v.clsAtLoad === 'number' ? v.clsAtLoad : v.cls;
     const after = Math.round((v.cls - load) * 1000) / 1000;
     if (after >= 0.1) bad(`交互后 CLS +${after}（累计 ${v.cls}）—— 有内容在点击之后把页面推走了`);
+    // 预留过高度的那一类态（问事框六态）另立一条更狠的：位移按定义必须是 0。
+    // 为什么要单立：0.1 那条 Web Vitals 线咬不住这一类回归 —— 实测把 compact 那 132px 预留
+    // 撤掉，桌面 d1-oriental-chosen 只到 0.097、d1-oriental-ask 0.036，全都不红。
+    // 也就是说"修好了"与"又坏了"用通用阈值读出来是同一个颜色。预留的定义就是不动，
+    // 所以这一类态动了就红，不给自己留"这次只差一点"的余地。
+    if (RESERVED_PANES.some(s => tag.endsWith(s)) && after > 0) {
+      bad(`交互后 CLS +${after} —— 这一态的答案面板预留过高度 + 内部滚动，任何位移都说明预留没生效`);
+    }
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
     // 把"页面被滚了一下/被夹紧"与"内容真的被推走"分开。CLS 用视口坐标算，

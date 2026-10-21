@@ -839,7 +839,16 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
    54px、CLS 0.106）。输入框自己 min-width:0，永远让得起。 */
 .qa-row { display: flex; gap: 8px; flex-wrap: nowrap; align-items: stretch; }
 .qa-row .qn-textarea { flex: 1 1 auto; min-width: 0; }
-.qa-submit { min-width: 84px; flex: 0 0 auto; }
+.qa-submit {
+  /* 110 = 实测「问一下」的盒宽（3 字 × 15px + 左右各 30px padding + 边框）。
+     不钉住的话，提交瞬间标签换成「在想」（2 字）盒子就窄 16px —— 按钮在 flex 行尾，
+     窄了左边线就右移，回原样时 dx=-16。实测 m1-western-ask / m1-western-example
+     交互后 CLS +0.001：这是本站自己定的那条"预留过高度的面板不许有任何位移"抓出来的，
+     不是 Web Vitals 那条 0.1 线（它咬不到）。 */
+  min-width: 110px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .qa-keys { margin: 0; letter-spacing: 0.02em; }
 
 .qa-examples {

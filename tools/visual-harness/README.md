@@ -277,6 +277,13 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
    两条就 0.103 超线；而 375 那一档两次都是 0 —— 不是没问题，是 hero 比视口高、被推走的东西本来就在屏外。
    现在 compact 也预留 132px + 内部滚动，空着的那一块渲染提示文字（预留不等于留一截空白），
    `FIRST-SCREEN intents=4/4` 在两种视口都还在。批B 之前这个交互从未被量过第二次。
+8. **预留过高度的那一类态，判据是"零位移"，不是 0.1。** 0.1 那条线咬不住这一类回归：
+   实测把 compact 的 132px 预留撤掉，桌面 `d1-oriental-chosen` 只到 0.096、`d1-oriental-ask` 0.036，
+   全都不红 —— "修好了"与"又坏了"用通用阈值读出来是同一个颜色。所以 `RESERVED_PANES` 里那几态
+   动了就红。这条判据上线当天就抓到一件谁也没看见的事：提交那一刻标签从「问一下」换成「在想」，
+   按钮盒子窄 16px，它在 flex 行尾所以左边线右移（`QN_CLS_SRC_MIN=0.0001` 量到 `dx=-16`），
+   移动端两态各 +0.001。修法是把按钮宽度钉成「问一下」的实测盒宽（110px），标签换字不许改变盒子。
+   位移来源记录的门槛可以用 `QN_CLS_SRC_MIN` 调（默认 0.01，判定读的是总分，不受它影响）。
 
 React 受控 input 在探针里必须走**该元素自己那一族**的原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。批B 把问事框换成 `<textarea>` 之后，写死 `HTMLInputElement.prototype`
