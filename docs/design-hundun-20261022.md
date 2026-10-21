@@ -198,13 +198,14 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 | ② | `QuestionComposer`（`outcome.degraded` 未渲染） | 追问/降级理由拿到了却不显示 → "资料不足先问"这条主流程在界面上是断的 | 状态机 `clarify/degraded` 段落上屏 + harness 态钉文案 | B |
 | ③ | [WesternWorkspace.tsx:10](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L10) | `--color-border-strong` 未定义 → 回退 `rgba(0,0,0,.22)`，在 `#241a3d` 上等于没有；`/tools` 另一套 | 单一 `lib/tools/status.ts` + census 判定点色唯一来源 | A |
 | ④ | `FloorPlanStudio` 选图后 | 没有 `移除这张图/重传` 出口，用户只能再选一次，图是否还在不可见 | 加移除 + 二次确认 + 清状态 | C |
-| 缺陷5（新量到，改版前就存在） | [WesternWorkspace.tsx:9](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L9) · [tools/page.tsx:11](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/tools/page.tsx#L11) | `部分可用` 点 = `#b2955d`，白底 **2.87:1**、`#f5f5f7` **2.64:1**，低于非文本 3:1 下限 | 随修正⑤ 的单源化一起换值（§7 表：亮底 `#a3823a`、墨底 `#d4b87a`），census 加状态点对比度判定 | A |
+| 缺陷5（新量到，改版前就存在） | [WesternWorkspace.tsx:9](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L9) · [tools/page.tsx:11](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/tools/page.tsx#L11) | `部分可用` 点 = `#b2955d`，白底 **2.87:1**、`#f5f5f7` **2.64:1**，低于非文本 3:1 下限 | 随修正⑤ 的单源化一起换值（§7 表：亮底 `#a3823a`、墨底 `#e3cd96`/`#d9b877`），census 加状态点对比度判定 | **批A 已落** |
 | 缺陷6（新量到，属文案口径矛盾） | [catalog.ts:129](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/tools/catalog.ts#L129) 对 [fengshui/page.tsx:34](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/fengshui/page.tsx#L34) | 目录 `note` 写着「**不上传户型图**：图片要落地就得加存储与告知流程，那一半属于后端」，而 `FloorPlanStudio` 早已实装上传+识别（`components/fengshui/FloorPlanStudio.tsx:229` 选户型图、:231 `<input type="file">`），`/fengshui` 页第 34 行也写着「上传是可选的…勾选同意之前，图片不会离开这台设备」。**这句 note 由 `/tools` 页原样渲染**（`app/tools/page.tsx:64`）→ 用户在同一站里读到两句相反的话 | 待裁：改目录那句以匹配实装（含"7 天自动删、可移除"）还是收紧产品；改哪一处都要同步 `directory-acceptance` 的文本断言（先剥注释）。**批10 不动它** —— 目录是口径单一来源，不是我能顺手改的 | 运维已裁：改目录那侧，**批A 已落** |
 
 ## 13. 批次
 
-- **批A 门廊 + 导航 + 令牌清理 + 缺陷①③ + 缺陷5**：全屏两栏、品牌带、真实计数行、`STATUS_DOT` 单源（含把
-  `部分可用` 点从 2.64:1 换到达标值）、死文件与 `*_bak*` 清除、`home/intents-come-from-catalog` 改指新文件。
+- **批A 门廊 + 导航 + 令牌清理 + 缺陷①③ + 缺陷5 + 缺陷6**：全屏两栏、真实计数行（三数并列）、`STATUS_DOT` 单源（含把
+  `部分可用` 点从 2.64:1 换到达标值）、死文件与 `frontend/app/**/*_bak*` 清除。
+  落地时的三处偏差见 §15（没有另做品牌带、标题跟阶梯走、h1 保留）。
 - **批B 问事框**：状态机、`degraded` 上屏、Enter/Shift+Enter + IME 门闩、西方示例不再空、来源标注与缺陷①的断言闭环。
 - **批C 户型**：分步条、移除/重传、关心点采集、隐私复现；结果五区模板统一（含 §9 的计算/解释分界）。
 
@@ -219,3 +220,56 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 稿子里的计数、工具名、状态、分组、意图 lead 全部逐字取自 `lib/tools/catalog.ts`（四组意图 = `INTENTS` 自带的四组，
 10 张卡 = 10 条目录条目，卡面那句用的是目录 `question`）与 `lib/tools/western-catalog.ts` 现读值，不另造分类、不改写句子。
 稿子不进构建：带稿子重建后产物 CSS 65,846 字节，`mk-` 命中 0，路由表里没有 `docs` 条目（实测见 §10）。
+
+---
+
+## 15. 批A 落地（2026-10-21，运维放行后开工）
+
+**做了什么**：§3 的两栏门廊、§4 的工作页导航、§7 的状态令牌单源（含缺陷5 换值）、缺陷①③6、
+§10 的死文件清理。**产品算法层一行未动，`server/` 一行未动。**
+
+**落地时对稿子的四处偏差**（都写进 §3 那张表下面了，这里只补"为什么"）：
+① 没做独立品牌带 —— 全局 `Nav` 本来就在每一页上，再来一条等于把「混沌」写两遍；
+   h1「先选一套体系」保留，`home` 那条营销话禁令与首屏判据都还在跑。
+② 栏标题跟阶梯走（display 档 88·64·44 按断点），不写死稿上的 44px：44 是那一档在 ≤767px 的值，
+   桌面再钉一个 44 就是阶梯外的第四档，那个口子在批 5/批 6 已经焊死（off-ladder 直接红）。
+③ 提示行不用朱砂 `#b23a2e`：那一支在本站的语义是「凶」。
+④ 焦点环 `outline-offset:-2px`（向内），否则会盖住两栏之间那条 1px 中缝。
+
+**裁定② 的一个纠正**：`home/intents-come-from-catalog` 不需要"改指新文件"—— 四类意图本来就在
+`components/home/OrientalBody.tsx` 里，这一批没让它搬家，断言一个字没动、仍然绿。
+"不许删"这条按原样守住了。
+
+**新量到的东西**：
+- 生产上此刻的门廊那行印的是 **已开放 9 / 10**（`curl https://hundunmp.vip/` 读回来的），
+  而我批10 写进稿子和文档的是 8 / 10 —— 8 是"可用"那一档，9 是旧分子（可用 + 部分可用）。
+  三数并列把这个歧义消掉了，并且 harness 当场验 `可用 + 部分可用 + 未开放 = 共 N 项`。
+- 状态点的墨底取值与稿子不同：西方作用域里 `--color-accent-gold` **自己就被重指向** #d9b877，
+  拿它当"墨底的可用"会让两档撞成一支，所以墨底引的是没被重指向的两支（§7 表）。
+- 新增一条全站扫描闸门 `dir/no-undefined-css-var`，量到 4 支未定义令牌共 5 处使用（带理由 +
+  失配判红的清单钉住，不在本批顺手改）：`--color-border`（回执卡）、`--color-border-subtle`
+  （K 线与场景矩阵）、`--color-danger` 与 `--color-fp-stage-open`（户型工作室，**不带 fallback**
+  = 那两处属性直接失效，"未确认"那一档其实没有颜色 —— 看得见的缺陷，归批C）。
+  这条闸门第一次跑就咬到我自己刚写的 `var(--qn-fs-sub)`（全站没那支令牌，字号会安静继承成 15px），
+  已修成 `--qn-fs-meta`，并把扫描范围从 `--color-*` 扩到 `--qn-*`。
+
+**证伪（每条都点名红，不是"整体变红"）**：
+| 喂进去的假 | 结果 |
+|---|---|
+| 门廊栏里塞一个 `<button>` | `gate/panel-is-single-anchor` 精确 1 红（点名"其它可点 1 处"）|
+| 计数行写死「可用 8 · … · 共 10 项」 | `gate/counts-derived-from-catalogs` 精确 1 红（把命中的串打出来）|
+| `--color-status-partial` 退回 `#b2955d` | census 两档视口各 1 红：`部分可用 点 2.86:1 < 3:1（rgb(178,149,93) on rgb(255,255,255)）` |
+| 浅底焦点环退回 `--color-accent-gold` | census 2 红：环色不合裁定③ + 对底 2.55:1 < 3:1 |
+| 悬停叠层 `opacity:.12` | census 1 红：`应在 (0, .08]：要么没亮，要么亮过头` |
+| 三数写成一档不合（共 11 项） | census 2 红：`8+1+1≠11 —— 数是从目录现算的，出现这种结果就是算错了` |
+
+四条假全部单独可归因，撤掉之后（`git checkout --`，工作区当时是已提交状态）census 与 19 项检查回到全绿；
+清干净重建出来的 CSS 包与证伪前的哈希一致（`2u55hofw2sybo.css`），也就是撤销实验没有在产品里留下残渣。
+
+**看截图才看得见的一条（记下来，因为它证明"判据全绿"不等于"页面是对的"）**：
+门廊第一版把 h1 顶到了 49px，而吸顶导航底边在 57px —— 「先选一套体系」上半截被压在毛玻璃底下。
+宽度、横向溢出、命中区、对比度四条判据当时**全是绿的**：被压住的那半截字仍然是"够对比度的字"。
+补了 `padding-top: var(--qn-nav-h)`，并给 harness 加了一条 `navClash`：在 scrollY=0 扫 `main` 里
+"自己带文字"的元素（整块背景压在半透明导航下是设计，字不是），凡 `top < 导航底 − 1` 就红。
+这条判据两头都验过：把 padding 撤掉，探针在真页面上点出两行
+（`P.qn-eyebrow top=32「混沌 · 两套体系」`、`H1.qn-hero top=49「先选一套体系」`），装上之后返回空数组。

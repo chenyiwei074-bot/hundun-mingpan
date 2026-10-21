@@ -706,6 +706,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* 导航是 fixed，不占文档流：主体必须自己让出那 56px，否则 h1 的上半截压在毛玻璃底下。
+     （这条以前没人量：宽度、溢出、命中区、对比度四项全绿，被压住的字照样"够对比度"。） */
+  padding-top: var(--qn-nav-h, 56px);
   min-height: calc(100dvh - var(--qn-nav-h, 56px));
 }
 .gate-head { padding: 22px 24px 6px; }

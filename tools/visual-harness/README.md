@@ -199,7 +199,7 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 
 | tag | 路由 | 钉的是哪一态 |
 | --- | --- | --- |
-| `home` | `/` | 门廊：恰好两张体系卡、都在首屏、卡上那行「已开放 N / M 项」形状正确且 N ≤ M |
+| `home` | `/` | 门廊：恰好两栏（`a.domain-card`）、都在首屏、栏底那行是「可用 N · 部分可用 N · 未开放 N · 共 N 项」且三档相加 = 总数；再加 default / hover / focus 三态（见下面第 5 条纪律） |
 | `oriental` | `/oriental` | 原首页那一整套（首屏四类意图、启动器、核心引擎）—— `AFTER['oriental']` 点的是「开始使用」 |
 | `western` | `/western` | 西方工作页（目录全未开放那一态） |
 | `oriental-ask` / `western-ask` | 同上两条 | **问事框提交之后**那一帧：回答卡、来源标注、该给的入口 / 不该给的入口 |
@@ -208,10 +208,13 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 | `fengshui-recognize-wire` | `/fengshui` | 契约那一枪的**网络层**核对：CDP Fetch 拦下真实出站请求，验 Content-Type / 体里正好两个键 / base64 前缀 / visitorId 合服务端形状，然后 abort 并验页面落在「失败」。**只在去 `--stub` 时跑** |
 | `fengshui-edit` | `/fengshui` | 编辑闭环：真加一道墙、在墙上开个门、调宽、改一间房的用途，再逐条钉回来（墙体数、开口数、未确认数、用途 chip 是否真的选中、手工门有没有进判定、3D 是否解禁） |
 
-三条纪律写在这里（第 4 条是 2026-10-21 加的，所以现在是四条）：
+三条纪律写在这里（第 4 条是 2026-10-21 加的，第 5 条是同批的改版纪律，所以现在是五条）：
 
-1. **门廊的数不许写死。** 卡片上「已开放 N / M 项」是页面从两套目录现算出来的，harness 只读
-   回来验形状与 N ≤ M；数与目录是否相等由 `directory-acceptance` 的 `gate/*` 在源码侧钉。
+1. **门廊的数不许写死。** 栏底那一行是页面从两套目录现算出来的，harness 只读回来验形状与
+   "三档相加 = 总数"；数与目录是否相等由 `directory-acceptance` 的 `gate/*` 在源码侧钉。
+   写法在 2026-10-21 从「已开放 N / M 项」改成三档并列 + 总数，理由不是审美：生产上那行印的是
+   **已开放 9 / 10**，而 9 里有一项是"部分可用"（有入口但缺一段）—— 旧写法把两种不同的东西
+   压成一个分子，读者分不清。三档并列之后，"半开"必须自己说自己是半开的。
 2. **问事框必须测"答完之后"。** 只测空输入框等于什么都没测 —— 路由对不对、未开放有没有被
    伪装成可进、来源有没有明写"本机目录匹配、未经模型"，全在提交之后那一帧。
    `western-ask` 的期望是**零个入口**（西方一项都没开放），它防的正是"AI 说有个工具，页面就给了个按钮"。
@@ -237,6 +240,29 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
    `GET /api/charts/quota` 这类只读请求照常真跑（本机没有后端时它是 404，页面落「未知」，
    那一档的钉值只在有后端的地方有效）。`fengshui-recognize-wire` 不在跳过表里是有意的：
    它在 Request stage 就被 CDP Fetch abort，那一发永远到不了服务端。
+
+5. **状态类判定必须拿"真按出来的那一帧"和"真渲出来的那个色"，不许拿声明猜（批A，2026-10-21）。**
+   门廊那三态是这么量的：
+   - `hover` 用 `Input.dispatchMouseEvent{type:'mouseMoved'}` 真把指针移进栏里，再读那一层
+     `.domain-card__veil`（一个真实的 `<span>`，不是伪元素 —— 伪元素的样式读不到就等于读不到）的
+     `opacity` 与 `background-color`，**把它合成进栏底**之后重判一次文字对比度。
+     裁定④禁 `filter:brightness()` 就在这儿兑现：filter 改渲染结果不改声明，判定读到的还是老底。
+     触屏档 `(hover:none)` 不跑这一段，并且**打印 SKIP** —— 静默少跑一种状态和跑错一样糟。
+   - `focus-visible` 用逐下 `Tab`（`Input.dispatchKeyEvent`）走进去，因为 `el.focus()` 点不亮
+     `:focus-visible`，那样读到的是假状态。两栏各验一次：浅底 `#7a5f31`、墨底 `#e3cd96`，
+     环宽 ≥2px，对底 ≥3:1（实测 5.35 / 11.55）。只验第一栏的话，"深底那一支"这条裁定就永远没被量过。
+   - 状态圆点（`STATUS-DOT`）按**实际渲染底色**算对比度，阈值 3:1，三种状态都要在场：
+     点数为 0 判红不判过（"这一页恰好没有徽章"不是通过）。这条一落地就咬到了改版前就存在的红
+     ——`部分可用` 那颗 `#b2955d` 在白底只有 2.87:1，而它在墨底有 5.70:1，同一支金不可能两头都达标，
+     所以按底分叉取值。
+   - 满幅版式（`max-width:none`）以前在 SHELL 那条里是**静默跳过**的，于是"壳塌成内容宽"这一整类
+     缺陷在门廊与东方页上从没被测过。现在跳过换成判据：壳宽必须等于 `documentElement.clientWidth`。
+     注意用 `clientWidth` 不用 `innerWidth`：后者含滚动条 15px，用错会把每一张满幅页都判成塌了。
+   - `navClash`：导航是 `position:fixed`（不占文档流），所以每一态在 `scrollY=0` 扫一遍 `main` 里
+     "自己带文字"的元素，凡顶边落在吸顶导航底边之上就红。加这条的起因就是门廊第一版：h1 顶到 49px
+     而导航底在 57px，标题上半截压在毛玻璃底下，而宽度 / 溢出 / 命中区 / 对比度**四条全绿** ——
+     被压住的那半截字照样是"够对比度的字"。判据两头验过：撤掉 `padding-top` 就点出两行，装上返回空。
+     只查带文字的元素：整块背景压在那条半透明带底下是设计，字不是。
 
 React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`

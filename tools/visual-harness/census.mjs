@@ -1779,7 +1779,30 @@ const FIRST_SCREEN = `(() => {
       href: a.getAttribute('href'), fold: inFold(a),
       // 类名跟着门廊改版换了（原来那行挂在 .qn-axis 上）。这里必须跟着换，
       // 否则读回来的是空串，形状判定会在"什么都没读到"上一直绿着。
-      tally: ((a.querySelector('.domain-card__tally') || {}).innerText || '').replace(/\s+/g, ' ').trim() })) };
+      tally: ((a.querySelector('.domain-card__tally') || {}).innerText || '').replace(/\s+/g, ' ').trim() })),
+    // 导航是 position:fixed，不占文档流 —— 页面主体必须自己让出那 56px。
+    // 这条判据是批A 补的：门廊改版后 h1 顶到 49px，被吸顶导航压掉上半截，而当时
+    // 没有任何一条断言看这件事（宽度、溢出、命中区、对比度全都过了 —— 压住的字照样是"够对比度的字"）。
+    // 只查"自己带文字"的元素：整块背景压在那条半透明带底下是设计，字被压住不是。
+    navClash: (() => {
+      const nav = document.querySelector('.qn-nav');
+      if (!nav) return [];
+      const nb = nav.getBoundingClientRect().bottom;
+      const bad = [];
+      for (const e of document.querySelectorAll('main *')) {
+        if (e.children.length) continue;
+        if (!(e.innerText || '').trim()) continue;
+        const cs = getComputedStyle(e);
+        if (cs.visibility === 'hidden' || +cs.opacity < 0.1) continue;
+        const r = e.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        if (r.top < nb - 1 && r.bottom > 4) {
+          bad.push((e.tagName + '.' + (e.className || '')).slice(0, 34) + ' top=' + Math.round(r.top) + '「' + (e.innerText || '').trim().slice(0, 12) + '」');
+          if (bad.length >= 4) break;
+        }
+      }
+      return bad;
+    })() };
 })()`;
 
 function check(tag, v) {
@@ -1798,6 +1821,12 @@ function check(tag, v) {
   if (v.bodyText < 100) bad(`page rendered almost no text (${v.bodyText} chars) — did the data load?`);
   if (!v.booted) bad('boot script never ran: CLS/LCP observers are dead, so the perf numbers are meaningless');
   if (v.overflowX > 0) bad(`horizontal overflow ${v.overflowX}px`);
+  // 吸顶导航是 position:fixed，不占文档流 —— 每一态都在 scrollY=0 量一次"正文有没有被它压住"。
+  // 这条是批A 补的：门廊改版后 h1 顶到 49px（导航底 57px），上半截字被压在毛玻璃底下，
+  // 而宽度 / 溢出 / 命中区 / 对比度四条判据全都绿 —— 被压住的那半截字仍然是"够对比度的字"。
+  for (const c of ((v.firstScreen && v.firstScreen.navClash) || [])) {
+    bad(`正文压在吸顶导航底下（主体没让出那 56px）：${c}`);
+  }
   // D2：CLS 以前只印不判，而且印的是加载值 —— 交互之后把整页推走那种位移没人管
   // （/western 问事态实测 0.106，元凶是提交按钮在 flex-wrap 里换了行）。
   // 分工要说清：交互引起的位移直接红；加载期就有的位移单独喊（本轮量到六爻结果页 0.17–0.24，

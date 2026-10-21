@@ -111,7 +111,7 @@ export default function GatePage() {
         })}
       </div>
 
-      <section className="qn-legal" style={{ marginTop: 18 }}>
+      <section className="qn-legal gate-legal">
         <p className="qn-note" style={{ margin: 0 }}>
           栏底那三个数（可用 / 部分可用 / 未开放，相加等于总项数）由两套目录现算，本站不在门廊维护第二份工具清单。
           每一项的可用状态、计算口径与需要哪些输入，进到工作页后从页脚「工具状态与取数口径」看。
