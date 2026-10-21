@@ -370,6 +370,49 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     && d.filter(l => !inertLine(l) && !CROSSED_SHAPE.test(l) && !REMOVED_CONSOLE.test(l)).length === 0;
   const commentOnlyChange = (f: string) => commentOnlyLines(diffOf(f));
   const crossedFlagOnly = (f: string) => crossedFlagLines(diffOf(f));
+  // 2026-10-21 批7 的三条裁定全部落在算法层（删兜底、删打印、删死代码），放宽的仍然是**一类行为**，不是文件名。
+  // 这一类叫"只减不增产出"：不许往算法层带进任何新名字，唯一被授权的新语句是 `throw new Error(...)`。
+  // 于是"删掉一个没人调的函数""把查不到时的兜底改成抛错""把两个符号的 import 收成一个"都能过；
+  // "顺手加一次取数""换一种格法算术""给产出对象添一格带新标识符的字段"照旧直接红。
+  const IDENT = /[A-Za-z_$][A-Za-z0-9_$]{1,}/g;
+  const srcOf = (l: string) => l.slice(1).trim();
+  const noNewNameChange = (ls: string[]) => {
+    if (!ls.length) return false;
+    const before = new Set((ls.filter(l => l.startsWith('-')).join('\n').match(IDENT) || []));
+    return ls.filter(l => l.startsWith('+') && !inertLine(l)).every(l => /^throw new Error\(/.test(srcOf(l))
+      || (srcOf(l).match(IDENT) || []).every(id => before.has(id)));
+  };
+  const deletedFunctionNames = (ls: string[]) => [...new Set(ls.filter(l => l.startsWith('-'))
+    .map(l => srcOf(l).match(/^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][A-Za-z0-9_$]*)/))
+    .filter(Boolean).map(m => m![1]))];
+  // 数"还有谁在调"：只扫 frontend/（会被编译进站点的那棵树）。
+  // 不扫 tools/ —— 这是第四次踩"套件自己的文本咬自己的断言"：tst 的同步表要写"别留 runZiweiTests"，
+  // 那是在**点名要删的东西**，不是调用点；把它算成引用，等于要求断言不许提到被测对象。
+  const refsOf = (names: string[], exceptFile: string) => {
+    const hit: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (e.isDirectory()) { if (!/node_modules|\.next|\.git|dist/.test(e.name)) walk(join(dir, e.name)); }
+        else if (/\.tsx?$/.test(e.name)) {
+          const p = join(dir, e.name);
+          if (p === exceptFile) continue;
+          const body = strip(readFileSync(p, 'utf8'));
+          for (const g of names) if (new RegExp(`\\b${g}\\b`).test(body)) hit.push(`${g}←${p.replace(/\\/g, '/').replace(ROOT.replace(/\\/g, '/'), '')}`);
+        }
+      }
+    };
+    walk(join(ROOT, 'frontend'));
+    return hit;
+  };
+  const refusalOnlyChange = (f: string) => {
+    const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
+    const ls = d.split('\n').filter(l => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---'));
+    if (!noNewNameChange(ls)) return false;
+    // 删掉的函数必须"仓库里已经没人调"：纯删除如果删的是活代码，这一半把它挡住。
+    // （活函数被删通常 tsc 先炸，但 tsc 看不见 tools/ 里的套件，也看不出"只在同文件内被调、转头又补了个同名的"。）
+    const gone = deletedFunctionNames(ls);
+    return gone.length === 0 || refsOf(gone, join(ROOT, f)).length === 0;
+  };
   // 两道窄门自己的牙齿，喂**假 diff** 给分类器 —— 不依赖仓库当下改了什么。
   // 拿真实文件当反例的那种写法会自己失效：下一个只改了注释的批次会让"反例"变成正例。
   ok('algo/crossed-hatch-is-narrow',
@@ -394,12 +437,41 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     '已知弱点，立此存照：同一行里出现放行标识符就放行，夹带的算术这道门看不见。'
     + '所以行为必须由别几套证据钉：20736 组地支关系 digest、A==C / A==B 对拍、bazi 8/8、'
     + 'crossed 那 144 + 864 组"标志 == pillar 真的变了"。这条红了说明分类器收紧了，删掉它');
+  // 第四道窄门（只减不增产出）自己的牙齿，同样喂假 diff。
+  // 顺手把这一类**看不见**的那种也立成一条断言：`return nayin || '海中金'` 不带新名字，
+  // 这一类放它过去是设计如此（它不是新行为，是把老兜底换个写法），真正挡它的是
+  // core/nayin-has-no-fabricated-default。两道门一对一错，谁也别想单独睡着。
+  ok('algo/refusal-class-teeth',
+    noNewNameChange(['-  if (!nayin) {', '-    console.warn(`未找到纳音: ${key}`);', '-    return \'海中金\'; // 默认值', '-  }',
+      '+  if (!nayin) {', '+    throw new Error(`纳音表里没有「${key}」`);', '+  }'])
+    && noNewNameChange(['-import { createZiweiChart, runFooTests } from \'./ziwei-standard\';', '+import { createZiweiChart } from \'./ziwei-standard\';'])
+    && noNewNameChange(['-export function runFooTests() {', '-  console.error(\'测试功能待实现\');', '-  return { passed: 0, failed: 0 };', '-}'])
+    && noNewNameChange(['-  const totalFailed = baziResults.failed + ziweiResults.failed;', '+  const totalFailed = baziResults.failed;'])
+    && !noNewNameChange(['+  const wx = getWuXingFromDayun(zhi);'])
+    && !noNewNameChange(['+    naYinV2: getSiZhuNaYin(siZhu),'])
+    && !noNewNameChange(['+  return Math.floor((hour + 2) / 2) % 12;'])
+    && !noNewNameChange([])
+    && noNewNameChange(['-  return nayin;', '+  return nayin || \'海中金\';']),
+    '这一类放过：改抛错、收 import、纯删函数、把 A+B 改成 A；挡住：新调一个函数、给产出对象加一格新字段、改格法算术。'
+    + '已知它放过"把老兜底换个写法"（不带新名字），那一档由 core/nayin-has-no-fabricated-default 挡');
+  // 被删的函数"确实没人调"这句话要可核对，不能只写在我这次的 grep 里。
+  const deletedFns = engine.filter(f => !inAllow(f)).flatMap(f => {
+    const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
+    return deletedFunctionNames(d.split('\n').filter(l => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---')));
+  });
+  const stillReferenced = deletedFns.flatMap(g => refsOf([g], '').map(r => r));
+  ok('algo/deleted-functions-were-really-dead', stillReferenced.length === 0,
+    `本批从算法层删掉的函数（${deletedFns.join('、') || '无'}）在 frontend/ 那棵树里必须已经零引用 —— `
+    + `"死代码"这三个字要么可机检，要么别说（扫的是会被编译进站点的代码，套件文本里点名要删的东西不算调用点）：实得 ${stillReferenced.join(' | ') || '0 处引用'}`);
   // 报错要指名"哪个文件是被什么放过的 / 哪个是真不合规"。以前这里直接把清单外全列出来，
   // 于是纯注释的 types.ts 也一起上榜，读的人会去查一个根本没失败的档案。
-  const engineBad = engine.filter(f => !inAllow(f) && !loggingOnlyRemoval(f) && !commentOnlyChange(f) && !crossedFlagOnly(f));
-  const why = (f: string) => loggingOnlyRemoval(f) ? '纯删日志' : commentOnlyChange(f) ? '纯注释' : crossedFlagOnly(f) ? '只碰 crossed' : '不合规';
+  const engineBad = engine.filter(f => !inAllow(f) && !loggingOnlyRemoval(f) && !commentOnlyChange(f) && !crossedFlagOnly(f) && !refusalOnlyChange(f));
+  const why = (f: string) => loggingOnlyRemoval(f) ? '纯删日志' : commentOnlyChange(f) ? '纯注释'
+    : crossedFlagOnly(f) ? (diffOf(f).some(l => CROSSED_SHAPE.test(l)) ? '只碰 crossed' : '删打印+补注释')
+    : refusalOnlyChange(f) ? '只减不增产出' : '不合规';
   ok('algo/only-the-pairwise-export', engineBad.length === 0,
-    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行三种：新增 0 行且删的全是 console.* 语句 / 纯注释空行 / 只碰 crossed 那一格）：实得 ${engine.map(f => f.replace(/^frontend\/app\/lib\/core\//, '') + '=' + (inAllow(f) ? '点名放行' : why(f))).join(' | ') || '（无）'}`
+    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行四种：新增 0 行且删的全是 console.* 语句 / 纯注释空行 / 只碰 crossed 那一格 / `
+    + `"只减不增产出"=不带进任何新标识符、新语句只许 throw、且被删函数在仓库里已无引用）：实得 ${engine.map(f => f.replace(/^frontend\/app\/lib\/core\//, '') + '=' + (inAllow(f) ? '点名放行' : why(f))).join(' | ') || '（无）'}`
     + `${engineBad.length ? '；被挡住的 ' + engineBad.map(f => {
       const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
       return f.replace(/^frontend\/app\/lib\/core\//, '') + '[' + d.split('\n').filter(l => (l.startsWith('+') && !l.startsWith('+++')) || (l.startsWith('-') && !l.startsWith('---'))).join('').slice(0, 160) + ']';
