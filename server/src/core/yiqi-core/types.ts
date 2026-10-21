@@ -10,6 +10,12 @@ export interface BirthInfo {
   isLunar: boolean; // 是否为农历
   /** 农历闰月位（true 表示 month 那个月是该年的闰月）。公历时忽略。 */
   isLeapMonth?: boolean;
+  /**
+   * 日柱换日口径。缺省 'ZI_HOUR_23'（23:00 换日），与站点既有盘面完全一致。
+   * 'MIDNIGHT_00' 时日柱按公历当日、时柱仍按子时（夜子时），仅在引擎内部与验收用例里使用。
+   * 2026-10-21 与前端 types 对齐（bazi.ts 逐字同步后需要这个字段）。
+   */
+  dayBoundaryMode?: 'ZI_HOUR_23' | 'MIDNIGHT_00';
   gender: 'male' | 'female';
   timeZone: number; // 时区偏移，默认为8（北京时间）
 

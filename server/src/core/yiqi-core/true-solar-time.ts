@@ -40,6 +40,12 @@ export interface TrueSolarTimeInput {
   dstOffset?: number;
   /** 是否启用校正，默认 true；false 时原样返回民用时间。 */
   enable?: boolean;
+  /**
+   * 日柱的换日口径，默认 ZI_HOUR_23（夜子时归次日）。
+   * crossed.day 问的是"取日柱的那一天变没变"，而 23 点那一档会把日子往后滚一天 ——
+   * 不知道口径就答不了，所以由调用方（bazi.ts 手上有 birthInfo.dayBoundaryMode）传进来。
+   */
+  dayBoundaryMode?: 'ZI_HOUR_23' | 'MIDNIGHT_00';
 }
 
 export interface CorrectedDateTime {
@@ -77,8 +83,9 @@ export interface TrueSolarTimeResult {
   timezone: number;
   /**
    * 校正之后时柱/日柱所在的那一格有没有真的换掉。
-   * hour 按**时辰**（两小时一格）比，参照是 civilDateTime ↔ trueSolarDateTime，
-   * 也就是卡片上印着的那两串字；不是整点小时数，也不是 standard。
+   * hour 按**时辰**（两小时一格）比，day 按**取日柱的那一天**比，
+   * 两者参照都是 civilDateTime ↔ trueSolarDateTime（卡片上印着的那两串字）。
+   * day 不是比日历日：23 点要滚次日，00:00 校正到前一天 23:45 时日子变了而日柱没变。
    */
   crossed: { hour: boolean; day: boolean };
   algorithm: 'meeus-simplified' | 'none';
@@ -146,6 +153,20 @@ function ziChenIndex(hour: number): number {
   return Math.floor((hour + 1) / 2) % 12;
 }
 
+/**
+ * 夜子时换日的唯一实现：23 点出生的日柱取次日（ZI_HOUR_23），MIDNIGHT_00 口径不滚。
+ * bazi.ts 的 getAdjustedSolarForZiShi 与本文件的 crossed.day 都用它 —— 这条规则一旦有两份，
+ * "日柱变没变"就会在两处各说一遍，而那正是 crossed.day 要回答的问题。
+ */
+export function rollsToNextDay(hour: number, mode: string): boolean {
+  return hour === 23 && mode !== 'MIDNIGHT_00';
+}
+
+/** 取日柱用的那一"天"（把夜子时换日折进来），比较跨没跨日用它，不用日历日期串。 */
+function dayPillarKey(dt: { year: number; month: number; day: number; hour: number }, mode: string): number {
+  return Date.UTC(dt.year, dt.month - 1, dt.day) / 86400000 + (rollsToNextDay(dt.hour, mode) ? 1 : 0);
+}
+
 /** 从当地时间分量 + 时区/夏令时偏移求 UTC 毫秒（不依赖本地时区） */
 export function toUtcMs(y: number, mo: number, d: number,
                         h: number, mi: number, s: number,
@@ -204,10 +225,7 @@ export function calculateTrueSolarTime(input: TrueSolarTimeInput): TrueSolarTime
 
   const correctedMs = standardMs + total * 60000;      // ② + 校正量
   const corrected = toDateTime(correctedMs);
-  const stdLocal = toDateTime(standardMs);
-
-  const sameDay = corrected.year === stdLocal.year
-    && corrected.month === stdLocal.month && corrected.day === stdLocal.day;
+  const dayBoundaryMode = input.dayBoundaryMode ?? 'ZI_HOUR_23';
 
   return {
     applied: true, civilDateTime: civil, trueSolarDateTime: corrected,
@@ -218,11 +236,15 @@ export function calculateTrueSolarTime(input: TrueSolarTimeInput): TrueSolarTime
     dstOffsetMinutes: dstH * 60,
     totalCorrectionMinutes: +total.toFixed(4),
     standardMeridian, longitude: lon, timezone: tz,
-    // 时辰两小时一格，"跨没跨"只能按格比。参照取 civil（用户填的、卡片上印着的那串钟表时间），
-    // 不是 standard：按整点小时数比会在同一格内误报（1728 个采样 72 个假"已跨"），
-    // 而按 standard 比会把夏令时那一步造成的跨格判成没跨（同批采样漏报 240 个，全是夏令时盘）。
-    // day 仍按 standard 参照，本批没被授权改它 —— 夏令时且生于 00:00–01:00 那一档两者不等价（36 个采样），已记进交接文档待裁。
-    crossed: { hour: ziChenIndex(corrected.hour) !== ziChenIndex(civil.hour), day: !sameDay },
+    // 时辰两小时一格，"跨没跨"只能按格比。两格都取 civil 作参照（卡片上印着的那串钟表时间）：
+    // 按整点小时数比会在同格内误报（1728 组里 72 个假"已跨"），按 standard 比会把夏令时
+    // 造成的跨格判成没跨（240 个漏报，全是夏令时盘）。
+    // 日柱同理但不能只比日历日：00:00 校正到前一天 23:45，日子变了、日柱没变（23 点又滚回来）。
+    // 拿 civil↔corrected 的"取日柱那一天"比，1728 组与真实日柱 0 处不符；纯日历日比错 102 处。
+    crossed: {
+      hour: ziChenIndex(corrected.hour) !== ziChenIndex(civil.hour),
+      day: dayPillarKey(corrected, dayBoundaryMode) !== dayPillarKey(civil, dayBoundaryMode),
+    },
     algorithm: 'meeus-simplified',
   };
 }
