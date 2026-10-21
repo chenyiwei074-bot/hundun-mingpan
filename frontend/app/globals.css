@@ -56,6 +56,23 @@
   /* 品牌金的文字变体：#b2955d 在白/灰底上只有 2.86:1，不能用作可读文字，
      小字号 eyebrow/强调一律走这个 5.99:1 的深金，色相不变、只压明度。 */
   --color-accent-gold-text: #7a5f31;
+
+  /* ===== 门廊两栏 ===== */
+  /* 东方栏的纸底。比页面底 #f5f5f7 暖一档，是为了两栏"一扇浅一扇深"读起来像两处地方，
+     而不是一张卡贴在灰底上。 */
+  --color-gate-paper: #f5f2ea;
+  /* 计数行那 13px 的字色。不能用 --color-text-secondary(#707076)：它在这张纸上不到 AA 4.5
+     （白卡上刚好 4.5，换个底就掉下来 —— 这类"按底重测"是本站的老坑）。#5f5f66 在纸上与白卡上都过。 */
+  --color-gate-muted: #5f5f66;
+
+  /* ===== 工具状态圆点（值与 lib/tools/status.ts 一一对应，西方在下方重指向）=====
+     非文本对比度下限 3:1。浅底与墨底不可能共用一支金：#b2955d（旧值）在白底只有 2.87:1，
+     而它压墨底有 5.69:1 —— 所以按底分叉，与金漆文字同一做法。
+     具体读数不在这里写死：由 harness 的 status-dot 审计从渲染结果现场量（三种状态 × 两种底，
+     低于 3:1 直接红），注释里的小差异救不了任何人，屏幕上的才作数。 */
+  --color-status-open: #8b6d3b;
+  --color-status-partial: #a3823a;
+  --color-status-closed: #86868b;
 }
 
 * { box-sizing: border-box; }
@@ -666,10 +683,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
    整站文字对比度是按现有 token 量过的（13px 次要灰压卡底 4.51:1），
    换一套深紫底就要重测每一处；等两套首屏的设计稿定了再动底色，
    现在先把体系归属做出来，不趁夜改全站配色。 */
-:root {
-  --color-domain-oriental: var(--color-accent-gold-text);
-  --color-domain-western: #5b4a86;   /* 西方系的深紫，只作强调与描边，不作正文色 */
-}
+/* 批A 令牌清理：这一对 domain 令牌都摘了。oriental 那支从来没被任何规则 var() 过；
+   western 那支只服务门廊的 3px 左边线，而两栏门廊没有左边线。留着就是"看起来像有出处"
+   的死值 —— 与本轮删掉的两份 qingnang 死样式表同一类。 */
 
 /* 返回门廊那条链接：做成 44 高，别给可点尺寸扫描添新账。 */
 .domain-back {
@@ -679,19 +695,126 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 }
 .domain-back:hover { text-decoration: underline; }
 
+/* ---- 门廊：全屏两栏，整栏就是链接 ----
+   整页用 flex 列，两栏吃掉剩余高度，而不是 calc(100dvh - 固定值)：导航高度、
+   头部那几行、页脚都会随断点变，减法写死就会在某一个宽度上把第二栏挤出首屏
+   （"差 12px 就要滚"这种读数在窄屏上量过一次）。
+   两栏各是一个 <a>（domain-card），栏内不许再嵌任何可点元素：计数行、说明、装饰
+   全是文字与装饰。整栏命中区远大于 44px，键盘 Tab 两下就到第二个入口。
+   中缝那 1px 是 grid 的 gap，露出容器底色，不另外画线。 */
+.gate-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: calc(100dvh - var(--qn-nav-h, 56px));
+}
+.gate-head { padding: 22px 24px 6px; }
+.gate-head__note {
+  margin: 10px 0 0;
+  max-width: 62ch;
+  font-size: var(--qn-fs-body);
+  line-height: 1.7;
+  color: var(--color-text-primary);
+}
+.gate-legal { padding: 0 24px; margin-top: 14px; }
+@media (max-width: 639px) {
+  .gate-head { padding: 18px 20px 4px; }
+  .gate-legal { padding: 0 20px; }
+}
 .gate-grid {
-  display: grid; gap: 12px; margin-top: 20px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  display: grid;
+  flex: 1;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 18px;
+  background: var(--color-hairline);
 }
 .domain-card {
-  display: block; text-decoration: none; color: inherit;
-  border-left: 3px solid var(--color-domain-oriental);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 56dvh;
+  padding: 34px 44px 40px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--color-text-primary);
+  background: var(--color-gate-paper);
 }
-.domain-card[data-mode="western"] { border-left-color: var(--color-domain-western); }
-.domain-card:hover { box-shadow: 0 6px 22px rgba(0, 0, 0, 0.07); }
-.domain-card .qn-title { color: var(--color-text-primary); }
-.domain-card .qn-axis { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
-.domain-card__tally { color: var(--color-text-secondary); font-weight: 400; letter-spacing: 0.04em; }
+.domain-card[data-mode="western"] {
+  /* 文字色与 color-scheme 由 [data-mode="western"] 那一条整体重指向，这里只补底色：
+     两栏各自是一块独立地面，不是同一张纸上印了两行字。 */
+  background: var(--color-western-bg);
+}
+/* 悬停用叠加层的透明度，不用 filter:brightness()：filter 会改合成色而骗过按声明取值的
+   对比度读数，叠层则是一块可以当场量出来的东西（harness 的 gate-hover 态把它的
+   background-color 与 opacity 读回来、合成到栏底上再判一次文字对比度）。 */
+.domain-card__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: #ffffff;
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+.domain-card[data-mode="western"] .domain-card__veil { background: var(--color-western-gold); }
+.domain-card:hover .domain-card__veil { opacity: 0.045; }
+.domain-card[data-mode="western"]:hover .domain-card__veil { opacity: 0.06; }
+.domain-card__copy { position: relative; z-index: 2; display: grid; gap: 8px; }
+.domain-card__art {
+  position: absolute;
+  right: 28px;
+  top: 26px;
+  z-index: 0;
+  pointer-events: none;
+}
+.domain-card__title {
+  margin: 0;
+  font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
+  /* display 档 88·64·44 按断点走。设计稿上写的是 44px，那是手机档的值；
+     桌面另给一档 44 就是阶梯外的第四个值 —— 这条口子在批 5/批 6 已经焊死，
+     所以这里跟阶梯走，不在页面里写死 px。 */
+  font-size: var(--qn-fs-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+  color: inherit;
+}
+.domain-card__cta {
+  margin: 6px 0 0;
+  font-size: var(--qn-fs-body);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  /* 不用 --color-xiong(#b23a2e)：那一支在站里的意思是「凶」，拿它当行动色会让人
+     以为这扇门不吉。accent-gold-text 在西方作用域里已被重指向淡金，所以两种底各一支。 */
+  color: var(--color-accent-gold-text);
+}
+.domain-card__tally {
+  margin: 0;
+  font-size: var(--qn-fs-meta);
+  letter-spacing: 0.04em;
+  color: var(--color-gate-muted);
+  font-weight: 400;
+}
+.domain-card[data-mode="western"] .domain-card__tally { color: var(--color-western-muted); }
+/* 焦点环按底分叉：浅底用深金 #7a5f31（在纸上 5.39:1），墨底用 #e3cd96（11.53:1）。
+   非文本下限 3:1，两支都远超。 */
+.domain-card:focus-visible {
+  outline: 2px solid var(--color-accent-gold-text);
+  outline-offset: -2px;
+}
+.domain-card[data-mode="western"]:focus-visible { outline-color: var(--color-accent-gold-on-ink); }
+@media (max-width: 639px) {
+  .gate-grid { grid-template-columns: 1fr; }
+  .domain-card { min-height: 56dvh; padding: 26px 22px 30px; }
+  .domain-card__art { right: 18px; top: 18px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* 位移与过渡归零，叠层保留（悬停仍需可见反馈），只是不再渐入。 */
+  .domain-card__veil { transition: none; }
+}
 
 /* ---- 问事框 ---- */
 .qa-examples {
@@ -731,7 +854,6 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-western-danger-text: #f2c4bd;
   --color-western-shadow: rgba(8, 3, 20, 0.5);
   --color-western-nav-bg: rgba(27, 16, 48, 0.86);   /* 导航是半透明吸顶，得单独一支，不能直接用 bg */
-  --color-domain-western: #8b6fd0;   /* 深底上原来那支紫会糊掉，这一支才分得开 */
   /* 东方户型的 3D 舞台：页面本体仍是浅底，深色只是卡片里的一块舞台。
      刻意不复用 --color-western-* —— 同值会让人以为西方主题漏到了东方页，
      共用更会让"改西方配色"连带改掉东方的 3D。色值与西方略偏（底色更深一档）。 */
@@ -757,6 +879,13 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-accent-gold: var(--color-western-gold);
   --color-accent-gold-text: var(--color-western-gold);
   --color-accent-gold-light: var(--color-western-gold);
+  /* 状态圆点按底分叉。浅底那一档在这里都太暗（#8b6d3b 压墨底 3.36，勉强过线但几乎看不见），
+     而西方作用域里 --color-accent-gold 已被重指成 #d9b877，所以这两支只能引未被重指的令牌。
+     深浅两档的"哪个更开放"在两种底上方向相反（浅底越深越开放、墨底越亮越开放），
+     这一点靠圆点本身说不清 —— 所以徽章永远同时带文字，harness 同时钉"文字在"与"点够 3:1"。
+     读数由 harness 从渲染结果量（三种状态 × 两种底），不写在注释里。 */
+  --color-status-open: var(--color-accent-gold-on-ink);
+  --color-status-partial: var(--color-western-gold);
   --qn-hairline: 0.5px solid var(--color-western-line);
   --qn-shadow: 0 8px 26px var(--color-western-shadow);
   background: var(--color-western-bg);

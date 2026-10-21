@@ -16,7 +16,7 @@
 |---|---|---|
 | `/` 门廊 | `.qn-shell--wide` 760px 窄壳里两张 `qn-card`，`auto-fit minmax(260px,1fr)`；文案「进入东方」 | **全屏两栏**，各 50%，整栏一个 `<a>`；文案「进入东方世界 / 进入西方世界」 |
 | 品牌 | 「混沌」在 `Nav.tsx`；tagline「Ai+传统命理研究平台」只在东方页 | 门廊顶部品牌带：`混沌` + `东方与西方玄学工具箱`；旧 tagline 退役 |
-| 计数行 | 卡片内现算「已开放 N / M 项」 | 保留并下移到栏底小字：**东方 已开放 8 / 10（部分可用 1 · 未开放 1）｜西方 已开放 0 / 5（未开放 5）** |
+| 计数行 | 卡片内现算「已开放 N / M 项」—— 生产上此刻印的是 **已开放 9 / 10**（分子含"部分可用"），本文件早先写的 8/10 是量错的 | 三档并列 + 总数（数字全部从目录现算）：**东方 可用 8 · 部分可用 1 · 未开放 1 · 共 10 项｜西方 可用 0 · 部分可用 0 · 未开放 5 · 共 5 项**；三档相加 = 总数由 harness 当场验 |
 | 问事框 | 东方 hero 里 compact 版，西方非 compact；按钮「问一下」；`degraded` 拿到了不显示 | 首屏视觉中心，主按钮「开始分析」；状态机四态可见；**追问/降级理由必须上屏** |
 | 示例问句 | 取前 4 个**已开放**工具的 `question` → 西方一条都不渲染 | 西方示例照常显示（4 条来自目录），点了只进「未开放 / 还差资料」那一支 |
 | 工具状态 | `.qn-badge` = 6px 点 + 文字；西方 `未开放` 点用 `--color-border-strong`（**该令牌不存在**）→ 深底上看不见 | `lib/tools/status.ts` 一份 `STATUS_DOT`；两点在同一令牌上，实测白底 3.62:1、紫底 4.49:1，均 ≥3:1 |
@@ -37,28 +37,40 @@
 
 ## 3. 门廊规格
 
-**栅格**：`.mk-gate{display:grid;grid-template-columns:1fr 1fr;min-height:100dvh}`，中缝 1px；
-≤640px 改单列，每栏 `min-height:56dvh`。品牌带高 ≤88px，不吃两栏面积。
+**栅格**：`.gate-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px}`，整页是 flex 列、两栏 `flex:1` 吃掉剩余高度
+（不是 `calc(100dvh - 固定值)`：导航高度、头部行数和页脚都会随断点变，减法写死就会在某一个宽度上把第二栏挤出首屏）；
+≤640px 改单列，每栏 `min-height:56dvh`。
 
-**每栏是一个 `<a class="mk-panel">`**：栏内**禁止再嵌 `<a>` 或 `<button>`**（计数行、说明、图形全是文字/装饰），
-命中区整块 ≥44px；键盘 `Tab` 直接落到整栏。
+**每栏是一个 `<a class="domain-card" data-mode=…>`**：栏内**禁止再嵌 `<a>` 或 `<button>`**（计数行、说明、图形全是文字/装饰），
+命中区整块 ≥44px；键盘 `Tab` 直接落到整栏（harness 用真 `Input.dispatchKeyEvent` 逐下 Tab，两栏各自验一次焦点环 ——
+`el.focus()` 点不亮 `:focus-visible`，那样测到的是假状态）。
 
 | 元素 | 东方栏 | 西方栏 |
 |---|---|---|
-| 底 | `#f5f2ea` + 纸纹（`feTurbulence` baseFrequency .65 / numOctaves 3 / **opacity .03**） | `#1b1030` + 星点（radial-gradient，最大不透明度 .18） |
-| 装饰（各只一种主体 + 一种配角） | 墨块 `linear-gradient(158deg,#19191c,#23201a 55%,#2c2519)` 承托标题；山脊线 `stroke rgba(29,29,31,.18)` 1px | 黄道环 1px `rgba(230,220,255,.14)`；月相三格（弦/望/朔） |
-| 标题 | 「东方玄学」44px 衬线 600，`#1d1d1f` | 「西方玄学」44px 衬线 600，`#f3eeff` |
+| 底 | `--color-gate-paper: #f5f2ea`（浅纸） | `--color-western-bg: #1b1030`（走 `[data-mode="western"]` 那一整套令牌，不新写一份） |
+| 装饰（各只一种） | 卦画六线 SVG，`currentColor` + `opacity .22`，`aria-hidden`、`pointer-events:none` | 黄道环双圈 + 刻度 + 一颗亮星，同一低透明度纪律 |
+| 标题 | 「东方玄学」衬线 600，字号吃 **display 档（88·64·44 按断点）**，`#1d1d1f` | 同，色走 `--color-western-text` |
 | 说明 | 从八字、六爻到风水，在传统体系中寻找问题的脉络。 | 从占星、塔罗到数字象征，探索不同的自我理解方式。 |
-| 提示行 | 「进入东方世界 →」15px `#b23a2e`（5.31:1） | 「进入西方世界 →」15px `#d9b877` |
-| 计数行 | 「已开放 8 / 10 项 · 部分可用 1 · 未开放 1」13px `#5f5f66` | 「已开放 0 / 5 项 · 未开放 5」13px `#c9bfe0` |
+| 提示行 | 「进入东方世界 →」15px `--color-accent-gold-text`(#7a5f31，纸上 5.35:1) | 同一支令牌，在西方作用域已被重指向 #d9b877 |
+| 计数行 | 「可用 8 · 部分可用 1 · 未开放 1 · 共 10 项」13px `--color-gate-muted`(#5f5f66) | 同结构；西方重指向 `--color-western-muted` |
 
-禁：符咒、龙凤、廉价金框、闪烁、粒子爆发、复杂入场；装饰不得压过文字（纹理层 `pointer-events:none` + 独立低透明度）。
+**与批准稿的四处偏差（都记在这儿，不留"稿子说 A、代码做 B"）**：
+① 标题不写死 44px —— 44 是 display 档在 ≤767px 的那一档，桌面另给一档 44 就是阶梯外的第四个值，
+   这个口子在批 5/批 6 已经焊死（harness 的 off-ladder 判据会红）。
+② 没有另做"品牌带"：全局 `Nav`（56px，品牌 混沌 → `/`）已经在每一页上，再来一条就是把「混沌」写两遍。
+   门廊顶部保留原有的 h1「先选一套体系」+ 一段说明，h1 与导航都不动。
+③ 提示行不用朱砂 `#b23a2e` —— 那一支在本站的语义是「凶」，不该当行动色；改走 `--color-accent-gold-text`。
+④ 焦点环 `outline-offset:-2px`（向内），不是稿上的 +2px：两栏相接那条 1px 中缝是容器的底色，
+   向外的 2px 会盖住它，读起来像"两栏之间有一条亮线"。
 
-**三态**（§静态稿里同一文件带 default / hover / focus 三条并排）：
-- `hover` / `active`：叠加层 `::after{background:#fff;opacity:.045}`（西栏用 `#d9b877` `opacity:.06`）+ 文案块 `translateY(-2px)`，180ms `ease-out`。
-  **不用 `filter:brightness()`** —— 它会改合成色而骗过 census 的取值式对比度读取（§7 的判据读声明不读渲染值）。
-- `focus-visible`：`outline:2px solid` + `offset:2px`；亮底用 `#7a5f31`，墨底用 `#e3cd96`（实测 11.55:1，远超 3:1）。
-- `prefers-reduced-motion:reduce`：位移与过渡归零，叠加层保留但 `transition:none`（globals.css:845 已是 `*` 级）。
+禁：符咒、龙凤、廉价金框、闪烁、粒子爆发、复杂入场；装饰不得压过文字。
+
+**三态**（静态稿同一文件带 default / hover / focus 三条并排；真盘由 harness 的 `home` 态量同样的三件事）：
+- `hover`：`.domain-card__veil`（一个真实的 `<span>`，不是伪元素，判定才能把它读回来）`opacity: .045`，
+  西栏 `.06`（用淡金），180ms `ease-out`。**不用 `filter:brightness()`** —— 它改渲染结果而不改声明，
+  census 那种按声明取值的对比度判定会被骗过去；叠层则能被读出来并**合成进底**再判一次文字对比度。
+- `focus-visible`：`outline:2px solid`；亮底 `#7a5f31`（对纸实测 5.35:1），墨底 `#e3cd96`（11.55:1），均 ≥3:1。
+- `prefers-reduced-motion:reduce`：过渡归零（`transition:none`），叠层本身保留。
 
 ## 4. 东方工作页规格（自上而下）
 
@@ -101,14 +113,20 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 
 ## 7. 状态呈现与令牌
 
-`lib/tools/status.ts` 单一来源：`STATUS_LABEL = {可用,部分可用,未开放}`、`STATUS_DOT = {可用:'var(--color-status-open)', 部分可用:'var(--color-status-partial)', 未开放:'var(--color-status-closed)'}`，
-三个令牌由 `[data-mode="western"]` 重指（与现有主题同一做法），**值全部实测过 3:1**：
+`lib/tools/status.ts` 单一来源（`STATUS_DOT` 三档 + `isLiveEntry` 那道双闸门 + `statusCounts` + `statusTally`），
+`STATUS_DOT = {可用:'var(--color-status-open)', 部分可用:'var(--color-status-partial)', 未开放:'var(--color-status-closed)'}`，
+三个令牌由 `[data-mode="western"]` 重指（与现有主题同一做法）。墨底那一档落地的取值与稿上不同，原因是**西方作用域里
+`--color-accent-gold` 自己就被重指向了 #d9b877** —— 拿它当"墨底可用"会等于拿淡金当淡金，两档撞成一支；
+所以墨底这两支引的是没被重指向的令牌。取值（屏侧由 harness 的 STATUS-DOT 审计现场量，三种状态 × 两种底，<3:1 直接红）：
 
-| 状态点 | 亮底取值 | 实测 on `#f5f5f7` / `#ffffff` | 墨底取值 | 实测 on `#241a3d` / `#1b1030` |
+| 状态点 | 亮底取值 | on `#f5f5f7` / `#ffffff` | 墨底取值 | on `#241a3d` / `#1b1030` |
 |---|---|---|---|---|
-| 可用 | `#8b6d3b` | 4.44 / 4.83 | `#b2955d` | 5.69 / 6.29 |
-| 部分可用 | `#a3823a` | 3.34 / 3.64 | `#d4b87a` | 8.48 / 9.38 |
-| 未开放 | `#86868b` | 3.33 / 3.62 | `#86868b` | 4.49 / 4.98 |
+| 可用 | `#8b6d3b` | 4.44 / 4.83 | `#e3cd96`（`--color-accent-gold-on-ink`） | 10.42 / 11.55 |
+| 部分可用 | `#a3823a` | 3.32 / 3.61 | `#d9b877`（`--color-western-gold`） | 8.58 / 9.52 |
+| 未开放 | `#86868b` | 3.33 / 3.62 | `#86868b`（不重指，两底共用） | 4.48 / 4.95 |
+
+深浅两档"哪一档更开放"的方向在两种底上是反的（浅底越深越开放、墨底越亮越开放），这件事靠圆点本身说不清 ——
+所以徽章永远同时带文字，harness 钉"没有文字的色点"判红。
 
 **这里有一条改版之前就存在的红**（量出来的，不是我推测的）：现网两处 `STATUS_DOT` 都把
 `部分可用` 指到 `--color-accent-gold` = `#b2955d`，在白底 2.87:1、浅灰底 2.64:1，**低于非文本 3:1 下限**
@@ -176,12 +194,12 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 
 | # | 位置 | 事实 | 修法 | 归批 |
 |---|---|---|---|---|
-| ① | [route-client.ts:12](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/assistant/route-client.ts#L12) | POST `/api/assistant/route`，实际路由是 `app/api/assistant/route.ts` → `/api/assistant`。**硬错**：服务端那一发永远打不通，每次都 404 回落本机 | 改端点为 `/api/assistant`，并加一条断言钉"客户端常量 == 路由路径"；若决定不接服务端，就整层删掉，别留"看似会走服务端" | A |
+| ① | [route-client.ts:12](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/assistant/route-client.ts#L12) | POST `/api/assistant/route`，实际路由是 `app/api/assistant/route.ts` → `/api/assistant`。**硬错**：服务端那一发永远打不通，每次都 404 回落本机 | 改端点为 `/api/assistant`，并加一条断言钉"客户端常量 == 路由路径"；若决定不接服务端，就整层删掉，别留"看似会走服务端" | **批A 已落**（常量改 `/api/assistant` + `route/endpoint-matches-route` 三闸门）|
 | ② | `QuestionComposer`（`outcome.degraded` 未渲染） | 追问/降级理由拿到了却不显示 → "资料不足先问"这条主流程在界面上是断的 | 状态机 `clarify/degraded` 段落上屏 + harness 态钉文案 | B |
 | ③ | [WesternWorkspace.tsx:10](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L10) | `--color-border-strong` 未定义 → 回退 `rgba(0,0,0,.22)`，在 `#241a3d` 上等于没有；`/tools` 另一套 | 单一 `lib/tools/status.ts` + census 判定点色唯一来源 | A |
 | ④ | `FloorPlanStudio` 选图后 | 没有 `移除这张图/重传` 出口，用户只能再选一次，图是否还在不可见 | 加移除 + 二次确认 + 清状态 | C |
 | 缺陷5（新量到，改版前就存在） | [WesternWorkspace.tsx:9](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L9) · [tools/page.tsx:11](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/tools/page.tsx#L11) | `部分可用` 点 = `#b2955d`，白底 **2.87:1**、`#f5f5f7` **2.64:1**，低于非文本 3:1 下限 | 随修正⑤ 的单源化一起换值（§7 表：亮底 `#a3823a`、墨底 `#d4b87a`），census 加状态点对比度判定 | A |
-| 缺陷6（新量到，属文案口径矛盾） | [catalog.ts:129](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/tools/catalog.ts#L129) 对 [fengshui/page.tsx:34](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/fengshui/page.tsx#L34) | 目录 `note` 写着「**不上传户型图**：图片要落地就得加存储与告知流程，那一半属于后端」，而 `FloorPlanStudio` 早已实装上传+识别（`components/fengshui/FloorPlanStudio.tsx:229` 选户型图、:231 `<input type="file">`），`/fengshui` 页第 34 行也写着「上传是可选的…勾选同意之前，图片不会离开这台设备」。**这句 note 由 `/tools` 页原样渲染**（`app/tools/page.tsx:64`）→ 用户在同一站里读到两句相反的话 | 待裁：改目录那句以匹配实装（含"7 天自动删、可移除"）还是收紧产品；改哪一处都要同步 `directory-acceptance` 的文本断言（先剥注释）。**批10 不动它** —— 目录是口径单一来源，不是我能顺手改的 | 待裁 |
+| 缺陷6（新量到，属文案口径矛盾） | [catalog.ts:129](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/tools/catalog.ts#L129) 对 [fengshui/page.tsx:34](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/fengshui/page.tsx#L34) | 目录 `note` 写着「**不上传户型图**：图片要落地就得加存储与告知流程，那一半属于后端」，而 `FloorPlanStudio` 早已实装上传+识别（`components/fengshui/FloorPlanStudio.tsx:229` 选户型图、:231 `<input type="file">`），`/fengshui` 页第 34 行也写着「上传是可选的…勾选同意之前，图片不会离开这台设备」。**这句 note 由 `/tools` 页原样渲染**（`app/tools/page.tsx:64`）→ 用户在同一站里读到两句相反的话 | 待裁：改目录那句以匹配实装（含"7 天自动删、可移除"）还是收紧产品；改哪一处都要同步 `directory-acceptance` 的文本断言（先剥注释）。**批10 不动它** —— 目录是口径单一来源，不是我能顺手改的 | 运维已裁：改目录那侧，**批A 已落** |
 
 ## 13. 批次
 

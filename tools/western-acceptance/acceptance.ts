@@ -73,11 +73,17 @@ const ok = (id: string, cond: boolean, detail: string) => {
   ok('west/no-unvetted-engine', hit.length === 0,
     `本批不给前端加任何西方天文/占卜依赖（AGPL 与 1★ 仓库那两条红线要单独裁定，见计划 B 线）：新增命中 ${hit.join('、') || '无'}`);
   const ws = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8'));
-  ok('west/page-renders-from-catalog', /WESTERN_INTENTS\.map/.test(ws) && /t\.status\s*!==\s*'未开放'\s*&&\s*t\.href\s*\?/.test(ws),
-    '西方工作页必须渲染自目录且用同一道双闸门（页面自己再判一次状态 = 第二份真相）');
+  // 批A：双闸门从各页自己写一遍，改成 lib/tools/status.ts 的 isLiveEntry 一份。
+  // 原来这条钉的是"页面里出现那句 status !== '未开放' && href"，于是每多一个页面就多一份
+  // 同一条判据（三处三份），现在钉的是"这一页吃的是那一份"——判据仍然在，只是只有一个出处。
+  ok('west/page-renders-from-catalog', /WESTERN_INTENTS\.map/.test(ws)
+    && /isLiveEntry/.test(ws) && /from '@\/lib\/tools\/status'/.test(ws)
+    && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(ws),
+    '西方工作页必须渲染自目录，入口判定吃 lib/tools/status.ts 的 isLiveEntry（页面里再写一遍双闸门 = 第二份真相）');
   const landing = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
-  ok('west/gate-count-derived', /WESTERN_INTENTS/.test(landing) && !/已开放\s*[0-9]/.test(landing),
-    '门廊上西方那张卡的数也是现算的，没写死');
+  ok('west/gate-count-derived', /WESTERN_INTENTS/.test(landing) && /statusCounts|statusTally/.test(landing)
+    && !/已开放\s*[0-9]/.test(landing) && !/(可用|未开放)\s*[0-9]/.test(landing),
+    '门廊上西方那张卡的数也是现算的（走 status.ts），旧写法「已开放 N」与新写法「可用 N」都不许写死');
 }
 
 const summary = `western acceptance: tools=${WESTERN_TOOLS.length} open=${WESTERN_LIVE_HREFS.length} pass=${pass} fail=${fail}`;

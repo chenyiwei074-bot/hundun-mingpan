@@ -1,16 +1,12 @@
 import Link from 'next/link';
-import { CLOSED_TOOLS, INTENTS, LIUYAO_BASIS_TEXT } from '@/lib/tools/catalog';
-import type { ToolStatus } from '@/lib/tools/catalog';
+import { INTENTS, LIUYAO_BASIS_TEXT } from '@/lib/tools/catalog';
+import { STATUS_DOT, isLiveEntry, statusCounts, statusTally } from '@/lib/tools/status';
 
 // 二级目录页：按「问什么」分组，再按术数查找。这一页只描述已经实现的东西，
 // 数据全部来自 lib/tools/catalog.ts，由 tools/directory-acceptance 逐条核对
 // （入口是否真存在、口径字符串是否等于引擎导出的常量、未开放条目有没有偷偷给链接）。
-
-const STATUS_DOT: Record<ToolStatus, string> = {
-  可用: 'var(--color-ji)',
-  部分可用: 'var(--color-accent-gold)',
-  未开放: 'var(--color-text-muted)',
-};
+// 状态标签与圆点同样吃 lib/tools/status.ts 那一份：这一页以前自己写着三份表里的一份，
+// 「部分可用」那颗 #b2955d 在白底只有 2.87:1，非文本 3:1 的下限一直没达标。
 
 const FIELDS: { key: 'question' | 'method' | 'basis' | 'reading'; label: string }[] = [
   { key: 'question', label: '适用问题' },
@@ -20,7 +16,7 @@ const FIELDS: { key: 'question' | 'method' | 'basis' | 'reading'; label: string 
 ];
 
 export default function ToolsPage() {
-  const live = INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放' && t.href);
+  const tally = statusCounts(INTENTS);
 
   return (
     <main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
@@ -28,7 +24,7 @@ export default function ToolsPage() {
         <p className="qn-eyebrow" style={{ margin: 0 }}>玄学百宝箱</p>
         <h1 className="qn-hero" style={{ margin: '12px 0 6px' }}>先说要问什么，再看用哪个工具</h1>
         <p className="qn-meta" style={{ letterSpacing: '0.14em' }}>
-          已开放 {live.length} 项 · 未开放 {CLOSED_TOOLS.length} 项 · 每项都写明取数口径与版本
+          目录 {statusTally(tally)} · 每项都写明取数口径与版本
         </p>
       </header>
 
@@ -62,10 +58,12 @@ export default function ToolsPage() {
                   ))}
                 </div>
                 {t.note && <p className="qn-note" style={{ marginTop: 10 }}>{t.note}</p>}
-                {t.status !== '未开放' && t.href ? (
+                {isLiveEntry(t) && t.href ? (
                   <Link href={t.href} className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 14 }}>进入 · {t.name}</Link>
                 ) : (
-                  <p className="qn-cap" style={{ marginTop: 14 }}>未开放，因此没有入口。</p>
+                  <p className="qn-cap" style={{ marginTop: 14 }}>
+                    {t.status === '未开放' ? '未开放，因此没有入口。' : '还没有页面链接，因此没有入口。'}
+                  </p>
                 )}
               </article>
             ))}

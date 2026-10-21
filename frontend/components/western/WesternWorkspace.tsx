@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
-import type { ToolStatus } from '@/lib/tools/catalog';
+import { STATUS_DOT, isLiveEntry, statusCounts, statusTally } from '@/lib/tools/status';
 
-// 西方目录的渲染。判据与 app/tools/page.tsx 完全同一条（状态不是未开放且有 href 才给入口），
-// 未开放的一律写明"没有入口"并说清缺什么 —— 半开的门比关着的门更容易让人以为能进。
-const STATUS_DOT: Record<ToolStatus, string> = {
-  '可用': 'var(--color-ji)',
-  '部分可用': 'var(--color-accent-gold)',
-  '未开放': 'var(--color-border-strong, rgba(0,0,0,0.22))',
-};
+// 西方目录的渲染。判据与目录页、门廊完全同一条（lib/tools/status.ts 的 isLiveEntry：
+// 状态不是未开放且有 href 才给入口），未开放的一律写明"没有入口"并说清缺什么 ——
+// 半开的门比关着的门更容易让人以为能进。
+// 圆点也不在这里另配一份：以前这一份的"未开放"指向 var(--color-border-strong)，
+// 而全站从来没有定义过那支令牌，于是它回退成 rgba(0,0,0,.22)，在 #241a3d 上等于没画。
 
 const FIELDS: { key: 'question' | 'method' | 'basis' | 'reading'; label: string }[] = [
   { key: 'question', label: '适用问题' },
@@ -18,17 +16,16 @@ const FIELDS: { key: 'question' | 'method' | 'basis' | 'reading'; label: string 
 ];
 
 export default function WesternWorkspace() {
-  const tools = WESTERN_INTENTS.flatMap(g => g.tools);
-  const open = tools.filter(t => t.status !== '未开放' && t.href);
+  const tally = statusCounts(WESTERN_INTENTS);
   return (
     <>
       <section className="qn-card qn-rise" style={{ marginTop: 18 }}>
         <p className="qn-meta" style={{ margin: 0 }}>
-          目录共 {tools.length} 项，其中已开放 {open.length} 项。
-          {open.length === 0
+          目录 {statusTally(tally)}。
+          {tally.live === 0
             ? ' 现在一项都进不去：每一项的算法口径都还没有可引的出处与验收样例，'
               + '与其先做个能点的空壳，不如把缺什么写在门上。'
-            : ' 已开放的项在下面各自卡片里有入口。'}
+            : ' 有入口的项在下面各自卡片里。'}
         </p>
       </section>
 
@@ -53,11 +50,13 @@ export default function WesternWorkspace() {
                   </div>
                 ))}
                 {t.note && <p className="qn-note" style={{ marginTop: 8 }}>{t.note}</p>}
-                {t.status !== '未开放' && t.href
+                {isLiveEntry(t) && t.href
                   ? <Link className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 12 }} href={t.href}>
                       进入 · {t.name}
                     </Link>
-                  : <p className="qn-cap" style={{ marginTop: 12 }}>未开放，因此没有入口。</p>}
+                  : <p className="qn-cap" style={{ marginTop: 12 }}>
+                      {t.status === '未开放' ? '未开放，因此没有入口。' : '还没有页面链接，因此没有入口。'}
+                    </p>}
               </article>
             ))}
           </div>
