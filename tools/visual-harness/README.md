@@ -39,7 +39,7 @@ node tools/visual-harness/census.mjs \
 | `--base` | 站点地址，默认 `http://localhost:3001`，亦可用 `QN_BASE` |
 | `--out` | 证据目录，默认 `.visual-harness` |
 | `--chart-id` / `--report-id` | 动态路由用的真实 id |
-| `--stub` | 本地无 API 时用 fixture 顶替 fetch |
+| `--stub` | 本地无 API 时用 fixture 顶替 fetch。**不加 `--stub` 跑全量会在这台机上红 16 条**：`create` 那 8 个态钉的是配额显示（`内测免费` / 「不限次数」），而配额只有真后端才答 —— 实测 `GET :3019/api/charts/quota` 是 404，页面老实落成「未知」。所以 live 要么 `--only=fengshui` 这类收窄跑，要么先把 Express 起起来。批5/批6 记的"live 6 态 / 20 态 PASS"就是收窄跑的结果。 |
 | `--chart-fixtures=<dir>` | 八字两张盘所在目录，默认 `tools/visual-harness/fixtures` |
 | `--chart-fixture=<file>` | 只覆盖完整那张盘（临时换一张用；`--stub` 下才起作用） |
 | `--liuyao-fixtures=<dir>` | 六爻四张盘所在目录，默认 `tools/visual-harness/fixtures` |
