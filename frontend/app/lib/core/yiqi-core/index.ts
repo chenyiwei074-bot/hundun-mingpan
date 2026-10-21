@@ -3,7 +3,7 @@
 import { BirthInfo, ChartResult, BaziChart, ZiweiChart } from './types';
 export type { BirthInfo, ChartResult, BaziChart, ZiweiChart };
 import { createBaziChart, runBaziTests } from './bazi';
-import { createZiweiChart, runZiweiTests } from './ziwei-standard';
+import { createZiweiChart } from './ziwei-standard';
 
 /**
  * 创建完整的排盘（八字 + 紫微斗数）
@@ -84,20 +84,20 @@ export function validateBirthInfo(birthInfo: BirthInfo): { valid: boolean; error
  * 运行所有算法测试
  * @returns 综合测试结果
  */
-export function runAllTests(): { 
-  bazi: ReturnType<typeof runBaziTests>; 
-  ziwei: ReturnType<typeof runZiweiTests>;
+// 2026-10-21 裁定：删掉 ziwei 那一半。runZiweiTests() 是个桩，打一行"待实现"就 return
+// { passed: 0, failed: 0 } —— 而 failed===0 会被 summary 当成 success，
+// 也就是"没实现"在汇总里长得和"全过"一模一样。宁可少一半，不要假的一半。
+export function runAllTests(): {
+  bazi: ReturnType<typeof runBaziTests>;
   summary: { totalPassed: number; totalFailed: number; success: boolean }
 } {
   const baziResults = runBaziTests();
-  const ziweiResults = runZiweiTests();
-  
-  const totalPassed = baziResults.passed + ziweiResults.passed;
-  const totalFailed = baziResults.failed + ziweiResults.failed;
-  
+
+  const totalPassed = baziResults.passed;
+  const totalFailed = baziResults.failed;
+
   return {
     bazi: baziResults,
-    ziwei: ziweiResults,
     summary: {
       totalPassed,
       totalFailed,

@@ -151,9 +151,10 @@ export function getAccurateMonthGanZhi(solar: any): { gan: Tiangan; zhi: Dizhi }
     const prevDaySolar = solar.next(-1); // 往前推一天
     const prevDayLunar = prevDaySolar.getLunar();
     const prevMonthGZ = prevDayLunar.getMonthInGanZhi();
-    
-    console.error(`[节气校正] ${solar.toYmd()} ${solar.getHour()}:${solar.getMinute()} 在${currentJieQi}前，使用${prevMonthGZ}月`);
-    
+
+    // 2026-10-21 裁定：删掉这里的 console.error([节气校正]…)。
+    // 生于交节当日且未过交节时刻是无辜的正常输入，每次排盘都往控制台写一行没有意义，
+    // 而月柱取哪一节已经由返回值本身表达。
     return parseGanZhi(prevMonthGZ);
   }
   
