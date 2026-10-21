@@ -90,18 +90,53 @@ for (const cs of CASES) {
   say(`  A==C(engine parity) ${a === c ? 'YES' : 'NO'}   A==B(backend wiring) ${a === b ? 'YES' : 'NO'}`);
 }
 
-// ── crossed.hour 的语义（2026-10-21 裁定 ③）──
-// 这一格以前比的是**整点小时数**，可时辰是两小时一格，于是同格内的移动被报成"已跨时辰"；
-// 而夏令时那一步造成的跨格反而被漏掉。改按时辰比、参照换成 civilDateTime（卡片上印的那串钟表时间）。
+// 这两格共用同一批小工具：从真实盘的产出里取时支/日柱，不自己重算任何一条口径。
 const ziIdx = (h: number) => Math.floor((h + 1) / 2) % 12;
 const ZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
 const tstOf = (o: any) => o.bazi.trueSolarTime;
 const hourZhiOf = (o: any) => o.bazi.siZhu.hour.zhi;
-const plateAt = (y: number, mo: number, d: number, h: number, mi: number, lon: number | null, dst: number) =>
+const plateAt = (y: number, mo: number, d: number, h: number, mi: number,
+  lon: number | null, dst: number, mode?: 'ZI_HOUR_23' | 'MIDNIGHT_00') =>
   feCreateChart({
     year: y, month: mo, day: d, hour: h, minute: mi, isLunar: false, gender: 'male',
     timeZone: 8, longitude: lon, dstOffset: dst, enableTrueSolarTime: lon !== null,
+    dayBoundaryMode: mode,
   } as BirthInfo);
+
+// 裁定①（2026-10-21）：crossed.day 也换成"取日柱那一天"的比法，参照同样是 civil。
+// 准绳必须是真的去比日柱，而不是比日历日串 —— 23 点要把日子往后滚一天，
+// 于是 00:00 校正到前一天 23:45 这种"日期变了、日柱没变"的样本一定存在（量出来 1728 组里有 102 组判错）。
+// 两种 dayBoundaryMode 都扫：只扫默认那一种的话，"mode 传下去了"这件事本身没被证明。
+const dayKey = (o: any) => Date.UTC(o.year, o.month - 1, o.day) / 86400000;
+let dayBad = 0, daySwept = 0, dayTrue = 0, dayNaiveWrong = 0;
+const dayExamples: string[] = [];
+for (const mode of ['ZI_HOUR_23', 'MIDNIGHT_00'] as const) {
+  for (const lon of [116.4074, 87.62, 121.4737]) {
+    for (let h = 0; h < 24; h++) for (let m = 0; m < 60; m += 10) {
+      const on = plateAt(1990, 6, 15, h, m, lon, mode === 'ZI_HOUR_23' ? 1 : 0, mode);
+      const off = plateAt(1990, 6, 15, h, m, null, mode === 'ZI_HOUR_23' ? 1 : 0, mode);
+      const t = on.bazi.siZhu.day.gan + on.bazi.siZhu.day.zhi !== off.bazi.siZhu.day.gan + off.bazi.siZhu.day.zhi;
+      daySwept++;
+      if (t) dayTrue++;
+      if (on.bazi.trueSolarTime.crossed.day !== t) {
+        dayBad++;
+        if (dayExamples.length < 4) dayExamples.push(`${mode} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} flag=${on.bazi.trueSolarTime.crossed.day} 日柱${t ? '变' : '没变'}`);
+      }
+      // 顺手把"只比日历日"的错法量出来，钉在摘要里：它是这次改动的全部理由。
+      const naive = dayKey(on.bazi.trueSolarTime.trueSolarDateTime) !== dayKey(on.bazi.trueSolarTime.civilDateTime);
+      if (naive !== t) dayNaiveWrong++;
+    }
+  }
+}
+say(`  ${dayBad ? 'FAIL' : 'PASS'} crossed-day/sweep-flag-equals-pillar-change  `
+  + `${daySwept} 组（ZI_HOUR_23 与 MIDNIGHT_00 各半）里 flag 与"日柱真的变了"全部一致（真跨 ${dayTrue} 组），`
+  + `不一致 ${dayBad} 组${dayExamples.length ? ' 例:' + dayExamples.join(' | ') : ''}`);
+say(`  ${dayNaiveWrong > 0 ? 'PASS' : 'FAIL'} crossed-day/naive-date-compare-is-worse  `
+  + `只比日历日会与真实日柱对不上 ${dayNaiveWrong} 组 —— 这一条存在的理由就是它：0 则说明这个准绳没被这次扫描真的考验到，要换样本`);
+
+// ── crossed.hour 的语义（2026-10-21 裁定 ③）──
+// 这一格以前比的是**整点小时数**，可时辰是两小时一格，于是同格内的移动被报成"已跨时辰"；
+// 而夏令时那一步造成的跨格反而被漏掉。改按时辰比、参照换成 civilDateTime（卡片上印的那串钟表时间）。
 
 // 裁定给的两条算例，逐字钉住。
 const ruled = [
@@ -152,15 +187,41 @@ say(`  ${sbMove && !sameBucket.crossed.hour ? 'PASS' : 'FAIL'} crossed/same-buck
   + `但 ${ZHI[ziIdx(2)]}时 内不动 -> flag=${sameBucket.crossed.hour}`);
 
 // server/ 那份同源拷贝由运维改（server/untouched 那条闸门写着这个分工）。
-// 这里不钉成红 —— 红了会把整套套件卡住，而这条要的是"随时看得见同步到哪一步了"：
-// 运维同步完，下一行自己变成 已同步，不用回来改断言。
-const srvCopy = readFileSync(join(ROOT, 'server', 'src', 'core', 'yiqi-core', 'true-solar-time.ts'), 'utf8');
-const srvSynced = /ziChenIndex\(civil\.hour\)/.test(srvCopy);
-say(`  ${srvSynced ? 'SYNCED' : 'PENDING'} server-copy/true-solar-time  `
-  + (srvSynced ? 'server 那份也按时辰比了 —— 两盘同一套口径'
-    : 'server 那份仍是 `corrected.hour !== stdLocal.hour`（按整点比）。'
-      + '改法见前端 true-solar-time.ts 的 ziChenIndex + crossed 那两行，逐字照搬即可；'
-      + '这一格只影响盘面提示，不影响任何四柱计算，所以同步前后 A==B/A==C 都照常绿。'));
+// 不钉成红 —— 红了会把整套卡住；这条要的是"随时看得见同步到哪一步"：
+// 运维照搬之后每一行自己变 SYNCED，谁也不用回来改断言。
+// 一次改动的落点会跨文件（① 同时动 true-solar-time.ts 与 bazi.ts 的换日调用），
+// 所以这里是一张表，不是一个档案名 —— 少一个档案就等于漏报。
+const SYNC_CHECKS: { file: string; want: [RegExp, string][]; forbid?: [RegExp, string][]; note: string }[] = [
+  {
+    file: 'true-solar-time.ts',
+    want: [
+      [/function ziChenIndex\(hour: number\)/, 'ziChenIndex 那个按时辰比的 helper'],
+      [/ziChenIndex\(civil\.hour\)/, 'crossed.hour 以 civil 为参照'],
+      [/function dayPillarKey\(/, 'dayPillarKey（把 23 点换日折进来的日柱取日）'],
+      [/dayPillarKey\(civil, dayBoundaryMode\)/, 'crossed.day 比的是取日柱那一天、以 civil 为参照'],
+      [/export function rollsToNextDay\(/, 'rollsToNextDay 这一份换日规则的唯一实现'],
+    ],
+    note: '裁定③（hour）+ 裁定①（day）都落在这一份',
+  },
+  {
+    file: 'bazi.ts',
+    want: [
+      [/if \(rollsToNextDay\(hour, mode\)\)/, '换日判断改吃共享规则'],
+      [/dayBoundaryMode: birthInfo\.dayBoundaryMode/, '把口径传给 calculateTrueSolarTime'],
+    ],
+    forbid: [[/console\.error\('\[晚子时处理\]/, '晚子时那条正常路径打印']],
+    note: '裁定①（共享换日规则）+ 裁定②（删晚子时 console.error）',
+  },
+];
+for (const sc of SYNC_CHECKS) {
+  let src = '';
+  try { src = readFileSync(join(ROOT, 'server', 'src', 'core', 'yiqi-core', sc.file), 'utf8'); } catch { /* 后端没有这个档案就是没有，下面按未同步报 */ }
+  const missing = sc.want.filter(([re, what]) => !re.test(src)).map(([, what]) => what);
+  const stillThere = (sc.forbid || []).filter(([re]) => re.test(src)).map(([, what]) => what);
+  const parts = [...missing.map(m => '缺 ' + m), ...stillThere.map(s => '仍有 ' + s)];
+  say(`  ${parts.length ? 'PENDING' : 'SYNCED'} server-copy/${sc.file}  `
+    + (parts.length ? parts.join('、') + ` —— 逐字照搬前端那几行。${sc.note}` : `两盘同一套口径。${sc.note}`));
+}
 
 say('');
 say(`ENGINE PARITY A==C : ${CASES.length - engineBad}/${CASES.length} ${engineBad ? 'FAIL' : 'PASS'}`);
@@ -169,6 +230,9 @@ say(`BACKEND WIRING A==B: ${CASES.length - backendBad}/${CASES.length} measured`
   (REQUIRE_BACKEND ? (backendBad ? ' FAIL' : ' PASS') : ' (informational; --no-require-backend to relax)'));
 say(`CROSSED HOUR SEMANTICS: ruled ${ruled.length - ruledBad}/${ruled.length}, `
   + `sweep flag==时支真变化 ${swept - sweepBad}/${swept} ${ruledBad || sweepBad ? 'FAIL' : 'PASS'}`);
+say(`CROSSED DAY SEMANTICS: sweep flag==日柱真变化 ${daySwept - dayBad}/${daySwept}（真跨 ${dayTrue}），`
+  + `只比日历日会与日柱对不上 ${dayNaiveWrong} 组 ${dayBad || !dayNaiveWrong ? 'FAIL' : 'PASS'}`);
 
 if (arg('out')) writeFileSync(arg('out')!, lines.join('\n') + '\n', 'utf8');
-process.exit(engineBad || controlBad || ruledBad || sweepBad || (REQUIRE_BACKEND && backendBad) ? 1 : 0);
+process.exit(engineBad || controlBad || ruledBad || sweepBad || dayBad || !dayNaiveWrong
+  || (REQUIRE_BACKEND && backendBad) ? 1 : 0);

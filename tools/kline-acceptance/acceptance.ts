@@ -355,11 +355,13 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     return b === '' || /^(\/\/|\/\*|\*)/.test(b) || /^[{}]$/.test(b);
   };
   const commentOnlyLines = (d: string[]) => d.length > 0 && d.every(inertLine);
-  // 放行的是"crossed 这一格的计算"这一段，认得三种行：字段本身、那个新 helper 的签名与注释、
-  // 以及 helper 里那句取格表达式 —— 逐字点名，别的算术一律挡在外面。
-  const CROSSED_SHAPE = /crossed|ziChenIndex|Math\.floor\(\(hour \+ 1\) \/ 2\)/;
+  // 放行的是"crossed 与换日口径这一段"，认得四种行：字段本身、被授权删掉的那条打印、
+  // 换日/取格的 helper（rollsToNextDay / dayPillarKey / ziChenIndex）与其签名行、
+  // 以及把口径传下去的 dayBoundaryMode。逐类点名，别的算术与别的取数一律挡在外面。
+  const CROSSED_SHAPE = /crossed|ziChenIndex|dayPillarKey|rollsToNextDay|dayBoundaryMode|Math\.floor\(\(hour \+ 1\) \/ 2\)/;
+  const REMOVED_CONSOLE = /^-\s*console\.(log|info|debug|warn|error|trace)\(/;
   const crossedFlagLines = (d: string[]) => d.length > 0
-    && d.filter(l => !inertLine(l) && !CROSSED_SHAPE.test(l)).length === 0;
+    && d.filter(l => !inertLine(l) && !CROSSED_SHAPE.test(l) && !REMOVED_CONSOLE.test(l)).length === 0;
   const commentOnlyChange = (f: string) => commentOnlyLines(diffOf(f));
   const crossedFlagOnly = (f: string) => crossedFlagLines(diffOf(f));
   // 两道窄门自己的牙齿，喂**假 diff** 给分类器 —— 不依赖仓库当下改了什么。
@@ -367,13 +369,16 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   ok('algo/crossed-hatch-is-narrow',
     crossedFlagLines(['-    crossed: { hour: a !== b, day: !s },', '+    crossed: { hour: ziChenIndex(x) !== ziChenIndex(c), day: !s },'])
     && crossedFlagLines(['+function ziChenIndex(hour: number): number {', '+  return Math.floor((hour + 1) / 2) % 12;', '+}', '+'])
+    && crossedFlagLines(['-    console.error(\'[晚子时处理] 23点\');', '+  if (rollsToNextDay(hour, mode)) {', '+    dayBoundaryMode: birthInfo.dayBoundaryMode,'])
     && commentOnlyLines(['+  /** 时辰是两小时一格 */'])
     && !crossedFlagLines(['+    const dayGan = getDayGan(x);'])
     && !crossedFlagLines(['-  const solar = Solar.fromYmdHms(a, b, c, 23, 0, 0);', '+  const solar = Solar.fromYmdHms(a, b, c, 0, 0, 0);'])
     && !crossedFlagLines(['+  return Math.floor((hour + 2) / 2) % 12;'])
+    // 加一条 console 不许混进来：放行的是"删被授权的打印"，不是"随便动打印"。
+    && !crossedFlagLines(['+    console.warn(\'新加的调试打印\');'])
     && !commentOnlyLines(['+  const a = 1;']) && !commentOnlyLines([]) && !crossedFlagLines([]),
-    '窄门只放过"只碰 crossed 那一格"和"纯注释"两种：普通取数代码、改了格法算术的行都必须判 false，'
-    + '空 diff 两条都判 false（没改动也算通过就是空过）');
+    '窄门只放过"只碰 crossed / 换日口径"和"纯注释"两种：普通取数代码、改了格法算术的行、'
+    + '新加的打印都必须判 false；空 diff 两条都判 false（没改动也算通过就是空过）');
   // 报错要指名"哪个文件是被什么放过的 / 哪个是真不合规"。以前这里直接把清单外全列出来，
   // 于是纯注释的 types.ts 也一起上榜，读的人会去查一个根本没失败的档案。
   const engineBad = engine.filter(f => !inAllow(f) && !loggingOnlyRemoval(f) && !commentOnlyChange(f) && !crossedFlagOnly(f));
@@ -410,14 +415,69 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // console.log/info/debug/trace 一律禁 —— 下面这条正是按这个口径实现的。
   const yqDir = join(ROOT, 'frontend', 'app', 'lib', 'core', 'yiqi-core');
   const yqFiles = readdirSync(yqDir).filter(f => f.endsWith('.ts'));
-  const prints = yqFiles.flatMap(f => {
-    const code = strip(readFileSync(join(yqDir, f), 'utf8'));
-    const loose = code.match(/console\.(log|info|debug|trace)\(/g) || [];
-    const marker = code.match(/console\.\w+\([^)]*(?:🔍|计算结果)[^)]*\)/g) || [];
-    return [...loose, ...marker].map(m => `${f}: ${m.slice(0, 48)}`);
-  });
-  ok('core/no-unconditional-engine-prints', prints.length === 0,
-    `yiqi-core 里不许有 console.log/info/debug/trace，也不许有消息体带 🔍 或「计算结果」的调试打印（那两行是这次删掉的）：命中 ${prints.join(' | ') || '0 处'}；扫了 ${yqFiles.length} 个文件`);
+  // 2026-10-21 裁定②：口径从"log/info/debug/trace 一律禁"扩成
+  // "error/warn 也不许走在正常路径上" —— 判据是它 lexical 地在不在 catch 块里。
+  // 晚子时那条就是例子：23 点出生是无辜的，可它每次排盘都往控制台写一行。
+  // 例外走 allowlist（档案:行号片段:理由），且每条都要还命中得上一一失配就判红，
+  // 否则 allowlist 只会越长越像地基，没人敢删。
+  const PRINT_ALLOWLIST: { where: string; reason: string }[] = [
+    { where: 'jieqi.ts|节气校正' , reason: '待裁：与 bazi.ts 晚子时同一类的正常路径信息性打印（交节前用上一个月柱）。'
+      + '本批只授权删了晚子时那条，这条没授权删，先记账不静默改。' },
+    { where: 'nayin.ts|未找到纳音', reason: '待裁：查表未命中时的兜底，不在 catch 里（是 if (!nayin)）。'
+      + '顺带记一笔：它 return 了假定的默认纳音 海中金，未命中被当成命中往下游发。' },
+    { where: 'ziwei-standard.ts|测试功能待实现', reason: 'runZiweiTests() 里的桩，只有 runAllTests() 会调；'
+      + '全仓 grep 过，页面与 API 都没有调用点，不在排盘路径上。' },
+  ];
+  // 从打印那一行往上找包住它的那个 { ，看它前面是不是 catch。
+  // 够用且可核对：字符串里出现裸花括号会看错，而这一批的打印都没有；真要扩到那种文件再说。
+  const insideCatch = (lines: string[], idx: number): boolean => {
+    let depth = 0;
+    for (let i = idx; i >= 0; i--) {
+      const l = lines[i];
+      for (let j = l.length - 1; j >= 0; j--) {
+        if (l[j] === '}') depth++;
+        else if (l[j] === '{') {
+          if (depth === 0) return /\bcatch\b/.test(l.slice(0, j));
+          depth--;
+        }
+      }
+    }
+    return false;
+  };
+  const prints: string[] = [];
+  const allowHits = new Set<string>();
+  for (const f of yqFiles) {
+    const raw = readFileSync(join(yqDir, f), 'utf8');
+    const code = strip(raw);
+    for (const m of code.match(/console\.(log|info|debug|trace)\(/g) || []) prints.push(`${f}: ${m}（一律禁）`);
+    for (const m of code.match(/console\.\w+\([^)]*(?:🔍|计算结果)[^)]*\)/g) || []) prints.push(`${f}: 调试打印 ${m.slice(0, 40)}`);
+    const lines = code.split('\n');
+    lines.forEach((l, i) => {
+      const hit = /console\.(error|warn)\(/.exec(l);
+      if (!hit) return;
+      if (insideCatch(lines, i)) return;
+      const al = PRINT_ALLOWLIST.find(a => a.where.split('|')[0] === f && l.includes(a.where.split('|')[1]));
+      if (al) { allowHits.add(al.where); return; }
+      prints.push(`${f}:${i + 1}: 正常路径上的 ${hit[1]} —— ${l.trim().slice(0, 56)}`);
+    });
+  }
+  const stale = PRINT_ALLOWLIST.filter(a => !allowHits.has(a.where)).map(a => a.where);
+  ok('core/no-unconditional-engine-prints', prints.length === 0 && stale.length === 0,
+    `yiqi-core 里 console.log/info/debug/trace 一律禁；console.error/warn 必须在 catch 块内（例外走 allowlist）：`
+    + `命中 ${prints.join(' | ') || '0 处'}；扫了 ${yqFiles.length} 个文件`
+    + `${stale.length ? '；allowlist 里有已经不存在的打印（该删，留着就等于给下一处开口子）：' + stale.join('、') : ''}`);
+  ok('core/allowlist-carries-reasons', PRINT_ALLOWLIST.every(a => a.where.includes('|') && a.reason.length >= 20),
+    `每条例外都得写清"档案:片段:为什么放行"（理由不少于 20 字，实得 ${PRINT_ALLOWLIST.length} 条）—— `
+    + 'allowlist 没有理由就只是把红灯改成静音');
+  // 换日规则只许有一份：crossed.day 与 bazi.ts 的换日必须吃同一个判断，否则两处会各自漂移。
+  const baziSrc = strip(readFileSync(join(yqDir, 'bazi.ts'), 'utf8'));
+  const tstSrcForRule = strip(readFileSync(join(yqDir, 'true-solar-time.ts'), 'utf8'));
+  ok('core/late-zi-rule-is-single-source',
+    /export function rollsToNextDay\(/.test(tstSrcForRule)
+    && /if \(rollsToNextDay\(hour, mode\)\)/.test(baziSrc)
+    && !/hour === 23/.test(baziSrc) && !/console\.error\('\[晚子时处理\]/.test(baziSrc),
+    '晚子时换日只剩 true-solar-time.ts 里那一份实现，bazi.ts 改用它（crossed.day 也要按同一口径回答）；'
+    + `bazi.ts 里残留的 \`hour === 23\` ${(baziSrc.match(/hour === 23/g) || []).length} 处、晚子时打印 ${/晚子时处理/.test(baziSrc) ? '仍在' : '已删'}`);
 }
 
 const fails = lines.filter(l => l.startsWith('FAIL'));
