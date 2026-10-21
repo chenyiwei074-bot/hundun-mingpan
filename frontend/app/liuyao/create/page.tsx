@@ -511,6 +511,15 @@ export default function LiuyaoCreatePage() {
       {commit && (
         <p className="qn-cap" style={{margin:'12px 0 0',textAlign:'center',letterSpacing:'0.08em'}}>
           已锁定 {commit.schema} · seedHash {shortHash(commit.seedHash)}… · 六轮面值全部由它派生
+
+        {/* 2026-10-21：那句边界声明原来只活在 JSX 注释里，用户看不到 —— 补成可见文案。
+            能证明的是「这一盘与事先的承诺对得上」，上限写清楚，不越界。 */}
+        {commit && (
+          <p className="qn-note" style={{margin:'8px 0 0',textAlign:'center'}}>
+            它证明的是「这一盘与事先的承诺对得上」；不证明掷钱这个动作真的发生过，
+            也不阻止你在揭晓前整盘重来（重来就是新承诺）。
+          </p>
+        )}
         </p>
       )}
 
