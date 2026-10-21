@@ -28,6 +28,10 @@ import { INTENTS, TOOL_BY_SLUG, CATALOG_STAMPS } from '../../frontend/lib/tools/
 import { routeLocal } from '../../frontend/lib/assistant/intent';
 import { reconcile } from '../../frontend/lib/assistant/types';
 import type { AssistantRouteResult } from '../../frontend/lib/assistant/types';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（见 tools/_lib/codesrc.ts）。
+// 只用 stripComments：本档多处判的就是页面上那几句中文文案，文案住在字符串字面量里，
+// 剥字面量会让闸门对自己要盯的文案失明。
+import { stripComments } from '../_lib/codesrc';
 
 const ROOT = join(__dirname, '../..');
 const arg = (name: string) => {
@@ -97,7 +101,7 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
   try {
     const blob = execSync('git show 2971343:frontend/app/lib/core/bazi-enrich/gan-relations.ts',
       { cwd: ROOT, encoding: 'utf8' });
-    const self = readFileSync(__filename, 'utf8').replace(/\s+/g, '');
+    const self = stripComments(readFileSync(__filename, 'utf8')).replace(/\s+/g, '');
     const marks = [
       "if (he) { out.push({type:'天干合', gans:[a.gan, b.gan], pillars:[a.pillar, b.pillar]});",
       "const rel = shengKe(GAN_WUXING[a.gan], GAN_WUXING[b.gan]);",
@@ -143,7 +147,7 @@ const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\
   const 缺档 = 判词五.filter(w => !seen.has(w));
   ok('core/judge-pillars-total-and-reachable', 越界.length === 0 && 缺档.length === 0 && seen.size === 5,
     `10×12 全组合跑下来，判词必须一个都不越界、五档每一档都真的出现（并集里多写一档 = 下游一个永假分支；少出现一档 = 表里少了一类关系）：越界 ${越界.join('、') || '0 处'} / 缺档 ${缺档.join('、') || '0 档'} / 分布 ${[...seen.entries()].map(([k, n]) => k + n).join(' ')}`);
-  const 声明 = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'gan-relations.ts'), 'utf8');
+  const 声明 = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'gan-relations.ts'), 'utf8'));
   const 并集 = (声明.match(/verdict:\s*([^;]+);/s) || ['', ''])[1].replace(/[\s'"]/g, '').split('|');
   ok('core/judge-pillars-declaration-matches-runtime', 并集.length === 5 && 判词五.every(w => 并集.includes(w)),
     `PillarVerdict.verdict 的并集必须与运行时能产出的五档逐字相等（多出来的那一档就是这次删掉的 '天地异气无生克'，写而不可达比不写更贵）：声明 ${并集.join('/')} / 运行时 ${判词五.join('/')}`);
@@ -380,7 +384,7 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
   ok('privacy/no-network-in-hepan', netHit.length === 0,
     `合盘这四个文件剥掉注释之后必须一处网络调用都没有（对方生辰不进 API 靠的是这里根本没有发请求的代码，不是"忘了发"）：命中 ${netHit.join(' | ') || '0 处'}`);
 
-  const sec = readFileSync(join(ROOT, 'frontend/components/chart/HepanSection.tsx'), 'utf8');
+  const sec = stripComments(readFileSync(join(ROOT, 'frontend/components/chart/HepanSection.tsx'), 'utf8'));
   const secCode = strip(sec);
   const leaky = ['saveReport', 'trackEvent', 'apiCreateChart', '/api/', 'receipt', 'ledger', 'anchor']
     .filter(w => secCode.includes(w));
@@ -412,7 +416,7 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
     && !/已存 &&[\s\S]{0,80}留存 \?/.test(sec),
     `勾了留存但设备没让写时，页面不能说"存在这台设备上"（这一句是用户决定要不要清场的唯一依据）：onSubmit 里读 isPersisted=${/function onSubmit[\s\S]*?isPersisted\(\)/.test(secCode) ? '是' : '否'}`);
 
-  const result = readFileSync(join(ROOT, 'frontend/app/chart/result/[id]/page.tsx'), 'utf8');
+  const result = stripComments(readFileSync(join(ROOT, 'frontend/app/chart/result/[id]/page.tsx'), 'utf8'));
   const saveCall = result.slice(result.indexOf('saveReport({'), result.indexOf('saveReport({') + 900);
   ok('privacy/report-save-does-not-mention-hepan', !/hepan|合盘|partner/i.test(saveCall),
     `报告保存里不许出现合盘任何输入（报告是要落库的，对方生辰不落）：${saveCall.includes('hepan') || saveCall.includes('partner') ? '命中' : '未命中'}`);

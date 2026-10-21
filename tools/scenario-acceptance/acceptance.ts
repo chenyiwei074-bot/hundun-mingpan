@@ -9,6 +9,8 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（共享件 tools/_lib/codesrc.ts）。
+import { stripComments } from '../_lib/codesrc';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import type { BaziChart } from '../../frontend/app/lib/core/yiqi-core/types';
 import { buildScenarios, PALACE_SOURCE, PALACE_MAP, SCENARIO_BASIS, CONVENTION_NOTE } from '../../frontend/lib/bazi/scenarios';
@@ -96,7 +98,7 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
   const dirty = male.flatMap(r => VERDICT.filter(v => rendered(r).includes(v)).map(v => `${r.场景} 含「${v}」`));
   ok('quote/no-verdict-words', dirty.length === 0,
     `矩阵渲染的每一个字段都不许出现原典判词（${VERDICT.slice(0, 5).join('、')} 等 ${VERDICT.length} 个）—— 那是别人的吉凶结论：命中 ${dirty.join(' | ') || '0 处'}`);
-  const compSrc = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'ScenarioMatrix.tsx'), 'utf8');
+  const compSrc = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'ScenarioMatrix.tsx'), 'utf8'));
   const compDirty = VERDICT.filter(v => compSrc.includes(v));
   ok('quote/no-verdict-in-component', compDirty.length === 0,
     `组件里写死的说明文字同样不许出现判词：命中 ${compDirty.join('、') || '0 个'}`);
@@ -175,8 +177,9 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
   const decl = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'yiqi-core', 'types.ts'), 'utf8');
   // 先剥注释再扫字样：types.ts 里正当写着「原声明写作 tenGod?」这段历史，不剥就会
   // 被自己的说明文字咬住（这条坑本项目已经踩过四次，扫描类断言一律先 codeOf）。
-  const declCode = decl.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  const cgLine = (decl.match(/cangGan\?:[^\n]*/) || [''])[0];
+  const declCode = stripComments(decl);
+  // cgLine 也一律从剥过注释的这份里抠：注释里抄的那一行声明不能替"声明还在"作证。
+  const cgLine = (declCode.match(/cangGan\?:[^\n]*/) || [''])[0];
   ok('scen/cangGan-declaration-honest',
     /tenGod/.test(declCode) === false && /CangGanItem/.test(cgLine),
     `types.ts 里藏干的声明必须与产出方一致：实得「${cgLine.slice(0, 84)}」，代码里不再出现 tenGod=${!/tenGod/.test(declCode)}`);
@@ -218,14 +221,14 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
 
 // ── 7. 依赖与边界：只 import 引擎、不新增路由/入口、不碰 server、无盘降级 ──
 {
-  const mod = readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'scenarios.ts'), 'utf8');
+  const mod = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'scenarios.ts'), 'utf8'));
   const imports = [...mod.matchAll(/from\s+'([^']+)'/g)].map(m => m[1]);
   const outside = imports.filter(i => !i.startsWith('@/app/lib/core') && !i.startsWith('./') && !i.startsWith('../'));
   ok('dep/engine-only', outside.length === 0,
     `矩阵模块只许 import 引擎与 enrichBazi（@/app/lib/core/*）：多出 ${outside.join('、') || '无'}`);
   ok('dep/no-network', !/fetch\(|XMLHttpRequest|axios|api\//.test(mod),
     '这一层完全不联网（盘从页面传进来）');
-  const comp = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'ScenarioMatrix.tsx'), 'utf8');
+  const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'ScenarioMatrix.tsx'), 'utf8'));
   ok('dep/component-lean', !/fetch\(|api\//.test(comp) && /buildScenarios/.test(comp),
     '组件只渲染，不取数、不算命');
   const pkg = JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8'));
@@ -241,13 +244,13 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
     `本批零新依赖：与 origin/main 的 package.json 键集逐字比，新增项必须为 0（比关键词靠谱 —— lunar-typescript 本来就在）：实得新增 ${added.join('、') || '无'}`);
   const routes = existsSync(join(ROOT, 'frontend', 'app', 'scenarios')) || existsSync(join(ROOT, 'frontend', 'app', 'bazi'));
   ok('route/no-new-page', !routes, '不新增路由：矩阵是结果页里的一节，不是新页面');
-  const mounted = readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8');
+  const mounted = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8'));
   ok('route/mounted-on-result', /<ScenarioMatrix chart=\{enrichedChartData\.bazi\} \/>/.test(mounted),
     '矩阵挂在命盘结果页，且是无条件挂载 —— 降级话术由组件自己给，不在页面里条件渲染（整节消失＝用户以为没这功能）');
   // 裁定 6：无盘降级 = 说明 + /create 入口，不预置示例盘。这条钉三件事：
   // 有降级分支、分支里给了去排盘的路、分支在 buildScenarios 之前 return（拿不到盘就不许造一行）。
   const compFull = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'ScenarioMatrix.tsx'), 'utf8');
-  const codeOnly = compFull.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const codeOnly = stripComments(compFull);
   const guardAt = codeOnly.search(/if\s*\(\s*!chart\?\.siZhu/);
   const buildAt = codeOnly.search(/buildScenarios\(/);
   ok('degrade/branch-exists', guardAt >= 0 && buildAt >= 0 && guardAt < buildAt,
@@ -256,9 +259,9 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
     '降级分支里必须有 /create 入口（只说"没有盘"不给路，等于把用户关在门外）');
   ok('degrade/no-sample-plate', guardAt >= 0 && /不预置示例盘/.test(codeOnly.slice(guardAt, buildAt)),
     '降级分支必须明写不预置示例盘 —— 拿别人的盘当"你的矩阵"是编数据');
-  const home = readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8');
+  const home = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
   ok('route/no-new-entry', !/场景矩阵/.test(home), '首页不新增入口（裁定 ③：不新增路由/入口）');
-  const catalog = readFileSync(join(ROOT, 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8');
+  const catalog = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8'));
   ok('route/catalog-untouched', !/场景矩阵/.test(catalog),
     '目录页也未把它列成独立工具 —— 它是命盘的一个读法，不是一件新工具（等 (b) 上线后再议是否入目录）');
   ok('basis/stamp', SCENARIO_BASIS === 'liuqin-scenario-v1',

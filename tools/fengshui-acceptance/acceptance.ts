@@ -33,6 +33,10 @@ import { ROOM_KINDS } from '../../frontend/lib/fengshui/types';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import type { FloorInput, Palace, Room } from '../../frontend/lib/fengshui/types';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（见 tools/_lib/codesrc.ts）。
+// 只用 stripComments 不用 stripLiterals：这一档许多判据钉的正是页面上那几句中文文案，
+// 而文案本来就是字符串字面量 —— 剥了字面量，闸门对自己存在的理由失明。
+import { stripComments } from '../_lib/codesrc';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -138,8 +142,8 @@ const base: FloorInput = {
   const undirected = analyzeFloor({ ...base, 朝向: '未确认' }).未判定;
   ok('copy/undone-is-declared', undirected.some(x => x.includes('不做')),
     `"没做的那一层"要出现在未判定栏里，而不是悄悄少几条：${undirected.join(' | ') || '（空）'}`);
-  const page = readFileSync(join(ROOT, 'frontend', 'app', 'fengshui', 'page.tsx'), 'utf8');
-  const form = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanForm.tsx'), 'utf8');
+  const page = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'fengshui', 'page.tsx'), 'utf8'));
+  const form = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanForm.tsx'), 'utf8'));
   // 改测试（2026-10-20 户型大改）：这一条原来钉的是"页面上写着不上传户型图"。
   // 现在能上传了，那句文案若留着就是假话；原来那条断言的**意图**（不做的事要写明）不变，
   // 换成钉新边界：同意之前图不出本机、7 天自动删、传统方位那一层仍然不做。
@@ -156,7 +160,7 @@ const base: FloorInput = {
   ok('domain/oriental-only', !west.some(t => t.slug === 'fengshui' || /户型|风水/.test(t.name))
     && INTENTS.flatMap(g => g.tools).some(t => t.slug === 'fengshui' && t.href === '/fengshui'),
     '东方目录里有它且入口是 /fengshui，西方目录里不许出现（两套体系不互相代收）');
-  const westSrc = readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8');
+  const westSrc = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8'));
   ok('domain/western-page-clean', !/户型|fengshui/i.test(westSrc), '西方工作台组件源码里也不许出现户型字样');
 }
 
@@ -267,7 +271,7 @@ const base: FloorInput = {
     '未确认的开口不翻译成宫位输入：门没确认，动线判定就该说"没标入户门位置"，而不是拿猜的位置去判');
 
   // G. 九宫排法只许有一份
-  const form = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanForm.tsx'), 'utf8');
+  const form = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanForm.tsx'), 'utf8'));
   ok('geo/palace-grid-single-source', !/const LAYOUT[^=]*=\s*\[\[/.test(form) && /PALACE_GRID/.test(form),
     '表单不再自带第二份九宫字面量，改读 types.ts 里的 PALACE_GRID（两处各写一遍 = 图上看到的宫和算出来的宫会分家）');
 
@@ -282,7 +286,7 @@ const base: FloorInput = {
 
 // ── 8. 上传校验、SVG 投影与场景参数 ──
 {
-  const studio = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8');
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
   ok('up/pure-functions-outside-component', /from '@\/lib\/fengshui\/upload'/.test(studio)
     && !/function sniffImage/.test(studio),
     '校验函数住在 lib/fengshui/upload.ts 而不是组件里：抠源码 eval 那条路走不通（TS 类型标注），而且纯函数本来就不该在组件里');
@@ -337,11 +341,11 @@ const base: FloorInput = {
     `门多窗多也不能越过全局上限：4 门 4 窗要 ${4 * PARTICLES.每门 + 4 * PARTICLES.每窗} 个，实得 ${particleBudget('full', 4, 4)}`);
 
   // 舞台色只有一份真值：CSS 变量。stage.ts 里不许再抄一遍 hex。
-  const stageSrc = readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'stage.ts'), 'utf8');
+  const stageSrc = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'stage.ts'), 'utf8'));
   const hexInStage = (stageSrc.replace(/\/\*[\s\S]*?\*\//g, '').match(/#[0-9a-fA-F]{6}\b/g) || []);
   ok('scene/colors-live-in-css', hexInStage.length <= 8 && /STAGE_TOKENS/.test(stageSrc) && /--color-fp-stage-bg/.test(stageSrc),
     `stage.ts 只保留令牌名与兜底值（实测 ${hexInStage.length} 处 hex，全在 STAGE_FALLBACK 里），主色住在 globals.css 的 --color-fp-stage-*`);
-  const css = readFileSync(join(ROOT, 'frontend', 'app', 'globals.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const css = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'globals.css'), 'utf8')).replace(/\/\*[\s\S]*?\*\//g, '');
   const fpBg = css.match(/--color-fp-stage-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
   const wxBg = css.match(/--color-western-bg:\s*(#[0-9a-fA-F]{6})/)?.[1];
   ok('scene/stage-not-aliased-to-western', !!fpBg && fpBg !== wxBg,
@@ -351,15 +355,15 @@ const base: FloorInput = {
   ok('privacy/consent-gates-request', /disabled=\{recognizing \|\| !consent\}/.test(studio),
     '没勾同意，识别按钮就是禁用的 —— 告知文案不拦请求，这个 disabled 才拦');
   ok('privacy/no-image-in-report', !/image|blob|dataUrl|objectURL/i.test(
-    readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'analysis.ts'), 'utf8')),
+    stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'analysis.ts'), 'utf8'))),
     '规则层源码里没有任何图片字段：图不进判定输出，也就不会被顺手带进报告');
 }
 
 // ── 9. 识别对接（POST /api/fengshui/recognize）：契约形状、投影、三态、不自动重试 ──
 {
-  const studio = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8');
-  const ctrl = readFileSync(join(ROOT, 'server', 'src', 'controllers', 'fengshui.controller.ts'), 'utf8');
-  const vision = readFileSync(join(ROOT, 'server', 'src', 'services', 'vision.service.ts'), 'utf8');
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  const ctrl = stripComments(readFileSync(join(ROOT, 'server', 'src', 'controllers', 'fengshui.controller.ts'), 'utf8'));
+  const vision = stripComments(readFileSync(join(ROOT, 'server', 'src', 'services', 'vision.service.ts'), 'utf8'));
 
   // A. base64 自己写（不用 btoa / Buffer），所以要跟标准库逐字节对。
   //    三种余数都单独覆盖：尾部 1 字节和 2 字节是最容易写错的（少一个 = 解出来多/少一字节）。
@@ -392,7 +396,7 @@ const base: FloorInput = {
 
   // C. 本地预校验：与控制器同一条正则，把注定 400 的请求拦在发出之前。
   ok('rc/visitor-rule-matches-server', /const VISITOR_RE = (\/[^;]+;)/.exec(ctrl)?.[1]
-    === /const VISITOR_RE = (\/[^;]+;)/.exec(readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'recognize.ts'), 'utf8'))?.[1],
+    === /const VISITOR_RE = (\/[^;]+;)/.exec(stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'recognize.ts'), 'utf8')))?.[1],
     '访客 id 的形态判据与服务端逐字同一条：两处各写一遍的话，改一处就会出现"本地放行、服务端拒"这种查半天的错配');
   const badVisitor = buildRecognizeRequest('short', tinyPng, 'png');
   const badBig = buildRecognizeRequest('v_abcdefghij012345', new Uint8Array(MAX_BYTES + 1), 'png');
@@ -551,7 +555,7 @@ const base: FloorInput = {
     `三种"看着像响应"的东西喂进去都必须失败（实得 ${falsified.length} 条被放行）—— 这条是给上面那一堆绿本身准备的：判据不能永远返回成功`);
 
   // O. harness 与这份契约只许有一份真值。
-  const census = readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8');
+  const census = stripComments(readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8'));
   const pngReal = readFileSync(join(ROOT, 'tools', 'visual-harness', 'fixtures', 'floorplan-sample.png')).toString('base64');
   const inlined = /const FS_PNG_B64 = '([^']+)'/.exec(census)?.[1];
   ok('harness/fixture-bytes-not-recopied', !!inlined && inlined === pngReal
@@ -622,7 +626,7 @@ const base: FloorInput = {
 
 // ── 10. 编辑闭环：页面承诺过的三件事，必须真有控件、真有不变式 ──
 {
-  const studio = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8');
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
   const wall = (id: string, 折线: Pt[], 闭合 = false): Wall => ({ id, 折线, 闭合 });
   const op = (over: Partial<Opening> = {}): Opening => ({
     id: 'o1', 类型: '门', 墙: '外', 段: 0, 位: 0.5, 宽: 0.9, 置信度: null, 已确认: true, ...over,
@@ -751,14 +755,14 @@ const base: FloorInput = {
   // 段→端点这件事不许再有第二份实现。
   const reimpl: string[] = [];
   for (const f of ['FloorPlanStudio.tsx', 'FloorPlan3D.tsx']) {
-    const src = readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', f), 'utf8');
+    const src = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', f), 'utf8'));
     if (/折线\[o\.段 \+ 1\]/.test(src) || /Math\.min\(op\.段/.test(src)) reimpl.push(f);
   }
   ok('geo/segment-resolver-single-source', reimpl.length === 0,
     `组件里不再各自写 折线[段+1]、也没有夹段号（命中 ${reimpl.join('、') || '无'}）—— "同一份几何、四种视图"要求"这段墙从哪到哪"只有一个答案`);
 
   // harness 必须真的把新控件跑一遍，而不是只存在源码里。
-  const census2 = readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8');
+  const census2 = stripComments(readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8'));
   ok('harness/tests-editor', /'fengshui-edit'/.test(census2) && /fsEditProbe/.test(census2)
     && /'加一道墙', '加门', '宽', '#fp-confirm'/.test(census2),
     'fengshui-edit 态真的按了 加一间房→用途→加一道墙→加门→宽→确认并逐条钉回来（存在性归套件，改到画面归 harness）');

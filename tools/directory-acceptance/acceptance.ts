@@ -6,6 +6,8 @@
 //     node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
 //     tools/directory-acceptance/acceptance.ts --out=.directory.txt
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（见 tools/_lib/codesrc.ts）。
+import { stripComments } from '../_lib/codesrc';
 import { join } from 'node:path';
 import { GANZHI_BASIS, NAJIA_BASIS } from '../../frontend/lib/liuyao/core';
 import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
@@ -126,8 +128,8 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 
 // ── 5. 门廊、东方工作页与导航：入口位不许指向不存在的路由 ──
 {
-  const home = [GATE, ORIENTAL].map(f => readFileSync(f, 'utf8')).join('\n');
-  const nav = readFileSync(join(APP, '..', 'components', 'Nav.tsx'), 'utf8');
+  const home = [GATE, ORIENTAL].map(f => stripComments(readFileSync(f, 'utf8'))).join('\n');
+  const nav = stripComments(readFileSync(join(APP, '..', 'components', 'Nav.tsx'), 'utf8'));
   const literals = Array.from(new Set([
     ...home.match(/href\s*[:=]\s*"\/[^"]*"/g) || [],
     ...home.match(/href\s*[:=]\s*'\/[^']*'/g) || [],
@@ -140,13 +142,13 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const hashEntries = (home.match(/href\s*:\s*["']#["']/g) || []).length;
   ok('shell/no-hash-placeholder', hashEntries === 0,
     `门廊与工作页不得留 href="#" 的占位入口（未开放一律走「无 href + 无按钮 + 写明原因」，与目录页同一做法）：残留 ${hashEntries} 处`);
-  ok('shell/tools-entry-linked', /href\s*=\s*["']\/tools["']/.test(readFileSync(GATE, 'utf8')),
+  ok('shell/tools-entry-linked', /href\s*=\s*["']\/tools["']/.test(stripComments(readFileSync(GATE, 'utf8'))),
     '目录页必须从门廊可达（钉门廊那一个文件，不是"三个文件里随便哪个有就行"）');
 }
 
 // ── 6. 目录页自身：未开放条目不渲染链接 ──
 {
-  const page = readFileSync(join(APP, 'tools', 'page.tsx'), 'utf8');
+  const page = stripComments(readFileSync(join(APP, 'tools', 'page.tsx'), 'utf8'));
   ok('dir/page-gates-link', /t\.status\s*!==\s*'未开放'\s*&&\s*t\.href\s*\?/.test(page),
     '目录页渲染入口的条件必须是「非未开放 且 有 href」双闸门，单靠数据正确不够');
   const statusLabels = ['可用', '部分可用', '未开放'];
@@ -160,12 +162,12 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const got = INTENT_ENTRIES.map(e => e.intent);
   ok('oriental/intent-entries-complete', JSON.stringify(got) === JSON.stringify(want) && INTENT_ENTRIES.every(e => routeExists(e.href)),
     `首页首屏的四类意图入口齐备且可达：${INTENT_ENTRIES.map(e => `${e.intent}→${e.href}`).join('  ')}`);
-  const home = readFileSync(ORIENTAL, 'utf8');
+  const home = stripComments(readFileSync(ORIENTAL, 'utf8'));
   ok('oriental/intents-come-from-catalog', /import\s*\{[^}]*\bINTENT_ENTRIES\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
     /INTENT_ENTRIES\.map/.test(home),
     '东方工作页首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是页面里再抄一份）；import 里允许并列其它 catalog 名字，@/lib/tools/catalog 之外不许再有第二个来源');
-  const visitor = readFileSync(join(APP, '..', 'lib', 'auth', 'visitor.ts'), 'utf8');
-  const create = readFileSync(join(APP, 'create', 'page.tsx'), 'utf8');
+  const visitor = stripComments(readFileSync(join(APP, '..', 'lib', 'auth', 'visitor.ts'), 'utf8'));
+  const create = stripComments(readFileSync(join(APP, 'create', 'page.tsx'), 'utf8'));
   ok('visitor/id-single-source', /export function getVisitorId/.test(visitor) &&
     /import\s*\{\s*getVisitorId\s*\}\s*from '@\/lib\/auth\/visitor'/.test(create) &&
     !/function getVisitorId/.test(create) && !/hundun_visitor_id/.test(create),
@@ -176,7 +178,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 // 这批断言原本钉 app/page.tsx；#双体系 把那张页面搬到 OrientalBody.tsx，读的文件跟着换，
 // 断言内容一条没删（清单合成这一条与页面在哪个路由下无关）。
 {
-  const raw = readFileSync(ORIENTAL, 'utf8');
+  const raw = stripComments(readFileSync(ORIENTAL, 'utf8'));
   const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
 
   ok('oriental/lists-import-catalog',
@@ -213,8 +215,10 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('oriental/short-fields-fit', thin.length === 0,
     `标题 ≤10 字、说明 12–64 字：卡片标题位与 375px 窄屏放不下目录页那种全名，超限会把行折坏 —— 该用短名，不是把字号调小：${thin.join(' | ') || '全部合格'}`);
 
-  const skinStart = raw.indexOf('const SKIN');
-  const skinBlock = skinStart < 0 ? '' : raw.slice(skinStart, raw.indexOf('};', skinStart));
+  // 皮肤表也从**剥过注释**的那一份里切：整段 slice 用 raw 的话，一条被注释掉的
+  // `'slug': { zi: ... }` 也算"有刻字"，这正好是这条断言要挡的东西。
+  const skinStart = code.indexOf('const SKIN');
+  const skinBlock = skinStart < 0 ? '' : code.slice(skinStart, code.indexOf('};', skinStart));
   const skins: Record<string, string> = {};
   for (const m of skinBlock.matchAll(/['"]([a-z0-9-]+)['"]\s*:\s*\{([^}]*)\}/g)) skins[m[1]] = m[2];
   const noZi = [...new Set([...HOME_FEATURED_SLUGS, ...LAUNCHER_SLUGS])].filter(s => !/zi\s*:/.test(skins[s] || ''));
@@ -233,7 +237,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 
 // ── 9. 门廊与西方目录（#双体系）：门廊只准有两个入口，数字必须现算 ──
 {
-  const raw = readFileSync(GATE, 'utf8');
+  const raw = stripComments(readFileSync(GATE, 'utf8'));
   const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   const hrefs = [...new Set([
     ...(code.match(/href\s*=\s*["']\/[^"']*["']/g) || []),
