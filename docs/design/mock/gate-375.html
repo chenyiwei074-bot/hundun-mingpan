@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>门廊 · 375（视口 375×812）</title>
+<meta name="viewport" content="width=375">
+<link rel="stylesheet" href="mock.css">
+</head>
+<body>
+<p class="mk-note">同一张门廊 · 移动 375×812 · 两栏纵向，每栏 min-height 56vh（第一屏能看到完整的东方栏 + 西方栏顶部）· 稿子用 mk-view--narrow 类切版，真实实现按 640px 断点写</p>
+
+<div class="mk-sheet mk-view--narrow">
+  <div class="mk-gate">
+    <header class="mk-brand"><b>混沌</b><i>东方与西方玄学工具箱</i></header>
+
+    <a class="mk-panel mk-panel--east" href="#oriental">
+      <div class="mk-art" aria-hidden="true">
+        <div class="mk-ink-block"></div>
+        <svg class="mk-ridge" viewBox="0 0 400 200" fill="none" preserveAspectRatio="none">
+          <path d="M0 160 L60 120 L110 152 L170 96 L232 142 L300 108 L400 150" stroke="rgba(29,29,31,.18)" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="mk-copy">
+        <p class="mk-eyebrow">八字 · 六爻 · 风水</p>
+        <h1 class="mk-title">东方玄学</h1>
+        <p class="mk-lead">从八字、六爻到风水，在传统体系中寻找问题的脉络。</p>
+        <p class="mk-cta">进入东方世界 →</p>
+        <p class="mk-count">已开放 8 / 10 项 · 部分可用 1 · 未开放 1</p>
+      </div>
+    </a>
+
+    <a class="mk-panel mk-panel--west" href="#western">
+      <div class="mk-art" aria-hidden="true">
+        <svg class="mk-ecl" style="top:64px;right:-40px;width:190px;height:190px" viewBox="0 0 240 240" fill="none">
+          <circle cx="120" cy="120" r="112" stroke="rgba(230,220,255,.14)"/>
+          <circle cx="196" cy="63" r="4" fill="rgba(243,238,255,.75)"/>
+        </svg>
+        <div class="mk-moon" style="top:74px;left:20px" aria-hidden="true">
+          <i style="background:linear-gradient(90deg,#f3eeff 0 45%,#241a3d 45%)"></i>
+          <i style="background:#f3eeff"></i>
+          <i style="background:#2e2249;border:1px solid rgba(230,220,255,.24)"></i>
+        </div>
+      </div>
+      <div class="mk-copy">
+        <p class="mk-eyebrow">占星 · 塔罗 · 数字象征</p>
+        <h1 class="mk-title">西方玄学</h1>
+        <p class="mk-lead">从占星、塔罗到数字象征，探索不同的自我理解方式。</p>
+        <p class="mk-cta">进入西方世界 →</p>
+        <p class="mk-count">已开放 0 / 5 项 · 未开放 5</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="mk-states" aria-label="三态对照">
+    <div class="mk-s--east"><small>DEFAULT</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">整栏可点，高 56vh</p></div>
+    <div class="mk-s--east mk-s--hover"><small>HOVER / 触摸按压态</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">触摸下叠加层 .07（active）</p></div>
+    <div class="mk-s--east mk-s--focus"><small>FOCUS（外接键盘）</small><p class="mk-s-title">东方玄学 · 进入东方世界 →</p><p class="mk-s-cta">outline 2px #7a5f31</p></div>
+    <div class="mk-s--west"><small>DEFAULT</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">无横向溢出：装饰层不出血</p></div>
+    <div class="mk-s--west mk-s--hover"><small>HOVER</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">淡金叠加 .06</p></div>
+    <div class="mk-s--west mk-s--focus"><small>FOCUS</small><p class="mk-s-title">西方玄学 · 进入西方世界 →</p><p class="mk-s-cta">outline 2px #e3cd96</p></div>
+  </div>
+</div>
+
+<p class="mk-note">375 下要盯的三件事：① 无横向滚动（census 的 overflowX 判据）；② 整栏命中区远大于 44px，且计数行不是链接；
+③ 两栏纵向后，品牌带高度从 88 收到 76，不吃内容面积。减少动态偏好开启时位移与过渡归零，叠加层仍在。</p>
+</body>
+</html>
