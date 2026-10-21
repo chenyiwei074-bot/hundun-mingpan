@@ -2,22 +2,30 @@
 
 // 户型工作室（东方）：上传 → 识别候选 → 2D 人工确认 → 交给几何层与规则层。
 //
-// 三条不能含糊的口径：
+// 四条不能含糊的口径：
 //  1. 识别只是**候选**。没有人工确认过的墙、房间、门窗，一律不参与判定，也不进 3D。
 //     自动下结论是这一页最容易做错的事：识别错一堵墙，穿堂煞就从"没有"变成"有"。
 //  2. 上传的图只用于识别，不进报告、不进回执、不进台账，也不写进任何公开数据。
 //     服务端存储与 7 天自动删由运维负责，这一层只负责：本地校验、显式告知、勾选同意。
-//  3. 识别服务还没上线时，页面必须**明说**并给出一条能走通的路（手工画 / 合成样例），
-//     而不是转圈、报"网络错误"，或者假装算出来了。
+//  3. 识别只有三种落点，而且每种都要在页面上说得出话：
+//     失败（服务端 code 原样带上，不转圈、不假装算过）/ 成功但待确认（默认一个都不算输入）/
+//     用户勾了确认（这才进 3D 与规则层）。
+//  4. 5xx 与网络失败都不自动重试。上游是"落盘 + 视觉模型"，一次失败已经花了 110s 预算，
+//     客户端再循环等于把这份开销乘几遍，还会让按钮反复转圈看着像坏了。
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { analyzeFloor } from '@/lib/fengshui/analysis';
 import { MAX_SPAN_M, buildWalkGrid, toFloorInput } from '@/lib/fengshui/geometry';
 import type { FloorGeometry, Opening, Pt, RoomShape, Wall } from '@/lib/fengshui/geometry';
+import {
+  RECOGNIZE_SPAN_M, buildRecognizeRequest, confidenceText, failReason, parseRecognize,
+} from '@/lib/fengshui/recognize';
+import type { RecognizeResult } from '@/lib/fengshui/recognize';
 import { isoSvg, planProject, planSvg } from '@/lib/fengshui/svg';
 import { SYNTHETIC_FLOORPLANS } from '@/lib/fengshui/synthetic';
 import { ACCEPT_MIME, validateFloorplanFile } from '@/lib/fengshui/upload';
+import { getVisitorId } from '@/lib/auth/visitor';
 import type { StageStatus } from './FloorPlan3D';
 
 // three.js 只在用户真的按下「进入 3D」之后才被下载：这一路由的增量预算是 200KB gzip，
@@ -34,6 +42,41 @@ const uid = (p: string) => `${p}${++seq}`;
 
 const emptyGeom = (): FloorGeometry => ({ 墙体: [], 房间: [], 开口: [] });
 
+/** 拿图片宽高比。识别响应只有 0..1 的归一化坐标，长边米数是本站约定，
+ *  而另一边必须按这张图自己的比例缩 —— 没有它就只能按正方画，2:1 的厅会被画成 1:1，
+ *  后面宫位归属和动线算的都是从这些点推出来的米。 */
+function readImageAspect(url: string): Promise<number> {
+  return new Promise(resolve => {
+    const img = new Image();
+    const done = (v: number) => resolve(v);
+    img.onload = () => done(img.naturalWidth > 0 && img.naturalHeight > 0 ? img.naturalWidth / img.naturalHeight : 1);
+    img.onerror = () => done(1);
+    img.src = url;
+  });
+}
+
+/** 候选态那一句汇总。数字全部来自适配层，UI 不复算 —— 复算一遍就多一处会分家的地方。
+ *  这一行要能被探针逐字钉住，所以措辞里带单位与口径。 */
+function 候选汇总(p: RecognizeResult): string {
+  return `墙 ${p.geom.墙体.length} 道 · 房间 ${p.geom.房间.length} 间 · 门 ${p.门数} · 窗 ${p.窗数} · 跨度按 ${p.跨度米}m`;
+}
+
+/** 四种"认出来了但要人看一眼"的情况各写一条。次序固定：先说没认出来的，再说要确认的。 */
+function 候选提醒(p: RecognizeResult): string {
+  const 部: string[] = [`候选已载入：${候选汇总(p)}。每一项都要你逐条确认，没确认的一律不参与判定，也进不了 3D。`];
+  if (p.门数 + p.窗数 === 0) {
+    部.push('一个门窗都没认出来。这不等于你家没门窗 —— 请手动补上，否则采光、对流、动线三类判定都会写成缺输入。');
+  }
+  if (p.未挂上数 > 0) {
+    部.push(`有 ${p.未挂上数} 个门窗的中心点落不到任何一道墙上（多半是模型把房间中心当成了洞口），本站没有把它们硬按到某道墙上，请核对后手动补。`);
+  }
+  if (p.未命名房间数 > 0) {
+    部.push(`有 ${p.未命名房间数} 间房的名字没认出来，用途先记作储物 —— 这会直接影响"厨卫相邻""私密区"那几条判定，请逐间改对。`);
+  }
+  部.push(`归一化坐标没有幅面信息：长边按 ${p.跨度米}m 估，比例照这张图自己的宽高比。这不是测量值，请在俯视图里拖角点对一下。`);
+  return 部.join(' ');
+}
+
 /** 一堵矩形外墙 + 一把十字内墙：手工画的最短起点。 */
 function starterGeometry(): FloorGeometry {
   const outer: Wall = { id: 'w-outer', 折线: [{ x: 0, y: 0 }, { x: 9, y: 0 }, { x: 9, y: 6 }, { x: 0, y: 6 }], 闭合: true };
@@ -49,6 +92,10 @@ function starterGeometry(): FloorGeometry {
 
 const round = (n: number) => Math.round(n / SNAP) * SNAP;
 
+/** 识别这一段的四种落点。它必须活成页面状态，而不是只活在一句 toast 里：
+ *  失败要说清是哪一种失败，候选要说清还差什么才算输入。 */
+type 识别态 = '未识别' | '在识别' | '失败' | '候选待确认';
+
 export default function FloorPlanStudio() {
   const [geom, setGeom] = useState<FloorGeometry>(emptyGeom);
   const [朝向, set朝向] = useState<'南' | '北' | '未确认'>('未确认');
@@ -60,40 +107,66 @@ export default function FloorPlanStudio() {
   const [舞台, set舞台] = useState<StageStatus | null>(null);
   const [舞台说明, set舞台说明] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
-  const [image, setImage] = useState<{ name: string; url: string; kind: string } | null>(null);
+  const [image, setImage] = useState<{ name: string; url: string; kind: 'jpg' | 'png' | 'webp'; bytes: Uint8Array; aspect: number } | null>(null);
+  const [识别态, set识别态] = useState<识别态>('未识别');
+  const [识别汇总, set识别汇总] = useState<string | null>(null);
+  const [visitorId, setVisitorId] = useState('');
   const dragRef = useRef<{ 房: string; 点: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // 访客 id 就是这次上传的归属凭据（服务端按它落盘、按它取图），只能在客户端拿。
+  useEffect(() => { setVisitorId(getVisitorId()); }, []);
   useEffect(() => () => { if (image) URL.revokeObjectURL(image.url); }, [image]);
 
   const onPick = useCallback(async (file: File | undefined) => {
     if (!file) return;
     const v = await validateFloorplanFile(file);
     if (!v.ok) { setNotice(`已拒绝：${v.error}`); return; }
-    setImage({ name: file.name, url: URL.createObjectURL(file), kind: v.kind });
-    setNotice(`已读取本地预览（${v.kind}，${(file.size / 1024).toFixed(0)}KB）。图片没有离开这台设备。`);
+    // 字节在选图这一刻就读进内存：识别要的是同一份字节，事后从 objectURL 反_fetch_
+    // 等于让预览这条显示路径变成上传路径的一部分，两件事不该耦合。
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const url = URL.createObjectURL(file);
+    const aspect = await readImageAspect(url);
+    setImage({ name: file.name, url, kind: v.kind, bytes, aspect });
+    set识别态('未识别'); set识别汇总(null);
+    setNotice(`已读取本地预览（${v.kind}，${(file.size / 1024).toFixed(0)}KB）。勾选同意之前，这张图还在这台设备上。`);
   }, []);
 
   const recognize = useCallback(async () => {
-    if (!image || !consent) { setNotice('要先勾选同意，才能把图送给模型。'); return; }
-    setRecognizing(true);
+    if (!image) { setNotice('先选一张图。'); return; }
+    if (!consent) { setNotice('要先勾选同意，才能把图送给模型。'); return; }
+    if (recognizing) return;   // 双击不重发：一次识别已经花掉上游一分钟预算
+    setRecognizing(true); set识别态('在识别'); setNotice(null);
+    const fail = (line: string) => {
+      set识别态('失败'); set识别汇总(null); setNotice(line + ' 这条不装作成功：几何可以用「手工画」或「载入合成样例」继续。');
+    };
     try {
-      const form = new FormData();
-      form.append('floorplan', new Blob([await (await fetch(image.url)).arrayBuffer()], { type: image.kind === 'jpg' ? 'image/jpeg' : `image/${image.kind}` }), image.name);
-      const res = await fetch('/api/fengshui/recognize', { method: 'POST', body: form });
-      const data = await res.json().catch(() => null) as { 候选?: FloorGeometry } | null;
-      if (!res.ok || !data?.候选) {
-        setNotice(`识别服务还没上线（服务端返回 ${res.status}）。先用「手工画」或「载入合成样例」，几何与判定这条链是通的。`);
-      } else {
-        setGeom({ ...data.候选, 开口: data.候选.开口.map(o => ({ ...o, 已确认: false })) });
-        setNotice('候选已载入。每一项都要你逐条确认，没确认的一律不参与判定。');
+      const req = buildRecognizeRequest(visitorId, image.bytes, image.kind);
+      if (!req.ok) { fail(req.reason); return; }
+      let res: Response;
+      try {
+        res = await fetch(req.url, req.init);
+      } catch {
+        fail('识别请求没发出去（网络断了，或服务端还没部署到这条路由）。一次都没重试');
+        return;
       }
-    } catch {
-      setNotice('识别请求没发出去（服务未部署）。这条不装作成功：用「手工画」继续。');
+      const json = await res.json().catch(() => null);
+      if (!res.ok) { fail(failReason(res.status, json)); return; }
+      if (json === null) {
+        fail(`服务端回了 ${res.status} 但正文不是 JSON —— 可能是网关挡的（比如请求体超过它的体积上限），不是识别本身失败。`);
+        return;
+      }
+      const parsed = parseRecognize(json, { spanM: RECOGNIZE_SPAN_M, aspect: image.aspect });
+      if (!parsed.ok) { fail(`识别响应读不出完整几何：${parsed.reason}`); return; }
+      setGeom(parsed.geom);
+      set已确认(false); set视图('俯视'); set选中(null);
+      set识别态('候选待确认');
+      set识别汇总(候选汇总(parsed));
+      setNotice(候选提醒(parsed));
     } finally {
       setRecognizing(false);
     }
-  }, [image, consent]);
+  }, [image, consent, recognizing, visitorId]);
 
   const plan = useMemo(() => planSvg(geom, CANVAS_W, CANVAS_H), [geom]);
   const translated = useMemo(() => toFloorInput(geom, 朝向, 已确认), [geom, 朝向, 已确认]);
@@ -131,12 +204,12 @@ export default function FloorPlanStudio() {
         <input ref={fileRef} type="file" accept={ACCEPT_MIME.join(',')} style={{ display: 'none' }}
           onChange={e => onPick(e.target.files?.[0])} />
         <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }}
-          onClick={() => { setGeom(starterGeometry()); set已确认(false); setNotice('已铺一个矩形外框与一道内隔墙，拖角点改成你家的样子。'); }}>
+          onClick={() => { setGeom(starterGeometry()); set已确认(false); set识别态('未识别'); set识别汇总(null); setNotice('已铺一个矩形外框与一道内隔墙，拖角点改成你家的样子。'); }}>
           手工画
         </button>
         {SYNTHETIC_FLOORPLANS.map(s => (
           <button key={s.名称} type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }}
-            onClick={() => { setGeom(s.几何); set已确认(false); setNotice(`已载入合成样例「${s.名称}」：${s.用途说明} 这是本站自己造的数据，不是任何人的真实户型。`); }}>
+            onClick={() => { setGeom(s.几何); set已确认(false); set识别态('未识别'); set识别汇总(null); setNotice(`已载入合成样例「${s.名称}」：${s.用途说明} 这是本站自己造的数据，不是任何人的真实户型。`); }}>
             样例 · {s.名称}
           </button>
         ))}
@@ -148,13 +221,22 @@ export default function FloorPlanStudio() {
         )}
       </div>
 
+      {/* 三态的可见落点：失败 / 候选待确认 / 已确认。data 属性是给探针钉的，
+          文案是给用户读的，两者读同一个状态变量 —— 不允许只在一处成立。 */}
+      <p className="qn-meta" id="fp-recognize-state" data-recognize-state={识别态} style={{ margin: '10px 0 0' }}>
+        {识别态 === '未识别' && '识别：还没送过图。'}
+        {识别态 === '在识别' && '识别：已把你的图交给视觉模型（一次请求，不自动重试）。'}
+        {识别态 === '失败' && '识别：失败。原因见下面那行。'}
+        {识别态 === '候选待确认' && `识别：${识别汇总}。${已确认 ? '已确认，可以进 3D 与判定。' : '待你逐条确认。'}`}
+      </p>
+
       {image && (
         <div className="qn-card" style={{ padding: 10 }}>
           {/* 预览图是用户自己的图纸：只在本机 objectURL 里显示，不上传、不进任何记录。 */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={image.url} alt="所选手型图本地预览" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 6 }} />
           <label className="qn-note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 8, cursor: 'pointer' }}>
-            <input type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
+            <input id="fp-consent" type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
               checked={consent} onChange={e => setConsent(e.target.checked)} />
             <span>我同意把这张户型图送给视觉模型提取墙、门、窗的候选位置。
               <span className="qn-note" style={{ display: 'block', marginTop: 2 }}>
@@ -230,8 +312,13 @@ export default function FloorPlanStudio() {
           <div className="qn-row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             {(['俯视', '等轴', '3D'] as const).map(k => (
               <button key={k} type="button" className={`qn-chip${视图 === k ? ' qn-chip--on' : ''}`}
-                style={{ minHeight: 44, minWidth: 44 }} onClick={() => set视图(k)}>{k}</button>
+                style={{ minHeight: 44, minWidth: 44 }} disabled={k === '3D' && !已确认}
+                title={k === '3D' && !已确认 ? '几何确认之后才进 3D' : undefined}
+                onClick={() => { if (k !== '3D' || 已确认) set视图(k); }}>{k}</button>
             ))}
+            {视图 !== '3D' && !已确认 && (
+              <span className="qn-meta">勾了「我自己核对过」才进 3D：没确认的几何先别变成一面立体的墙。</span>
+            )}
             {视图 === '3D' && 舞台?.kind === 'ready' && (
               <span className="qn-meta">首帧 {舞台.首帧毫秒}ms · 粒子 {舞台.粒子数} 个</span>
             )}
@@ -263,7 +350,9 @@ export default function FloorPlanStudio() {
             }} />
           )}
 
-          <div className="qn-card" style={{ marginTop: 12 }}>
+          {/* id 是给探针划的界：这一页下面还收着一份降级用的九宫格表单，它自己也有
+              「未确认」chip。不划界的话 hidden <details> 里的东西会被一起数进去。 */}
+          <div className="qn-card" id="fp-openings" style={{ marginTop: 12 }}>
             <p className="qn-axis">门窗（识别来的都标着未确认）</p>
             {geom.开口.length === 0 && <p className="qn-note" style={{ margin: '6px 0 0' }}>一个开口都没标：采光、对流与动线三类判定都会写成"缺输入"，不猜。</p>}
             {geom.开口.map(o => (
@@ -276,7 +365,9 @@ export default function FloorPlanStudio() {
                   onClick={() => setGeom(g => ({ ...g, 开口: g.开口.map(x => (x.id === o.id ? { ...x, 已确认: !x.已确认 } : x)) }))}>
                   {o.已确认 ? '已确认' : '未确认'}
                 </button>
-                <span className="qn-meta">{o.置信度 != null ? `模型置信度 ${Math.round(o.置信度 * 100)}%` : '手工标注'}</span>
+                {/* 置信度不上百分比：模型常省略这个字段，服务端按 0.5 补，于是"0.5"既可能是
+                    真判断也可能是占位。把 50% 印出来等于给用户一个读不出来的精度。 */}
+                <span className="qn-meta">{o.置信度 == null ? '手工标注' : confidenceText(o.置信度).文本}</span>
                 <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, marginLeft: 'auto' }}
                   onClick={() => setGeom(g => ({ ...g, 开口: g.开口.filter(x => x.id !== o.id) }))}>删</button>
               </div>
