@@ -716,11 +716,6 @@ export function createZiweiChart(birthInfo: BirthInfo): ZiweiChart {
   }
 }
 
-export function runZiweiTests() {
-  console.error('紫微斗数测试功能待实现');
-  return { passed: 0, failed: 0, details: [] };
-}
-
 /**
  * 安红鸾、天喜
  * 口诀：卯宫起子年，逆数至生年支；天喜为红鸾对宫

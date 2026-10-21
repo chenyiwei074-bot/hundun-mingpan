@@ -86,12 +86,16 @@ const NAYIN_MAP: Record<string, NaYin> = {
 export function getNaYin(tiangan: Tiangan, dizhi: Dizhi): NaYin {
   const key = tiangan + dizhi;
   const nayin = NAYIN_MAP[key];
-  
+
+  // 2026-10-21 裁定③（P0）：这里原来 console.warn 之后 return '海中金'。
+  // "查不到"和"查到是海中金"是两件事，兜底把前者伪装成后者发给下游 —— 合盘会拿着
+  // 一个假纳音排出「我属金、对方属木，两者是克」这样一句完整而错误的结论。
+  // 干支只有 60 组（天干地支同奇偶才成对），命中不了只可能是表缺项或调用方给了不存在的对，
+  // 两种都是数据事故，必须在排盘处炸掉，不能往下走。
   if (!nayin) {
-    console.warn(`未找到纳音: ${key}`);
-    return '海中金'; // 默认值
+    throw new Error(`纳音表里没有「${key}」：60 甲子之外的干支对不存在，命中不了就是表缺项，不猜一个发给下游`);
   }
-  
+
   return nayin;
 }
 
