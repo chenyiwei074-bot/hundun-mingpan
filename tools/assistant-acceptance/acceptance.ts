@@ -12,6 +12,8 @@
 //     tools/assistant-acceptance/acceptance.ts --out=.assistant.txt
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（共享件 tools/_lib/codesrc.ts）。
+import { stripComments } from '../_lib/codesrc';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { ROUTER_SPECS, routeLocal } from '../../frontend/lib/assistant/intent';
@@ -191,14 +193,15 @@ async function sectionFallbacks() {
 
 // ── 5. 组件侧的诚实：来源标注与"不写日志"这两句话必须真的在代码里 ──
 {
+  // 组件是产品源码：先剥注释再比（下面 comp/* 五条闸门共用这一份，注释里的字不算证据）。
   const read = (p: string) => {
-    try { return require('fs').readFileSync(new URL(p, import.meta.url), 'utf8') as string; } catch { return ''; }
+    try { return stripComments(require('fs').readFileSync(new URL(p, import.meta.url), 'utf8') as string); } catch { return ''; }
   };
   const comp = read('../../frontend/components/assistant/QuestionComposer.tsx');
   ok('comp/found', comp.length > 800, `读到了问事框组件（读不到下面几条全是空过）：${comp.length} 字符`);
   ok('comp/source-labelled', /这一轮由本机目录匹配给出，未经模型/.test(comp) && /这一轮来自服务端路由/.test(comp),
     '每一轮都要在屏上写明是谁算的：本机那份与模型那份是两件事，混着说就是骗');
-  ok('comp/no-verdict-words', !/吉|凶|运势旺|转运|化解/.test(comp.replace(/\/\*[\s\S]*?\*\//g, '')),
+  ok('comp/no-verdict-words', !/吉|凶|运势旺|转运|化解/.test(comp),
     '问事框自己不写任何吉凶结论（结论只在工具页由引擎给）');
   ok('comp/no-storage-or-log', !/localStorage|sessionStorage|console\.(log|info)|fetch\(\s*['"]\/api\/event/.test(comp),
     '问题原文不落本地存储、不进埋点、不写日志（隐私边界与回执链路同一套要求）');
@@ -331,7 +334,7 @@ async function sectionServer() {
   const deps = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
   ok('srv/no-new-dependency', !deps.includes('zod'),
     `校验器手写是为了不给前端加依赖（零新依赖是默认规矩）：package.json 里 zod=${deps.includes('zod')}`);
-  const thin = readFileSync(join(ROOT, 'frontend', 'app', 'api', 'assistant', 'route.ts'), 'utf8');
+  const thin = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'api', 'assistant', 'route.ts'), 'utf8'));
   ok('srv/route-is-thin-wrapper', /from '@\/lib\/assistant\/server-route'/.test(thin)
     && !/toolSlug\s*[:=]\s*['"]/.test(thin),
     'route.ts 只做 HTTP 外壳，判断全在被套件覆盖的 server-route.ts 里（否则逻辑就成了测不到的死代码）');

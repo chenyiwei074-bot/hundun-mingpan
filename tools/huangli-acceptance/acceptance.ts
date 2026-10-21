@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Lunar } from 'lunar-typescript';
+import { stripComments } from '../_lib/codesrc';
 import { queryHuangli, queryHuangliRange } from '../../frontend/lib/huangli/engine';
 import { getDayGanZhi } from '../../frontend/lib/liuyao/core/calcGanZhi';
 
@@ -196,8 +197,12 @@ say(`MEASURED 年界口径分叉规模：与印本「当日即换」相比，年
   const pagePath = join(__dirname, '../../frontend/app/huangli/page.tsx');
   let engine = '';
   let page = '';
-  try { engine = readFileSync(enginePath, 'utf8'); } catch { /* 缺文件 → 下面判失败 */ }
-  try { page = readFileSync(pagePath, 'utf8'); } catch { /* 缺文件 → 下面判失败 */ }
+  // 一律先剥注释再比（2026-10-21 裁定：任何比较代码文本的闸门先剥注释）。
+  // 这一节既有"不许出现"的反向判据（lunar-typescript / MIDNIGHT / 打分文案），也有
+  // "必须出现"的正向判据（复用哪几个 wrapper）—— 反向被注释咬是假红，正向被注释喂是假绿，
+  // 后者更贵：那一格代码早没了，闸门还在替它说话。
+  try { engine = stripComments(readFileSync(enginePath, 'utf8')); } catch { /* 缺文件 → 下面判失败 */ }
+  try { page = stripComments(readFileSync(pagePath, 'utf8')); } catch { /* 缺文件 → 下面判失败 */ }
   const both = engine + '\n' + page;
   ok('source/both-files-present', engine.length > 0 && page.length > 0,
     `两份被测文件都在（engine ${engine.length}B，page ${page.length}B）—— 缺任一份本节不能空过`);

@@ -209,7 +209,9 @@ const run = async () => {
   };
   const verifyPage = await read('frontend/app/verify/page.tsx');
   const panel = await read('frontend/app/liuyao/result/[id]/ReceiptPanel.tsx');
-  const lib = await read('frontend/lib/receipt/receipt.ts');
+  // 下面几条拿这份源码做文本判定（import 白名单、getRandomValues 必须出现、Math.random 不许出现），
+  // 所以先剥注释：注释里写一句「盐用 crypto.getRandomValues」不能替那行代码说话。
+  const lib = codeOf(await read('frontend/lib/receipt/receipt.ts'));
   // 2026-10-19 P1 上线后这条的范围收窄过一次（改测试）：结果页现在**会**联网 —— 但只打
   // /api/receipts（按回执编号提交摘要 / 查状态），验真页仍然一个请求都不发。
   // 守的从来不是"零网络"，而是"绝不按报告 id 把原文取回来"。
@@ -328,18 +330,21 @@ const run = async () => {
   };
   const createPage = await readSrc('frontend/app/liuyao/create/page.tsx');
   const panelSrc = await readSrc('frontend/app/liuyao/result/[id]/ReceiptPanel.tsx');
-  const verifySrc = await readSrc('frontend/app/verify/page.tsx');
-  const cat = await readSrc('frontend/lib/tools/catalog.ts');
-  ok('honesty/commit-visible-before-first-toss', /seedHash \{shortHash\(commit\.seedHash\)\}/.test(createPage) &&
-    createPage.indexOf('await sealSeed(') < createPage.indexOf("setStep('tossing')"),
+  // 验真页与目录这几处判定的都是「这句话/这个戳必须在代码里」，正向断言最容易被注释满足，
+  // 所以读进来就剥注释。createPage / panelSrc 另有分段各自剥一次（重摇段、链上措辞段），
+  // 那里已是剥过的文本，下面只在使用处包，不重复包。
+  const verifySrc = codeOf(await readSrc('frontend/app/verify/page.tsx'));
+  const cat = codeOf(await readSrc('frontend/lib/tools/catalog.ts'));
+  ok('honesty/commit-visible-before-first-toss', /seedHash \{shortHash\(commit\.seedHash\)\}/.test(codeOf(createPage)) &&
+    codeOf(createPage).indexOf('await sealSeed(') < codeOf(createPage).indexOf("setStep('tossing')"),
     '起卦页必须显示 seedHash 前 12 位，且 sealSeed 发生在进入掷钱阶段之前（源码顺序即执行顺序，行为侧另有浏览器实测）');
-  ok('honesty/boundary-on-pages', /不证明掷钱这个动作真的发生过/.test(createPage) &&
-    /重来就是新 seed、新承诺/.test(panelSrc) && /不能证明：掷钱这个动作真的在物理世界里发生过/.test(verifySrc),
+  ok('honesty/boundary-on-pages', /不证明掷钱这个动作真的发生过/.test(codeOf(createPage)) &&
+    /重来就是新 seed、新承诺/.test(codeOf(panelSrc)) && /不能证明：掷钱这个动作真的在物理世界里发生过/.test(verifySrc),
     '边界那句话要出现在用户看得见的三个地方（起卦页、结果页回执面板、验真页），不能只活在注释里');
   ok('honesty/catalog-updated', /commit-reveal/.test(cat) && !/另批做/.test(cat) &&
     CATALOG_STAMPS.commit === COIN_COMMIT_SCHEMA,
     `目录里六爻那条要从「随机源承诺另批做」改成已实现，且目录写死的承诺戳 ${CATALOG_STAMPS.commit} 必须等于引擎导出的 ${COIN_COMMIT_SCHEMA}：残留「另批做」 ${/另批做/.test(cat) ? '有' : '无'}`);
-  ok('honesty/no-overclaim', !/无法伪造|绝对可信|已上链/.test(createPage + panelSrc + verifySrc),
+  ok('honesty/no-overclaim', !/无法伪造|绝对可信|已上链/.test(codeOf(createPage) + codeOf(panelSrc) + verifySrc),
     '页面不许出现"无法伪造/绝对可信"这类超出机制上限的说法（它能证明的是盘与事先承诺对得上）');
 
   // ── 11. 裁定 ②：v2 的盘摘要不含 id，v1 仍含 ──
@@ -362,7 +367,8 @@ const run = async () => {
     ok('id/csprng-suffix', uniq === ids.length && ids.every(x => /^coin_[0-9a-z]+$/.test(x)),
       `同一毫秒内铸 200 个盘 id 也必须全不相同（Date.now 那段一样，靠的就是 randomToken(6) 后缀）：去重 ${uniq}/${ids.length}，样例 ${ids[0]}`);
     const three = ['coin', 'time', 'num'] as const;
-    const srcs = await Promise.all(['coin', 'time', 'number'].map(m => readSrc(`frontend/lib/liuyao/methods/${m}.ts`)));
+    // 「必须带 randomToken(N) 后缀」是正向断言：注释里解释后缀那句就能把它喂绿，所以先剥注释。
+    const srcs = await Promise.all(['coin', 'time', 'number'].map(async m => codeOf(await readSrc(`frontend/lib/liuyao/methods/${m}.ts`))));
     const noSuffix = three.filter((_, i) => !/randomToken\(\d+\)/.test(srcs[i]) || !/\+ randomToken/.test(srcs[i]));
     ok('id/all-methods-suffixed', noSuffix.length === 0 && srcs.every(s => /randomToken/.test(s.split('\n')[0] + s)),
       `三式的 id 都要带 CSPRNG 后缀（时间/报数一样是客户端现铸，撞号问题同源）：缺后缀 ${noSuffix.join(',') || '无'}`);
@@ -419,7 +425,8 @@ const run = async () => {
     ok('anchor/receipt-never-mutated', canonical(rcC) === before && rcC.anchor === null && rcC.anchorState === RECEIPT_ANCHOR_STATE_UNANCHORED,
       '提交与查询都不写回回执本体：anchor 恒为 null。否则同一份回执会因查询时点不同而得到不同摘要');
     // 跨边界字面量互校：服务端把信封版本钉死在一个常量上，那边改了这边必须红。
-    const ctrl = await read('server/src/controllers/receipt.controller.ts');
+    // 读的是服务端源码，先剥注释 —— 注释里留一份旧的 `const SCHEMA = '…'` 会把这条喂绿。
+    const ctrl = codeOf(await read('server/src/controllers/receipt.controller.ts'));
     const serverSchema = (ctrl.match(/const SCHEMA = '([^']+)'/) || [])[1] || '(读不到)';
     ok('anchor/envelope-schema-equals-server', ctrl.length > 0 && serverSchema === RECEIPT_ENVELOPE_SCHEMA,
       `提交信封版本必须逐字等于服务端 SCHEMA（${serverSchema}）：不等就是线上 400，而这条只有跑真端点才发现得了，所以钉成字面量比对`);
@@ -437,8 +444,8 @@ const run = async () => {
     ok('anchor/query-by-recordhash-only', (anchorSrc.match(/fetch\('\/api\/receipts/g) || []).length === 2 &&
       !/\/api\/reports?/.test(anchorSrc),
       `anchor 层只有两处 fetch，都是 /api/receipts（POST 提交 + GET 按回执编号查）：实得 ${(anchorSrc.match(/fetch\(/g) || []).length} 处 fetch`);
-    ok('anchor/panel-wires-it', /from '@\/lib\/receipt\/anchor'/.test(panelSrc) &&
-      !/qn-badge__dot[^}]*\/>\s*未锚定/.test(panelSrc) && /未提交 —— 摘要还没送进台账/.test(panelSrc),
+    ok('anchor/panel-wires-it', /from '@\/lib\/receipt\/anchor'/.test(codeOf(panelSrc)) &&
+      !/qn-badge__dot[^}]*\/>\s*未锚定/.test(codeOf(panelSrc)) && /未提交 —— 摘要还没送进台账/.test(codeOf(panelSrc)),
       '面板的徽标改成状态驱动，不再写死「未锚定」；未提交时的原话要在页面上');
     const doc = await read('docs/receipt-v1.md');
     ok('anchor/documented', /等待锚定/.test(doc) && /anchored 目前不会返回|不会下发/.test(doc) &&

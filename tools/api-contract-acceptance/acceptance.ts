@@ -17,6 +17,8 @@
 //     tools/api-contract-acceptance/acceptance.ts --out=.contract.txt
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（共享件 tools/_lib/codesrc.ts）。
+import { stripComments } from '../_lib/codesrc';
 import { describeQuota, fetchQuota } from '../../frontend/lib/api/quota';
 import {
   SERVER_BIRTHDAY_RE, SERVER_CALENDAR, SERVER_GENDER, canPersist, validateCreateChart,
@@ -37,8 +39,8 @@ const ok = (id: string, cond: boolean, detail: string) => {
   say(`${cond ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
 };
 
-/** 注释里的字不算证据：先看代码，再看注释。 */
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+/** 注释里的字不算证据：先看代码，再看注释。原件就是共享件（本档不再自己抄一份正则）。 */
+const strip = stripComments;
 
 const serverSrc = strip(readFileSync(join(ROOT, 'server', 'src', 'utils', 'types.ts'), 'utf8'));
 const pageSrc = strip(readFileSync(join(ROOT, 'frontend', 'app', 'create', 'page.tsx'), 'utf8'));
@@ -161,7 +163,7 @@ const good: CreateChartPayload = {
   // 服务端字面形状 ↔ 前端 ↔ harness 桩，三方对齐。
   const ctrlSrc = strip(readFileSync(join(ROOT, 'server', 'src', 'controllers', 'chart.controller.ts'), 'utf8'));
   const getQuota = /export async function getQuota[\s\S]*?data:\s*\{([^}]*)\}/.exec(ctrlSrc)?.[1] || '';
-  const censusSrc = readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8');
+  const censusSrc = strip(readFileSync(join(ROOT, 'tools', 'visual-harness', 'census.mjs'), 'utf8'));
   const stubQuota = /\/api\/chart\/quota'\)\)\s*return J\(\{ success: true, data: (\{[^}]*\})/.exec(censusSrc)?.[1] || '';
   ok('quota/server-shape-is-unlimited', /unlimited:\s*true/.test(getQuota) && /remaining:\s*null/.test(getQuota),
     `服务端 getQuota 现在明说不限次（实得 data:{${getQuota.trim()}}）—— 这一条变了就说明 D1 的前提没了，前端的措辞要跟着改`);

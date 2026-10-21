@@ -91,7 +91,7 @@ const GONGS_F = plate('female');
     `按带"宫"的字面量找宫的消费者，必须在同一文件里有去掉"宫"的兜底（没有兜底的那一个就是这次修掉的 ZiweiCard：卡不报错，只是少渲染四张）：违规 ${bad.join('、') || '0 个'}`);
   // 打出来给人看：这个不同源还在多少人身上靠兜底活着。哪天 types.ts 的声明被改对了，
   // 这几处兜底就该跟着一起清，否则它们是没人读的 dead 分支 —— 但那是另一次改动。
-  const tolerant = files.filter(f => /replace\(\s*['"]宫['"]/.test(readFileSync(join(FE, f), 'utf8')));
+  const tolerant = files.filter(f => /replace\(\s*['"]宫['"]/.test(strip(readFileSync(join(FE, f), 'utf8'))));
   say(`MEASURED 声明与产出不 getSource 这件事目前由 ${tolerant.length} 个消费者的兜底扛着（${tolerant.join('、')}）；` +
     `ZiweiGong 的声明本身仍未改（算法层，本批不动），改它必须连这 ${tolerant.length} 处一起过一遍`);
 }

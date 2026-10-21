@@ -166,8 +166,8 @@ const liveFiles = ['app', 'lib', 'components', 'types'].flatMap(d => walk(join(F
     '字符集固定 base36 小写、长度精确，拒绝采样不改变长度');
   const chars = new Set(); for (const c of randomToken(400)) chars.add(c);
   ok('token/uses-full-alphabet', chars.size >= 30, `400 字符里出现 ${chars.size} 种字符（36 种里接近全用，说明不是低熵截断）`);
-  const v = readFileSync(join(FRONTEND, 'lib', 'auth', 'visitor.ts'), 'utf8');
-  const cr = readFileSync(join(FRONTEND, 'app', 'create', 'page.tsx'), 'utf8');
+  const v = codeOf(join(FRONTEND, 'lib', 'auth', 'visitor.ts'));
+  const cr = codeOf(join(FRONTEND, 'app', 'create', 'page.tsx'));
   // 2026-10-18 ① 起：游客 id 只有一处生成（lib/auth/visitor）。create 页不再自己生成 visitor_ 前缀的 id，
   // 而是 import getVisitorId —— 断言随之改成「单源」，而不是「两处都用同一 helper」。
   ok('token/single-id-source', /randomToken\(8\)/.test(v) && /from '@\/lib\/crypto\/random'/.test(v) &&

@@ -7,6 +7,8 @@
 //     tools/ai-wait-acceptance/acceptance.ts --out=.ai-wait.txt
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（见 tools/_lib/codesrc.ts）。
+import { stripComments } from '../_lib/codesrc';
 import { AI_DEADLINE_MS, AI_POLL_MS, aiWaitMessage, decideAiWait } from '../../frontend/lib/chart/ai-wait';
 
 const arg = (name: string) => {
@@ -91,7 +93,7 @@ const PLATE = { chartData: { bazi: { pillars: 'x' } } };
 // ── 5. 文案不许撒谎（③）──
 {
   const src = readFileSync(join(ROOT, 'frontend/lib/chart/ai-wait.ts'), 'utf8');
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').filter(l => !/^\s*\/\//.test(l)).join('\n');
+  const code = stripComments(src);
   ok('honesty/no-fake-progress', !/%|progress|percent|预计|进度/.test(code),
     '状态机里不出现百分比、进度、预计用时（我们真的不知道免费模型什么时候回）');
   const timeout = aiWaitMessage('ai-timeout');
@@ -99,7 +101,7 @@ const PLATE = { chartData: { bazi: { pillars: 'x' } } };
     `超时文案按裁定原样给出口：${timeout}`);
   ok('honesty/waiting-message-not-empty', aiWaitMessage('ai-waiting').length > 12 && aiWaitMessage('ai-ready') === '',
     '等待中有话、就绪时无话（就绪后不该再挂一条状态行）');
-  const page = readFileSync(join(ROOT, 'frontend/app/chart/result/[id]/page.tsx'), 'utf8');
+  const page = stripComments(readFileSync(join(ROOT, 'frontend/app/chart/result/[id]/page.tsx'), 'utf8'));
   ok('honesty/page-uses-the-single-source', /aiWaitMessage/.test(page) && /decideAiWait/.test(page) &&
     !/width:\s*`\$\{[^}]*\}%`/.test(page),
     '页面必须用这套判定与文案，且 AI 卡里不得出现按时间算出来的宽度百分比（假进度条）');

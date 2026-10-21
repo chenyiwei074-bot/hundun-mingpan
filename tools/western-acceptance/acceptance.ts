@@ -10,6 +10,8 @@
 //     node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
 //     tools/western-acceptance/acceptance.ts --out=.western.txt
 import { readFileSync, writeFileSync } from 'node:fs';
+// 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（tools/_lib/codesrc.ts）。
+import { stripComments } from '../_lib/codesrc';
 import { join } from 'node:path';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS, WESTERN_TOOLS } from '../../frontend/lib/tools/western-catalog';
@@ -70,10 +72,10 @@ const ok = (id: string, cond: boolean, detail: string) => {
   const hit = deps.filter(d => banned.some(b => d.toLowerCase().includes(b)));
   ok('west/no-unvetted-engine', hit.length === 0,
     `本批不给前端加任何西方天文/占卜依赖（AGPL 与 1★ 仓库那两条红线要单独裁定，见计划 B 线）：新增命中 ${hit.join('、') || '无'}`);
-  const ws = readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8');
+  const ws = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8'));
   ok('west/page-renders-from-catalog', /WESTERN_INTENTS\.map/.test(ws) && /t\.status\s*!==\s*'未开放'\s*&&\s*t\.href\s*\?/.test(ws),
     '西方工作页必须渲染自目录且用同一道双闸门（页面自己再判一次状态 = 第二份真相）');
-  const landing = readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8');
+  const landing = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
   ok('west/gate-count-derived', /WESTERN_INTENTS/.test(landing) && !/已开放\s*[0-9]/.test(landing),
     '门廊上西方那张卡的数也是现算的，没写死');
 }

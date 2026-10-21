@@ -10,6 +10,8 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+// 引用判据要连字面量一起剥（tools/_lib/codesrc.ts）；其余文本判据用本档的 strip() 剥注释。
+import { stripLiterals } from '../_lib/codesrc';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import { getZhiCangGanFull } from '../../frontend/app/lib/core/yiqi-core/bazi';
 import { getShiShen, DIZHI } from '../../frontend/app/lib/core/bazi-enrich/tables';
@@ -132,7 +134,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   const withYears = male.段.filter(s => /\d{4}–\d{4}/.test(s.区间));
   ok('score/years-live-in-strings', withYears.length === male.段.length && male.段.every(s => /^第 \d+ 步大运$/.test(s.段序)),
     `年份与段序都只能是字符串（${withYears.length}/${male.段.length} 段的区间形如 1996–2005）：样例 ${male.段[0].区间}／${male.段[0].起岁}`);
-  const comp = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8');
+  const comp = strip(readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8'));
   const codeOnly = comp.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   // 「不构成吉凶评分」这句声明本身就带「吉凶」「评分」四个字，所以扫描要绕开 边界 这一栏 ——
   // 它是声明通道，不是事实内容。真正要盯的是格子：段、泳道、标注里一个字的方向词都不许有。
@@ -157,7 +159,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     `没输入时必须明写无事件（含只有空白的输入）：实得「${eventLabel(undefined)}」`);
   ok('event/echoes-user', eventLabel({ 年纪: '1996', 标注: '参加工作' }) === '1996：参加工作',
     '有输入就原样回显年份与用户文字，不加工、不推断');
-  const comp = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8');
+  const comp = strip(readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8'));
   const codeOnly = comp.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   // 名字挡不住任何东西（改成 events0 / cannedEvents 就绕过了），所以查构造不查名字：
   // 写进 events 的入口只允许有两个 —— 从 localStorage 读回来、和 save() 里由 draft 生成；
@@ -219,7 +221,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     && noZhu.段[0].泳道.some(l => l.标注.length > 0),
     `缺四柱时：落点必须为空且不假装报过（泳道照旧报得出），边界额外加一句"无从配对"：实得边界 ${noZhu.边界.length} 条`);
   // 抄表就是"第四份引擎拷贝"，这条把它拦在提交之前
-  const klineSrc = readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'kline.ts'), 'utf8');
+  const klineSrc = strip(readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'kline.ts'), 'utf8'));
   const banned = ['LIU_CHONG', 'LIU_HE', 'SAN_HE', 'XIANG_XING', 'LIU_HAI', 'ZHI_CHONG', '地支六冲'];
   const copied = banned.filter(t => klineSrc.includes(t));
   ok('relation/no-copied-table', copied.length === 0,
@@ -230,7 +232,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
 {
   ok('basis/lichun-disclosed', male.边界.includes(KLINE_LICHUN_NOTE),
     `流年干支按立春换年，公历轴与干支轴不重合，这句必须在边界里：${KLINE_LICHUN_NOTE}`);
-  const comp = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8');
+  const comp = strip(readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8'));
   // 页面不各抄一份声明，只照读 view.边界 —— 所以这条钉的是"有没有把边界整个渲染出来"，
   // 而不是"页面里能不能搜到这句字面量"（后者会把两份文案硬编在组件里当成通过）。
   const compCode = comp.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -275,12 +277,12 @@ function numericPaths(v: unknown, prefix = ''): string[] {
 
 // ── 7. 边界：只 import 引擎与两份现成函数、不联网、不新增路由/入口、零新依赖 ──
 {
-  const src = readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'kline.ts'), 'utf8');
+  const src = strip(readFileSync(join(ROOT, 'frontend', 'lib', 'bazi', 'kline.ts'), 'utf8'));
   const imports = (src.match(/^import .*$/gm) || []);
   const offside = imports.filter(i => !/core\/yiqi-core|core\/bazi-enrich|@\/app\/lib\/core/.test(i));
   ok('dep/engine-only-imports', offside.length === 0,
     `事实层只能 import 引擎与现成函数：越界 ${offside.join(' | ') || '无'}`);
-  const comp = readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8');
+  const comp = strip(readFileSync(join(ROOT, 'frontend', 'components', 'bazi', 'LifeCurve.tsx'), 'utf8'));
   ok('dep/no-network', !/fetch\(|XMLHttpRequest|WebSocket|axios/.test(comp) && !/fetch\(|axios/.test(src),
     '本节的取数与标注全程在浏览器本地：不得有任何网络调用');
   // 本地存的纪律：键必须带版本前缀，读写都必须包在 try/catch（隐私模式会直接抛）
@@ -289,12 +291,12 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     `localStorage 键必须带版本前缀且读写都包 try/catch（隐私模式写不进去是常态）：try 块 ${(comp.match(/try\s*\{/g) || []).length} 个`);
   ok('storage/no-visitor-id', !/getVisitorId|visitor_id/.test(comp),
     '标注键只用四柱+日主，不挂 visitorId —— 那是报告归属凭据，不该把本地涂鸦与账号绑起来');
-  const mounted = readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8');
+  const mounted = strip(readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8'));
   ok('route/mounted-unconditional', /<LifeCurve chart=\{enrichedChartData\.bazi\} \/>/.test(mounted)
     && !/LifeCurve chart=\{[^}]*\}\s*&&/.test(mounted),
     '结果页无条件挂载，降级由组件自己给（与 #40 裁定 6 同一条路）');
-  const home = readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8');
-  const catalog = readFileSync(join(ROOT, 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8');
+  const home = strip(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
+  const catalog = strip(readFileSync(join(ROOT, 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8'));
   ok('route/no-new-entry', !/人生K线/.test(home) && !/人生K线/.test(catalog),
     '首页与目录页都不新增入口 —— 它是命盘的一个读法，不是一件新工具');
   const pkg = JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8'));
@@ -388,6 +390,8 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // 数"还有谁在调"：只扫 frontend/（会被编译进站点的那棵树）。
   // 不扫 tools/ —— 这是第四次踩"套件自己的文本咬自己的断言"：tst 的同步表要写"别留 runZiweiTests"，
   // 那是在**点名要删的东西**，不是调用点；把它算成引用，等于要求断言不许提到被测对象。
+  // 判据用**连字面量一起剥掉**的那一份（stripLiterals）：产品代码的注释与文案里提到一个函数名
+  // 也不是调用点。上一批只能靠"少扫一棵树"绕开，那是收窄范围，不是判据变对。
   const refsOf = (names: string[], exceptFile: string) => {
     const hit: string[] = [];
     const walk = (dir: string) => {
@@ -396,7 +400,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
         else if (/\.tsx?$/.test(e.name)) {
           const p = join(dir, e.name);
           if (p === exceptFile) continue;
-          const body = strip(readFileSync(p, 'utf8'));
+          const body = stripLiterals(readFileSync(p, 'utf8'));
           for (const g of names) if (new RegExp(`\\b${g}\\b`).test(body)) hit.push(`${g}←${p.replace(/\\/g, '/').replace(ROOT.replace(/\\/g, '/'), '')}`);
         }
       }
@@ -480,7 +484,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   let hepanCopied: string[] = [];
   try {
     const hepanSrc = ['engine.ts', 'local-store.ts', 'types.ts']
-      .map(f => readFileSync(join(ROOT, 'frontend', 'lib', 'hepan', f), 'utf8')).join('\n');
+      .map(f => strip(readFileSync(join(ROOT, 'frontend', 'lib', 'hepan', f), 'utf8'))).join('\n');
     hepanCopied = ['GAN_HE_PAIRS', 'LIU_CHONG', 'LIU_HE', 'SAN_HE', 'SAN_HUI', 'XIANG_XING', 'LIU_HAI', 'ZHI_CHONG']
       .filter(tok => hepanSrc.includes(tok));
   } catch { /* 合盘文件不存在时这条不适用 */ }
@@ -489,7 +493,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   const server = touched.filter(f => f.startsWith('server/'));
   ok('server/untouched', ahead === 0 || server.length === 0,
     `本批提交里没有 server/ 文件（那份 byte-同拷贝由运维改）：实得 ${server.join(' | ') || '（无）'}`);
-  const rel = readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'zhi-relations.ts'), 'utf8');
+  const rel = strip(readFileSync(join(ROOT, 'frontend', 'app', 'lib', 'core', 'bazi-enrich', 'zhi-relations.ts'), 'utf8'));
   ok('algo/export-surface-minimal', /export function zhiPairRelations/.test(rel)
     && (rel.match(/^export /gm) || []).length === 4,
     `算法层的导出面只多这一个函数（现在四个：ZhiRelation 类型、detectZhiRelations、zhiPairRelations + 类型）：实得 ${(rel.match(/^export /gm) || []).length} 个 export`);
@@ -616,9 +620,131 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     !!missBranch && /throw new Error\(/.test(missBranch) && !/return /.test(missBranch) && !/console\.warn\(/.test(missBranch),
     `钉的是"兜底别再长回来"：未命中那一支里只许 throw，不许 return 一个假纳音、也不许打一行就往下走（注释已剥）。`
     + `实得：${missBranch ? missBranch.trim().replace(/\s+/g, ' ').slice(0, 72) : '找不到 if (!nayin) 那一支（改写法了就重写这条）'}`);
+  // ── 通用规则（2026-10-21 裁定）：任何比较代码文本的闸门，先剥注释 ──
+  // 这条不是又一条产品断言，是**守闸门的那条闸门**：套件读产品源码做判定时，
+  // 反向判据（"不许出现 X"）会被说明性注释喂成假红，正向判据（"必须出现 X"）会被注释喂成假绿 ——
+  // 后者更贵：那一格代码早就没了，闸门还在替它说话。一天内咬了两次（tst 的 forbid、引用扫描的 reason）。
+  // 判据是"这一处 readFileSync 外面有没有包一层剥注释的调用"，扫每一档前先剥注释，
+  // 所以档里写的解释文字不会自己命中自己。被测对象的名字用两段拼出来：
+  // 写成一整串的话，本档自己就成了一个假命中点（这正是那条 reason 文案踩过的坑）。
+  const CALL_TOKEN = 'readFile' + 'Sync';
+  const STRIP_TOKENS = ['strip', 'codeOf'];
+  // 三种"已经剥过"的形状，逐一认：
+  //  a) 读的那一行外面就包着剥注释的调用；
+  //  b) 同一行尾内联 .replace(/\/\*…（census/globals.css 那种，剥注释写在读之后）；
+  //  c) 读进一个变量，随后三行内对该变量剥一次（本仓最常见的 `const raw = read…; const code = strip(raw);`）。
+  // 再加两条不适用：读 .json/.png/.md 这类无注释工件的行，以及 JSON.parse 包着的结构化数据。
+  const READ_SITES_BESIDE_TEXT = /\.(json|png|jpg|svg|md|txt)['"]?\s*[,)]|JSON\.parse\s*\(/;
+  // 认不了的形态要写清为什么放行，并且条目对应的读点不见了就判红 —— 与引擎打印那张 allowlist 同一做法。
+  const STRIP_ALLOWLIST: { where: string; reason: string }[] = [
+    { where: 'receipt-acceptance/acceptance.ts|join(__dirname, \'../..\', p)', reason: '这是本档的读文件小函数 readSrc() 本体，'
+      + '剥注释发生在各个使用处（codeOf(await readSrc(...))）；剥在这里会让已剥过的调用处再剥一次，反而看不出谁忘了剥。' },
+    { where: 'random-acceptance/acceptance.ts|(file, \'utf8\')', reason: '同上：codeOf() 的取体，判据在使用处剥。' },
+    { where: 'scenario-acceptance/acceptance.ts|classicsFiles.map', reason: '读的是 docs/classics/*.md 语料，'
+      + 'Markdown 没有"注释"这一层，剥了只会把要对照的原文弄丢。' },
+    { where: 'liuyao-ganzhi/make-fixture.ts|OUTS[hit.method]', reason: '读的是自家 fixture 的 .json（按起卦方式取路径），'
+      + '不是拿源码文本做判定。' },
+    { where: 'kline-acceptance/acceptance.ts|rows = read', reason: '本条闸门自己：它必须按**原始行**扫才报得出人能找到行号，'
+      + '剥注释发生在逐行上（strip(raw)），整档先剥会让行号漂 —— 第一版就漂给人看过一个不存在的位置。' },
+    { where: 'random-acceptance/acceptance.ts|inComments = liveFiles.filter', reason: '故意读原始文本：'
+      + '这一处量的就是"只在注释里提到 Math.random"（那是在解释为什么改，不是在用），剥了注释等于把被测的东西抹掉；'
+      + '同一行判断"是否真的在用"走的是 codeOf(f)。' },
+  ];
+  // 剥注释的调用要"括到这一读为止"才算数：本行早先出现过 strip(...) 但已经闭合，
+  // 说明包的是别的东西，这一读仍然是裸读（判据只看"提到过"就等于没有判据）。
+  const wrapsThisRead = (before: string) => {
+    const m = [...before.matchAll(/(?:strip\w*|codeOf)\s*\(\s*(?:require\([^)]*\)\s*)?(?:\.)?\s*$/g)];
+    if (m.length) return true;
+    const viaRequire = /require\([^)]*\)\s*\.\s*$/.test(before) || /\.\s*$/.test(before);
+    if (!viaRequire) return false;
+    let last = -1;
+    for (const w of before.matchAll(/(?:strip\w*|codeOf)\s*\(/g)) last = w.index;
+    if (last < 0) return false;
+    const tail = before.slice(last);
+    let depth = 0;
+    for (const ch of tail) { if (ch === '(') depth++; else if (ch === ')') depth--; }
+    return depth > 0;
+  };
+
+  const verdict = (raw: string, nextRaw: string[]): 'skip' | 'stripped' | 'naked' => {
+    if (/^\s*(\/\/|\/\*|\*|\{\/)/.test(raw)) return 'skip';
+    const l = strip(raw);
+    const at = l.indexOf(CALL_TOKEN + '(');
+    if (at < 0) return 'skip';
+    if (READ_SITES_BESIDE_TEXT.test(l)) return 'skip';
+    const before = l.slice(0, at);
+    const inlineAfter = /\.replace\s*\(\s*\/\\\/\\\*/.test(l.slice(at));
+    const varName = (l.match(new RegExp('(?:const|let)\\s+(\\w+)\\s*=\\s*' + CALL_TOKEN)) || [])[1];
+    const soonStripped = !!varName && nextRaw.slice(0, 3).some(n => {
+      const c = strip(n);
+      return new RegExp('(?:const|let|var)\\s+\\w+\\s*=\\s*(?:' + STRIP_TOKENS.map(t => t.slice(0, 5) + '\\w*').join('|')
+        + ')\\s*\\(\\s*' + varName + '\\b').test(c);
+    });
+    return (wrapsThisRead(before) || inlineAfter || soonStripped) ? 'stripped' : 'naked';
+  };
+  // 这条闸门自己的牙齿，喂**假行**（与 crossed-hatch / refusal-teeth 同一做法）：
+  // 判据不能只靠"仓库当下恰好都包好了"，那下一个忘了包的人照样过。
+  // 假行里的被测量用 CALL_TOKEN 拼出来：写成一整串的话，本档自己就成了一个裸读点。
+  const TEETH: [string, string, string[], 'skip' | 'stripped' | 'naked'][] = [
+    ['包一层 stripComments', `  const code = stripComments(${CALL_TOKEN}(p, 'utf8'));`, [], 'stripped'],
+    ['包一层 codeOf', `  const body = codeOf(${CALL_TOKEN}(p, 'utf8'));`, [], 'stripped'],
+    ['经 require 但外层仍包着', '  const body = stripComments(require(\'fs\').' + CALL_TOKEN + '(new URL(p), \'utf8\'));', [], 'stripped'],
+    ['同一行内联 .replace(/\\/\\*', `  const css = ${CALL_TOKEN}(f, 'utf8').replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');`, [], 'stripped'],
+    ['读进变量后三行内剥', `  const raw = ${CALL_TOKEN}(p, 'utf8');`, ['  const code = strip(raw);', '', ''], 'stripped'],
+    ['裸读', `  const src = ${CALL_TOKEN}(p, 'utf8');`, ['', '', ''], 'naked'],
+    ['本行早先有个已闭合的 strip，但包的不是这一读', `  const code = strip(x); const src = ${CALL_TOKEN}(p, 'utf8');`, ['', '', ''], 'naked'],
+    ['注释行提到被测量', `  // 说明里提到 ${CALL_TOKEN}( 这不算`, [], 'skip'],
+    ['JSON.parse 包着（结构化数据，不是源码文本）', `  const c = JSON.parse(${CALL_TOKEN}(cases, 'utf8'));`, [], 'skip'],
+    ['读 .png 这类无注释工件（路径写成字面量）', `  const img = ${CALL_TOKEN}('logo.png', 'utf8');`, [], 'skip'],
+  ];
+  const teethBad: string[] = [];
+  for (const [name, line, next, want] of TEETH) {
+    const got = verdict(line, next);
+    if (got !== want) teethBad.push(`${name}：期望 ${want}，实得 ${got}`);
+  }
+  ok('gate/strip-rule-teeth', teethBad.length === 0,
+    '包一层 strip*/codeOf、经 require 但外层仍包着、同一行内联 .replace(/\\/\\*、读进变量后三行内剥 —— 四种都判"已剥"；'
+    + '裸读、以及"本行早先有一个已经闭合的 strip(...) 但包的不是这一读"都判裸；注释行与 .json/.png/JSON.parse 不算在读源码。'
+    + '判据形状变了会点名是哪一种形状对不上（全过才算绿），先确认形状再改判据，不要改期望。'
+    + '豁免只认看得见的扩展名 —— 路径藏在变量里时不算，那种进 STRIP_ALLOWLIST 写原因（条目对应的读点不见了会判红）。'
+    + `实得不合：${teethBad.join(' | ') || '无'}`);
+
+  const gateOffenders: string[] = [];
+  const gateByFile: Record<string, number> = {};
+  const stripHits = new Set<string>();
+  const scanDir = (dir: string) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) scanDir(join(dir, e.name));
+      else if (e.name.endsWith('.ts')) {
+        const p = join(dir, e.name);
+        const rel = p.replace(/\\/g, '/').replace(ROOT.replace(/\\/g, '/') + '/', '');
+        // 按**原始行**扫（报出来的行号要能在文件里找到 —— 先整档剥注释会让行号漂，
+        // 我第一版就这样，指给人看一个不存在的位置），注释形状的行由 verdict 自己跳。
+        const rows = readFileSync(p, 'utf8').split('\n');
+        rows.forEach((raw, i) => {
+          const v = verdict(raw, rows.slice(i + 1, i + 4));
+          if (v !== 'naked') return;
+          const l = strip(raw);
+          const al = STRIP_ALLOWLIST.find(a => rel.endsWith(a.where.split('|')[0]) && l.includes(a.where.split('|')[1]));
+          if (al) { stripHits.add(al.where); return; }
+          gateOffenders.push(`${rel}:${i + 1} ${l.trim().slice(0, 56)}`);
+          gateByFile[rel] = (gateByFile[rel] || 0) + 1;
+        });
+      }
+    }
+  };
+  scanDir(join(ROOT, 'tools'));
+  const staleStripAllow = STRIP_ALLOWLIST.filter(a => !stripHits.has(a.where)).map(a => a.where);
+  ok('gate/text-comparing-gates-strip-comments', gateOffenders.length === 0 && staleStripAllow.length === 0,
+    `tools/ 下 .ts 里每一处拿产品源码文本做判定的 readFileSync 都必须剥注释（包一层 strip/stripComments/stripLiterals/codeOf，`
+    + `或同一行内联 .replace，或读进变量后三行内剥）；读 .json/.png/.md 与 JSON.parse 不算。实得 ${gateOffenders.length} 处裸读`
+    + `${gateOffenders.length ? '，按档分布 ' + Object.entries(gateByFile).map(([f, n]) => `${f}=${n}`).join(' | ') + '；例 ' + gateOffenders.slice(0, 3).join(' | ') : ''}。`
+    + `${staleStripAllow.length ? ' 另外 allowlist 里有已经不存在的读点（该删）：' + staleStripAllow.join('、') + '。' : ''}`
+    + '规则出处见 tools/visual-harness/README.md「通用规则：任何比较代码文本的闸门，先剥注释」。');
 }
 
 const fails = lines.filter(l => l.startsWith('FAIL'));
+
 // 断言名直接进摘要那一行：只 tail 一行、或日志只留尾行的人，不该再遇到
 // "fail=1 但没捕获是哪一条" —— 一次定位不了的失败，等于一次修不了的失败。
 const failNames = fails.map(l => (l.split(/\s+/)[1] || '?'));
