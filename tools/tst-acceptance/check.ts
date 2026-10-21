@@ -248,6 +248,9 @@ const SYNC_CHECKS: { file: string; want?: [RegExp, string][]; forbid?: [RegExp, 
 for (const sc of SYNC_CHECKS) {
   let src = '';
   try { src = readFileSync(join(ROOT, 'server', 'src', 'core', 'yiqi-core', sc.file), 'utf8'); } catch { /* 后端没有这个档案就是没有，下面按未同步报 */ }
+    // 2026-10-21：剥注释再比对。照搬过去时会把「原来 return '海中金'」这类说明写成注释，
+    // 不剥的话 forbid 正则会命中注释，把已同步的文件报成 PENDING（假红同假绿一样贵）。
+    src = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   const missing = (sc.want || []).filter(([re, what]) => !re.test(src)).map(([, what]) => what);
   const stillThere = (sc.forbid || []).filter(([re]) => re.test(src)).map(([, what]) => what);
   const parts = [...missing.map(m => '缺 ' + m), ...stillThere.map(s => '仍有 ' + s)];
