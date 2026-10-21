@@ -348,17 +348,22 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   //  A. 纯注释/空行（给声明补文档，编译器看不见的那种改动）；
   //  B. 只碰 crossed 这一格的计算 —— 行里必须出现 crossed / ziChenIndex，别的一律挡。
   // 这样下一个借"顺手修口径"去动四柱计算的人仍然直接红，而这两条放过的正是被授权的那两种。
-  // 空行、注释、以及只含一个花括号的行都不带行为 —— helper 的 `+}` 要是算"别的代码"，
-  // 这道门就变成"只准改一行"，下一个合法批次照样被挡。
+  // 空行、注释、以及只由花括号加分号/逗号组成的行都不带行为 —— helper 的 `+}` 与被拆开重排的
+  // 对象字面量收尾 `+    },` 都是这一类。这已经是第二次撞上了：门放过字段那一行、
+  // 却把它的收尾算成"别的代码"，等于"这批只准改一行"，下一个合法批次照样被挡。
   const inertLine = (l: string) => {
-    const b = l.slice(1).trim();
+    const b = l.slice(1).trim().replace(/[;,]+$/, '');
     return b === '' || /^(\/\/|\/\*|\*)/.test(b) || /^[{}]$/.test(b);
   };
   const commentOnlyLines = (d: string[]) => d.length > 0 && d.every(inertLine);
   // 放行的是"crossed 与换日口径这一段"，认得四种行：字段本身、被授权删掉的那条打印、
   // 换日/取格的 helper（rollsToNextDay / dayPillarKey / ziChenIndex）与其签名行、
   // 以及把口径传下去的 dayBoundaryMode。逐类点名，别的算术与别的取数一律挡在外面。
-  const CROSSED_SHAPE = /crossed|ziChenIndex|dayPillarKey|rollsToNextDay|dayBoundaryMode|Math\.floor\(\(hour \+ 1\) \/ 2\)/;
+  // 放行的是"crossed 与换日口径这一段"。认得的行用标识符点名：新实现那几个
+  // (crossed / ziChenIndex / dayPillarKey / rollsToNextDay / dayBoundaryMode)，加上被这次改动
+  // 替掉的旧实现那几个 (stdLocal / sameDay / hour === 23 / MIDNIGHT_00 / 晚子时 / true-solar-time)。
+  // 旧名必须一起放行，否则"改名"这件事本身就没法通过 —— 被删的那一行不带新标识符。
+  const CROSSED_SHAPE = /crossed|ziChenIndex|dayPillarKey|rollsToNextDay|dayBoundaryMode|stdLocal|sameDay|hour === 23|MIDNIGHT_00|晚子时|true-solar-time|Math\.floor\(\(hour \+ 1\) \/ 2\)/;
   const REMOVED_CONSOLE = /^-\s*console\.(log|info|debug|warn|error|trace)\(/;
   const crossedFlagLines = (d: string[]) => d.length > 0
     && d.filter(l => !inertLine(l) && !CROSSED_SHAPE.test(l) && !REMOVED_CONSOLE.test(l)).length === 0;
@@ -370,6 +375,8 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     crossedFlagLines(['-    crossed: { hour: a !== b, day: !s },', '+    crossed: { hour: ziChenIndex(x) !== ziChenIndex(c), day: !s },'])
     && crossedFlagLines(['+function ziChenIndex(hour: number): number {', '+  return Math.floor((hour + 1) / 2) % 12;', '+}', '+'])
     && crossedFlagLines(['-    console.error(\'[晚子时处理] 23点\');', '+  if (rollsToNextDay(hour, mode)) {', '+    dayBoundaryMode: birthInfo.dayBoundaryMode,'])
+    && crossedFlagLines(['-  if (hour === 23 && mode !== \'MIDNIGHT_00\') {', '-import { calculateTrueSolarTime } from \'./true-solar-time\';', '+import { calculateTrueSolarTime, rollsToNextDay } from \'./true-solar-time\';'])
+    && crossedFlagLines(['+  crossed: {', '+    hour: ziChenIndex(a) !== ziChenIndex(b),', '+  },', '+'])
     && commentOnlyLines(['+  /** 时辰是两小时一格 */'])
     && !crossedFlagLines(['+    const dayGan = getDayGan(x);'])
     && !crossedFlagLines(['-  const solar = Solar.fromYmdHms(a, b, c, 23, 0, 0);', '+  const solar = Solar.fromYmdHms(a, b, c, 0, 0, 0);'])
@@ -379,6 +386,13 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     && !commentOnlyLines(['+  const a = 1;']) && !commentOnlyLines([]) && !crossedFlagLines([]),
     '窄门只放过"只碰 crossed / 换日口径"和"纯注释"两种：普通取数代码、改了格法算术的行、'
     + '新加的打印都必须判 false；空 diff 两条都判 false（没改动也算通过就是空过）');
+  // 标识符点名是**必要不充分**：有人在 sameDay 那一行里夹点别的，这道门看不见。
+  // 下面这条不是"要求它一直弱"，是**示警桩**：它现在必须过（= 承认有这个洞），
+  // 哪天有人把分类器收紧到能挡住这种夹带，它会变红 —— 那时该把它删掉，不是把它改成期望 false。
+  ok('algo/hatch-known-gap-canary', crossedFlagLines(['+  const sameDay = corrected.day > 0;']),
+    '已知弱点，立此存照：同一行里出现放行标识符就放行，夹带的算术这道门看不见。'
+    + '所以行为必须由别几套证据钉：20736 组地支关系 digest、A==C / A==B 对拍、bazi 8/8、'
+    + 'crossed 那 144 + 864 组"标志 == pillar 真的变了"。这条红了说明分类器收紧了，删掉它');
   // 报错要指名"哪个文件是被什么放过的 / 哪个是真不合规"。以前这里直接把清单外全列出来，
   // 于是纯注释的 types.ts 也一起上榜，读的人会去查一个根本没失败的档案。
   const engineBad = engine.filter(f => !inAllow(f) && !loggingOnlyRemoval(f) && !commentOnlyChange(f) && !crossedFlagOnly(f));
