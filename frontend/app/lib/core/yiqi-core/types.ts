@@ -44,6 +44,8 @@ export interface TrueSolarTimeInfo {
   standardMeridian: number;
   longitude: number | null;
   timezone: number;
+  /** 时柱/日柱所在那一格是否真的换掉了。hour 按时辰（两小时一格）比，
+   *  参照 civilDateTime ↔ trueSolarDateTime；见 true-solar-time.ts 的 TrueSolarTimeInfo。 */
   crossed: { hour: boolean; day: boolean };
   algorithm: string;
 }

@@ -333,6 +333,8 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   // 且删掉的每一行都得是一条 console.* 语句。这样它照常挡住任何行为改动（哪怕只改一个字符），
   // 放过的只有这次唯一被授权的那种变化。
   const inAllow = (f: string) => [...ENGINE_ALLOW].some(x => f.replace(/\\/g, '/').endsWith(x));
+  const diffOf = (f: string) => execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' })
+    .split('\n').filter(l => (l.startsWith('+') || l.startsWith('-')) && !l.startsWith('+++') && !l.startsWith('---'));
   const loggingOnlyRemoval = (f: string) => {
     const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
     const added = d.split('\n').filter(l => l.startsWith('+') && !l.startsWith('+++'));
@@ -341,10 +343,31 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     const notConsole = removed.filter(l => l.trim() !== '-' && !/^\-\s*console\.(log|info|debug|warn|error|trace)\(/.test(l));
     return added.length === 0 && removed.length > 0 && notConsole.length === 0;
   };
+  // 2026-10-21 裁定 ③：crossed.hour 改语义要动 yiqi-core/true-solar-time.ts。
+  // 照 裁定 ① 的口径放宽的是**一类行为**，不是给清单加一个名字：
+  //  A. 纯注释/空行（给声明补文档，编译器看不见的那种改动）；
+  //  B. 只碰 crossed 这一格的计算 —— 行里必须出现 crossed / ziChenIndex，别的一律挡。
+  // 这样下一个借"顺手修口径"去动四柱计算的人仍然直接红，而这两条放过的正是被授权的那两种。
+  const commentOrBlank = (l: string) => /^\s*(\/\/|\/\*|\*|$)/.test(l.slice(1));
+  const commentOnlyLines = (d: string[]) => d.length > 0 && d.every(commentOrBlank);
+  const crossedFlagLines = (d: string[]) => d.length > 0
+    && d.filter(l => !commentOrBlank(l) && !/crossed|ziChenIndex/.test(l)).length === 0;
+  const commentOnlyChange = (f: string) => commentOnlyLines(diffOf(f));
+  const crossedFlagOnly = (f: string) => crossedFlagLines(diffOf(f));
+  // 两道窄门自己的牙齿，喂**假 diff** 给分类器 —— 不依赖仓库当下改了什么。
+  // 拿真实文件当反例的那种写法会自己失效：下一个只改了注释的批次会让"反例"变成正例。
+  ok('algo/crossed-hatch-is-narrow',
+    crossedFlagLines(['-    crossed: { hour: a !== b, day: !s },', '+    crossed: { hour: ziChenIndex(x) !== ziChenIndex(c), day: !s },'])
+    && commentOnlyLines(['+  /** 时辰是两小时一格 */'])
+    && !crossedFlagLines(['+    const dayGan = getDayGan(x);'])
+    && !crossedFlagLines(['-  const solar = Solar.fromYmdHms(a, b, c, 23, 0, 0);', '+  const solar = Solar.fromYmdHms(a, b, c, 0, 0, 0);'])
+    && !commentOnlyLines(['+  const a = 1;']) && !commentOnlyLines([]) && !crossedFlagLines([]),
+    '窄门只放过"只碰 crossed 那一格"和"纯注释"两种：往分类器里塞一行普通取数代码必须判 false，'
+    + '空 diff 两条都判 false（没改动也算通过就是空过）');
   const engineOfflist = engine.filter(f => !inAllow(f));
   ok('algo/only-the-pairwise-export',
-    engine.every(f => inAllow(f) || loggingOnlyRemoval(f)),
-    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行"新增 0 行、删的全是 console.* 语句"这一种）：实得 ${engine.join(' | ') || '（无）'}；清单外 ${engineOfflist.join(' | ') || '（无）'}${engineOfflist.length ? '；不合规的行 ' + engineOfflist.map(f => {
+    engine.every(f => inAllow(f) || loggingOnlyRemoval(f) || commentOnlyChange(f) || crossedFlagOnly(f)),
+    `动到的算法层文件只能是 ${[...ENGINE_ALLOW].join(' / ')}（清单外只放行三种：新增 0 行且删的全是 console.* 语句 / 纯注释空行 / 只碰 crossed 那一格）：实得 ${engine.join(' | ') || '（无）'}；清单外 ${engineOfflist.join(' | ') || '（无）'}${engineOfflist.length ? '；不合规的行 ' + engineOfflist.map(f => {
       const d = execSync(`git diff ${base}..HEAD -- "${f}"`, { cwd: ROOT, encoding: 'utf8' });
       return f.replace(/^frontend\/app\/lib\/core\//, '') + '[' + d.split('\n').filter(l => (l.startsWith('+') && !l.startsWith('+++')) || (l.startsWith('-') && !l.startsWith('---'))).join('').slice(0, 120) + ']';
     }).join(' ') : ''}`);

@@ -175,6 +175,32 @@ D4 等口径戳一起落地。但这是你的排期，按你说的走。
 我倾向 2，理由：这句是在解释**为什么盘面和用户填的不一样**，把判语磨成陈述会让真正跨了的人
 还是看不懂。但顺序上先等你回 §8 那两个问题，因为它们同一条时间轴。
 
+## 8c. 裁定 ③ 已落地：`crossed.hour` 改按时辰比（运维这边剩一步）
+
+上面那条已经按裁定改掉了，而且量出来比原先报的更糟：不只误报，也漏报。
+铺 3 城 × 24 小时 × 每 5 分钟 × 有无夏令时共 1728 组，
+以「时柱的地支到底变没变」为准绳：**误报 72 组**（同格内挪了整点就喊"已跨时辰"），
+**漏报 240 组**（全是夏令时盘 —— 参照取的是 standard，夏令时那一步造成的跨格被吞掉了）。
+
+改法（前端 `yiqi-core/true-solar-time.ts`）：
+新增 `ziChenIndex(hour) = floor((hour + 1) / 2) % 12`（与 `ziwei-standard.ts` 的格法同一套），
+`crossed.hour` 改为 `ziChenIndex(corrected.hour) !== ziChenIndex(civil.hour)`。
+参照从 standard 换成 **civil**，因为卡片上印的就是「钟表 civilTime → 计算 trueSolarTime」，
+用户能拿那两串字自己核对；按 standard 比会把他看得见的变化判成没变。
+
+**要运维做的一步**：`server/src/core/yiqi-core/true-solar-time.ts` 那份同源拷贝照搬这两行
+（`ziChenIndex` + `crossed`），同步完 diff 0。分工照旧 —— 我这边 `server/untouched` 那条闸门写着
+"那份由运维改"，所以本批提交里没有 server 文件。
+`tst-acceptance` 会打一行 `PENDING/SYNCED server-copy/true-solar-time`，同步之后它自己变成 SYNCED，
+不需要谁回来改断言。
+这一格只影响盘面提示，**不影响任何四柱计算**：同步前后 A==C、A==B 都照常 5/5 绿。
+
+**还差一条裁定（我没动）**：`crossed.day` 仍按 standard 参照。上面那 1728 组同一批采样里，
+按 civil 参照会有 **36 组**与现状不等价 —— 具体是"夏令时且生于 00:00–01:00"那一档：
+钟表写的是 D 日，减掉夏令时落到 D−1 日，校正后的日柱也跟着是 D−1 日，
+而 `crossed.day` 说没跨。六爻那边「校正后跨日，日柱按真太阳时所在日取」同一套逻辑。
+要不要把 day 也换成 civil 参照，等你一句话；换了才和 hour 一致。
+
 ## 已经修好、不用再管的（推翻旧记录）
 
 `GET /api/reports/:id` **现在校验归属**：`report.controller.ts:94-109` 比对 `report.visitorId`，
