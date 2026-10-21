@@ -142,6 +142,16 @@ const GONGS_F = plate('female');
     `老盘没带 trueSolarTime 时只能承认读不到（实得「${noTst.行[0] || '（空）'}」）—— 不许拿一个看起来像结论的句子糊过去`);
 
   // 披露不许替用户下"这一盘确实跨了"的判语：那需要时辰边界/立春瞬时，是算法层的活。
+  // 裁定①②收下之后，盘上那句话得是"定案"而不是"待修"。
+  // 措辞退回去没人会 notice，而它一旦被读成"这是个待修的 bug"，运维定的口径就白定了。
+  const yrLine = real.行.find(l => /年界/.test(l)) || '';
+  const calBody = strip(readFileSync(join(FE, 'lib', 'chart', 'ziwei-caliber.ts'), 'utf8'));
+  ok('cal/year-boundary-is-settled',
+    /正月初一/.test(yrLine) && /定案/.test(yrLine)
+    && !/待裁|尚未定|等一句裁定/.test(yrLine + calBody),
+    `年界那一行陈述的是两盘各自的定案（实得「${yrLine.slice(0, 48)}…」），`
+    + '且模块代码里没有"待裁"那类残留 —— 剥注释再扫，否则模块自己那句裁定说明会咬这条断言');
+
   const allLines = [applied, notApplied, noTst.行[0], ...real.行];
   const verdict = /已跨时辰|已经跨|必然不同|一定不同|这一盘已分叉/.test(allLines.join(' '));
   ok('cal/states-rule-not-verdict', !verdict && /若这两个时刻落在不同时辰/.test(applied),

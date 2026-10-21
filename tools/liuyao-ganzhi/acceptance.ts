@@ -947,6 +947,67 @@ const NUM_OFF = [0, 8, 16];
     `整份 AI prompt 里 ${pCnt} 处 "五行" 取值全部 ∈ 五行枚举（本卦/变卦/世/应/用神/旺衰一起查）：违例 ${pBad} 处${pList.length ? ' 例:' + pList.join(' | ') : ''}`);
 }
 
+// ── 10. 裁定 ④：变卦的每一爻都得有六亲（功能本来就在，这条是把它钉住，不是补功能）──
+// 结果页那一行 `dy.before.liuQin → 变 dy.after.liuQin` 里 after 是可空的：
+// `analyzeDongYao` 用 `bianNaJia.find(...)` 找不到就给 null，而 `wuxing: WX[..] || '?'`
+// 又是一个会安静落地的兜底。两种情况都不会报错，页面上就是"变那一截少了点什么"。
+{
+  const LIU_QIN = ['兄弟', '父母', '妻财', '官鬼', '子孙'];
+  const isLiuQin = (v: unknown) => typeof v === 'string' && (LIU_QIN as string[]).includes(v);
+  // 动爻花样：单动（初/四）、隔位双动、全动 —— 全动那张会把六爻全部翻掉，变卦与本卦完全不同宫。
+  const PATTERNS: number[][] = [[1], [4], [2, 5], [1, 4], [1, 2, 3, 4, 5, 6]];
+  const mk = (bits: string, dong: number[]) => bits.split('').map((b, i) => {
+    const yang = b === '1', isDong = dong.includes(i + 1);
+    // 老阳 9 动而之阴，老阴 6 动而之阳；不动的就是 7 / 8。
+    const value = isDong ? (yang ? 9 : 6) : (yang ? 7 : 8);
+    return { position: i + 1, coins: [] as any, value, label: String(value), isDong };
+  });
+
+  let plates = 0, platesWithBian = 0, yaoChecked = 0;
+  const bad: string[] = [];
+  for (const xia of XIAN_TIAN_BITS) {
+    for (const shang of XIAN_TIAN_BITS) {
+      const bits = xia + shang;
+      for (const dong of PATTERNS) {
+        const plate = buildCoinResult({ question: '验收', questionType: '其他', records: mk(bits, dong) as any, now: tsSample });
+        plates++;
+        const an = analyzeLiuyao(plate);
+        const bian = plate.bianNaJia as { position: number; liuQin: string; ganZhi: string; naZhi: string }[];
+        if (bian.length) platesWithBian++;
+        // 1) 变卦必须是六爻齐全的一整张盘，不是只有动的那几爻
+        if (bian.length !== 6) bad.push(`${bits}动${dong.join('')}：bianNaJia ${bian.length} 爻`);
+        // 2) 每一爻都要有六亲、有干支，五行不许落到 '?' 兜底
+        for (const b of bian) {
+          yaoChecked++;
+          if (!isLiuQin(b.liuQin)) bad.push(`${bits}动${dong.join('')} 第${b.position}爻 六亲=${JSON.stringify(b.liuQin)}`);
+          if (!b.ganZhi || b.ganZhi.length < 2) bad.push(`${bits}动${dong.join('')} 第${b.position}爻 干支=${JSON.stringify(b.ganZhi)}`);
+        }
+        // 3) 每一个动爻都要有"变"那一截，且与整张变卦那一爻逐字相同
+        if (an.dongYao.length !== dong.length) bad.push(`${bits}动${dong.join('')}：dongYao ${an.dongYao.length} 条，应为 ${dong.length}`);
+        for (const dy of an.dongYao) {
+          if (!dy.after) { bad.push(`${bits}动${dong.join('')} 第${dy.position}爻 after=null（页面上"变"那一截整块不出现）`); continue; }
+          if (!isLiuQin(dy.after.liuQin)) bad.push(`${bits} 第${dy.position}爻 after.liuQin=${JSON.stringify(dy.after.liuQin)}`);
+          if (dy.after.wuxing === '?') bad.push(`${bits} 第${dy.position}爻 after.wuxing 落到 '?' 兜底（naZhi=${(dy.after as any).naZhi}）`);
+          const row = bian.find(x => x.position === dy.position);
+          if (row && (dy.after.liuQin !== row.liuQin || dy.after.ganZhi !== row.ganZhi))
+            bad.push(`${bits} 第${dy.position}爻 动爻摘要与变卦那一爻不一致 ${dy.after.liuQin}${dy.after.ganZhi} vs ${row.liuQin}${row.ganZhi}`);
+        }
+      }
+    }
+  }
+  // 前提：这批扫描真的产出过带变卦的盘。全是静卦的话上面三条会一条都不触发，绿灯是假的。
+  ok('dong/bian-plates-actually-produced', plates === 64 * PATTERNS.length && platesWithBian === plates,
+    `${plates} 张盘都要带得出变卦（实得 ${platesWithBian} 张）—— 带不出就是这批扫描本身没测到那一支`);
+  ok('dong/bian-liuQin-every-line', bad.length === 0,
+    `变卦每一爻都有六亲∈${LIU_QIN.join('/')}、有干支、五行不落 '?'，且每个动爻的"变"那一截与整张变卦逐字对齐：`
+    + `查了 ${plates} 张盘 / ${yaoChecked} 个变爻，违例 ${bad.length} 条${bad.length ? ' 例:' + bad.slice(0, 4).join(' | ') : ''}`);
+  // 反向前提：静卦那一支也必须真的没有变卦，否则上面的"全都有"可能是因为根本没有不动的盘
+  const stillPlate = buildCoinResult({ question: '验收', questionType: '其他', records: mk('111111', []) as any, now: tsSample });
+  const stillAn = analyzeLiuyao(stillPlate);
+  ok('dong/still-plate-has-no-bian', stillPlate.bianNaJia.length === 0 && stillAn.dongYao.length === 0,
+    `全静的一张：bianNaJia ${stillPlate.bianNaJia.length} 爻、dongYao ${stillAn.dongYao.length} 条，都应为 0（这一条不成立说明起卦层把不动的爻也当动爻）`);
+}
+
 // ── 9. 控制台摘要（ASCII）──
 const summary = `liuyao ganzhi acceptance: days=${days} pass=${pass} fail=${fail}`;
 try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }

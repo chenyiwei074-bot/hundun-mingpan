@@ -161,6 +161,10 @@ const STATIC_PAGES = [
   // 只测失败就永远不知道成功体能不能被这套 UI 吃下；只测成功就永远不知道失败会不会假装成功。
   ['fengshui-recognize-fail', '/fengshui?recognize=503'],
   ['fengshui-recognize-candidates', '/fengshui?recognize=ok'],
+  // 契约那一枪走的是**网络层**：CDP Fetch 拦下来看真实出站的头与体，然后 abort。
+  // 上面两态读的是 window.__recReq —— 那是 fetch() 拿到的参数，不是发出去的东西；
+  // 桩替换了 fetch，所以桩下永远看不到"Content-Type 到底有没有上线路"这一层。
+  ['fengshui-recognize-wire', '/fengshui'],
   // 编辑闭环那一态：真的加一道墙、在墙上开个门、调宽、改一间房的用途，然后逐条钉回来。
   // 这批补的是"页面承诺过但没有控件"的缺陷，所以判据必须落在控件真的能改动画面上。
   ['fengshui-edit', '/fengshui'],
@@ -1183,6 +1187,22 @@ ws.addEventListener('message', ev => {
   if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') consoleErrors.push(m.params.entry.text.slice(0, 160));
   if (m.method === 'Runtime.exceptionThrown') pageErrors.push((m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text || '').slice(0, 160));
 });
+// 契约观测（fengshui-recognize-wire）：收 CDP Fetch 拦下来的**真实出站请求**，然后 abort。
+// 上面那两态读的是 window.__recReq —— 那是 fetch() 拿到的参数。参数对不等于上线对：
+// Content-Type 到底有没有真的进头、体有没有被序列化、visitorId 是不是本机那一个，
+// 只有网络层看得见。拦下就 failRequest，所以这一枪不会真的送到供应商去。
+const wirePauses = [];
+ws.addEventListener('message', ev => {
+  const m = JSON.parse(ev.data);
+  if (m.method !== 'Fetch.requestPaused') return;
+  const r = m.params.request || {};
+  wirePauses.push({
+    url: r.url, method: (r.method || '').toUpperCase(),
+    headers: r.headers || {}, postData: r.postData || '',
+  });
+  // 每一发都必须应答，不然那一页永远挂在 pending 上，后面的态跟着遭殃。
+  void send('Fetch.failRequest', { requestId: m.params.requestId, errorReason: 'ConnectionRefused' });
+});
 await send('Runtime.enable');
 
 // ---------------------------------------------------------------- measurement
@@ -1832,6 +1852,9 @@ const TRUSTED = {
   // 这条正好也是 privacy/consent-gates-request 那条闸门的浏览器侧证据。
   'fengshui-recognize-fail': ['@file', '#fp-consent', '送给模型提候选'],
   'fengshui-recognize-candidates': ['@file', '#fp-consent', '送给模型提候选'],
+  // 契约态：真的把那一枪打到网络层（再由 CDP 拦停）。与上面两态同一串动作，
+  // 区别只在观测点从 window.__recReq 换成了浏览器实际发出的请求。
+  'fengshui-recognize-wire': ['@file', '#fp-consent', '送给模型提候选'],
   // 编辑闭环：顺序有意义。加一间房会顺手选中它，「厨房」那颗 chip 在没有选中房间时是禁用的，
   // 先点它就是空跑一趟（而 harness 因为打到了元素也不会报错 —— 这类假绿最费人）。
   // 「加门」取的是页面上第一道墙那一行，「宽」取的是第一个开口那一行。
@@ -1848,7 +1871,24 @@ const TRUSTED = {
   'create-lunar': ['闰6月'],
 };
 
+// 三种"只在某一种运行模式下成立"的态，写成一个集合而不是散在各处的 if：
+//  - STUB_ONLY：钉值全部来自注入（503 与契约成功体都是 STUB_BOOT 造的）。真后端下既不保证
+//    有这个落点，而且那一枪会把图真的送给供应商烧一次调用 —— 所以 live 下不点、不钉，
+//    版面/对比度/命中区那些审计照做（它们与后端无关）。
+//  - LIVE_ONLY：靠 CDP Fetch 拦真实出站请求。--stub 下 window.fetch 被桩换掉了，
+//    网络层根本没有这一枪，拦不到不等于契约不合，只能 SKIP。
+const STUB_ONLY = new Set(['fengshui-recognize-fail', 'fengshui-recognize-candidates']);
+const LIVE_ONLY = new Set(['fengshui-recognize-wire']);
+
 async function measure(tag, url) {
+  // 契约态必须在导航之前就开拦截：POST 是点出来的，但拦晚一发的风险不值得留。
+  const wireBase = tag.replace(/^(d1|m1)-/, '');
+  const wire = !STUB && wireBase === 'fengshui-recognize-wire';
+  if (wire) {
+    wirePauses.length = 0;
+    const on = await send('Fetch.enable', { patterns: [{ urlPattern: '*fengshui/recognize*', requestStage: 'Request' }] });
+    if (on && on.__error) fail.push(tag + ': Fetch.enable 被拒 ' + JSON.stringify(on.__error).slice(0, 120));
+  }
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
   const base = tag.replace(/^(d1|m1)-/, '');
@@ -1869,7 +1909,10 @@ async function measure(tag, url) {
     if (ok !== true) fail.push(tag + ': 该状态没到位（' + (typeof ok === 'string' ? ok : JSON.stringify(ok)) + '）—— 这一屏从未被测量');
     else { await sleep(800); console.log('    clicked expand control'); }
   }
-  if (TRUSTED[base]) {
+  if (TRUSTED[base] && STUB_ONLY.has(base) && !STUB) {
+    console.log('    SKIP 交互：这一态的落点靠 --stub 注入（503 / 契约成功体），'
+      + '真后端下既不保证有这个落点，而且点下去会把图真的送给供应商烧一次调用');
+  } else if (TRUSTED[base]) {
     await evl(`window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp;
       window.__preScroll = { y: Math.round(window.scrollY),
         h: document.documentElement.scrollHeight, vh: window.innerHeight }; true`);
@@ -2015,12 +2058,19 @@ async function measure(tag, url) {
       : `    户型规则层上屏 ${got.chars} 字，依据/不确定项/口径戳/边界话术齐备`);
   }
   if (FS_RECOGNIZE_PINS[base]) {
+    if (!STUB) {
+      // 钉值全部来自注入：HTTP 503 / provider_error 那句话、墙 2 道那行汇总、可行走网格 33×16、
+      // calls=1、未确认 2 个 —— 真后端给的是别的图、别的数、别的落点。
+      // 在这里判"不等于钉值"是假红；判"等于"更不可能。版面/对比度/命中区的审计照做。
+      console.log('    SKIP 识别三态钉值：只在带 --stub 时有效 —— 钉的每一个值都是 STUB_BOOT 注入进去的那一份契约体');
+    } else {
     const got = await evl(fsRecognizeProbe(FS_RECOGNIZE_PINS[base]));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
     if (!miss) fail.push(tag + ': 识别探针跑不起来 ' + JSON.stringify(got).slice(0, 180));
     else for (const x of miss) fail.push(tag + ': 识别三态不等于钉值 — ' + x);
     console.log(miss && miss.length ? `    RECOGNIZE MISMATCH ${miss.join(' | ')} ／ chip=[${got ? got.chips : '?'}]`
       : `    识别态 ${got.state}，请求打了 ${got.calls} 次（>1 就是自动重试），未确认开口 ${got.unconfirmed} 个，3D disabled=${got.disabled3d}`);
+    }
   }
   // 编辑闭环态的钉值。每一条都是"按了某个新按钮之后画面真的变了"的证据，
 // 而不是"按钮存在" —— 存在性由 fengshui-acceptance 的 copy/promise-has-control 管。
@@ -2251,6 +2301,53 @@ const fsEditProbe = p => `(() => {
     }
   }
   if (consoleErrors.length) console.log('   CONSOLE ' + consoleErrors.join(' | '));
+  // 契约态的判定：网络层看到的这一枪，加上页面落到哪一格。
+  if (wire) {
+    await send('Fetch.disable');
+    const miss = [];
+    const rq = wirePauses[0];
+    if (wirePauses.length !== 1) {
+      miss.push(`出站请求应有 1 发，实得 ${wirePauses.length} 发`
+        + (wirePauses.length === 0 ? '（一发都没有 = 拦截 pattern 没命中，或者按钮根本没发东西 —— 这一态就成了空跑）'
+          : '（多于 1 发就是自动重试）'));
+    } else {
+      const hdr = k => Object.entries(rq.headers).find(([h]) => h.toLowerCase() === k)?.[1];
+      if (rq.method !== 'POST') miss.push('方法是 ' + rq.method + '，应为 POST');
+      const ct = hdr('content-type');
+      if (ct !== 'application/json') miss.push('上线的 Content-Type 应为 application/json，实得 ' + JSON.stringify(ct)
+        + '（整个头：' + Object.keys(rq.headers).join(',') + '）');
+      let body = null;
+      try { body = JSON.parse(rq.postData); } catch { miss.push('请求体不是合法 JSON，实得前 60 字：' + rq.postData.slice(0, 60)); }
+      if (body) {
+        const keys = Object.keys(body).sort().join(',');
+        if (keys !== 'imageBase64,visitorId') miss.push('请求体键应正好是 imageBase64,visitorId，实得 ' + keys);
+        if (typeof body.imageBase64 !== 'string' || !body.imageBase64.startsWith('data:image/png;base64,'))
+          miss.push('imageBase64 应以 data:image/png;base64, 开头，实得 ' + String(body.imageBase64).slice(0, 40));
+        // 这条是契约（server 侧 VISITOR_RE 同一条规则），不是前端实现细节：
+        // 8..64 个 [A-Za-z0-9_-]。以前只在桩里看过 'v_' 前缀，那是本机生成器的形状，不是契约。
+        if (typeof body.visitorId !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(body.visitorId))
+          miss.push('visitorId 不合契约形状 ^[A-Za-z0-9_-]{8,64}$，实得 ' + JSON.stringify(body.visitorId));
+      }
+    }
+    const ui = await evl(`(() => {
+      const st = document.getElementById('fp-recognize-state');
+      const txt = [...document.querySelectorAll('p.qn-alert, p.qn-meta, p.qn-note')]
+        .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
+      return { state: st ? st.getAttribute('data-recognize-state') : null,
+        calls: window.__recCalls || null, hasNotRetry: /不自动重试|一次都没重试/.test(txt),
+        hasHonest: /不装作成功/.test(txt), hasNoGeom: /还没有几何|手工画/.test(txt) };
+    })()`);
+    if (!ui || typeof ui.state !== 'string') miss.push('识别状态那一行读不到（#fp-recognize-state）');
+    else {
+      if (ui.state !== '失败') miss.push('拦停之后应落到「失败」那一格，实为 ' + ui.state);
+      if (!ui.hasNotRetry) miss.push('页面上没有"不会自动重试"那半句');
+      if (!ui.hasHonest) miss.push('页面上没有"这条不装作成功"');
+      if (!ui.hasNoGeom) miss.push('没有给出下一步（手工画 / 合成样例）');
+    }
+    for (const x of miss) fail.push(tag + ': 识别契约（网络层）不合格 — ' + x);
+    console.log(miss.length ? '    WIRE CONTRACT MISMATCH ' + miss.join(' | ')
+      : `    契约上线核对过：1 发 POST、${Object.keys(wirePauses[0].headers).length} 个头、体 ${wirePauses[0].postData.length} 字，页面落在「${ui && ui.state}」`);
+  }
   check(tag, v);
   if (SECTION_SHOTS[base]) await shotSection(tag, SECTION_SHOTS[base]);
   await shot(tag, true);
@@ -2261,7 +2358,13 @@ const fsEditProbe = p => `(() => {
 const keep = (tag, url) => !ONLY.length || ONLY.some(o => tag.includes(o) || url.includes(o));
 
 const pages = [];
-for (const [tag, url] of STATIC_PAGES) if (keep(tag, url)) pages.push([tag, url, false]);
+for (const [tag, url] of STATIC_PAGES) {
+  if (!keep(tag, url)) continue;
+  // 契约态要的是浏览器真的把那一枪发出去。--stub 下 window.fetch 被桩换掉了，
+  // 网络层根本没有这一发，拦不到不等于契约不合 —— 那种红会把人引向不存在的问题。
+  if (LIVE_ONLY.has(tag) && STUB) { console.log(`\nSKIP ${tag}: 需要真实网络层，去掉 --stub 再跑（其余态仍可用 --stub）`); continue; }
+  pages.push([tag, url, false]);
+}
 if (!STUB) {
   for (const [tag, url, kind] of DYNAMIC_PAGES) {
     if (!keep(tag, url)) continue;

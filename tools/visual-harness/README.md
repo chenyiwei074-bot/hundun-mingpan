@@ -204,16 +204,26 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
 | `western` | `/western` | 西方工作页（目录全未开放那一态） |
 | `oriental-ask` / `western-ask` | 同上两条 | **问事框提交之后**那一帧：回答卡、来源标注、该给的入口 / 不该给的入口 |
 | `fengshui` / `fengshui-filled` | `/fengshui` | 空表单，以及勾了确认、点了"算一遍"之后的规则层输出 |
-| `fengshui-recognize-fail` / `-candidates` | `/fengshui?recognize=503` / `=ok` | 识别三态里两个后端落点：503 失败、成功但待确认。查询串只给桩看，页面自己不读 |
+| `fengshui-recognize-fail` / `-candidates` | `/fengshui?recognize=503` / `=ok` | 识别三态里两个后端落点：503 失败、成功但待确认。查询串只给桩看，页面自己不读。**只在 `--stub` 下钉值**（见下面第 3 条纪律） |
+| `fengshui-recognize-wire` | `/fengshui` | 契约那一枪的**网络层**核对：CDP Fetch 拦下真实出站请求，验 Content-Type / 体里正好两个键 / base64 前缀 / visitorId 合服务端形状，然后 abort 并验页面落在「失败」。**只在去 `--stub` 时跑** |
 | `fengshui-edit` | `/fengshui` | 编辑闭环：真加一道墙、在墙上开个门、调宽、改一间房的用途，再逐条钉回来（墙体数、开口数、未确认数、用途 chip 是否真的选中、手工门有没有进判定、3D 是否解禁） |
 
-两条纪律写在这里：
+三条纪律写在这里：
 
 1. **门廊的数不许写死。** 卡片上「已开放 N / M 项」是页面从两套目录现算出来的，harness 只读
    回来验形状与 N ≤ M；数与目录是否相等由 `directory-acceptance` 的 `gate/*` 在源码侧钉。
 2. **问事框必须测"答完之后"。** 只测空输入框等于什么都没测 —— 路由对不对、未开放有没有被
    伪装成可进、来源有没有明写"本机目录匹配、未经模型"，全在提交之后那一帧。
    `western-ask` 的期望是**零个入口**（西方一项都没开放），它防的正是"AI 说有个工具，页面就给了个按钮"。
+
+3. **哪个态在哪个模式下成立，必须写在代码里并且打印出来。** 这三态里两个的每一个钉值
+   （503、`provider_error`、墙 2 道、可行走网格 33×16、calls=1、未确认 2 个）都是 `STUB_BOOT`
+   注入的那一份契约体 —— 真后端给的是别的图、别的数。所以 `STUB_ONLY` 里那两个态在 live 下
+   **既不钉也不点**：点下去会把图真的送给供应商烧一次调用，那不是测试该顺手做的事。
+   反过来 `LIVE_ONLY` 那个契约态在 `--stub` 下必须 SKIP —— 桩换掉了 `window.fetch`，
+   网络层根本没这一发，**拦不到不等于契约不合**，判负会把人引向一个不存在的问题。
+   两种 SKIP 都要打印原因，静默少跑一个态和跑错一样糟。
+   版面 / 对比度 / 命中区那些与后端无关的审计，两种模式下都照跑。
 
 React 受控 input 在探针里必须走原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。`QA_PINS` 里每条期望都是照 `lib/assistant/intent.ts`
@@ -231,6 +241,16 @@ React 受控 input 在探针里必须走原生 setter + `input` 事件（直接�
   验收套件校形状、这里原样 serve，改形状两边一起红。
 - 桩里带一个 `window.__recCalls` 计数，探针钉的是**"请求打了 1 次"这个测量**，不是源码 grep。
   "5xx 不自动重试"用 grep 挡不住 `setTimeout` 循环；数一次请求才叫证据。
+
+**但桩看到的是参数，不是上线。** 桩里那份 `window.__recReq` 记的是 `fetch(url, init)` 拿到的
+`init.headers` —— 它等于"我打算发什么"。2026-10-21 拿这个区别做过一次证伪：把 `init` 里的
+`Content-Type` 整条删掉，桩侧读出的是 `undefined`（看起来像"没设头"），而浏览器**实际发出去**的是
+`Content-Type: text/plain;charset=UTF-8` —— 一个真实的、服务端会照它判定的错值。
+所以有了 `fengshui-recognize-wire`：`Fetch.enable(pattern)` → 收 `Fetch.requestPaused` 拿
+`request.headers/postData` → `Fetch.failRequest` 拦停 → `Fetch.disable`。四段少最后一段，
+拦到而不应答的那一发会让那一页永远挂在 pending 上，后面每一态跟着遭殃
+（`harness/wire-state-observes-the-network` 就是把这四段钉住）。
+abort 之后页面走的是网络异常那一格，所以这一态同时是"发不出去必须明说发不出去"的浏览器侧证据。
 
 文件注入走 TRUSTED 里的 **`'@file'`** 那一步，不在 `AFTER` 里做：先对 `h1` 这种**非交互**位置打一发
 真实 `Input.dispatchMouseEvent`（把 `hadRecentInput` 置起来），再在页面里构造

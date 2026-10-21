@@ -13,13 +13,16 @@
 //     node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
 //     tools/tst-acceptance/check.ts
 // 控制台只打 ASCII 摘要（Windows 会把 UTF-8 截成乱码），四柱等中文明细看 --out=<file>。
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createChart as feCreateChart, BirthInfo } from '../../frontend/app/lib/core/yiqi-core';
+import { calculateTrueSolarTime } from '../../frontend/app/lib/core/yiqi-core/true-solar-time';
 import { buildTrueSolarWiring } from '../../frontend/app/lib/true-solar/birth-wiring';
 import { toCivilInput } from '../../frontend/app/lib/core/yiqi-core/lunar-input';
 import { createChart as beCreateChart } from '../../server/src/core/yiqi-core';
 import { generateChart as beGenerateChart } from '../../server/src/services/chart.service';
 
+const ROOT = join(__dirname, '../..');
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
   return hit ? hit.slice(name.length + 3) : null;
@@ -87,11 +90,85 @@ for (const cs of CASES) {
   say(`  A==C(engine parity) ${a === c ? 'YES' : 'NO'}   A==B(backend wiring) ${a === b ? 'YES' : 'NO'}`);
 }
 
+// ── crossed.hour 的语义（2026-10-21 裁定 ③）──
+// 这一格以前比的是**整点小时数**，可时辰是两小时一格，于是同格内的移动被报成"已跨时辰"；
+// 而夏令时那一步造成的跨格反而被漏掉。改按时辰比、参照换成 civilDateTime（卡片上印的那串钟表时间）。
+const ziIdx = (h: number) => Math.floor((h + 1) / 2) % 12;
+const ZHI = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+const tstOf = (o: any) => o.bazi.trueSolarTime;
+const hourZhiOf = (o: any) => o.bazi.siZhu.hour.zhi;
+const plateAt = (y: number, mo: number, d: number, h: number, mi: number, lon: number | null, dst: number) =>
+  feCreateChart({
+    year: y, month: mo, day: d, hour: h, minute: mi, isLunar: false, gender: 'male',
+    timeZone: 8, longitude: lon, dstOffset: dst, enableTrueSolarTime: lon !== null,
+  } as BirthInfo);
+
+// 裁定给的两条算例，逐字钉住。
+const ruled = [
+  { label: '02:00 -> 01:45 同属丑时（旧定义会误报）', h: 2, mi: 0, want: false },
+  { label: '夏令时 01:15 -> 00:00 丑变子（旧定义会漏报）', h: 1, mi: 15, dst: 1, want: true },
+];
+let ruledBad = 0;
+for (const r of ruled) {
+  const t = calculateTrueSolarTime({
+    year: 1990, month: 6, day: 15, hour: r.h, minute: r.mi, second: 0,
+    longitude: 116.4074, timezone: 8, dstOffset: r.dst ?? 0, enable: true,
+  });
+  const pOn = plateAt(1990, 6, 15, r.h, r.mi, 116.4074, r.dst ?? 0);
+  const pOff = plateAt(1990, 6, 15, r.h, r.mi, null, r.dst ?? 0);
+  const truth = hourZhiOf(pOn) !== hourZhiOf(pOff);
+  const okFlag = t.crossed.hour === r.want && truth === r.want;
+  if (!okFlag) ruledBad++;
+  say(`  ${okFlag ? 'PASS' : 'FAIL'} crossed/${r.label}`
+    + `  flag=${t.crossed.hour} want=${r.want} 时支 ${hourZhiOf(pOff)}->${hourZhiOf(pOn)} (真变了=${truth})`
+    + `  ${t.civilTime}->${t.trueSolarTime}`);
+}
+
+// 铺一遍网格，判据是"标志 == 时支真的不一样"，不是比字符串。
+// 这条能同时挡住两个方向的回归：又按整点比（误报）与参照选错（漏报）。
+let sweepBad = 0, swept = 0, tp = 0, fp = 0;
+for (const [lon, name] of [[116.4074, '北京'], [87.62, '乌鲁木齐'], [121.4737, '上海']] as [number, string][]) {
+  for (const dst of [0, 1]) for (let h = 0; h < 24; h += 2) for (const mi of [0, 30]) {
+    const t = tstOf(plateAt(1990, 6, 15, h, mi, lon, dst));
+    const truth = hourZhiOf(plateAt(1990, 6, 15, h, mi, lon, dst)) !== hourZhiOf(plateAt(1990, 6, 15, h, mi, null, dst));
+    swept++;
+    if (t.crossed.hour !== truth) {
+      sweepBad++;
+      if (sweepBad <= 3) say(`  FAIL crossed/sweep ${name} dst${dst} ${String(h).padStart(2, '0')}:${String(mi).padStart(2, '0')} `
+        + `flag=${t.crossed.hour} 时支实际变化=${truth} ${t.civilTime}->${t.trueSolarTime}`);
+    } else if (truth) tp++; else if (t.crossed.hour) fp++;
+  }
+}
+say(`  ${sweepBad ? 'FAIL' : 'PASS'} crossed/sweep-flag-equals-pillar-change  `
+  + `${swept} 组里 flag 与"时支真的变了"全部一致（真跨 ${tp} 组），不一致 ${sweepBad} 组`);
+// 同格内的移动不许再报：这是这次改动的靶心，单独钉一条，别让它埋在上面的计数里。
+const sameBucket = calculateTrueSolarTime({
+  year: 1990, month: 6, day: 15, hour: 2, minute: 0, second: 0,
+  longitude: 116.4074, timezone: 8, dstOffset: 0, enable: true,
+});
+const sbMove = sameBucket.trueSolarDateTime.hour !== 2;
+say(`  ${sbMove && !sameBucket.crossed.hour ? 'PASS' : 'FAIL'} crossed/same-bucket-move-stays-silent  `
+  + `整点从 2 挪到 ${String(sameBucket.trueSolarDateTime.hour).padStart(2, '0')}（旧定义在这里报 true），`
+  + `但 ${ZHI[ziIdx(2)]}时 内不动 -> flag=${sameBucket.crossed.hour}`);
+
+// server/ 那份同源拷贝由运维改（server/untouched 那条闸门写着这个分工）。
+// 这里不钉成红 —— 红了会把整套套件卡住，而这条要的是"随时看得见同步到哪一步了"：
+// 运维同步完，下一行自己变成 已同步，不用回来改断言。
+const srvCopy = readFileSync(join(ROOT, 'server', 'src', 'core', 'yiqi-core', 'true-solar-time.ts'), 'utf8');
+const srvSynced = /ziChenIndex\(civil\.hour\)/.test(srvCopy);
+say(`  ${srvSynced ? 'SYNCED' : 'PENDING'} server-copy/true-solar-time  `
+  + (srvSynced ? 'server 那份也按时辰比了 —— 两盘同一套口径'
+    : 'server 那份仍是 `corrected.hour !== stdLocal.hour`（按整点比）。'
+      + '改法见前端 true-solar-time.ts 的 ziChenIndex + crossed 那两行，逐字照搬即可；'
+      + '这一格只影响盘面提示，不影响任何四柱计算，所以同步前后 A==B/A==C 都照常绿。'));
+
 say('');
 say(`ENGINE PARITY A==C : ${CASES.length - engineBad}/${CASES.length} ${engineBad ? 'FAIL' : 'PASS'}`);
 say(`CONTROL A==B       : ${controlBad ? 'FAIL (the comparison itself is wrong)' : 'PASS'}`);
 say(`BACKEND WIRING A==B: ${CASES.length - backendBad}/${CASES.length} measured` +
   (REQUIRE_BACKEND ? (backendBad ? ' FAIL' : ' PASS') : ' (informational; --no-require-backend to relax)'));
+say(`CROSSED HOUR SEMANTICS: ruled ${ruled.length - ruledBad}/${ruled.length}, `
+  + `sweep flag==时支真变化 ${swept - sweepBad}/${swept} ${ruledBad || sweepBad ? 'FAIL' : 'PASS'}`);
 
 if (arg('out')) writeFileSync(arg('out')!, lines.join('\n') + '\n', 'utf8');
-process.exit(engineBad || controlBad || (REQUIRE_BACKEND && backendBad) ? 1 : 0);
+process.exit(engineBad || controlBad || ruledBad || sweepBad || (REQUIRE_BACKEND && backendBad) ? 1 : 0);
