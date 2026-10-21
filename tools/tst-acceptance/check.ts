@@ -105,10 +105,11 @@ const plateAt = (y: number, mo: number, d: number, h: number, mi: number,
 
 // 裁定①（2026-10-21）：crossed.day 也换成"取日柱那一天"的比法，参照同样是 civil。
 // 准绳必须是真的去比日柱，而不是比日历日串 —— 23 点要把日子往后滚一天，
-// 于是 00:00 校正到前一天 23:45 这种"日期变了、日柱没变"的样本一定存在（量出来 1728 组里有 102 组判错）。
+// 于是"日期变了但日柱没变"与"日期没变但日柱变了"两类样本一定都存在
+// （这一批扫下来：误报 18 组、漏报 18 组，机制都是夜子时那一滚，不是夏令时）。
 // 两种 dayBoundaryMode 都扫：只扫默认那一种的话，"mode 传下去了"这件事本身没被证明。
 const dayKey = (o: any) => Date.UTC(o.year, o.month - 1, o.day) / 86400000;
-let dayBad = 0, daySwept = 0, dayTrue = 0, dayNaiveWrong = 0;
+let dayBad = 0, daySwept = 0, dayTrue = 0, dayOver = 0, dayUnder = 0;
 const dayExamples: string[] = [];
 for (const mode of ['ZI_HOUR_23', 'MIDNIGHT_00'] as const) {
   for (const lon of [116.4074, 87.62, 121.4737]) {
@@ -122,17 +123,22 @@ for (const mode of ['ZI_HOUR_23', 'MIDNIGHT_00'] as const) {
         dayBad++;
         if (dayExamples.length < 4) dayExamples.push(`${mode} ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} flag=${on.bazi.trueSolarTime.crossed.day} 日柱${t ? '变' : '没变'}`);
       }
-      // 顺手把"只比日历日"的错法量出来，钉在摘要里：它是这次改动的全部理由。
+      // 顺手把"只比日历日"的错法按方向分开量：它是这次改动的全部理由，
+      // 而两个方向都必须抓到 —— 只挡住一边（比如只处理"滚进来"不管"滚出去"）
+      // 也照样能让"总数 > 0"那种粗断言绿着。
       const naive = dayKey(on.bazi.trueSolarTime.trueSolarDateTime) !== dayKey(on.bazi.trueSolarTime.civilDateTime);
-      if (naive !== t) dayNaiveWrong++;
+      if (naive && !t) dayOver++;
+      if (!naive && t) dayUnder++;
     }
   }
 }
 say(`  ${dayBad ? 'FAIL' : 'PASS'} crossed-day/sweep-flag-equals-pillar-change  `
   + `${daySwept} 组（ZI_HOUR_23 与 MIDNIGHT_00 各半）里 flag 与"日柱真的变了"全部一致（真跨 ${dayTrue} 组），`
   + `不一致 ${dayBad} 组${dayExamples.length ? ' 例:' + dayExamples.join(' | ') : ''}`);
-say(`  ${dayNaiveWrong > 0 ? 'PASS' : 'FAIL'} crossed-day/naive-date-compare-is-worse  `
-  + `只比日历日会与真实日柱对不上 ${dayNaiveWrong} 组 —— 这一条存在的理由就是它：0 则说明这个准绳没被这次扫描真的考验到，要换样本`);
+say(`  ${dayOver > 0 && dayUnder > 0 ? 'PASS' : 'FAIL'} crossed-day/naive-date-compare-wrong-both-ways  `
+  + `只比日历日：误报 ${dayOver} 组（如 00:20 校正到前一日 23:45，23 点把日柱滚回来，日子跨了日柱没跨）、`
+  + `漏报 ${dayUnder} 组（如 23:00 滚成次日、校正到同日 22:45 不滚，日期没跨日柱却差一天）—— `
+  + `两个方向都要 >0，否则这次扫描根本没考验到新准绳`);
 
 // ── crossed.hour 的语义（2026-10-21 裁定 ③）──
 // 这一格以前比的是**整点小时数**，可时辰是两小时一格，于是同格内的移动被报成"已跨时辰"；
@@ -231,8 +237,8 @@ say(`BACKEND WIRING A==B: ${CASES.length - backendBad}/${CASES.length} measured`
 say(`CROSSED HOUR SEMANTICS: ruled ${ruled.length - ruledBad}/${ruled.length}, `
   + `sweep flag==时支真变化 ${swept - sweepBad}/${swept} ${ruledBad || sweepBad ? 'FAIL' : 'PASS'}`);
 say(`CROSSED DAY SEMANTICS: sweep flag==日柱真变化 ${daySwept - dayBad}/${daySwept}（真跨 ${dayTrue}），`
-  + `只比日历日会与日柱对不上 ${dayNaiveWrong} 组 ${dayBad || !dayNaiveWrong ? 'FAIL' : 'PASS'}`);
+  + `只比日历日 误报 ${dayOver} / 漏报 ${dayUnder} ${dayBad || !dayOver || !dayUnder ? 'FAIL' : 'PASS'}`);
 
 if (arg('out')) writeFileSync(arg('out')!, lines.join('\n') + '\n', 'utf8');
-process.exit(engineBad || controlBad || ruledBad || sweepBad || dayBad || !dayNaiveWrong
+process.exit(engineBad || controlBad || ruledBad || sweepBad || dayBad || !dayOver || !dayUnder
   || (REQUIRE_BACKEND && backendBad) ? 1 : 0);
