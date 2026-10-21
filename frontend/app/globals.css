@@ -10,9 +10,10 @@
   --color-bg-footer: #fafaf8;
   --color-text-primary: #1d1d1f;
   /* secondary 供正文次级文字。批B（2026-10-21）从 #707076 升到 #5f5f66：
-     #707076 在白卡上是 4.52:1 —— 那是刀刃值，换个底就掉下来（门廊那张纸上是 4.40，直接不达标）。
-     13px 次文是全站用量最大的一档，留 0.02 的余量等于没留。升到 #5f5f66 后：白卡 6.39、
-     浅灰页底 5.87、门廊纸 5.66。全站 AA 由 harness 重测（这一档一改就是几十处）。 */
+     旧值在页面底 rgb(245,245,247) 上是 4.52:1 —— 那是刀刃值，只比 AA 线高 0.02，
+     而 13px 次文是全站用量最大的一档（读数由 harness 从渲染结果量，不由手算：
+     同一个值手算给出过 4.48 / 4.49 / 4.52 三个数）。升档后它不再是任何一态的最差读数
+     （那一页现在最差 4.72），全站 82 态 main AA=0，最窄的一档是六爻那处 4.51 的既有项。 */
   --color-text-secondary: #5f5f66;
   --color-text-muted: #86868b;
   --color-hairline: #c7c7cc;
@@ -65,8 +66,9 @@
      而不是一张卡贴在灰底上。 */
   --color-gate-paper: #f5f2ea;
   /* 计数行那 13px 的字色以前在这里另立一支（--color-gate-muted: #5f5f66）：
-     因为 --color-text-secondary 当时是 #707076，在这张纸上只有 4.40:1，不达 AA。
-     批B 把 secondary 本身升到 #5f5f66 之后，那支就成了同值副本 —— 副本删掉，只留一处。 */
+     当时 --color-text-secondary 是 #707076，在门廊这张纸上不够，批A 是靠换成更深的那支绕开的。
+     批B 把 secondary 本身升到 #5f5f66 之后，那支就成了同值副本 —— 副本删掉，只留一处。
+     （"不够"的读数也不写死在这里：手算给过三个值，只有 harness 从渲染结果量出来的算数。） */
 
   /* ===== 工具状态圆点（值与 lib/tools/status.ts 一一对应，西方在下方重指向）=====
      非文本对比度下限 3:1。浅底与墨底不可能共用一支金：#b2955d（旧值）在白底只有 2.87:1，
@@ -836,8 +838,11 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 /* ---- 问事框 ---- */
 /* 问事框那一行：输入框 + 按钮。nowrap 是刻意的 —— 以前它们挤在 flexWrap:'wrap' 里，
    按钮文字在「问一下 / 在想」之间变长就会让整行重排（实测按钮跳到下一行、整页被推下去
-   54px、CLS 0.106）。输入框自己 min-width:0，永远让得起。 */
-.qa-row { display: flex; gap: 8px; flex-wrap: nowrap; align-items: stretch; }
+   54px、CLS 0.106）。输入框自己 min-width:0，永远让得起。
+   align-items 用 flex-end 不用 stretch：输入框换成 4 行 textarea 之后，stretch 会把
+   按钮拉到一样高（110×128），而 .qn-btn 是 border-radius:999px —— 屏幕上就是一颗金蛋。
+   这条是看截图看见的，宽度/命中区/对比度三条判据当时全绿。 */
+.qa-row { display: flex; gap: 8px; flex-wrap: nowrap; align-items: flex-end; }
 .qa-row .qn-textarea { flex: 1 1 auto; min-width: 0; }
 .qa-submit {
   /* 110 = 实测「问一下」的盒宽（3 字 × 15px + 左右各 30px padding + 边框）。
@@ -867,9 +872,12 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 /* compact（东方 hero 里那一版）以前完全不预留，于是每问一句就把下面的意图区与整页推一次：
    实测桌面 1280×900 —— 一条回答 CLS 0.039，两条 0.103（超 0.1 判红）。
    375 那一档恰好为 0 只是因为 hero 比视口高、被推走的东西本来就在屏外，不是没问题。
-   预留 132px + 内部滚动：答案再长也不改变页面高度；空着的那一块有提示文字（下面组件里
-   两种模式都渲染），所以预留不是"留一截空白"。 */
-.qa-pane[data-compact="1"] { position: relative; height: 132px; margin-top: 10px; }
+   预留 + 内部滚动：答案再长也不改变页面高度；空着的那一块有提示文字（下面组件里
+   两种模式都渲染），所以预留不是"留一截空白"。
+   152 这个数是量出来的，不是凑的：matched 那一张卡（你问 / 该用的是 / 入口 / 还要补 / 怎么读）
+   的入口底线在桌面 143px、375 那一档 139px —— 预留 132px 时是"结论给了、下一步点不到"，
+   现在由 harness 的"入口必须在预留格里看得见"那条判据钉住（改高度或改卡片内容顺序都会被咬）。 */
+.qa-pane[data-compact="1"] { position: relative; height: 152px; margin-top: 10px; }
 .qa-pane[data-compact="1"] .qa-turns {
   position: absolute; inset: 0; overflow-y: auto;
   display: grid; align-content: start;

@@ -197,15 +197,19 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
                   <p className="qn-body" style={{ marginTop: 8 }}>
                     该用的是{tool.name}（{tool.status}）。
                   </p>
-                  <p className="qn-meta" style={{ marginTop: 4 }}>{tool.reading}</p>
+                  {/* 顺序是量出来的，不是排好看的：预留那一格只有 132px，而"怎么读"那句
+                      放在入口前面的话，入口要到 220px（375 那一档 258px）—— 结论给了、
+                      下一步却藏在折线以下。所以这一支是 结论 → 入口 → 还要补 → 怎么读，
+                      由 harness 的"入口必须在预留格里看得见"那条判据钉住。 */}
+                  <Link href={tool.href!} className="qn-btn qn-btn--ghost" style={{ marginTop: 8, minHeight: 44 }}>
+                    进入 · {tool.name}
+                  </Link>
                   {t.result.missingFields.length > 0 && (
                     <p className="qn-note" style={{ marginTop: 6 }}>
                       还要补：{t.result.missingFields.join('、')}。页面会再问你，这里不替你填。
                     </p>
                   )}
-                  <Link href={tool.href!} className="qn-btn qn-btn--ghost" style={{ marginTop: 10, minHeight: 44 }}>
-                    进入 · {tool.name}
-                  </Link>
+                  <p className="qn-meta" style={{ marginTop: 6 }}>{tool.reading}</p>
                 </>
               )}
 

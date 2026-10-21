@@ -284,6 +284,14 @@ QN_TAP_DUMP=1 node tools/visual-harness/census.mjs --base=... --only=chart-resul
    按钮盒子窄 16px，它在 flex 行尾所以左边线右移（`QN_CLS_SRC_MIN=0.0001` 量到 `dx=-16`），
    移动端两态各 +0.001。修法是把按钮宽度钉成「问一下」的实测盒宽（110px），标签换字不许改变盒子。
    位移来源记录的门槛可以用 `QN_CLS_SRC_MIN` 调（默认 0.01，判定读的是总分，不受它影响）。
+9. **预留格里"给了结论"不等于"给了下一步"：入口必须量看得见（批B 看截图补的）。**
+   `qaProbe` 对带入口的那几态读 `.qa-pane` 的可视高度与最后一个 `a[href]` 的底线，入口落在折线以下就红，
+   并把两个数一起打出来（`预留格 152px / 入口要到 143px`）。加这条的当场就红 4 态：132px 那一版
+   matched 卡的按钮要到 220px（375 那一档 258px）—— 页面写着"该用的是八字 & 紫微斗数"，
+   而"进入"要滚才看得到，宽度/命中区/对比度/CLS 四条全绿。修法两半：卡片顺序改成
+   结论 → 入口 → 还要补 → 怎么读，预留高度按量到的 143/139 取 152。
+   同批另一条也是看截图才看见的：`align-items:stretch` 把提交按钮拉到 textarea 那么高（110×128），
+   而 `.qn-btn` 是 `border-radius:999px` —— 屏幕上是一颗金蛋。改成 `flex-end`。
 
 React 受控 input 在探针里必须走**该元素自己那一族**的原生 setter + `input` 事件（直接改 `.value` 不触发 onChange，
 点提交就是空跑一趟 —— 那种绿最骗人）。批B 把问事框换成 `<textarea>` 之后，写死 `HTMLInputElement.prototype`

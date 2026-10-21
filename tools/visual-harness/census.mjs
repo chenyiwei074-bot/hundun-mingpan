@@ -1248,6 +1248,21 @@ const qaProbe = p => `(() => {
   if (srcLocal && !degraded)
     out.push('写着回落本机却没写为什么 —— degraded 拿到了不上屏就是缺陷②的形状');
   if (srcServer && degraded) out.push('真走了服务端却还挂着"没用上服务端"的理由');
+  // 入口必须"看得见"。预留块是内部滚动的，入口如果落在折线以下，用户读到的是
+  // "该用的是 X"却没有下一步 —— 这条是看截图补的（compact 预留 132px 那一版就是这样：
+  // 标题与说明都在，按钮在盒子底下要滚才看得到，而宽度/命中区/对比度/CLS 四条全绿）。
+  const pane = t.closest('.qa-pane');
+  let entryBox = null;
+  if (links.length && pane) {
+    const pr = pane.getBoundingClientRect();
+    const bottoms = [...t.querySelectorAll('a[href]')].map(a => a.getBoundingClientRect().bottom);
+    entryBox = { paneH: Math.round(pr.height), need: Math.round(Math.max(...bottoms) - pr.top) };
+    entryBox.fits = entryBox.need <= entryBox.paneH - 1;
+    if (!entryBox.fits) {
+      out.push('入口藏在预留块的滚动折线以下（这一格可见 ' + entryBox.paneH + 'px，最后一行入口要到 '
+        + entryBox.need + 'px）：这一态给了结论却没给能点到的下一步');
+    }
+  }
   // 并列那一支：chip 数就是"系统有没有替用户选"的证据。少于 2 枚 = 它已经替你选了一个。
   const chips = [...t.querySelectorAll('.qn-chip')].map(x => (x.innerText || '').trim()).filter(Boolean);
   if (${JSON.stringify(p.chips || null)} !== null && chips.length < ${JSON.stringify(p.chips || 0)})
@@ -1257,7 +1272,7 @@ const qaProbe = p => `(() => {
     // 留着不撤等于让用户以为还能再挑一次，而这一轮的结论其实已经定了。
     if (chips.length) out.push('挑过一个之后还挂着 ' + chips.length + ' 枚候选 chip：' + JSON.stringify(chips));
   }
-  return { miss: out, links: links.length, chips: chips.length, chars: txt.length };
+  return { miss: out, links: links.length, chips: chips.length, entry: entryBox, chars: txt.length };
 })()`;
 
 // IME 门闩那一态读的是 AFTER 钩子留在 window 上的两个计数（组词中按 Enter / 组词后按 Enter）。
@@ -2429,7 +2444,9 @@ async function measure(tag, url) {
     if (!miss) fail.push(tag + ': 问事探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 问事结果不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    QA MISMATCH ' + miss.join(' | ')
-      : `    问事「${QA_PINS[base].q}」→ 入口 ${got.links} 个，回答 ${got.chars} 字，全部对得上`);
+      : `    问事「${QA_PINS[base].q || '（点示例）'}」→ 入口 ${got.links} 个，回答 ${got.chars} 字`
+      + (got.entry ? `，预留格 ${got.entry.paneH}px / 入口要到 ${got.entry.need}px（看得见）` : '')
+      + '，全部对得上');
   }
   // IME 门闩单独一态：它钉的不是"答得对不对"，而是"组词中的回车有没有被当成发送"。
   if (base === 'oriental-ime') {
