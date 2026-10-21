@@ -174,13 +174,11 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
 
       {/* 两种模式都给答案面板固定高度 + 内部滚动：答案卡插进来不再把下面的目录或意图区推下去。
           /western 问事态实测 CLS 0.155 就是这么来的，compact 那一版桌面实测一条回答 0.039、
-          两条 0.103（超 0.1 判红）。预留的高度写在 globals.css 的 .qa-pane 两条规则上，
-          数字与理由（含 375 为什么读到 0）也记在那里 —— 这里只说约束：四类意图必须仍在首屏内，
-          所以 compact 只能预留 132px，不能预留一整张卡的高度。 */}
+          两条 0.103（超 0.1 判红）。预留多少 px 只写在 globals.css 的 .qa-pane 上（数字与
+          推导都在那里，组件不抄第二份），这里只说约束：四类意图必须仍在首屏内。 */}
       <div className="qa-pane" data-compact={compact ? '1' : undefined}>
         <div className="qa-turns" aria-live="polite">
-        {/* 两种模式都渲染这一句：compact 那一版现在预留了 132px（见 globals.css 的 CLS 注释），
-            预留的那一块必须有内容，否则首屏就是一截空白。 */}
+        {/* 两种模式都渲染这一句：预留的那一块必须有内容，否则首屏就是一截空白。 */}
         {turns.length === 0 && (
           <p className="qn-cap" style={{ margin: 0 }}>问一句之后，结果出现在这一块。</p>
         )}
@@ -197,9 +195,9 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
                   <p className="qn-body" style={{ marginTop: 8 }}>
                     该用的是{tool.name}（{tool.status}）。
                   </p>
-                  {/* 顺序是量出来的，不是排好看的：预留那一格只有 132px，而"怎么读"那句
-                      放在入口前面的话，入口要到 220px（375 那一档 258px）—— 结论给了、
-                      下一步却藏在折线以下。所以这一支是 结论 → 入口 → 还要补 → 怎么读，
+                  {/* 顺序是量出来的，不是排好看的：预留那一格是有限高的（globals.css 的 .qa-pane），
+                      "怎么读"那句排在入口前面的话，入口底线要到 220px（375 那一档 258px）——
+                      结论给了、下一步却要点不到。所以这一支是 结论 → 入口 → 还要补 → 怎么读，
                       由 harness 的"入口必须在预留格里看得见"那条判据钉住。 */}
                   <Link href={tool.href!} className="qn-btn qn-btn--ghost" style={{ marginTop: 8, minHeight: 44 }}>
                     进入 · {tool.name}

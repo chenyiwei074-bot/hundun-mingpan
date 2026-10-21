@@ -195,11 +195,13 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 | # | 位置 | 事实 | 修法 | 归批 |
 |---|---|---|---|---|
 | ① | [route-client.ts:12](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/assistant/route-client.ts#L12) | POST `/api/assistant/route`，实际路由是 `app/api/assistant/route.ts` → `/api/assistant`。**硬错**：服务端那一发永远打不通，每次都 404 回落本机 | 改端点为 `/api/assistant`，并加一条断言钉"客户端常量 == 路由路径"；若决定不接服务端，就整层删掉，别留"看似会走服务端" | **批A 已落**（常量改 `/api/assistant` + `route/endpoint-matches-route` 三闸门）|
-| ② | `QuestionComposer`（`outcome.degraded` 未渲染） | 追问/降级理由拿到了却不显示 → "资料不足先问"这条主流程在界面上是断的 | 状态机 `clarify/degraded` 段落上屏 + harness 态钉文案 | B |
+| ② | `QuestionComposer`（`outcome.degraded` 未渲染） | 追问/降级理由拿到了却不显示 → "资料不足先问"这条主流程在界面上是断的 | 状态机 `clarify/degraded` 段落上屏 + harness 态钉文案 | **批B 已落**（四种落点 + `服务端这一轮没用上：X` 上屏 + `oriental-ask/choices/chosen/ime/western-example` 五态钉） |
 | ③ | [WesternWorkspace.tsx:10](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L10) | `--color-border-strong` 未定义 → 回退 `rgba(0,0,0,.22)`，在 `#241a3d` 上等于没有；`/tools` 另一套 | 单一 `lib/tools/status.ts` + census 判定点色唯一来源 | A |
 | ④ | `FloorPlanStudio` 选图后 | 没有 `移除这张图/重传` 出口，用户只能再选一次，图是否还在不可见 | 加移除 + 二次确认 + 清状态 | C |
 | 缺陷5（新量到，改版前就存在） | [WesternWorkspace.tsx:9](file:///C:/Users/Kobe/Documents/HDAI/frontend/components/western/WesternWorkspace.tsx#L9) · [tools/page.tsx:11](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/tools/page.tsx#L11) | `部分可用` 点 = `#b2955d`，白底 **2.87:1**、`#f5f5f7` **2.64:1**，低于非文本 3:1 下限 | 随修正⑤ 的单源化一起换值（§7 表：亮底 `#a3823a`、墨底 `#e3cd96`/`#d9b877`），census 加状态点对比度判定 | **批A 已落** |
 | 缺陷6（新量到，属文案口径矛盾） | [catalog.ts:129](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/tools/catalog.ts#L129) 对 [fengshui/page.tsx:34](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/fengshui/page.tsx#L34) | 目录 `note` 写着「**不上传户型图**：图片要落地就得加存储与告知流程，那一半属于后端」，而 `FloorPlanStudio` 早已实装上传+识别（`components/fengshui/FloorPlanStudio.tsx:229` 选户型图、:231 `<input type="file">`），`/fengshui` 页第 34 行也写着「上传是可选的…勾选同意之前，图片不会离开这台设备」。**这句 note 由 `/tools` 页原样渲染**（`app/tools/page.tsx:64`）→ 用户在同一站里读到两句相反的话 | 待裁：改目录那句以匹配实装（含"7 天自动删、可移除"）还是收紧产品；改哪一处都要同步 `directory-acceptance` 的文本断言（先剥注释）。**批10 不动它** —— 目录是口径单一来源，不是我能顺手改的 | 运维已裁：改目录那侧，**批A 已落** |
+| 缺陷7（批B 开工当天实测线上量到） | `route-client.ts` 的 source 判定 + 线上 `POST /api/assistant` | 缺陷① 修好之后服务端**确实回了 200**，但 body 里是 `source:"local"` + `degraded:"上游回的形状不合协议"` —— 服务端自己也回落了本机目录。客户端原来按"HTTP 200 就算服务端答的"标来源，于是页面会把一次本机关键词匹配说成"这一轮来自服务端路由" | 以响应里自己声明的 `source` 为准；不声明来源的按"没用到"处理并写明原因。两条新断言（`fallback/server-says-local-is-kept-local` / `fallback/missing-source-not-credited`）+ 桩改成照产线形状带 source | **批B 已落** |
+| 缺陷8（批B 的新判据自己抓到的） | `globals.css` `.qa-submit` + harness 的 CLS 判定 | 预留过高度的面板用 0.1 那条 Web Vitals 线**测不出回归**（撤掉 132px 预留只到 0.036 / 0.096）；判据改成"动了就红"之后，当天就点出提交瞬间标签「问一下」→「在想」让按钮盒子窄 16px、行尾按钮左边线来回跳（两态各 +0.001） | 六态判据改零位移；按钮宽度钉成「问一下」的实测盒宽（110px + nowrap）；位移来源记录门槛做成可调（`QN_CLS_SRC_MIN`） | **批B 已落** |
 
 ## 13. 批次
 
@@ -273,3 +275,81 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 "自己带文字"的元素（整块背景压在半透明导航下是设计，字不是），凡 `top < 导航底 − 1` 就红。
 这条判据两头都验过：把 padding 撤掉，探针在真页面上点出两行
 （`P.qn-eyebrow top=32「混沌 · 两套体系」`、`H1.qn-hero top=49「先选一套体系」`），装上之后返回空数组。
+
+---
+
+## 16. 批B 落地（2026-10-22，运维排期：问事框 + 次文色 + 门廊补一行）
+
+**做了什么**：§6 的问事框状态机做成四种落点、降级理由上屏（缺陷②）、中文输入法门闩、
+`--color-text-secondary` 升档全站重测（缺陷7）、门廊 h1 下补「东方与西方玄学工具箱」
+（运维 2026-10-21 补的裁定）。**命理算法层一行未动，`server/` 一行未动。**
+
+**状态机按落地后的实际形状（稿子里原来只画了两支）**：
+
+| 落点 | 触发 | 屏幕上有什么 |
+|---|---|---|
+| `matched` | 对上唯一一个已开放工具 | 工具名 + 状态 + 怎么读 + 「还要补」+ 入口 |
+| `choices` | 两个同分 | 两枚 chip，**一枚都不替用户选**；挑完 chip 收起、来源换成"你自己挑的" |
+| `closed` | 对上的条目在目录里但没开放 | 未开放点 + 目录自己那句"缺什么" + **零入口** |
+| `clarify` | 谁也没对上 / 缺料 | 那句话 + 补什么 |
+
+`candidates` / `closedSlug` 是协议的 add-on 字段：老服务端不带仍合法，带了但形状不对**整份判废**；
+候选 slug 一样要过 `reconcile` 那道目录白名单（模型幻觉一个 slug 就摆一个 404 按钮，chip 也是按钮），
+过滤后不足两枚就清空 —— "只剩一枚的并列"是假并列。
+
+**观测纠正了这条链路的默认假设**：`/api/assistant` 现在线上真的回 200，但 body 里带的是
+`source:"local"` + `degraded:"上游回的形状不合协议"` —— 服务端自己也回落了本机目录。
+以前客户端按"HTTP 200 就是服务端答的"标来源，等于把一次本机关键词匹配标成"服务端路由"。
+现在以响应里自己声明的 `source` 为准；不声明来源的按"没用到"处理并写明为什么。
+
+**门廊补的那一行**用 title 档（`--qn-fs-title`，18px），不跟正文同字号：它跟 h1 是一组，
+首屏顶部三行字一样大就没有轻重。计数行（三数并列）是批A 已经落的东西，本批只把它的字色
+从同值副本 `--color-gate-muted` 改回 `--color-text-secondary` 一处。
+
+**升 `--color-text-secondary` 这件事的账**：旧值 #707076 在页面底 rgb(245,245,247) 上是
+**4.52:1**（批A 那趟 harness 从渲染结果量的，运维裁定里点名的就是这个刀刃值），只比 AA 线高 0.02，
+而 13px 次文是全站用量最大的一档；门廊那张纸上更浅的底当时是靠另立一支 #5f5f66 绕过去的。
+升到 #5f5f66 之后：那支副本（`--color-gate-muted`）删掉，只留一处；`4.52` 那个位置不再是任何一态的
+最差读数（东方/西方页现在最差 4.72），门廊页最差 5.35，全站 82 态 `main AA=0`，
+最窄的一档是六爻那处 4.51 的既有项（不是这一支）。
+**规矩**：对比度的数字只能由浏览器给 —— 同一个比值我手算给出过 4.48 / 4.49 / 4.52 三个数，
+所以这批改完之后，凡是写进注释和文档的数字都必须是 harness 打印出来的那一个。
+
+**一条新判据，当天就抓到一件谁也没看见的事**：问事框六态（答案面板预留过高度）的 CLS 判据
+从"≥0.1 才红"改成"动了就红"，理由是实测把 132px 预留撤掉，桌面只到 0.036 / 0.096 —— 通用线咬不住。
+新判据上线当轮就点出 `m1-western-ask` / `m1-western-example` 各 +0.001：提交那一刻标签从「问一下」
+换成「在想」，盒子窄 16px，按钮在 flex 行尾所以左边线先右移再回来（`dx=-16`）。
+修法是把按钮宽度钉成「问一下」的实测盒宽。修完六态两视口全部零位移。
+
+**看截图才看见的两条（§15 那条 `navClash` 的教训，这一批又应验两次）**：
+① `align-items:stretch` 把提交按钮拉到 4 行输入框那么高（110×128），而 `.qn-btn` 是
+`border-radius:999px` —— 屏幕上是一颗金蛋。改 `flex-end`，按钮回到 46px。
+② 更要紧的一条：matched 那张卡在预留 132px 的那一格里，**「进入 · X」按钮在折线以下**
+（实测入口底线桌面 220px、375 那一档 258px）—— 页面写着"该用的是八字 & 紫微斗数"，
+下一步却要滚才看得到，而宽度/命中区/对比度/CLS 四条全绿。补了一条判据（入口必须落在
+`.qa-pane` 可视格内，红的时候把"可见多少 px / 入口要到多少 px"一起打出来），
+补完当场红 4 态；修法两半：卡片顺序改成 **结论 → 入口 → 还要补 → 怎么读**（"怎么读"那句
+工具页本来就有，不该挤掉入口），预留高度按量到的 143/139 取 152px。
+`FIRST-SCREEN intents=4/4` 在两视口仍然成立（意图区在问事框**上面**，长高的预留格推的是它下面那段）。
+
+**证伪（每条都点名红，不是"整体变红"）**：
+| 喂进去的假 | 结果 |
+|---|---|
+| 来源判据退回"HTTP 200 就算服务端答的" | assistant 精确 2 红：`fallback/server-says-local-is-kept-local`（实得 `server / null`）、`fallback/missing-source-not-credited` |
+| `reconcile` 不再过滤候选 | 精确 2 红：`route/candidates-whitelisted`（把 `["bazi","liuyao","xingming","不存在的-slug"]` 原样打出来）、`route/no-single-chip` |
+| 降级理由拿到不渲染 | 精确 1 红：`comp/degraded-on-screen` |
+| 撤掉 IME 门闩 | census 两视口各 1 红：`组词中的回车被当成发送了：那一刻已经有 1 轮（应当 0 轮）` |
+| 并列只摆一枚 chip（替用户选） | census 两视口各 1 红：`并列候选应有 2 枚 chip，实得 1 枚` |
+| 撤掉 compact 的 132px 预留 | 通用 0.1 线**不红**（0.036 / 0.096）；新的零位移判据 2 红，点名"预留没生效" |
+| 入口判据的"另一头"不用造假：132px 那一版就是刚提交的产品 | 精确 4 红：`入口藏在预留块的滚动折线以下（这一格可见 132px，最后一行入口要到 220px / 258px）`；改成 152px + 卡片顺序后转绿，读数为 `预留格 152px / 入口要到 143px（看得见）` |
+
+撤销实验之后重跑：问事框六态（6 态 × 两视口 = 12 个读数）全绿。产物 CSS 包的哈希链是
+`31ykp0ti-wyjo`（证伪前）→ `1pjr9erwigzn4`（三处假一起喂进去）→ `31ykp0ti-wyjo`（撤销之后**回到同一个哈希**，
+说明实验没在产物里留残渣）→ `3jx3196-irz1p`（钉按钮宽度）→ `3iwf9frrlzhf6`（按钮对齐 flex-end；
+接下来那次"卡片顺序"只动 TSX，CSS 包哈希**没变**，这本身就是那一步没碰样式的证据）→
+`3e0usn1oick1t`（预留 152px）。每一步都重启过 serving 并核过
+"页面上引的那包 == 盘上那包"（这台机器的老坑：重建不重启，页面引的是上一版）。
+
+**套件**：assistant acceptance 46→64（并列白名单 / 假并列清零 / closed 解释必须引目录原文 /
+add-on 字段形状判废 / `needsFor` 单源 / 降级上屏 / IME 两条都要 / 来源不混用），
+19 项检查全绿（kline 的 `change-list/is-real` 会拒绝未提交的批次 —— 先 commit 再跑，这是设计）。
