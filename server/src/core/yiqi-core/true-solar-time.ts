@@ -75,7 +75,11 @@ export interface TrueSolarTimeResult {
   longitude: number | null;
   /** 时区基准（小时） */
   timezone: number;
-  /** 校正是否跨越了时辰或日期边界 —— 会影响时柱/日柱，必须提示 */
+  /**
+   * 校正之后时柱/日柱所在的那一格有没有真的换掉。
+   * hour 按**时辰**（两小时一格）比，参照是 civilDateTime ↔ trueSolarDateTime，
+   * 也就是卡片上印着的那两串字；不是整点小时数，也不是 standard。
+   */
   crossed: { hour: boolean; day: boolean };
   algorithm: 'meeus-simplified' | 'none';
 }
@@ -135,6 +139,11 @@ function toDateTime(ms: number): CorrectedDateTime {
     year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate(),
     hour: d.getUTCHours(), minute: d.getUTCMinutes(), second: d.getUTCSeconds(),
   };
+}
+
+/** 时辰下标：23–01 子、01–03 丑 …… 与 ziwei-standard.ts 的 getHourZhiIndex 同一格法。 */
+function ziChenIndex(hour: number): number {
+  return Math.floor((hour + 1) / 2) % 12;
 }
 
 /** 从当地时间分量 + 时区/夏令时偏移求 UTC 毫秒（不依赖本地时区） */
@@ -209,7 +218,11 @@ export function calculateTrueSolarTime(input: TrueSolarTimeInput): TrueSolarTime
     dstOffsetMinutes: dstH * 60,
     totalCorrectionMinutes: +total.toFixed(4),
     standardMeridian, longitude: lon, timezone: tz,
-    crossed: { hour: corrected.hour !== stdLocal.hour, day: !sameDay },
+    // 时辰两小时一格，"跨没跨"只能按格比。参照取 civil（用户填的、卡片上印着的那串钟表时间），
+    // 不是 standard：按整点小时数比会在同一格内误报（1728 个采样 72 个假"已跨"），
+    // 而按 standard 比会把夏令时那一步造成的跨格判成没跨（同批采样漏报 240 个，全是夏令时盘）。
+    // day 仍按 standard 参照，本批没被授权改它 —— 夏令时且生于 00:00–01:00 那一档两者不等价（36 个采样），已记进交接文档待裁。
+    crossed: { hour: ziChenIndex(corrected.hour) !== ziChenIndex(civil.hour), day: !sameDay },
     algorithm: 'meeus-simplified',
   };
 }
