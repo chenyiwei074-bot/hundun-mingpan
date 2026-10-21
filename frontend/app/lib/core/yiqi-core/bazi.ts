@@ -5,7 +5,7 @@ import { Lunar, Solar } from 'lunar-typescript';
 import { getSiZhuChangSheng } from './zhangsheng';
 import { getSiZhuNaYin } from './nayin';
 import { getAccurateMonthGanZhi } from './jieqi';
-import { calculateTrueSolarTime } from './true-solar-time';
+import { calculateTrueSolarTime, rollsToNextDay } from './true-solar-time';
 import { toCivilInput } from './lunar-input';
 
 /**
@@ -91,8 +91,8 @@ function getAdjustedSolarForZiShi(solar: Solar, mode: 'ZI_HOUR_23' | 'MIDNIGHT_0
   // 如果是晚子时（23:00-24:00），使用第二天的日期计算日柱
   // MIDNIGHT_00 口径下日柱不滚动（夜子时仍属当日），但时柱照子时排，
   // 因为时柱取的是未滚动的 solar，两条口径下都得到同一个子时干。
-  if (hour === 23 && mode !== 'MIDNIGHT_00') {
-    console.error('[晚子时处理] 23点，使用第二天的日柱');
+  // 换日规则本身在 true-solar-time.ts 的 rollsToNextDay（crossed.day 也要用同一个口径）。
+  if (rollsToNextDay(hour, mode)) {
     // 获取第二天的日期
     const nextDay = solar.next(1); // 下一天
     return nextDay;
@@ -140,6 +140,8 @@ export function createBaziChart(birthInfo: BirthInfo): BaziChart {
       timezone: birthInfo.timeZone ?? 8,
       dstOffset: birthInfo.dstOffset ?? 0,
       enable: birthInfo.enableTrueSolarTime !== false,
+      // crossed.day 要按同一套换日口径回答，所以把 mode 传下去，不在那边各写一份 23 点判断。
+      dayBoundaryMode: birthInfo.dayBoundaryMode,
     });
     const t = tst.trueSolarDateTime;
 
