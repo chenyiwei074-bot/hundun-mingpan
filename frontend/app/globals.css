@@ -688,6 +688,42 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   border: 0.5px solid rgba(178, 58, 46, 0.18);
 }
 
+/* ---- 回执条三档（info / pending / danger）----
+   全部只引"会随主题重指向"的语义令牌，不写字面色，也不在西方块里另写一套：
+   --color-bg-card / --color-danger / --color-accent-gold-text / --color-text-primary
+   这四支在 [data-mode="western"] 里都有另一档，所以三档在两种主题下是同一份规则。
+   档位还有一条**非颜色**通道：左沿 3px 实线的色 + 前缀中文（Callout.tsx 里那份表）+ role。 */
+.qn-callout {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: var(--qn-fs-meta);
+  line-height: 1.6;
+  border: var(--qn-hairline);
+  border-left-width: 3px;
+  border-left-style: solid;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.qn-callout__tag { font-weight: 600; letter-spacing: .04em; }
+.qn-callout__text { flex: 1 1 240px; min-width: 0; }
+.qn-callout--info {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  border-left-color: var(--color-text-secondary);
+}
+.qn-callout--info .qn-callout__tag { color: var(--color-text-secondary); }
+.qn-callout--pending {
+  background: color-mix(in srgb, var(--color-accent-gold-text) 8%, var(--color-bg-card));
+  color: var(--color-text-primary);
+  border-left-color: var(--color-accent-gold-text);
+}
+.qn-callout--pending .qn-callout__tag { color: var(--color-accent-gold-text); }
+.qn-callout--danger {
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-card));
+  color: var(--color-danger);
+  border-left-color: var(--color-danger);
+}
+.qn-callout--danger .qn-callout__tag { color: var(--color-danger); }
+
 /* ---- 双体系门廊与工作页（#双体系）----
    两套主题各自只覆盖"这一系的强调色"，页面底色与文字 token 不动：
    整站文字对比度是按现有 token 量过的（13px 次要灰压卡底 4.51:1），
@@ -858,6 +894,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 }
 .fp-steps__item[aria-current="step"] { border-color: var(--color-accent-gold-text); color: var(--color-text-primary); font-weight: 500; }
 .fp-steps__no { font-variant-numeric: tabular-nums; opacity: .8; }
+/* 步名与档位是这格里真正被读的两段：编号只是序，字才是内容，所以字重给在名字上。 */
+.fp-steps__name { letter-spacing: .02em; }
+.fp-steps__item[aria-current="step"] .fp-steps__name { font-weight: 600; }
 .fp-steps__state { font-size: var(--qn-fs-meta); letter-spacing: .04em; opacity: .85; }
 .fp-steps__hint { margin: 8px 0 0; font-size: var(--qn-fs-meta); color: var(--color-text-secondary); }
 .fp-steps__privacy { margin: 6px 0 0; font-size: var(--qn-fs-meta); line-height: 1.6; color: var(--color-text-secondary); }

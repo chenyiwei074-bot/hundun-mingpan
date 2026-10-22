@@ -233,6 +233,54 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     `var() 引用的 --color-* / --qn-* 必须在 globals.css 里有定义（带 fallback 的名字写错永远不会红，只是安静画成回退值；不带的那种属性直接失效）。`
     + `清单外新增 ${fresh.join(' | ') || '0 处'}；清单里已不成立 ${stale.map(e => keyOf(e.name, e.file)).join(' | ') || '0 处'}（成立就报"已不成立"，那是要从清单删掉的信号，不是好消息该留着）`);
   for (const e of UNDEFINED_ALLOWLIST) say(`MEASURED 未定义令牌 ${e.name} @ ${e.file} —— ${e.why}`);
+  // 组件里写出来的自有 class，globals.css 必须有对应选择器。
+  // 逼出这条的那次事故：批C 把步条的 DOM 提交了，样式落在同一个提交之外 ——
+  // 分支上那份"有 .fp-steps 这个类名、没有任何 .fp-steps 规则"，画面是裸的，
+  // 而宽度/命中区/对比度/CLS 全都照样绿（没样式的块也是块）。
+  // 只从 className 的取值里取词（不扫全部字符串字面量）：id="fp-notice" 不是类，
+  // 把它算进来会逼着给每个 id 写一条假选择器。
+  const cssSel = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const OWN = /^(?:qn|qa|fp|gate|domain)-[a-z0-9_-]*[a-z0-9]$/;
+  const classUses = new Map<string, string>();
+  for (const [f, src] of [...srcFiles] as Array<[string, string]>) {
+    for (let i = src.indexOf('className='); i >= 0; i = src.indexOf('className=', i + 1)) {
+      const at = src[i + 10];
+      let raw = '';
+      if (at === '"' || at === "'") { const end = src.indexOf(at, i + 11); raw = src.slice(i + 11, end); i = end; }
+      else if (at === '{') {                                   // 平衡大括号取整个表达式
+        let d = 0, j = i + 10;
+        for (; j < src.length; j++) { if (src[j] === '{') d++; else if (src[j] === '}') { d--; if (!d) break; } }
+        raw = src.slice(i + 11, j);
+      }
+      // 直接按"非类名字符"切：模板串里的 ${...} 会把引号切得七零八落，
+      // 先抠字符串字面量反而漏掉 `qn-chip`（我第一版就是这么写的，扫到 3 个类名 = 近乎空跑）。
+      for (const tok of raw.split(/[^A-Za-z0-9_-]+/)) if (OWN.test(tok) && !classUses.has(tok)) classUses.set(tok, relOf(f));
+    }
+  }
+  const orphan = [...classUses.entries()].filter(([t]) => {
+    const esc = t.replace(/-/g, '\\-');
+    return !new RegExp('\\.' + esc + '(?![\\w-])').test(cssSel);
+  });
+  // 量到 8 个没有规则的类名，逐个分两类处理（清单带失配判红，不许长在地基里）：
+  //  · 探针钩子 / 惰性标记：类名是给 census 或语义用的，样式由 .qn-card 那一层给 —— 留着，写明；
+  //  · 真的漏了：fp-steps__name（批C 我自己写的）已经补了规则，不在清单里。
+  const HOOK_ONLY: Array<{ cls: string; why: string }> = [
+    { cls: 'qa-turn', why: 'census 的问答卡选择器（12 处），样式走 .qn-card' },
+    { cls: 'qa-degraded', why: '降级理由那一行的语义标记，样式同 .qn-note' },
+    { cls: 'qn-kline', why: 'census 的 K 线探针选择器，格子样式全是内联（SVG 属性）' },
+    { cls: 'qn-kline--empty', why: '空态标记，同上' },
+    { cls: 'qn-kline-grid', why: '网格层标记，SVG 里没有 CSS 类样式' },
+    { cls: 'qn-scenario', why: 'census 的场景矩阵探针，样式走 .qn-card 与内联' },
+    { cls: 'qn-scenario--empty', why: '空态标记，同上' },
+  ];
+  const hookKeys = new Set(HOOK_ONLY.map(e => e.cls));
+  const freshOrphans = orphan.filter(([t]) => !hookKeys.has(t));
+  const staleHooks = HOOK_ONLY.filter(e => !orphan.some(([t]) => t === e.cls)).map(e => e.cls);
+  ok('dir/class-has-selector', classUses.size >= 40 && freshOrphans.length === 0 && staleHooks.length === 0,
+    `组件 className 里写出来的自有类名（qn-/qa-/fp-/gate-/domain-）必须在 globals.css 有选择器；`
+    + `扫到 ${classUses.size} 个（少于 40 = 扫描器自己坏了，判红不判过 —— 空跑的绿最骗人）。`
+    + `清单外孤儿 ${freshOrphans.map(([t, f]) => `${t}@${f}`).join(' | ') || '0 处'} / `
+    + `清单里已不成立 ${staleHooks.join(' | ') || '0 支'}`);
   // 批C 裁定（2026-10-22）：**var() 要么带 fallback，要么这支令牌在两种主题里都解得出。**
   // "都解得出"的机器形状 = 在西方令牌块之前就声明过（@theme 或 :root，两种底都吃得到）；
   // 只在 [data-mode="western"] 里声明的那支，浅底上等于未定义 —— 不带 fallback 就是安静失效。
@@ -459,6 +507,31 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
         '产物 CSS 里必须真的留着 --color-danger 的浅底/墨底两份与 --color-fp-stage-open 一份'
         + '（@theme 会摇掉没有 CSS 规则 var() 它的令牌，而这几支只被 JSX 内联样式用：'
         + `浅底 ${lightIn ? '在' : '不在'} / 墨底 ${inkIn ? '在' : '不在'} / 舞台 ${stageIn ? '在' : '不在'}）`);
+      // 上一条的推广：凡是"源码里定义了、又被某处 var() 引用"的 --color-*，产物里必须还在。
+      // Tailwind 的摇树只认 CSS 里的消费者，JSX 内联样式它看不见 —— 所以"源码写了"不等于"浏览器拿得到"。
+      // 引用集自己走一遍 frontend/（这一节与令牌那一节不在同一个作用域）。
+      const refs = new Set<string>();
+      const walkSrc = (dir: string) => {
+        let entries;
+        try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+        for (const e of entries) {
+          if (e.name === 'node_modules' || e.name === '.next') continue;
+          const p = join(dir, e.name);
+          if (e.isDirectory()) walkSrc(p);
+          else if (/\.(ts|tsx|css)$/.test(e.name)) {
+            const body = stripComments(readFileSync(p, 'utf8'));
+            for (const m of body.matchAll(/var\((--color-[\w-]+)/g)) refs.add(m[1]);
+          }
+        }
+      };
+      walkSrc(FE);
+      const definedHere = [...new Set([...stripComments(readFileSync(join(FE, 'app', 'globals.css'), 'utf8'))
+        .matchAll(/(--color-[\w-]+)\s*:/g)].map(m => m[1]))];
+      const missingFromBundle = definedHere.filter(t => refs.has(t)
+        && !bundle.includes(t + ':') && !bundle.includes(t + ' '));
+      ok('dir/referenced-tokens-survive-bundle', missingFromBundle.length === 0,
+        `被引用且在 globals.css 里声明过的 --color-*，产物里必须仍有定义（摇树掉的那支在浏览器里等于未定义，`
+        + `而源码侧闸门全绿）：缺 ${missingFromBundle.join('、') || '0 支'}（比对 ${definedHere.length} 支声明 / ${refs.size} 支引用）`);
     } else {
       say('SKIP  dir/bundle-free-of-dead-styles  没有 .next 里的 CSS 产物可读 —— 先 build 再跑，否则这条什么都没测');
     }

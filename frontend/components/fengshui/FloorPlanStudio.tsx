@@ -33,6 +33,8 @@ import { isoSvg, planProject, planSvg } from '@/lib/fengshui/svg';
 import { SYNTHETIC_FLOORPLANS } from '@/lib/fengshui/synthetic';
 import { ACCEPT_MIME, validateFloorplanFile } from '@/lib/fengshui/upload';
 import { getVisitorId } from '@/lib/auth/visitor';
+import Callout from '@/components/ui/Callout';
+import type { CalloutTier } from '@/components/ui/Callout';
 import type { StageStatus } from './FloorPlan3D';
 
 // three.js 只在用户真的按下「进入 3D」之后才被下载：这一路由的增量预算是 200KB gzip，
@@ -109,7 +111,7 @@ export default function FloorPlanStudio() {
   const [已确认, set已确认] = useState(false);
   const [选中, set选中] = useState<string | null>(null);
   const [选中墙, set选中墙] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ 档: CalloutTier; 文: string } | null>(null);
   const [consent, setConsent] = useState(false);
   const [视图, set视图] = useState<'俯视' | '等轴' | '3D'>('俯视');
   const [舞台, set舞台] = useState<StageStatus | null>(null);
@@ -126,6 +128,10 @@ export default function FloorPlanStudio() {
   const [关心点已答, set关心点已答] = useState(false);
   // 「移除这张图」的二次确认：第一次点击只把按钮换成"确认移除"，第二次才清。
   const [要移除, set要移除] = useState(false);
+
+  /** 回执一律走 Callout，档位是必填的第一个参数 —— 于是"忘了给档"在类型上就过不去，
+   *  而不是所有消息都默认套一个红底（那正是这一批要修的毛病）。 */
+  const say = (档: CalloutTier, 文: string) => setNotice({ 档, 文 });
   const dragRef = useRef<{ 种类: '房' | '墙'; id: string; 点: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -136,7 +142,7 @@ export default function FloorPlanStudio() {
   const onPick = useCallback(async (file: File | undefined) => {
     if (!file) return;
     const v = await validateFloorplanFile(file);
-    if (!v.ok) { setNotice(`已拒绝：${v.error}`); return; }
+    if (!v.ok) { say('danger', `已拒绝：${v.error}`); return; }
     // 字节在选图这一刻就读进内存：识别要的是同一份字节，事后从 objectURL 反_fetch_
     // 等于让预览这条显示路径变成上传路径的一部分，两件事不该耦合。
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -144,7 +150,7 @@ export default function FloorPlanStudio() {
     const aspect = await readImageAspect(url);
     setImage({ name: file.name, url, kind: v.kind, bytes, aspect });
     set识别态('未识别'); set识别汇总(null);
-    setNotice(`已读取本地预览（${v.kind}，${(file.size / 1024).toFixed(0)}KB）。勾选同意之前，这张图还在这台设备上。`);
+    say('info', `已读取本地预览（${v.kind}，${(file.size / 1024).toFixed(0)}KB）。勾选同意之前，这张图还在这台设备上。`);
   }, []);
 
   /** 移除这张图（缺陷④）。清的不止是图：几何、候选、朝向、同意勾选一起回第①步 ——
@@ -154,7 +160,7 @@ export default function FloorPlanStudio() {
     if (!image) return;
     if (!要移除) {
       set要移除(true);
-      setNotice('再按一次「确认移除」才会丢掉这张图与在它上面改过的全部几何。这一步不可撤销：这一页不存草稿。');
+      say('pending', '再按一次「确认移除」才会丢掉这张图与在它上面改过的全部几何。这一步不可撤销：这一页不存草稿。');
       return;
     }
     setImage(null); setGeom(emptyGeom()); set已确认(false);
@@ -163,16 +169,16 @@ export default function FloorPlanStudio() {
     set识别态('未识别'); set识别汇总(null);
     // 同意是"对这张图"给的，不跟着图走就等于替下一次上传预先同意。
     setConsent(false); set要移除(false);
-    setNotice('已移除：图、几何、候选与朝向都清掉了，回到第①步。');
+    say('info', '已移除：图、几何、候选与朝向都清掉了，回到第①步。');
   };
 
   const recognize = useCallback(async () => {
-    if (!image) { setNotice('先选一张图。'); return; }
-    if (!consent) { setNotice('要先勾选同意，才能把图送给模型。'); return; }
+    if (!image) { say('pending', '先选一张图。'); return; }
+    if (!consent) { say('pending', '要先勾选同意，才能把图送给模型。'); return; }
     if (recognizing) return;   // 双击不重发：一次识别已经花掉上游一分钟预算
     setRecognizing(true); set识别态('在识别'); setNotice(null);
     const fail = (line: string) => {
-      set识别态('失败'); set识别汇总(null); setNotice(line + ' 这条不装作成功：几何可以用「手工画」或「载入合成样例」继续。');
+      set识别态('失败'); set识别汇总(null); say('danger', line + ' 这条不装作成功：几何可以用「手工画」或「载入合成样例」继续。');
     };
     try {
       const req = buildRecognizeRequest(visitorId, image.bytes, image.kind);
@@ -196,7 +202,7 @@ export default function FloorPlanStudio() {
       set已确认(false); set视图('俯视'); set选中(null);
       set识别态('候选待确认');
       set识别汇总(候选汇总(parsed));
-      setNotice(候选提醒(parsed));
+      say('pending', 候选提醒(parsed));
     } finally {
       setRecognizing(false);
     }
@@ -225,7 +231,7 @@ export default function FloorPlanStudio() {
     const r = deleteWall(geom, id);
     setGeom(r.几何);
     if (选中墙 === id) set选中墙(null);
-    setNotice(r.连带删掉开口数
+    say('info', r.连带删掉开口数
       ? `删掉了这道墙，挂在它上面的 ${r.连带删掉开口数} 个门窗也一起删了 —— 开口必须钉在一段墙上，没有墙就没有洞。`
       : '删掉了这道墙。');
   };
@@ -233,7 +239,7 @@ export default function FloorPlanStudio() {
   const 加门窗 = (墙id: string, 类型: '门' | '窗') => {
     const id = uid('o-');
     setGeom(g => addOpening(g, id, 墙id, 类型));
-    setNotice(`已在墙上开了一个${类型}（宽 ${OPENING_LIMITS[类型].默认}m）。自己画的东西算已确认，置信度标"手工标注"。`);
+    say('info', `已在墙上开了一个${类型}（宽 ${OPENING_LIMITS[类型].默认}m）。自己画的东西算已确认，置信度标"手工标注"。`);
   };
 
   const svgPoint = (e: React.PointerEvent<SVGSVGElement>): Pt | null => {
@@ -295,12 +301,12 @@ export default function FloorPlanStudio() {
           </button>
         )}
         <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }}
-          onClick={() => { setGeom(starterGeometry()); set已确认(false); set识别态('未识别'); set识别汇总(null); set要移除(false); setNotice('已铺一个矩形外框与一道内隔墙，拖角点改成你家的样子。'); }}>
+          onClick={() => { setGeom(starterGeometry()); set已确认(false); set识别态('未识别'); set识别汇总(null); set要移除(false); say('info', '已铺一个矩形外框与一道内隔墙，拖角点改成你家的样子。'); }}>
           手工画
         </button>
         {SYNTHETIC_FLOORPLANS.map(s => (
           <button key={s.名称} type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }}
-            onClick={() => { setGeom(s.几何); set已确认(false); set识别态('未识别'); set识别汇总(null); set要移除(false); setNotice(`已载入合成样例「${s.名称}」：${s.用途说明} 这是本站自己造的数据，不是任何人的真实户型。`); }}>
+            onClick={() => { setGeom(s.几何); set已确认(false); set识别态('未识别'); set识别汇总(null); set要移除(false); say('info', `已载入合成样例「${s.名称}」：${s.用途说明} 这是本站自己造的数据，不是任何人的真实户型。`); }}>
             样例 · {s.名称}
           </button>
         ))}
@@ -340,7 +346,7 @@ export default function FloorPlanStudio() {
         </div>
       )}
 
-      {notice && <p className="qn-alert" role="status" style={{ margin: '12px 0 0' }}>{notice}</p>}
+      {notice && <Callout tier={notice.档} id="fp-notice">{notice.文}</Callout>}
 
       {/* ② 定朝向。排在编辑器前面是按 §8 的步序；朝向不 disabled ——
           一个"看着能点、点了没反应"的控件比一个能点的更坏，而朝向本来就不依赖几何存在。 */}
@@ -481,7 +487,7 @@ export default function FloorPlanStudio() {
             })}
             <div className="qn-row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <button type="button" id="fp-add-wall" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
-                onClick={() => { const id = uid('w-'); setGeom(g => addWall(g, id)); set选中墙(id); setNotice('加了一道贯通包围盒的隔墙，拖它的金色端点摆正。'); }}>加一道墙</button>
+                onClick={() => { const id = uid('w-'); setGeom(g => addWall(g, id)); set选中墙(id); say('info', '加了一道贯通包围盒的隔墙，拖它的金色端点摆正。'); }}>加一道墙</button>
               {selWall && <span className="qn-meta">已选 {墙名(selWall.id)}：图上那两个金色端点可以拖。</span>}
             </div>
           </div>
@@ -505,7 +511,7 @@ export default function FloorPlanStudio() {
 
           {/* 降级的原因必须留在父层：3D 一降级就整个卸载，把话说在它自己肚子里等于没说。
               裁定里"降级要可见"要的是这一行，不是切换成功这件事本身。 */}
-          {舞台说明 && <p className="qn-alert" role="status" style={{ margin: '8px 0 0' }}>{舞台说明}</p>}
+          {舞台说明 && <Callout tier="info" id="fp-stage-note">{舞台说明}</Callout>}
 
           {视图 === '俯视' && (
             <p className="qn-note" id="fp-legend" style={{ marginTop: 6 }}>
@@ -633,7 +639,7 @@ function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, �
       {关心点.length > 0 && (
         <p className="qn-meta" style={{ marginTop: 4 }}>按你选的关心点（{关心点.join('、')}）把相关的几段排了前面；判定条数与内容不受影响。</p>
       )}
-      {over && <p className="qn-alert">跨度超过 {MAX_SPAN_M}m：3D 的相机与阴影范围会失控，请先把它缩小或只画一部分。</p>}
+      {over && <Callout tier="danger" id="fp-span-alert">跨度超过 {MAX_SPAN_M}m：3D 的相机与阴影范围会失控，请先把它缩小或只画一部分。</Callout>}
       {跨宫.length > 0 && (
         <p className="qn-note" style={{ marginTop: 6 }}>有 {跨宫.length} 间房与九宫的最大重叠不足六成（{跨宫.join('、')}），下面凡是提到这些宫的结论都只作参考。</p>
       )}

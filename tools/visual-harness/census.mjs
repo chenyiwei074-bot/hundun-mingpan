@@ -929,7 +929,7 @@ const FS_RECOGNIZE_PINS = {
 const fsRecognizeProbe = p => `(() => {
   // 选择器里必须带 span.qn-meta：置信度那一行是 <span class="qn-meta">，只收 p 的话
   // 页面上真实存在的文案会被判"找不到"，而这种假红最费人（它会指向错的那一层）。
-  const txt = [...document.querySelectorAll('p.qn-alert, p.qn-meta, p.qn-note, span.qn-meta')]
+  const txt = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-meta, p.qn-note, span.qn-meta')]
     .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
   const st = document.getElementById('fp-recognize-state');
   const chip = t => [...document.querySelectorAll('.qn-chip')].filter(b => (b.textContent || '').trim() === t);
@@ -2662,7 +2662,7 @@ const fsEditProbe = p => `(() => {
       const fps = Math.round(window.__fp.frames / ((performance.now() - window.__fp.t0) / 1000) * 10) / 10;
       const stage = document.querySelector('[data-fp-stage]');
       const canvas = stage ? stage.querySelector('canvas') : null;
-      const reason = [...document.querySelectorAll('p.qn-alert')].map(p => (p.textContent || '').trim())
+      const reason = [...document.querySelectorAll('p.qn-alert, p.qn-callout')].map(p => (p.textContent || '').trim())
         .filter(t => /等轴|帧率|上下文/.test(t));
       const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
         .find(t => /首帧/.test(t)) || null;
@@ -2802,7 +2802,7 @@ const fsEditProbe = p => `(() => {
     }
     const ui = await evl(`(() => {
       const st = document.getElementById('fp-recognize-state');
-      const txt = [...document.querySelectorAll('p.qn-alert, p.qn-meta, p.qn-note')]
+      const txt = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-meta, p.qn-note')]
         .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
       return { state: st ? st.getAttribute('data-recognize-state') : null,
         calls: window.__recCalls || null, hasNotRetry: /不自动重试|一次都没重试/.test(txt),

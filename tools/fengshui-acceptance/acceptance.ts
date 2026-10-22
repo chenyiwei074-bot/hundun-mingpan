@@ -813,7 +813,62 @@ const base: FloorInput = {
     '§8 要求隐私那一句在步条上复现一次（勾选框要等有图才渲染，按下「选户型图」之前必须读得到）');
 }
 
-// ── 13. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
+// ── 14. 回执三档（运维 2026-10-22 批准）：info / pending / danger，红只留给失败 ──
+{
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  const callout = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'ui', 'Callout.tsx'), 'utf8'));
+  const css = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'globals.css'), 'utf8'));
+
+  // 这一页不许再有裸 .qn-alert：那个类是红底，什么都往里塞就等于"全站都在报警"。
+  const bare = ['components/fengshui/FloorPlanStudio.tsx', 'components/fengshui/FloorPlanForm.tsx', 'app/fengshui/page.tsx']
+    .map(f => [f, stripComments(readFileSync(join(ROOT, 'frontend', f), 'utf8'))] as const)
+    .filter(([, src]) => /className="qn-alert"/.test(src)).map(([f]) => f);
+  ok('fp/no-bare-alert', bare.length === 0,
+    `户型这一页统一走 Callout variant，不许有裸 .qn-alert（命中 ${bare.join('、') || '无'}）`);
+
+  // 三档齐、role 分档、前缀是写出来的中文（不许只靠颜色区分档位）。
+  ok('callout/three-tiers-with-words', /info: '提示'/.test(callout) && /pending: '待你处理'/.test(callout)
+    && /danger: '失败'/.test(callout) && /tier === 'danger' \? 'alert' : 'status'/.test(callout),
+    '三档各有一个写出来的前缀，且只有 danger 用 role=alert（会打断读屏的那一档必须真的是出错那一档）');
+
+  // 每一句回执落在哪一档，逐条钉住：这一条就是"中性回执改成 danger 会红"的那道闸门。
+  // 判法：整段压平后，从那句话往前找最近的 say('档位 —— 不按行找。
+  // 按行找会把三元里第二句（`: '删掉了这道墙。'`）当成"没档位"，红得对但红错了原因。
+  const TIERS: Array<[RegExp, 'info' | 'pending' | 'danger', string]> = [
+    [/已拒绝/, 'danger', '文件校验没过 = 非法输入'],
+    [/这条不装作成功/, 'danger', '识别失败'],
+    [/候选提醒\(parsed\)/, 'pending', '认出来了但还没逐条确认'],
+    [/先选一张图/, 'pending', '等用户给输入'],
+    [/要先勾选同意/, 'pending', '等用户决定'],
+    [/再按一次「确认移除」/, 'pending', '等用户确认'],
+    [/已载入合成样例/, 'info', '载入样例只是回执，不是出错'],
+    [/已铺一个矩形外框/, 'info', '手工画起点'],
+    [/已在墙上开了一个/, 'info', '加门窗回执'],
+    [/加了一道贯通包围盒的隔墙/, 'info', '加墙回执'],
+    [/已移除：图、几何、候选与朝向/, 'info', '移除完成的回执（不是危险本身）'],
+    [/已读取本地预览/, 'info', '选图成功'],
+    [/删掉了这道墙/, 'info', '删墙回执'],
+  ];
+  const flat = studio.replace(/\s+/g, ' ');
+  const misTier = TIERS.filter(([re, want]) => {
+    const m = re.exec(flat);
+    if (!m) return true;                       // 那句话本身不见了，也算对不上
+    const back = flat.slice(Math.max(0, m.index - 80), m.index);
+    return !new RegExp(`say\\(['"]${want}['"]`).test(back);
+  }).map(([re, want]) => `${String(re).slice(2, 14)}（应为 ${want}）`);
+  ok('callout/tier-per-message', misTier.length === 0,
+    `每句回执的档位逐条钉（改错一条就红，且点名是哪一条）：${misTier.join(' / ') || '全部对得上'}`);
+
+  // 三档在两种主题下都要有样式：这里不复制一份西方规则，而是要求每一档的配色
+  // 只引"会随主题重指向"的语义令牌 —— 写了字面色就等于只给一种主题做了样式。
+  const rules = [...css.matchAll(/\.qn-callout[^{]*\{([^}]*)\}/g)].map(m => m[1]);
+  const literals = rules.join(' ').match(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g) || [];
+  ok('callout/both-themes-by-tokens', rules.length >= 4 && literals.length === 0
+    && /\.qn-callout--info\b/.test(css) && /\.qn-callout--pending\b/.test(css) && /\.qn-callout--danger\b/.test(css),
+    `三档规则齐备且零字面色（字面 = 只给一种底做了样式；西方靠令牌重指向自动跟随）：规则 ${rules.length} 条 / 字面色 ${literals.join('、') || '0 处'}`);
+}
+
+// ── 15. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
 {
   const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
   // 门窗那一段线：形状通道（虚线）+ 颜色统一成等待态金，两态不再靠"红 / 金"说话。
