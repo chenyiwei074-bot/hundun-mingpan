@@ -406,6 +406,13 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     ok('dir/fengshui-note-matches-upload', hasPicker && !deniesUpload
       && /上传可选/.test(fsNote) && /7 天/.test(fsNote) && /不进入报告|不进.*回执/.test(fsNote),
       `户型的隐私声明必须与实装一致（实装：有选图入口 = ${hasPicker}；note 里还有"不上传"= ${deniesUpload}）：${fsNote}`);
+    // 「可随时移除」双向钉：note 说了，页面就必须真有出口，而且出口带二次确认
+    // （毁掉用户画过的几何不该是一个单击）；反过来控件被删掉时，note 也得跟着改回去。
+    const hasRemove = /id="fp-remove-image"/.test(studio) && /确认移除/.test(studio);
+    const claimsRemovable = /可随时移除/.test(fsNote);
+    ok('dir/fengshui-note-removal-is-real', hasRemove && claimsRemovable,
+      `「可随时移除」必须与实装同进同退（移除控件在 = ${hasRemove} / note 说了 = ${claimsRemovable}）`
+      + ' —— 一边动了另一边没动，就是又造出一句做不到的承诺（缺陷6 的原形状）');
     // note 里写的格式与上限不许是第二个事实源 —— 与 lib/fengshui/upload.ts 现读值对齐。
     const mimes = (uploadLib.match(/ACCEPT_MIME\s*=\s*\[([^\]]*)\]/) || ['', ''])[1];
     const maxMb = Number((uploadLib.match(/MAX_BYTES\s*=\s*([0-9]+)\s*\*\s*1024\s*\*\s*1024/) || ['', '0'])[1]);

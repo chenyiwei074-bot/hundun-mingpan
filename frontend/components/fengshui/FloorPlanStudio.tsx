@@ -27,6 +27,8 @@ import {
   resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
 } from '@/lib/fengshui/edit';
 import { ROOM_KINDS } from '@/lib/fengshui/types';
+import { CONCERNS, currentStep, orderNotes, stepStates } from '@/lib/fengshui/steps';
+import type { Concern } from '@/lib/fengshui/steps';
 import { isoSvg, planProject, planSvg } from '@/lib/fengshui/svg';
 import { SYNTHETIC_FLOORPLANS } from '@/lib/fengshui/synthetic';
 import { ACCEPT_MIME, validateFloorplanFile } from '@/lib/fengshui/upload';
@@ -117,6 +119,13 @@ export default function FloorPlanStudio() {
   const [识别态, set识别态] = useState<识别态>('未识别');
   const [识别汇总, set识别汇总] = useState<string | null>(null);
   const [visitorId, setVisitorId] = useState('');
+  // ② 与 ④ 各要一个"答过没有"的标记：朝向未确认 是一个合法答案，
+  // 拿 值!==未确认 当"完成"会把默认值读成已完成，步条就变成替用户撒。
+  const [朝向已答, set朝向已答] = useState(false);
+  const [关心点, set关心点] = useState<Concern[]>([]);
+  const [关心点已答, set关心点已答] = useState(false);
+  // 「移除这张图」的二次确认：第一次点击只把按钮换成"确认移除"，第二次才清。
+  const [要移除, set要移除] = useState(false);
   const dragRef = useRef<{ 种类: '房' | '墙'; id: string; 点: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -137,6 +146,25 @@ export default function FloorPlanStudio() {
     set识别态('未识别'); set识别汇总(null);
     setNotice(`已读取本地预览（${v.kind}，${(file.size / 1024).toFixed(0)}KB）。勾选同意之前，这张图还在这台设备上。`);
   }, []);
+
+  /** 移除这张图（缺陷④）。清的不止是图：几何、候选、朝向、同意勾选一起回第①步 ——
+   *  只清图会留下一份"来自那张图"的几何在屏上，那正是用户以为已经毁掉的东西。
+   *  objectURL 不用这里管：image 一变，上面那个 effect 就回收旧地址。 */
+  const 移除这张图 = () => {
+    if (!image) return;
+    if (!要移除) {
+      set要移除(true);
+      setNotice('再按一次「确认移除」才会丢掉这张图与在它上面改过的全部几何。这一步不可撤销：这一页不存草稿。');
+      return;
+    }
+    setImage(null); setGeom(emptyGeom()); set已确认(false);
+    set选中(null); set选中墙(null); set视图('俯视');
+    set朝向('未确认'); set朝向已答(false);
+    set识别态('未识别'); set识别汇总(null);
+    // 同意是"对这张图"给的，不跟着图走就等于替下一次上传预先同意。
+    setConsent(false); set要移除(false);
+    setNotice('已移除：图、几何、候选与朝向都清掉了，回到第①步。');
+  };
 
   const recognize = useCallback(async () => {
     if (!image) { setNotice('先选一张图。'); return; }
@@ -222,21 +250,57 @@ export default function FloorPlanStudio() {
    *  序号取自 墙体 数组本身，删掉一道墙后面的会自动改号 —— 不会出现"墙3"其实只有两道。 */
   const 墙名 = (id: string) => `墙 ${geom.墙体.findIndex(w => w.id === id) + 1}`;
 
+  // 步条与探针读同一份推导（lib/fengshui/steps.ts）：状态算错，屏上那句"已完成"就是假的。
+  const steps = stepStates({
+    有图: !!image, 房间数: geom.房间.length, 开口数: geom.开口.length,
+    朝向已答, 朝向, 关心点数: 关心点.length, 关心点已答, 已确认,
+  });
+  const 现在 = currentStep(steps);
+  // 关心点只排序，不增删、不改结论 —— 这条不变式由套件直接喂函数验。
+  const 排过 = orderNotes(report.判定, 关心点);
+
   return (
     <div className="qn-stack">
-      <div className="qn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
-        <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }} onClick={() => fileRef.current?.click()}>
-          选户型图
-        </button>
+      <nav className="fp-steps" aria-label="户型标注的五步">
+        <ol className="fp-steps__list">
+          {steps.map(s => (
+            <li key={s.n} className="fp-steps__item" data-state={s.状态}
+              aria-current={s.n === 现在 ? 'step' : undefined}>
+              <span className="fp-steps__no" aria-hidden="true">{'①②③④⑤'[s.n - 1]}</span>
+              <span className="fp-steps__name">{s.名称}</span>
+              <span className="fp-steps__state">{s.状态}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="fp-steps__hint" id="fp-step-hint">第 {现在} 步 · {steps.find(s => s.n === 现在)?.提示}</p>
+        {/* 隐私这一句在步条与①各出现一次（§8）：勾选框在图出来之后才渲染，
+            没有这一行的话，用户在按下「选户型图」之前读不到任何告知。 */}
+        <p className="fp-steps__privacy">
+          上传可选，不上传也能走完全部判定。图不进入报告、回执与公开台账，
+          服务端只按本人标识可取、7 天后自动删，可随时移除。
+        </p>
+      </nav>
+      <div className="fp-step-block" id="fp-start">
+        <p className="qn-axis">① 选图或手绘</p>
+        <div className="qn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }} onClick={() => fileRef.current?.click()}>
+            选户型图
+          </button>
         <input ref={fileRef} type="file" accept={ACCEPT_MIME.join(',')} style={{ display: 'none' }}
           onChange={e => onPick(e.target.files?.[0])} />
+        {image && (
+          <button type="button" id="fp-remove-image" className="qn-btn qn-btn--danger" style={{ minHeight: 44 }}
+            aria-pressed={要移除} onClick={移除这张图}>
+            {要移除 ? '确认移除' : '移除这张图'}
+          </button>
+        )}
         <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }}
-          onClick={() => { setGeom(starterGeometry()); set已确认(false); set识别态('未识别'); set识别汇总(null); setNotice('已铺一个矩形外框与一道内隔墙，拖角点改成你家的样子。'); }}>
+          onClick={() => { setGeom(starterGeometry()); set已确认(false); set识别态('未识别'); set识别汇总(null); set要移除(false); setNotice('已铺一个矩形外框与一道内隔墙，拖角点改成你家的样子。'); }}>
           手工画
         </button>
         {SYNTHETIC_FLOORPLANS.map(s => (
           <button key={s.名称} type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }}
-            onClick={() => { setGeom(s.几何); set已确认(false); set识别态('未识别'); set识别汇总(null); setNotice(`已载入合成样例「${s.名称}」：${s.用途说明} 这是本站自己造的数据，不是任何人的真实户型。`); }}>
+            onClick={() => { setGeom(s.几何); set已确认(false); set识别态('未识别'); set识别汇总(null); set要移除(false); setNotice(`已载入合成样例「${s.名称}」：${s.用途说明} 这是本站自己造的数据，不是任何人的真实户型。`); }}>
             样例 · {s.名称}
           </button>
         ))}
@@ -246,6 +310,7 @@ export default function FloorPlanStudio() {
             {recognizing ? '在识别' : '送给模型提候选'}
           </button>
         )}
+        </div>
       </div>
 
       {/* 三态的可见落点：失败 / 候选待确认 / 已确认。data 属性是给探针钉的，
@@ -277,8 +342,28 @@ export default function FloorPlanStudio() {
 
       {notice && <p className="qn-alert" role="status" style={{ margin: '12px 0 0' }}>{notice}</p>}
 
+      {/* ② 定朝向。排在编辑器前面是按 §8 的步序；朝向不 disabled ——
+          一个"看着能点、点了没反应"的控件比一个能点的更坏，而朝向本来就不依赖几何存在。 */}
+      <div className="fp-step-block" id="fp-orientation">
+        <p className="qn-axis">② 定朝向</p>
+        <div className="qn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          {(['南', '北', '未确认'] as const).map(k => (
+            <button key={k} type="button" id={`fp-facing-${k}`}
+              className={`qn-chip${朝向 === k ? ' qn-chip--on' : ''}`} style={{ minHeight: 44, minWidth: 44 }}
+              aria-pressed={朝向 === k}
+              onClick={() => { set朝向(k); set朝向已答(true); }}>{k === '未确认' ? '朝向未确认' : `朝${k}`}</button>
+          ))}
+        </div>
+        <p className="qn-note" style={{ margin: '6px 0 0' }}>
+          {朝向已答
+            ? `已答：${朝向}。` + (朝向 === '未确认' ? ' 结果段会明写"未据朝向判定"。' : '')
+            : '没有把握就按「朝向未确认」—— 那是一个答案，不是没答。'}
+        </p>
+      </div>
+
       {geom.房间.length > 0 && (
         <>
+          <p className="qn-axis" id="fp-editor-heading" style={{ marginTop: 14 }}>③ 标房间与门窗</p>
           <svg viewBox={`0 0 ${CANVAS_W} ${CANVAS_H}`} style={{ width: '100%', height: 'auto', marginTop: 12, touchAction: 'none', background: 'var(--color-bg-card)', borderRadius: 10, border: 'var(--qn-hairline)' }}
             onPointerMove={e => { const d = dragRef.current; if (!d) return; const p = svgPoint(e); if (p) moveHandle(d, p); }}
             onPointerUp={() => { dragRef.current = null; }}
@@ -481,11 +566,26 @@ export default function FloorPlanStudio() {
             ))}
           </div>
 
-          <div className="qn-row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-            {(['南', '北', '未确认'] as const).map(k => (
-              <button key={k} type="button" className={`qn-chip${朝向 === k ? ' qn-chip--on' : ''}`} style={{ minHeight: 44, minWidth: 44 }}
-                onClick={() => set朝向(k)}>{k === '未确认' ? '朝向未确认' : `朝${k}`}</button>
-            ))}
+          {/* ④ 关心点。这一格只决定"先讲哪几段"，一条判定都不增删 ——
+              orderNotes 是纯排序，套件直接喂函数验这条不变式（勾选前后集合逐条相等）。 */}
+          <div className="fp-step-block" id="fp-concerns">
+            <p className="qn-axis">④ 说你最在意什么（可跳过）</p>
+            <div className="qn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
+              {CONCERNS.map(c => (
+                <button key={c} type="button" id={`fp-concern-${c}`}
+                  className={`qn-chip${关心点.includes(c) ? ' qn-chip--on' : ''}`}
+                  style={{ minHeight: 44, minWidth: 44 }} aria-pressed={关心点.includes(c)}
+                  onClick={() => { set关心点(p => (p.includes(c) ? p.filter(x => x !== c) : [...p, c])); set关心点已答(true); }}>{c}</button>
+              ))}
+              <button type="button" id="fp-concern-skip" className="qn-chip" style={{ minHeight: 44 }}
+                aria-pressed={关心点已答 && 关心点.length === 0}
+                onClick={() => { set关心点([]); set关心点已答(true); }}>先跳过</button>
+            </div>
+            <p className="qn-note" style={{ margin: '6px 0 0' }}>
+              {关心点已答
+                ? (关心点.length ? `已选 ${关心点.length} 项：只把相关的几段排前面，判定的条数与内容一条不变。` : '已跳过：按规则层自己的次序讲。')
+                : '选哪几项都不会多出一条判定，也不会少一条；不选就按几何本身讲。'}
+            </p>
           </div>
 
           <label className="qn-note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 12, cursor: 'pointer' }}>
@@ -499,7 +599,8 @@ export default function FloorPlanStudio() {
           </label>
 
           <div style={{ marginTop: 12 }}>
-            <FloorReportView report={report} 跨宫={translated.跨宫}
+            <FloorReportView report={report} 判定={排过.排序后} 跨宫={translated.跨宫}
+              关心点={关心点} 朝向={朝向}
               格数={walkable ? `${walkable.列}×${walkable.行}` : '无'} 跨度={span} />
           </div>
         </>
@@ -512,14 +613,26 @@ export default function FloorPlanStudio() {
 }
 
 
-function FloorReportView({ report, 跨宫, 格数, 跨度 }: {
-  report: ReturnType<typeof analyzeFloor>; 跨宫: string[]; 格数: string; 跨度: number;
+function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, 跨度 }: {
+  report: ReturnType<typeof analyzeFloor>; 判定: ReturnType<typeof analyzeFloor>['判定'];
+  跨宫: string[]; 关心点: Concern[]; 朝向: '南' | '北' | '未确认'; 格数: string; 跨度: number;
 }) {
   const over = 跨度 > MAX_SPAN_M;
   return (
     <section className="qn-card" aria-live="polite">
-      <p className="qn-axis">规则层结果 · {report.口径戳}</p>
+      <p className="qn-axis">⑤ 规则层结果 · {report.口径戳}</p>
       <p className="qn-meta" style={{ marginTop: 4 }}>可行走网格 {格数} 格（0.25m 步长），最大跨度 {Math.round(跨度 * 10) / 10}m。</p>
+      {/* §8 钉着的一句：朝向没确认，结果段就得自己说"这一层没据朝向判"。
+          规则层把它写在「没判定的部分」里，但那一块只有非空时才渲染，
+          所以这里再明写一次 —— 读结果的人不该往下翻才知道结论少了一层依据。 */}
+      {朝向 === '未确认' && (
+        <p className="qn-note" id="fp-facing-flag" style={{ margin: '6px 0 0' }}>
+          未据朝向判定：下面这些结论只建立在几何上（相邻、对宫、通路、同宫），没有一条用到日照方位。
+        </p>
+      )}
+      {关心点.length > 0 && (
+        <p className="qn-meta" style={{ marginTop: 4 }}>按你选的关心点（{关心点.join('、')}）把相关的几段排了前面；判定条数与内容不受影响。</p>
+      )}
       {over && <p className="qn-alert">跨度超过 {MAX_SPAN_M}m：3D 的相机与阴影范围会失控，请先把它缩小或只画一部分。</p>}
       {跨宫.length > 0 && (
         <p className="qn-note" style={{ marginTop: 6 }}>有 {跨宫.length} 间房与九宫的最大重叠不足六成（{跨宫.join('、')}），下面凡是提到这些宫的结论都只作参考。</p>
@@ -527,8 +640,8 @@ function FloorReportView({ report, 跨宫, 格数, 跨度 }: {
       <ul className="qn-meta" style={{ margin: '8px 0 0', paddingLeft: '1.1em' }}>
         {report.输入摘要.map(x => <li key={x}>{x}</li>)}
       </ul>
-      {report.判定.length === 0 && <p className="qn-body" style={{ marginTop: 10 }}>这一组输入没有推出任何判定。</p>}
-      {report.判定.map((n, i) => (
+      {判定.length === 0 && <p className="qn-body" style={{ marginTop: 10 }}>这一组输入没有推出任何判定。</p>}
+      {判定.map((n, i) => (
         <div key={`${n.规则}-${i}`} style={{ marginTop: 12, borderTop: 'var(--qn-hairline)', paddingTop: 10 }}>
           <p className="qn-title" style={{ margin: 0, fontSize: 'var(--qn-fs-title)' }}>{n.规则}</p>
           <p className="qn-body" style={{ marginTop: 4 }}>{n.结论}</p>

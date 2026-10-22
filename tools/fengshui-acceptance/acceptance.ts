@@ -29,6 +29,7 @@ import {
   moveWallVertex, resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
 } from '../../frontend/lib/fengshui/edit';
 import { openingSegment } from '../../frontend/lib/fengshui/geometry';
+import { currentStep, orderNotes, stepStates } from '../../frontend/lib/fengshui/steps';
 import { ROOM_KINDS } from '../../frontend/lib/fengshui/types';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
@@ -768,7 +769,51 @@ const base: FloorInput = {
     'fengshui-edit 态真的按了 加一间房→用途→加一道墙→加门→宽→确认并逐条钉回来（存在性归套件，改到画面归 harness）');
 }
 
-// ── 11. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
+// ── 12. 五步条与关心点：状态算得对不对、排序会不会偷改判定 ──
+{
+  const base = { 有图: false, 房间数: 0, 开口数: 0, 朝向已答: false, 朝向: '未确认' as const,
+    关心点数: 0, 关心点已答: false, 已确认: false };
+  const st = (over: Partial<typeof base>) => Object.fromEntries(stepStates({ ...base, ...over }).map(s => [s.n, s.状态]));
+
+  ok('steps/empty-is-step-one', JSON.stringify(st({})) === JSON.stringify({ 1: '未开始', 2: '待补', 3: '未开始', 4: '未开始', 5: '未开始' }),
+    `空页面上：① 未开始、② 待补（朝向随时可答）、③⑤ 未开始。实得 ${JSON.stringify(st({}))}`);
+  // 「朝向未确认」是一个答案，不是没答：默认值若被读成已完成，步条就在替用户撒。
+  ok('steps/unconfirmed-facing-is-an-answer', st({ 朝向已答: false })[2] === '待补' && st({ 朝向已答: true })[2] === '已完成',
+    '② 看的是"点过没有"，不是"值不等于未确认" —— 后者会把页面默认值显示成已经答过');
+  ok('steps/no-openings-says-so', st({ 房间数: 2, 开口数: 0 })[3] === '待补' && st({ 房间数: 2, 开口数: 3 })[3] === '已完成',
+    '有房间但一个门窗都没标：③ 必须是"待补"，不许显示成完成（那三类判定其实是缺输入）');
+  ok('steps/concerns-need-explicit-skip', st({ 关心点已答: false })[4] === '未开始' && st({ 关心点已答: true, 关心点数: 0 })[4] === '已完成',
+    '④ 可跳过，但"跳过"要显式按一次：没按之前它是未开始，否则步条会显示"就差结果"而用户其实什么都没选');
+  // 当前位置 = 第一个没完成的那一步（页面上 aria-current 就跟着它）。
+  ok('steps/current-is-first-incomplete', currentStep(stepStates({ ...base, 有图: true, 房间数: 2, 开口数: 2 })) === 2
+    && currentStep(stepStates({ ...base, 房间数: 2, 开口数: 2, 朝向已答: true, 关心点已答: true, 已确认: true })) === 5,
+    `当前位置取"第一个未完成"：有几何没答朝向时停在第 2 步；五步全过就停在第 5 步（结果段在那）—— 注意 ① 有几何即算完成，图不是必需品`);
+
+  const notes = [
+    { 规则: '起居房间与采光面相邻', 结论: '主卧与标了主窗的坎同宫或相邻。', 不确定项: ['窗的尺寸不在输入里'] },
+    { 规则: '中宫被固定功能占用', 结论: '中宫标了客厅。', 不确定项: ['格子看不出高差'] },
+    { 规则: '到达该房间需穿过私密区', 结论: '从入户门走到主卧必须经过厨房。', 不确定项: ['门洞位置比九宫细'] },
+  ];
+  const a = orderNotes(notes, []);
+  const b = orderNotes(notes, ['动线']);
+  const sameSet = (x: typeof notes) => [...x].sort((p, q) => p.规则.localeCompare(q.规则));
+  ok('steps/concerns-reorder-only', a.排序后.length === notes.length && b.排序后.length === notes.length
+    && JSON.stringify(sameSet(a.排序后)) === JSON.stringify(sameSet(notes))
+    && JSON.stringify(sameSet(b.排序后)) === JSON.stringify(sameSet(notes))
+    && b.排序后[0].规则 === '到达该房间需穿过私密区' && b.排序后[1] === notes[0] && b.排序后[2] === notes[1],
+    '关心点只改次序：条数与每条内容一字不改（上面那条被排到最前，其余保持规则层原序）—— 选了什么"在意"绝不能改变判定本身');
+
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  ok('steps/rail-rendered-from-lib', /stepStates\(/.test(studio) && /currentStep\(/.test(studio)
+    && /className="fp-steps"/.test(studio) && /aria-current=\{s\.n === 现在 \? 'step'/.test(studio)
+    && !/function stepStates/.test(studio),
+    '步条的状态算在 lib/fengshui/steps.ts、组件只渲染：状态若只是 JSX 里一个三元，套件喂不进去');
+  ok('steps/privacy-restated-on-rail', /fp-steps__privacy/.test(studio) && /不进入报告、回执与公开台账/.test(studio)
+    && /可随时移除/.test(studio),
+    '§8 要求隐私那一句在步条上复现一次（勾选框要等有图才渲染，按下「选户型图」之前必须读得到）');
+}
+
+// ── 13. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
 {
   const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
   // 门窗那一段线：形状通道（虚线）+ 颜色统一成等待态金，两态不再靠"红 / 金"说话。

@@ -129,9 +129,10 @@ export const INTENTS: IntentGroup[] = [
         // 运维 2026-10-21 裁定（批A 缺陷6）：这一句原来写「不上传户型图」，而工作室早已实装
         // 上传 + 识别（components/fengshui/FloorPlanStudio.tsx 的选户型图与 file input），
         // /fengshui 页也写着「上传是可选的」—— 同一站里两句相反的话，由 /tools 页原样渲染出来。
-        // 「可随时移除」那半句扣着没写：移除/重传的出口还不存在（缺陷④，批C 做），
-        // 加了控件再补进来；directory-acceptance 有一条交叉断言盯着这两种漂移。
-        note: '上传可选（jpg / png / webp，单张 ≤5MB）；图片不进入报告、回执与任何公开台账；服务端只按本人标识可取，7 天后自动删除。',
+        // 「可随时移除」这半句是批C 才补进来的：移除控件（#fp-remove-image，带二次确认）
+        // 这一批才存在。directory-acceptance 双向盯着这两种漂移：note 说有出口、页面必须有；
+        // 页面删了出口、note 必须跟着删。
+        note: '上传可选（jpg / png / webp，单张 ≤5MB）；图片不进入报告、回执与任何公开台账；服务端只按本人标识可取，7 天后自动删除，可随时移除。',
       },
     ],
   },
