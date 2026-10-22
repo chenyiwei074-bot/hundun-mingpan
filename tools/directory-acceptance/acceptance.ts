@@ -5,7 +5,7 @@
 //   cd <repo root> && NODE_PATH="$PWD/frontend/node_modules" \
 //     node server/node_modules/tsx/dist/cli.mjs --tsconfig=frontend/tsconfig.json \
 //     tools/directory-acceptance/acceptance.ts --out=.directory.txt
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 // 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（见 tools/_lib/codesrc.ts）。
 import { stripComments } from '../_lib/codesrc';
 import { join } from 'node:path';
@@ -492,7 +492,48 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
       }
     };
     walkBuild(join(FE, '.next', 'static'));
-    if (cssFiles.length) {
+    // ── 产物新鲜度（运维 2026-10-22 裁定）：读产物的闸门必须先确认"产物比源码新"。──
+    // 起因：合进 main 后首跑就是 2 红，读到的却是合并前那份 .next —— 红得像产品坏了，
+    // 真因是产物陈旧。这与"3018 实例发旧 chunk"是同一类错误：量具读的不是被测物。
+    // 所以这里用 .next/BUILD_ID 的写入时间对上"最新源文件"的时间，比源码旧就判红。
+    // 注意 git 会改写 mtime：checkout / merge 之后源码时间变成"现在"，旧产物一律算陈旧 ——
+    // 这是一个偏保守的假红（重新 build 一次就好），不会反过来放走真陈旧。
+    const buildIdPath = join(FE, '.next', 'BUILD_ID');
+    let newestSrc = 0;
+    let newestSrcFile = '';
+    const touch = (p: string) => {
+      const m = statSync(p).mtimeMs;
+      if (m > newestSrc) { newestSrc = m; newestSrcFile = p.replace(/\\/g, '/').replace(FE.replace(/\\/g, '/') + '/', ''); }
+    };
+    const walkFresh = (dir: string) => {
+      let entries;
+      try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        if (e.name === 'node_modules' || e.name === '.next') continue;
+        const p = join(dir, e.name);
+        if (e.isDirectory()) walkFresh(p);
+        else if (/\.(ts|tsx|css|json|js|mjs)$/.test(e.name)) touch(p);
+      }
+    };
+    walkFresh(FE);
+    const builtAt = existsSync(buildIdPath) ? statSync(buildIdPath).mtimeMs : 0;
+    // 有 CSS 却没有 BUILD_ID：这份产物的来历已经不可考了（手工塞的、半截构建、别处拷来的），
+    // 一律算"无法证明新鲜"。这一支如果留成绿，正好是"判据没想到的那一类放过去了"。
+    const noStamp = cssFiles.length > 0 && builtAt === 0;
+    const stale = cssFiles.length > 0 && (noStamp || builtAt < newestSrc);
+    const lag = Math.round((newestSrc - builtAt) / 1000);
+    if (stale) {
+      ok('dir/bundle-is-fresh', false,
+        noStamp
+          ? `frontend/.next 里有 ${cssFiles.length} 个 CSS 产物却没有 BUILD_ID：无法证明它比源码新，`
+            + '读产物的三条闸门（dead-styles / danger-token-in-bundle / referenced-tokens-survive-bundle）不作数。重新 build。'
+          : `.next 比源码旧 ${lag}s（BUILD_ID 早于最新源文件 ${newestSrcFile}）—— 读产物的三条闸门`
+            + '（dead-styles / danger-token-in-bundle / referenced-tokens-survive-bundle）现在读到的是上一版构建，'
+            + '它们报的红或绿都不作数。先 build 再跑。');
+      say('SKIP(陈旧) 三条读产物的闸门不作数 —— 判红的是 dir/bundle-is-fresh，不是产品');
+    } else if (cssFiles.length) {
+      ok('dir/bundle-is-fresh', true,
+        `产物比源码新（BUILD_ID 晚于 ${newestSrcFile}，余量 ${Math.round((builtAt - newestSrc) / 1000)}s）—— 读产物的闸门这次作数`);
       // 产物也走同一把刀：将来若打包器留下注释，注释里那句选择器不能算"包里有 zen"，
       // 反过来也不能让一条被注释掉的选择器冒充"已经清干净"。
       const bundle = cssFiles.map(f => stripComments(readFileSync(f, 'utf8'))).join('\n');
@@ -532,8 +573,20 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
       ok('dir/referenced-tokens-survive-bundle', missingFromBundle.length === 0,
         `被引用且在 globals.css 里声明过的 --color-*，产物里必须仍有定义（摇树掉的那支在浏览器里等于未定义，`
         + `而源码侧闸门全绿）：缺 ${missingFromBundle.join('、') || '0 支'}（比对 ${definedHere.length} 支声明 / ${refs.size} 支引用）`);
+    } else if (process.env.QN_ALLOW_NO_BUILD === '1') {
+      // 放行不等于达标：这条不计 PASS，只打一行 SKIP。否则"没 build 的跑法"读起来
+      // 跟"build 过且全绿"一模一样，正是运维禁止的"拿豁免过关"。
+      say('SKIP  dir/bundle-present  frontend/.next 里没有 CSS 产物可读，读产物的三条闸门（dead-styles / '
+        + 'danger-token-in-bundle / referenced-tokens-survive-bundle）等于没跑 —— 这一条默认判红，'
+        + '是 QN_ALLOW_NO_BUILD=1 显式放行才降级的，不计通过');
     } else {
-      say('SKIP  dir/bundle-free-of-dead-styles  没有 .next 里的 CSS 产物可读 —— 先 build 再跑，否则这条什么都没测');
+      // 运维这次要求"不许 SKIP"：没有产物时这三条什么都没测，静默打一行 SKIP 会被读成过了。
+      // 默认判红；确实要在无产物的环境（干净 clone）跑，必须显式设 QN_ALLOW_NO_BUILD=1，
+      // 那时才降级成一句 SKIP —— 豁免要留名，不能是默认路径。
+      ok('dir/bundle-present', false,
+        `frontend/.next 里没有 CSS 产物可读，读产物的三条闸门（dead-styles / danger-token-in-bundle / `
+        + `referenced-tokens-survive-bundle）等于没跑。先 build；`
+        + `干净 clone 这类场景请显式设 QN_ALLOW_NO_BUILD=1（当前未设，判红）`);
     }
   }
 }
