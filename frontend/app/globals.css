@@ -517,6 +517,11 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 }
 .qn-btn--ghost:hover { box-shadow: inset 0 0 0 1px var(--color-accent-gold); }
 .qn-btn--quiet { background: transparent; color: var(--color-text-secondary); min-height: 40px; padding: 0 14px; }
+/* 破坏性动作专用（移除这张图）。透明底 + danger 描边与文字：
+   实心红会把"这一步会毁掉东西"读成"这是个主行动"。两主题的取值都在令牌里，
+   这里不写字面色（西方块零写死色那条纪律同样管着新原语）。 */
+.qn-btn--danger { background: transparent; color: var(--color-danger); border: 1px solid var(--color-danger); }
+.qn-btn--danger:hover { background: color-mix(in srgb, var(--color-danger) 10%, transparent); }
 .qn-btn--quiet:hover { color: var(--color-text-primary); }
 .qn-btn--block { width: 100%; }
 .qn-btn:disabled { opacity: 0.45; cursor: wait; }
@@ -683,6 +688,42 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   border: 0.5px solid rgba(178, 58, 46, 0.18);
 }
 
+/* ---- 回执条三档（info / pending / danger）----
+   全部只引"会随主题重指向"的语义令牌，不写字面色，也不在西方块里另写一套：
+   --color-bg-card / --color-danger / --color-accent-gold-text / --color-text-primary
+   这四支在 [data-mode="western"] 里都有另一档，所以三档在两种主题下是同一份规则。
+   档位还有一条**非颜色**通道：左沿 3px 实线的色 + 前缀中文（Callout.tsx 里那份表）+ role。 */
+.qn-callout {
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: var(--qn-fs-meta);
+  line-height: 1.6;
+  border: var(--qn-hairline);
+  border-left-width: 3px;
+  border-left-style: solid;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.qn-callout__tag { font-weight: 600; letter-spacing: .04em; }
+.qn-callout__text { flex: 1 1 240px; min-width: 0; }
+.qn-callout--info {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  border-left-color: var(--color-text-secondary);
+}
+.qn-callout--info .qn-callout__tag { color: var(--color-text-secondary); }
+.qn-callout--pending {
+  background: color-mix(in srgb, var(--color-accent-gold-text) 8%, var(--color-bg-card));
+  color: var(--color-text-primary);
+  border-left-color: var(--color-accent-gold-text);
+}
+.qn-callout--pending .qn-callout__tag { color: var(--color-accent-gold-text); }
+.qn-callout--danger {
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-card));
+  color: var(--color-danger);
+  border-left-color: var(--color-danger);
+}
+.qn-callout--danger .qn-callout__tag { color: var(--color-danger); }
+
 /* ---- 双体系门廊与工作页（#双体系）----
    两套主题各自只覆盖"这一系的强调色"，页面底色与文字 token 不动：
    整站文字对比度是按现有 token 量过的（13px 次要灰压卡底 4.51:1），
@@ -835,6 +876,32 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   .domain-card__veil { transition: none; }
 }
 
+/* ---- 户型五步条 ---- */
+/* 步条只报状态、不折叠内容：把 ②③④ 藏起来确实更清爽，但那会让"未确认的几何"从屏上消失，
+   而确认门是这一页的主张。三档状态一律用**文字**写（已完成/待补/未开始），
+   不靠颜色分档 —— 与"未确认不许只靠颜色传达"是同一条规矩。
+   每一格 min-height 44：它们是状态指示不是按钮，但既然排在一条可点的行里，
+   做小了一样会被手指误读，44 是这一站的地板。 */
+.fp-steps {
+  border: var(--qn-hairline); border-radius: 12px; padding: 10px 12px;
+  background: var(--color-bg-card);
+}
+.fp-steps__list { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.fp-steps__item {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px;
+  border-radius: 999px; border: var(--qn-hairline);
+  font-size: var(--qn-fs-meta); color: var(--color-text-secondary);
+}
+.fp-steps__item[aria-current="step"] { border-color: var(--color-accent-gold-text); color: var(--color-text-primary); font-weight: 500; }
+.fp-steps__no { font-variant-numeric: tabular-nums; opacity: .8; }
+/* 步名与档位是这格里真正被读的两段：编号只是序，字才是内容，所以字重给在名字上。 */
+.fp-steps__name { letter-spacing: .02em; }
+.fp-steps__item[aria-current="step"] .fp-steps__name { font-weight: 600; }
+.fp-steps__state { font-size: var(--qn-fs-meta); letter-spacing: .04em; opacity: .85; }
+.fp-steps__hint { margin: 8px 0 0; font-size: var(--qn-fs-meta); color: var(--color-text-secondary); }
+.fp-steps__privacy { margin: 6px 0 0; font-size: var(--qn-fs-meta); line-height: 1.6; color: var(--color-text-secondary); }
+.fp-step-block { margin-top: 14px; }
+
 /* ---- 问事框 ---- */
 /* 问事框那一行：输入框 + 按钮。nowrap 是刻意的 —— 以前它们挤在 flexWrap:'wrap' 里，
    按钮文字在「问一下 / 在想」之间变长就会让整行重排（实测按钮跳到下一行、整页被推下去
@@ -904,6 +971,12 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-western-danger-bg: rgba(178, 58, 46, 0.16);
   --color-western-danger-line: rgba(230, 150, 140, 0.34);
   --color-western-danger-text: #f2c4bd;
+  /* 破坏性/非法那一支的墨底取值（运维 2026-10-22 定 #e88f80）。写成 palette 是为了
+     [data-mode="western"] 块里零字面色 —— 那条是 census 的 CSS-TOKEN 判据在钉的纪律：
+     西方块只许 var() 重指向，字面值一律住在这里，否则改一处配色就会漏另一处。
+     与 --color-western-danger-text 不同值也是刻意的：那一支是 .qn-alert 的正文色，这一支是
+     图形与破坏性控件的色（达标读数由 harness 量，不写在这里）。 */
+  --color-western-danger: #e88f80;
   --color-western-shadow: rgba(8, 3, 20, 0.5);
   --color-western-nav-bg: rgba(27, 16, 48, 0.86);   /* 导航是半透明吸顶，得单独一支，不能直接用 bg */
   /* 东方户型的 3D 舞台：页面本体仍是浅底，深色只是卡片里的一块舞台。
@@ -915,6 +988,23 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-fp-stage-line: rgba(230, 220, 255, 0.14);
   --color-fp-stage-gold: #d9b877;
   --color-fp-stage-flow: #c9bfe0;
+  /* 舞台上"还没确认"的那一格：等轴测图与 3D 的底是深色，所以走墨底那一支金
+     （与 --color-accent-gold-on-ink 同值，同一套"按底分支"的规则；浅底那一档是
+     --color-accent-gold-text #7a5f31）。批C 补的就是这一支 —— 它以前不存在，
+     而引用它的那行不带 fallback，所以那一格一直没有颜色。 */
+  --color-fp-stage-open: #e3cd96;
+
+  /* ===== 破坏性操作 / 非法输入（运维 2026-10-22 裁定）=====
+     与 --color-xiong 同值是**刻意的一对 COLLIDE**：语义不同 —— 凶是命盘上的判断，
+     danger 是"这一步会毁掉你的东西 / 这个输入不合法"。红留给真正非法的输入，
+     "未确认"不许用它（那是等你处理）—— 未确认走等待态金 + 虚线 + 文字标签。
+     墨底那一支在下方 [data-mode="western"] 里重指向。
+
+     为什么写在 :root 而不是上面的 @theme：Tailwind v4 会把**没有任何 CSS 规则 var() 它**的
+     theme token 从产物里摇掉。这一支只被 JSX 内联样式消费（移除按钮），@theme 里那份
+     实测在产物 CSS 里根本不存在 —— 于是浅底上它等于未定义，正是这条批要修的那类缺陷。
+     写在 :root 就不参与摇树。dir/danger-token-in-bundle 钉的是产物，不是源码。 */
+  --color-danger: #b23a2e;
 }
 
 [data-mode="western"] {
@@ -938,6 +1028,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
      读数由 harness 从渲染结果量（三种状态 × 两种底），不写在注释里。 */
   --color-status-open: var(--color-accent-gold-on-ink);
   --color-status-partial: var(--color-western-gold);
+  /* 破坏性/非法那一支在墨底上必须另给一档：浅底那支 #b23a2e 压深紫读不出字。
+     值走 palette（西方块里不许写字面色），语义与 .qn-alert 的 danger-text 分开。 */
+  --color-danger: var(--color-western-danger);
   --qn-hairline: 0.5px solid var(--color-western-line);
   --qn-shadow: 0 8px 26px var(--color-western-shadow);
   background: var(--color-western-bg);

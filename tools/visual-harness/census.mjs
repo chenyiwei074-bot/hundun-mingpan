@@ -929,7 +929,7 @@ const FS_RECOGNIZE_PINS = {
 const fsRecognizeProbe = p => `(() => {
   // 选择器里必须带 span.qn-meta：置信度那一行是 <span class="qn-meta">，只收 p 的话
   // 页面上真实存在的文案会被判"找不到"，而这种假红最费人（它会指向错的那一层）。
-  const txt = [...document.querySelectorAll('p.qn-alert, p.qn-meta, p.qn-note, span.qn-meta')]
+  const txt = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-meta, p.qn-note, span.qn-meta')]
     .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
   const st = document.getElementById('fp-recognize-state');
   const chip = t => [...document.querySelectorAll('.qn-chip')].filter(b => (b.textContent || '').trim() === t);
@@ -1107,19 +1107,101 @@ async function gateInteraction(tag) {
 // 它 var() 的是一支全站从没定义过的令牌，于是安静地画成近乎透明。
 // 下限 3:1（非文本），并且每个徽章必须带文字：只靠颜色区分状态，色觉之外的人就读不到。
 const DOT_STATES = { tools: 'three', western: 'one' };
-const dotProbe = want => `(() => {
-  const lum = s => { const m = String(s).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?/); if (!m) return null;
+// 页内对比度只留一套算法（lum / ground / ratio）。以前 dotProbe 内联一份、主审计另一份，
+// 两处口径不同就会量出两个数 —— 这一批已经因为"同一个比值手算出三个值"吃过教训。
+const CONTRAST_JS = `
+  const toRgb = s => {
+    const m = String(s).match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?/);
+    if (m) return [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]];
+    // color-mix() 在 Chrome 里序列化成 color(srgb r g b [/ a])（0..1），不是 rgb()。
+    // 以前解析不了就一路往上找祖先底 —— 量出来的比"看着的那个底"松，是假绿。
+    const c = String(s).match(/color\\(\\s*srgb\\s+([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)(?:\\s*\\/\\s*([\\d.]+))?/);
+    if (c) return [Math.round(+c[1] * 255), Math.round(+c[2] * 255), Math.round(+c[3] * 255),
+      c[4] === undefined ? 1 : +c[4]];
+    return null; };
+  const lum = s => { const v = toRgb(s); if (!v) return null;
     const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
-    const a = m[4] === undefined ? 1 : +m[4];
-    return { l: 0.2126 * f(+m[1] / 255) + 0.7152 * f(+m[2] / 255) + 0.0722 * f(+m[3] / 255), a }; };
-  // 底：沿祖先找第一层不透明背景色。徽章与它那块卡都是实色，没算渐变层
-  // （要算的那一类由主审计的 bgSet 负责，这里不重复一套口径）。
+    return { l: 0.2126 * f(v[0] / 255) + 0.7152 * f(v[1] / 255) + 0.0722 * f(v[2] / 255), a: v[3] }; };
+  // 底：沿祖先找第一层不透明背景色。徽章与卡片都是实色，渐变层归主审计的 bgSet 管，这里不重复口径。
   const ground = el => { for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
       const c = getComputedStyle(n).backgroundColor || ''; const L = lum(c);
       if (L && L.a > 0.9) return c; }
     return 'rgb(255, 255, 255)'; };
   const ratio = (fg, bg) => { const x = lum(fg), y = lum(bg); if (!x || !y) return null;
-    return Math.round(((Math.max(x.l, y.l) + 0.05) / (Math.min(x.l, y.l) + 0.05)) * 100) / 100; };
+    return Math.round(((Math.max(x.l, y.l) + 0.05) / (Math.min(x.l, y.l) + 0.05)) * 100) / 100; };`;
+
+/** 三档回执的**墨底**读数。运维 2026-10-22 要求：不接受"按构造成立"——
+ *  /fengshui 是东方页，西方主题下这三档从来没有真实渲染点，所以在这里临时注入 DOM 量一次：
+ *  把 main 的 data-mode 切成 western（令牌块按属性选择器重指向，不需要产品配合）、
+ *  插三档各一条、量正文与前缀的合成底、删掉节点并把属性还原。
+ *  产品代码一行未动；量的是 globals.css 那三条规则在深底上到底读不读得出来。 */
+const CALLOUT_INK_PROBE = `(() => {
+  ${CONTRAST_JS}
+  const main = document.querySelector('main');
+  if (!main) return { miss: ['页面上没有 main，西方作用域没法注入'] };
+  const was = main.getAttribute('data-mode');
+  main.setAttribute('data-mode', 'western');
+  const TIERS = [['info', '提示', '上传是可选的，不上传也能走完全部判定。'],
+    ['pending', '待你处理', '候选已载入，每一项都要你逐条确认。'],
+    ['danger', '失败', '识别服务不可用（HTTP 503），一次都没有重试。']];
+  const rows = []; const made = [];
+  for (const [tier, tag, text] of TIERS) {
+    const p = document.createElement('p');
+    p.className = 'qn-callout qn-callout--' + tier;
+    const a = document.createElement('span'); a.className = 'qn-callout__tag'; a.textContent = tag;
+    const b = document.createElement('span'); b.className = 'qn-callout__text'; b.textContent = text;
+    p.appendChild(a); p.appendChild(b); main.appendChild(p); made.push(p);
+    const cs = getComputedStyle(p), g = ground(p);
+    rows.push({ tier, fg: cs.color, bg: g, r: ratio(cs.color, g),
+      tagFg: getComputedStyle(a).color, tagR: ratio(getComputedStyle(a).color, g) });
+  }
+  made.forEach(p => p.remove());
+  if (was === null) main.removeAttribute('data-mode'); else main.setAttribute('data-mode', was);
+  return { rows, restored: main.getAttribute('data-mode') === was };
+})()`;
+
+/** 图上标号（批C-5b）。钉四件事，全部是"看得见"这一侧的：
+ *  · 数量：房间名 / 门窗号 / 九宫格 三组都必须与几何一致（少画一个 = 依据无处可指）；
+ *  · 手柄不许被压：标签与角点手柄的矩形不许相交（手柄要能拖，且 375 那一档挤得最凶）；
+ *  · 每个 marker 带 <title>：读屏与悬停都要能说出这是哪一间、哪一个洞；
+ *  · 字号不许低于阶梯下限 11px（低于 11 在 375 上就是糊的）。 */
+const FP_LABEL_PROBE = `(() => {
+  const g = document.querySelector('[data-fp="labels"]');
+  const grid = document.querySelector('[data-fp="grid"]');
+  if (!g || !grid) return { miss: ['俯视图里没有标号层（data-fp="labels" / data-fp="grid"）—— 依据无处可指'] };
+  const svg = g.ownerSVGElement || document.querySelector('svg');
+  const rooms = [...g.querySelectorAll('[data-fp="room"]')];
+  const tags = [...g.querySelectorAll('[data-fp="opening-tag"]')];
+  const palaces = [...grid.querySelectorAll('[data-fp="palace"]')];
+  const handles = [...svg.querySelectorAll('circle')];
+  // SVG <text> 的 textContent 会把子 <title> 一起带出来（"D1：门，宽 0.9m…D1"），
+  // 所以比对与报错都读 data-tag / data-name —— 这是探针自己的坑，不是产品的。
+  const nameOf = el => el.getAttribute('data-tag') || el.getAttribute('data-name') || el.textContent.trim();
+  const out = [];
+  const hit = (a, b) => {
+    const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return x > 0.5 && y > 0.5;
+  };
+  for (const l of rooms.concat(tags)) {
+    const r = l.getBoundingClientRect();
+    if (parseFloat(getComputedStyle(l).fontSize) < 11) out.push('标号字号 ' + getComputedStyle(l).fontSize + ' < 11px：' + nameOf(l));
+    if (!l.querySelector('title')) out.push('标号没有 <title>（读屏与悬停说不出它是谁）：' + nameOf(l));
+    for (const h of handles) if (hit(r, h.getBoundingClientRect()))
+      out.push('标号「' + nameOf(l) + '」被角点手柄压住（手柄 r=' + Math.round(h.getBoundingClientRect().width / 2) + 'px）');
+  }
+  if (palaces.length !== 9) out.push('九宫格画了 ' + palaces.length + ' 格，应为 9');
+  // 图上那个号与下面清单里那一条必须一一对应：编号只发一次这件事才有机器形状。
+  const cardRows = [...document.querySelectorAll('[id^="fp-opening-"]')].filter(e => !e.id.startsWith('fp-opening-tag'));
+  if (cardRows.length !== tags.length) out.push('门窗清单 ' + cardRows.length + ' 条，图上标号 ' + tags.length + ' 个 —— 对不上就是有两份编号');
+  const cardTags = [...document.querySelectorAll('[id^="fp-opening-tag-"]')].map(e => e.textContent.trim()).sort().join(' ');
+  const svgTags = tags.map(e => e.getAttribute('data-tag')).sort().join(' ');
+  if (cardTags !== svgTags) out.push('清单里的编号与图上的不是一套：「' + cardTags + '」vs「' + svgTags + '」');
+  return { miss: [...new Set(out)], rooms: rooms.length, tags: tags.length, palaces: palaces.length, handles: handles.length };
+})()`;
+
+const dotProbe = want => `(() => {
+  ${CONTRAST_JS}
   const out = []; const seen = {};
   const dots = [...document.querySelectorAll('.qn-badge__dot')];
   for (const d of dots) {
@@ -2662,7 +2744,7 @@ const fsEditProbe = p => `(() => {
       const fps = Math.round(window.__fp.frames / ((performance.now() - window.__fp.t0) / 1000) * 10) / 10;
       const stage = document.querySelector('[data-fp-stage]');
       const canvas = stage ? stage.querySelector('canvas') : null;
-      const reason = [...document.querySelectorAll('p.qn-alert')].map(p => (p.textContent || '').trim())
+      const reason = [...document.querySelectorAll('p.qn-alert, p.qn-callout')].map(p => (p.textContent || '').trim())
         .filter(t => /等轴|帧率|上下文/.test(t));
       const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
         .find(t => /首帧/.test(t)) || null;
@@ -2706,6 +2788,33 @@ const fsEditProbe = p => `(() => {
     else for (const x of miss) fail.push(tag + ': 主题不等于钉值 — ' + x);
     console.log(`   THEME[${kind}] main=${got && got.mainBg} card=${got && got.cardBg} body=${got && got.bodyBg}`
       + ` text=${got && got.color} scheme=${got && got.scheme}${got && got.cards ? ' cards=' + JSON.stringify(got.cards) : ''}`);
+  }
+  // 图上标号（批C-5b）：凡是几何已经在屏上的态都量一次，因为"依据指回图上"这一半
+  // 只有在画了东西的那一帧才谈得上。
+  if (['fengshui-filled', 'fengshui-edit', 'fengshui-recognize-candidates'].includes(base)) {
+    const got = await evl(FP_LABEL_PROBE);
+    if (!got || !Array.isArray(got.miss)) fail.push(tag + ': 标号探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else { for (const x of got.miss) fail.push(tag + ': 图上标号不成立 — ' + x); }
+    console.log(`   LABELS 房间名 ${got && got.rooms} · 门窗号 ${got && got.tags} · 九宫 ${got && got.palaces} · 手柄 ${got && got.handles} 个，`
+      + (got && got.miss && got.miss.length ? `${got.miss.length} 处不对` : '全部对得上'));
+  }
+  // 三档回执的墨底读数（运维要求：不接受"按构造成立"）。跑在本态所有读数之后 ——
+  // 它注入又删除节点，放在中间会把注入本身的那次位移算进 CLS。
+  if (base === 'fengshui') {
+    const got = await evl(CALLOUT_INK_PROBE);
+    if (!got || !Array.isArray(got.rows) || !got.rows.length) {
+      fail.push(tag + ': 三档墨底探针没跑起来 ' + JSON.stringify(got).slice(0, 140));
+    } else {
+      if (!got.restored) fail.push(tag + ': 注入之后 data-mode 没还原（会污染后面的态）');
+      const miss = [];
+      for (const r of got.rows) {
+        if (r.r === null || r.tagR === null) { miss.push(`${r.tier} 颜色算不出来`); continue; }
+        if (r.r < 4.5) miss.push(`${r.tier} 正文 ${r.r}:1 < 4.5（${r.fg} 压 ${r.bg}）`);
+        if (r.tagR < 4.5) miss.push(`${r.tier} 档位前缀 ${r.tagR}:1 < 4.5（${r.tagFg} 压 ${r.bg}）`);
+      }
+      for (const x of miss) fail.push(tag + ': 回执三档在墨底不达标 — ' + x);
+      console.log('   CALLOUT[ink] ' + got.rows.map(r => `${r.tier} ${r.r}/${r.tagR} 压 ${r.bg}`).join(' · '));
+    }
   }
   // 动爻的金漆只在「最后一条记录正好是动爻」时才上屏 —— 实测约一半的跑法里根本没有对象
   // （每爻老阴/老阳各 1/8）。不把这个数打出来，一次绿会被读成「对比度没问题」，
@@ -2802,7 +2911,7 @@ const fsEditProbe = p => `(() => {
     }
     const ui = await evl(`(() => {
       const st = document.getElementById('fp-recognize-state');
-      const txt = [...document.querySelectorAll('p.qn-alert, p.qn-meta, p.qn-note')]
+      const txt = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-meta, p.qn-note')]
         .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
       return { state: st ? st.getAttribute('data-recognize-state') : null,
         calls: window.__recCalls || null, hasNotRetry: /不自动重试|一次都没重试/.test(txt),

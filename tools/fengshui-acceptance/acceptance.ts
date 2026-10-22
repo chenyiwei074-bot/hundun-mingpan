@@ -29,6 +29,9 @@ import {
   moveWallVertex, resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
 } from '../../frontend/lib/fengshui/edit';
 import { openingSegment } from '../../frontend/lib/fengshui/geometry';
+import { labelVocabulary, openingTags, PALACE_NAMES, placeTag, tagOf } from '../../frontend/lib/fengshui/labels';
+import { SYNTHETIC_FLOORPLANS } from '../../frontend/lib/fengshui/synthetic';
+import { currentStep, orderNotes, stepStates } from '../../frontend/lib/fengshui/steps';
 import { ROOM_KINDS } from '../../frontend/lib/fengshui/types';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
@@ -766,6 +769,177 @@ const base: FloorInput = {
   ok('harness/tests-editor', /'fengshui-edit'/.test(census2) && /fsEditProbe/.test(census2)
     && /'加一道墙', '加门', '宽', '#fp-confirm'/.test(census2),
     'fengshui-edit 态真的按了 加一间房→用途→加一道墙→加门→宽→确认并逐条钉回来（存在性归套件，改到画面归 harness）');
+}
+
+// ── 12. 五步条与关心点：状态算得对不对、排序会不会偷改判定 ──
+{
+  const base = { 有图: false, 房间数: 0, 开口数: 0, 朝向已答: false, 朝向: '未确认' as const,
+    关心点数: 0, 关心点已答: false, 已确认: false };
+  const st = (over: Partial<typeof base>) => Object.fromEntries(stepStates({ ...base, ...over }).map(s => [s.n, s.状态]));
+
+  ok('steps/empty-is-step-one', JSON.stringify(st({})) === JSON.stringify({ 1: '未开始', 2: '待补', 3: '未开始', 4: '未开始', 5: '未开始' }),
+    `空页面上：① 未开始、② 待补（朝向随时可答）、③⑤ 未开始。实得 ${JSON.stringify(st({}))}`);
+  // 「朝向未确认」是一个答案，不是没答：默认值若被读成已完成，步条就在替用户撒。
+  ok('steps/unconfirmed-facing-is-an-answer', st({ 朝向已答: false })[2] === '待补' && st({ 朝向已答: true })[2] === '已完成',
+    '② 看的是"点过没有"，不是"值不等于未确认" —— 后者会把页面默认值显示成已经答过');
+  ok('steps/no-openings-says-so', st({ 房间数: 2, 开口数: 0 })[3] === '待补' && st({ 房间数: 2, 开口数: 3 })[3] === '已完成',
+    '有房间但一个门窗都没标：③ 必须是"待补"，不许显示成完成（那三类判定其实是缺输入）');
+  ok('steps/concerns-need-explicit-skip', st({ 关心点已答: false })[4] === '未开始' && st({ 关心点已答: true, 关心点数: 0 })[4] === '已完成',
+    '④ 可跳过，但"跳过"要显式按一次：没按之前它是未开始，否则步条会显示"就差结果"而用户其实什么都没选');
+  // 当前位置 = 第一个没完成的那一步（页面上 aria-current 就跟着它）。
+  ok('steps/current-is-first-incomplete', currentStep(stepStates({ ...base, 有图: true, 房间数: 2, 开口数: 2 })) === 2
+    && currentStep(stepStates({ ...base, 房间数: 2, 开口数: 2, 朝向已答: true, 关心点已答: true, 已确认: true })) === 5,
+    `当前位置取"第一个未完成"：有几何没答朝向时停在第 2 步；五步全过就停在第 5 步（结果段在那）—— 注意 ① 有几何即算完成，图不是必需品`);
+
+  const notes = [
+    { 规则: '起居房间与采光面相邻', 结论: '主卧与标了主窗的坎同宫或相邻。', 不确定项: ['窗的尺寸不在输入里'] },
+    { 规则: '中宫被固定功能占用', 结论: '中宫标了客厅。', 不确定项: ['格子看不出高差'] },
+    { 规则: '到达该房间需穿过私密区', 结论: '从入户门走到主卧必须经过厨房。', 不确定项: ['门洞位置比九宫细'] },
+  ];
+  const a = orderNotes(notes, []);
+  const b = orderNotes(notes, ['动线']);
+  const sameSet = (x: typeof notes) => [...x].sort((p, q) => p.规则.localeCompare(q.规则));
+  ok('steps/concerns-reorder-only', a.排序后.length === notes.length && b.排序后.length === notes.length
+    && JSON.stringify(sameSet(a.排序后)) === JSON.stringify(sameSet(notes))
+    && JSON.stringify(sameSet(b.排序后)) === JSON.stringify(sameSet(notes))
+    && b.排序后[0].规则 === '到达该房间需穿过私密区' && b.排序后[1] === notes[0] && b.排序后[2] === notes[1],
+    '关心点只改次序：条数与每条内容一字不改（上面那条被排到最前，其余保持规则层原序）—— 选了什么"在意"绝不能改变判定本身');
+
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  ok('steps/rail-rendered-from-lib', /stepStates\(/.test(studio) && /currentStep\(/.test(studio)
+    && /className="fp-steps"/.test(studio) && /aria-current=\{s\.n === 现在 \? 'step'/.test(studio)
+    && !/function stepStates/.test(studio),
+    '步条的状态算在 lib/fengshui/steps.ts、组件只渲染：状态若只是 JSX 里一个三元，套件喂不进去');
+  ok('steps/privacy-restated-on-rail', /fp-steps__privacy/.test(studio) && /不进入报告、回执与公开台账/.test(studio)
+    && /可随时移除/.test(studio),
+    '§8 要求隐私那一句在步条上复现一次（勾选框要等有图才渲染，按下「选户型图」之前必须读得到）');
+}
+
+// ── 14. 回执三档（运维 2026-10-22 批准）：info / pending / danger，红只留给失败 ──
+{
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  const callout = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'ui', 'Callout.tsx'), 'utf8'));
+  const css = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'globals.css'), 'utf8'));
+
+  // 这一页不许再有裸 .qn-alert：那个类是红底，什么都往里塞就等于"全站都在报警"。
+  const bare = ['components/fengshui/FloorPlanStudio.tsx', 'components/fengshui/FloorPlanForm.tsx', 'app/fengshui/page.tsx']
+    .map(f => [f, stripComments(readFileSync(join(ROOT, 'frontend', f), 'utf8'))] as const)
+    .filter(([, src]) => /className="qn-alert"/.test(src)).map(([f]) => f);
+  ok('fp/no-bare-alert', bare.length === 0,
+    `户型这一页统一走 Callout variant，不许有裸 .qn-alert（命中 ${bare.join('、') || '无'}）`);
+
+  // 三档齐、role 分档、前缀是写出来的中文（不许只靠颜色区分档位）。
+  ok('callout/three-tiers-with-words', /info: '提示'/.test(callout) && /pending: '待你处理'/.test(callout)
+    && /danger: '失败'/.test(callout) && /tier === 'danger' \? 'alert' : 'status'/.test(callout),
+    '三档各有一个写出来的前缀，且只有 danger 用 role=alert（会打断读屏的那一档必须真的是出错那一档）');
+
+  // 每一句回执落在哪一档，逐条钉住：这一条就是"中性回执改成 danger 会红"的那道闸门。
+  // 判法：整段压平后，从那句话往前找最近的 say('档位 —— 不按行找。
+  // 按行找会把三元里第二句（`: '删掉了这道墙。'`）当成"没档位"，红得对但红错了原因。
+  const TIERS: Array<[RegExp, 'info' | 'pending' | 'danger', string]> = [
+    [/已拒绝/, 'danger', '文件校验没过 = 非法输入'],
+    [/这条不装作成功/, 'danger', '识别失败'],
+    [/候选提醒\(parsed\)/, 'pending', '认出来了但还没逐条确认'],
+    [/先选一张图/, 'pending', '等用户给输入'],
+    [/要先勾选同意/, 'pending', '等用户决定'],
+    [/再按一次「确认移除」/, 'pending', '等用户确认'],
+    [/已载入合成样例/, 'info', '载入样例只是回执，不是出错'],
+    [/已铺一个矩形外框/, 'info', '手工画起点'],
+    [/已在墙上开了一个/, 'info', '加门窗回执'],
+    [/加了一道贯通包围盒的隔墙/, 'info', '加墙回执'],
+    [/已移除：图、几何、候选与朝向/, 'info', '移除完成的回执（不是危险本身）'],
+    [/已读取本地预览/, 'info', '选图成功'],
+    [/删掉了这道墙/, 'info', '删墙回执'],
+  ];
+  const flat = studio.replace(/\s+/g, ' ');
+  const misTier = TIERS.filter(([re, want]) => {
+    const m = re.exec(flat);
+    if (!m) return true;                       // 那句话本身不见了，也算对不上
+    const back = flat.slice(Math.max(0, m.index - 80), m.index);
+    return !new RegExp(`say\\(['"]${want}['"]`).test(back);
+  }).map(([re, want]) => `${String(re).slice(2, 14)}（应为 ${want}）`);
+  ok('callout/tier-per-message', misTier.length === 0,
+    `每句回执的档位逐条钉（改错一条就红，且点名是哪一条）：${misTier.join(' / ') || '全部对得上'}`);
+
+  // 三档在两种主题下都要有样式：这里不复制一份西方规则，而是要求每一档的配色
+  // 只引"会随主题重指向"的语义令牌 —— 写了字面色就等于只给一种主题做了样式。
+  const rules = [...css.matchAll(/\.qn-callout[^{]*\{([^}]*)\}/g)].map(m => m[1]);
+  const literals = rules.join(' ').match(/#[0-9a-fA-F]{3,8}\b|rgba?\(/g) || [];
+  ok('callout/both-themes-by-tokens', rules.length >= 4 && literals.length === 0
+    && /\.qn-callout--info\b/.test(css) && /\.qn-callout--pending\b/.test(css) && /\.qn-callout--danger\b/.test(css),
+    `三档规则齐备且零字面色（字面 = 只给一种底做了样式；西方靠令牌重指向自动跟随）：规则 ${rules.length} 条 / 字面色 ${literals.join('、') || '0 处'}`);
+}
+
+// ── 16. 图上标号（批C-5b）：依据要指得回图，编号不许有两份 ──
+{
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  const tags1 = openingTags(SYNTHETIC_FLOORPLANS[0].几何);
+  const ids = SYNTHETIC_FLOORPLANS[0].几何.开口.map(o => o.id);
+  ok('labels/one-tag-per-opening', JSON.stringify(Object.keys(tags1).sort()) === JSON.stringify([...ids].sort())
+    && Object.values(tags1).every(t => /^(D|W)\d+$/.test(t))
+    && new Set(Object.values(tags1)).size === Object.values(tags1).length
+    && tagOf(tags1, { id: '不存在的洞' } as never) === '未编号',
+    `每个开口恰好一个号、格式是 D#/W#、不重号，编号发不出来时明写"未编号"而不是画一个 undefined：${JSON.stringify(tags1)}`);
+
+  // 正向：依据里凡是「X 标在 Y」这种指认，X 必须是图上画得出的东西（房间名，或"主窗/入户门"
+  // 这两个由格子聚合出来的角色），Y 必须是九宫之一。
+  // 为什么不是"句子里出现词表任一项就算过"：我第一版那么写，把 labelVocabulary 里的房间名整个删掉
+  // 之后闸门照样绿 —— 每句依据都带一个宫名，房间名那一半从来没被验过。证伪不区分的判据等于没有判据。
+  const bad: string[] = [];
+  let checked = 0;
+  for (const plan of SYNTHETIC_FLOORPLANS) {
+    const t = toFloorInput(plan.几何, '南', true);
+    const rep = analyzeFloor(t.输入 as never);
+    const drawn = new Set(plan.几何.房间.map(r => r.名称));
+    for (const n of rep.判定) for (const why of n.依据) {
+      for (const m of why.matchAll(/(\S+)\s*标在\s*([^\s，。；]+)/g)) {
+        checked += 1;
+        // 「主窗只标在 巽」是规则层的原话（"只"是限定词，不是房间名的一部分）。
+        const who = m[1].replace(/^房间/, '').replace(/^主窗只$/, '主窗').trim();
+        if (!(drawn.has(who) || who === '主窗' || who === '入户门')) bad.push(`${plan.名称}：图上没有「${who}」这一间 —— 「${why}」`);
+        // Y 可以是一串（「主窗标在 震、兑」），逐个都要是九宫之一。
+        for (const y of m[2].split('、')) if (!PALACE_NAMES.includes(y as never)) bad.push(`${plan.名称}：「${y}」不是九宫之一 —— 「${why}」`);
+      }
+    }
+  }
+  ok('labels/basis-resolves-on-plan', checked >= 8 && bad.length === 0,
+    `依据里的每一句「X 标在 Y」都要指得回图：X 是画上有的房间名（或主窗/入户门这两个聚合角色），Y 是九宫之一。`
+    + `核了 ${checked} 处指认（少于 8 处 = 样例太薄或正则没匹配上，判红不判过），指不回图上的 ${bad.length} 处${bad.length ? `：${bad.slice(0, 3).join(' | ')}` : ''}`);
+
+  ok('labels/no-orphan-vocabulary', PALACE_NAMES.length === 9
+    && new Set(PALACE_NAMES).size === 9
+    && labelVocabulary(SYNTHETIC_FLOORPLANS[0].几何, tags1).filter(x => /^(D|W)\d+$/.test(x)).length === ids.length,
+    `九宫恰好 9 格不重名，门窗号数量 = 开口数量（多出来的号就是孤儿）：${JSON.stringify(PALACE_NAMES)}`);
+
+  // 让位是纯函数：给定手柄位置必得同一个点，所以没有浏览器也能钉。
+  const h = [{ x: 100, y: 100, r: 9 }];
+  const moved = placeTag({ x: 100, y: 100 }, h);
+  const free = placeTag({ x: 40, y: 40 }, h);
+  const stillOn = (moved.x - 100) ** 2 + (moved.y - 100) ** 2 > 9 * 9;
+  ok('labels/place-tag-yields-to-handles', stillOn && free.x === 40 && free.y === 40,
+    `标签压到手柄时必须让开（实测 375 那一档 D2 与角点手柄重叠 13×13px 就是这个函数没写之前的样子），`
+    + `空位上不许无谓移动：让开=(${moved.x},${moved.y}) / 原地=(${free.x},${free.y})`);
+
+  ok('labels/single-source-in-component', /openingTags\(geom\)/.test(studio) && /palaceCells\(geom\)/.test(studio)
+    && /placeTag\(mid, handleBoxes\)/.test(studio) && /data-fp="grid"/.test(studio) && /data-fp="labels"/.test(studio)
+    && !/`D\$\{|`W\$\{/.test(studio),
+    '组件不自己拼编号、不自己切九宫：宫格来自 palaceCells、号来自 openingTags、让位来自 placeTag（画面侧由 harness 的 LABELS 探针量）');
+}
+
+// ── 15. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
+{
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  // 门窗那一段线：形状通道（虚线）+ 颜色统一成等待态金，两态不再靠"红 / 金"说话。
+  const lineTags = studio.split('\n').filter(l => /stroke="var\(--color-accent-gold-text\)"/.test(l));
+  ok('fp/unconfirmed-uses-shape-not-red', /strokeDasharray=\{o\.已确认/.test(studio) && lineTags.length >= 1,
+    `未确认的开口必须用虚线（形状）而不是红色：strokeDasharray 按 o.已确认 分叉 = ${/strokeDasharray=\{o\.已确认/.test(studio)}，金线 ${lineTags.length} 处`);
+  // 图例那一行必须用文字说清"虚线 = 还没确认"，否则形状也只是另一种颜色。
+  ok('fp/legend-labels-unconfirmed-in-words', /实线/.test(studio) && /还没确认/.test(studio) && /id="fp-legend"/.test(studio),
+    '俯视图下面那行图例要用文字写明"实线 = 已确认，虚线 = 还没确认"（id=fp-legend 给探针划界）—— 只靠颜色传达状态，色觉之外的人就读不到');
+  // 逐行扫：danger 与"未确认"不许出现在同一行（红色只能落在真正的破坏性操作/非法输入上）。
+  const redOnHold = studio.split('\n').filter(l => /--color-danger/.test(l) && /未确认/.test(l));
+  ok('fp/danger-not-for-unconfirmed', redOnHold.length === 0,
+    `--color-danger 不许与"未确认"同行（那是"出错"的颜色，未确认是"等你处理"）：命中 ${redOnHold.length} 行`);
 }
 
 const summary = `fengshui acceptance: notes=${analyzeFloor(base).判定.length} stamp=${FENGSHUI_BASIS} pass=${pass} fail=${fail}`;
