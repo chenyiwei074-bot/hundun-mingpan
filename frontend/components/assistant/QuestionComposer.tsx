@@ -63,7 +63,10 @@ function outcomeOf(r: AssistantRouteResult): 'matched' | 'choices' | 'closed' | 
   return 'clarify';
 }
 
-export default function QuestionComposer({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
+// 只有一版尺寸：批E 把东方页收进共用框架之后，"塞在 hero 里的紧凑版"没有任何调用点了
+// （`compact` 与 `.qa-pane[data-compact]` 那 152px 一起删掉，见 globals.css 同处注释）。
+// 两页共用一版，预留高度与"入口看得见"的读数才不会长成两套。
+export default function QuestionComposer({ mode }: { mode: Mode }) {
   const [text, setText] = useState('');
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [busy, setBusy] = useState(false);
@@ -119,7 +122,7 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
   const ex = examples(mode);
 
   return (
-    <div className="qa" data-mode={mode} data-compact={compact ? '1' : undefined}>
+    <div className="qa" data-mode={mode}>
       <form
         onSubmit={e => { e.preventDefault(); void ask(text); }}
         style={{ display: 'grid', gap: 8 }}>
@@ -167,11 +170,11 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
 
       {err && <p className="qn-alert" role="alert" style={{ marginTop: 10 }}>{err}</p>}
 
-      {/* 两种模式都给答案面板固定高度 + 内部滚动：答案卡插进来不再把下面的目录或意图区推下去。
-          /western 问事态实测 CLS 0.155 就是这么来的，compact 那一版桌面实测一条回答 0.039、
-          两条 0.103（超 0.1 判红）。预留多少 px 只写在 globals.css 的 .qa-pane 上（数字与
-          推导都在那里，组件不抄第二份），这里只说约束：四类意图必须仍在首屏内。 */}
-      <div className="qa-pane" data-compact={compact ? '1' : undefined}>
+      {/* 两系都给答案面板固定高度 + 内部滚动：答案卡插进来不再把下面的目录或意图区推下去。
+          /western 问事态当初实测 CLS 0.155 就是这么来的（东方那版没预留时一条回答 0.039、
+          两条 0.103，超 0.1 判红）。预留多少 px 只写在 globals.css 的 .qa-pane 上
+          （数字与推导都在那里，组件不抄第二份），这里只说约束：四类意图必须仍在首屏内。 */}
+      <div className="qa-pane">
         <div className="qa-turns" aria-live="polite">
         {/* 两种模式都渲染这一句：预留的那一块必须有内容，否则首屏就是一截空白。 */}
         {turns.length === 0 && (
