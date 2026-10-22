@@ -710,7 +710,7 @@ export default function OrientalBody() {
 
           /* 2026-10-22 裁定：装饰可以让位，说明不许消失。375 上把副标题降到 meta 档一行
              （13px，约 20px），hero 仍在 1/3 视口线内；不整条隐藏。 */
-          .hp .hero-sub {
+          .hp .hero-copy .hero-sub {
             display: block;
             font-size: var(--qn-fs-meta);
             line-height: 1.5;
