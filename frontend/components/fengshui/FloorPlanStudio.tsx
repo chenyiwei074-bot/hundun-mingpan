@@ -302,8 +302,11 @@ export default function FloorPlanStudio() {
               const f = plan.frame;
               const P = (t: number) => planProject({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, f, plan.box);
               const p0 = P(lo), p1 = P(hi);
+              // 未确认不画红（运维 2026-10-22 裁定：红留给真正非法的输入，未确认是"等你处理"），
+              // 也不靠颜色区分两态：形状走虚线、文字走下面那行图例与门窗那一排的 chip。
               return <line key={o.id} x1={p0.x} y1={p0.y} x2={p1.x} y2={p1.y}
-                stroke={o.已确认 ? 'var(--color-accent-gold-text)' : 'var(--color-danger)'} strokeWidth={4} strokeLinecap="round" />;
+                stroke="var(--color-accent-gold-text)" strokeWidth={4} strokeLinecap="round"
+                strokeDasharray={o.已确认 ? undefined : '7 5'} />;
             })}
             {/* 角点只在选中的那一间上出现：一间房的顶点相距至少 1m，44px 手柄不会互相盖住。 */}
             {sel && sel.外环.map((p, i) => {
@@ -318,7 +321,7 @@ export default function FloorPlanStudio() {
             {selWall && selWall.折线.map((p, i) => {
               const q = planProject(p, plan.frame, plan.box);
               return <circle key={`${selWall.id}-v${i}`} cx={q.x} cy={q.y} r={9} fill="var(--color-bg-card)"
-                stroke="var(--color-danger)" strokeWidth={2} style={{ cursor: 'grab', touchAction: 'none' }}
+                stroke="var(--color-accent-gold-text)" strokeWidth={2} style={{ cursor: 'grab', touchAction: 'none' }}
                 onPointerDown={e => { e.currentTarget.setPointerCapture?.(e.pointerId); dragRef.current = { 种类: '墙', id: selWall.id, 点: i }; }}
                 aria-label={`拖动 ${墙名(selWall.id)} 的第 ${i + 1} 个端点`} />;
             })}
@@ -393,8 +396,8 @@ export default function FloorPlanStudio() {
             })}
             <div className="qn-row" style={{ gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <button type="button" id="fp-add-wall" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
-                onClick={() => { const id = uid('w-'); setGeom(g => addWall(g, id)); set选中墙(id); setNotice('加了一道贯通包围盒的隔墙，拖它的红色端点摆正。'); }}>加一道墙</button>
-              {selWall && <span className="qn-meta">已选 {墙名(selWall.id)}：图上那两个红色端点可以拖。</span>}
+                onClick={() => { const id = uid('w-'); setGeom(g => addWall(g, id)); set选中墙(id); setNotice('加了一道贯通包围盒的隔墙，拖它的金色端点摆正。'); }}>加一道墙</button>
+              {selWall && <span className="qn-meta">已选 {墙名(selWall.id)}：图上那两个金色端点可以拖。</span>}
             </div>
           </div>
 
@@ -419,7 +422,13 @@ export default function FloorPlanStudio() {
               裁定里"降级要可见"要的是这一行，不是切换成功这件事本身。 */}
           {舞台说明 && <p className="qn-alert" role="status" style={{ margin: '8px 0 0' }}>{舞台说明}</p>}
 
-          {视图 === '俯视' && <p className="qn-note" style={{ marginTop: 6 }}>俯视图用来核对几何：点一间房选中它，再拖角点。</p>}
+          {视图 === '俯视' && (
+            <p className="qn-note" id="fp-legend" style={{ marginTop: 6 }}>
+              俯视图用来核对几何：点一间房选中它，再拖角点。
+              门窗画在墙上 —— <b>实线 = 已确认，虚线 = 还没确认</b>（下面那一排的「未确认」按钮点一下就变实线）。
+              形状与文字各说一遍，不靠颜色说话。
+            </p>
+          )}
 
           {视图 === '等轴' && (
             <svg viewBox="0 0 720 420" style={{ width: '100%', height: 'auto', marginTop: 10, borderRadius: 10, background: 'var(--color-fp-stage-bg)' }}

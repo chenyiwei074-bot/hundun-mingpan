@@ -223,8 +223,6 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     { name: '--color-border', file: 'app/liuyao/result/[id]/ReceiptPanel.tsx', why: '带 fallback，渲染的是 fallback；改它要单独排（回执卡）' },
     { name: '--color-border-subtle', file: 'components/bazi/LifeCurve.tsx', why: '带 fallback；与 --color-hairline 同义不同名' },
     { name: '--color-border-subtle', file: 'components/bazi/ScenarioMatrix.tsx', why: '带 fallback；场景矩阵两处' },
-    { name: '--color-danger', file: 'components/fengshui/FloorPlanStudio.tsx', why: '不带 fallback = 未确认那一档没有颜色，P2，归批C' },
-    { name: '--color-fp-stage-open', file: 'components/fengshui/FloorPlanStudio.tsx', why: '不带 fallback；舞台"开放"那一格的填充色，归批C' },
   ];
   const keyOf = (n: string, f: string) => `${n}@${f}`;
   const gotKeys = new Set(undefinedVars.flatMap(([n, us]) => us.map(u => keyOf(n, u.file))));
@@ -235,6 +233,25 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     `var() 引用的 --color-* / --qn-* 必须在 globals.css 里有定义（带 fallback 的名字写错永远不会红，只是安静画成回退值；不带的那种属性直接失效）。`
     + `清单外新增 ${fresh.join(' | ') || '0 处'}；清单里已不成立 ${stale.map(e => keyOf(e.name, e.file)).join(' | ') || '0 处'}（成立就报"已不成立"，那是要从清单删掉的信号，不是好消息该留着）`);
   for (const e of UNDEFINED_ALLOWLIST) say(`MEASURED 未定义令牌 ${e.name} @ ${e.file} —— ${e.why}`);
+  // 批C 裁定（2026-10-22）：**var() 要么带 fallback，要么这支令牌在两种主题里都解得出。**
+  // "都解得出"的机器形状 = 在西方令牌块之前就声明过（@theme 或 :root，两种底都吃得到）；
+  // 只在 [data-mode="western"] 里声明的那支，浅底上等于未定义 —— 不带 fallback 就是安静失效。
+  // 这一条以前不判：usedVars 早就算好了每处带不带 fallback，只是没人读那个字段。
+  const wStart = css.indexOf('\n[data-mode="western"] {');
+  ok('dir/var-western-block-found', wStart > 0, `globals.css 里得能定位到西方令牌块（找不到就没法判"两主题都有"）：实得 ${wStart}`);
+  const baseDefined = new Set([...css.slice(0, wStart).matchAll(/(--(?:color|qn)-[\w-]+)\s*:/g)].map(m => m[1]));
+  const westernDefined = new Set([...css.slice(wStart).matchAll(/(--(?:color|qn)-[\w-]+)\s*:/g)].map(m => m[1]));
+  const naked = [...usedVars.entries()].flatMap(([name, us]) =>
+    us.filter(u => !u.fallback && !baseDefined.has(name)).map(u => `${name}@${u.file}`));
+  ok('dir/var-fallback-or-both-themes', naked.length === 0,
+    `不带 fallback 的 var() 必须在两种主题里都解得出（= 在西方令牌块之前声明过）。`
+    + `只活在西方块里的话，浅底上那一条属性直接失效而且永远不会红：${naked.join(' | ') || '0 处'}`);
+  // 两支按裁定单独钉：danger 必须两主题各有取值（浅 #b23a2e / 墨 #e88f80），
+  // 舞台未确认那一支必须在基础块里声明（舞台自己永远是深底）。
+  ok('dir/danger-token-both-themes', baseDefined.has('--color-danger') && westernDefined.has('--color-danger'),
+    `--color-danger 两主题都要声明（浅底一支、墨底另一支）：基础块 ${baseDefined.has('--color-danger') ? '有' : '无'} / 西方块 ${westernDefined.has('--color-danger') ? '有' : '无'}`);
+  ok('dir/fp-stage-open-token', baseDefined.has('--color-fp-stage-open'),
+    '--color-fp-stage-open（户型舞台上"还没确认"那一格）必须有定义 —— 批A 量到它被等轴测图引用却没声明，那一格一直没有颜色');
   ok('dir/status-tokens-defined', ['--color-status-open', '--color-status-partial', '--color-status-closed']
     .every(t => css.includes(t + ':')) && /\[data-mode="western"\][\s\S]*?--color-status-open/.test(css),
     '三个状态点各有令牌，且西方作用域真的重指向过（只定义浅底那一份 = 深底上那一档从没被量过）');
@@ -426,6 +443,15 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
       const bundle = cssFiles.map(f => stripComments(readFileSync(f, 'utf8'))).join('\n');
       ok('dir/bundle-free-of-dead-styles', !/\[data-theme=zen\]/.test(bundle) && !/\.mk-[a-z]/.test(bundle),
         `构建产物里不许有 zen 主题选择器或静态稿的 mk- 类（静态稿在 docs/ 下、不在扫描范围内，这条钉的是"别把它请进生产"）：包 ${cssFiles.length} 个 / ${(bundle.length / 1024).toFixed(0)}KB`);
+      // 只被 JSX 内联样式消费的令牌，Tailwind v4 会当成"没人用"从 @theme 里摇掉 ——
+      // 源码看着两主题都声明了，产物里浅底那一份根本不存在。所以这条读的是产物。
+      const lightIn = /--color-danger\s*:\s*#b23a2e/.test(bundle);
+      const inkIn = /--color-danger\s*:\s*var\(--color-western-danger\)/.test(bundle);
+      const stageIn = /--color-fp-stage-open\s*:\s*#e3cd96/.test(bundle);
+      ok('dir/danger-token-in-bundle', lightIn && inkIn && stageIn,
+        '产物 CSS 里必须真的留着 --color-danger 的浅底/墨底两份与 --color-fp-stage-open 一份'
+        + '（@theme 会摇掉没有 CSS 规则 var() 它的令牌，而这几支只被 JSX 内联样式用：'
+        + `浅底 ${lightIn ? '在' : '不在'} / 墨底 ${inkIn ? '在' : '不在'} / 舞台 ${stageIn ? '在' : '不在'}）`);
     } else {
       say('SKIP  dir/bundle-free-of-dead-styles  没有 .next 里的 CSS 产物可读 —— 先 build 再跑，否则这条什么都没测');
     }

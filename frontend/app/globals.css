@@ -904,6 +904,12 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-western-danger-bg: rgba(178, 58, 46, 0.16);
   --color-western-danger-line: rgba(230, 150, 140, 0.34);
   --color-western-danger-text: #f2c4bd;
+  /* 破坏性/非法那一支的墨底取值（运维 2026-10-22 定 #e88f80）。写成 palette 是为了
+     [data-mode="western"] 块里零字面色 —— 那条是 census 的 CSS-TOKEN 判据在钉的纪律：
+     西方块只许 var() 重指向，字面值一律住在这里，否则改一处配色就会漏另一处。
+     与 --color-western-danger-text 不同值也是刻意的：那一支是 .qn-alert 的正文色，这一支是
+     图形与破坏性控件的色（达标读数由 harness 量，不写在这里）。 */
+  --color-western-danger: #e88f80;
   --color-western-shadow: rgba(8, 3, 20, 0.5);
   --color-western-nav-bg: rgba(27, 16, 48, 0.86);   /* 导航是半透明吸顶，得单独一支，不能直接用 bg */
   /* 东方户型的 3D 舞台：页面本体仍是浅底，深色只是卡片里的一块舞台。
@@ -915,6 +921,23 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   --color-fp-stage-line: rgba(230, 220, 255, 0.14);
   --color-fp-stage-gold: #d9b877;
   --color-fp-stage-flow: #c9bfe0;
+  /* 舞台上"还没确认"的那一格：等轴测图与 3D 的底是深色，所以走墨底那一支金
+     （与 --color-accent-gold-on-ink 同值，同一套"按底分支"的规则；浅底那一档是
+     --color-accent-gold-text #7a5f31）。批C 补的就是这一支 —— 它以前不存在，
+     而引用它的那行不带 fallback，所以那一格一直没有颜色。 */
+  --color-fp-stage-open: #e3cd96;
+
+  /* ===== 破坏性操作 / 非法输入（运维 2026-10-22 裁定）=====
+     与 --color-xiong 同值是**刻意的一对 COLLIDE**：语义不同 —— 凶是命盘上的判断，
+     danger 是"这一步会毁掉你的东西 / 这个输入不合法"。红留给真正非法的输入，
+     "未确认"不许用它（那是等你处理）—— 未确认走等待态金 + 虚线 + 文字标签。
+     墨底那一支在下方 [data-mode="western"] 里重指向。
+
+     为什么写在 :root 而不是上面的 @theme：Tailwind v4 会把**没有任何 CSS 规则 var() 它**的
+     theme token 从产物里摇掉。这一支只被 JSX 内联样式消费（移除按钮），@theme 里那份
+     实测在产物 CSS 里根本不存在 —— 于是浅底上它等于未定义，正是这条批要修的那类缺陷。
+     写在 :root 就不参与摇树。dir/danger-token-in-bundle 钉的是产物，不是源码。 */
+  --color-danger: #b23a2e;
 }
 
 [data-mode="western"] {
@@ -938,6 +961,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
      读数由 harness 从渲染结果量（三种状态 × 两种底），不写在注释里。 */
   --color-status-open: var(--color-accent-gold-on-ink);
   --color-status-partial: var(--color-western-gold);
+  /* 破坏性/非法那一支在墨底上必须另给一档：浅底那支 #b23a2e 压深紫读不出字。
+     值走 palette（西方块里不许写字面色），语义与 .qn-alert 的 danger-text 分开。 */
+  --color-danger: var(--color-western-danger);
   --qn-hairline: 0.5px solid var(--color-western-line);
   --qn-shadow: 0 8px 26px var(--color-western-shadow);
   background: var(--color-western-bg);

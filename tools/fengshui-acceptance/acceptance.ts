@@ -768,6 +768,22 @@ const base: FloorInput = {
     'fengshui-edit 态真的按了 加一间房→用途→加一道墙→加门→宽→确认并逐条钉回来（存在性归套件，改到画面归 harness）');
 }
 
+// ── 11. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
+{
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  // 门窗那一段线：形状通道（虚线）+ 颜色统一成等待态金，两态不再靠"红 / 金"说话。
+  const lineTags = studio.split('\n').filter(l => /stroke="var\(--color-accent-gold-text\)"/.test(l));
+  ok('fp/unconfirmed-uses-shape-not-red', /strokeDasharray=\{o\.已确认/.test(studio) && lineTags.length >= 1,
+    `未确认的开口必须用虚线（形状）而不是红色：strokeDasharray 按 o.已确认 分叉 = ${/strokeDasharray=\{o\.已确认/.test(studio)}，金线 ${lineTags.length} 处`);
+  // 图例那一行必须用文字说清"虚线 = 还没确认"，否则形状也只是另一种颜色。
+  ok('fp/legend-labels-unconfirmed-in-words', /实线/.test(studio) && /还没确认/.test(studio) && /id="fp-legend"/.test(studio),
+    '俯视图下面那行图例要用文字写明"实线 = 已确认，虚线 = 还没确认"（id=fp-legend 给探针划界）—— 只靠颜色传达状态，色觉之外的人就读不到');
+  // 逐行扫：danger 与"未确认"不许出现在同一行（红色只能落在真正的破坏性操作/非法输入上）。
+  const redOnHold = studio.split('\n').filter(l => /--color-danger/.test(l) && /未确认/.test(l));
+  ok('fp/danger-not-for-unconfirmed', redOnHold.length === 0,
+    `--color-danger 不许与"未确认"同行（那是"出错"的颜色，未确认是"等你处理"）：命中 ${redOnHold.length} 行`);
+}
+
 const summary = `fengshui acceptance: notes=${analyzeFloor(base).判定.length} stamp=${FENGSHUI_BASIS} pass=${pass} fail=${fail}`;
 try { writeFileSync(OUT, lines.join('\n') + '\n', 'utf8'); } catch { /* ignore */ }
 console.log(summary);
