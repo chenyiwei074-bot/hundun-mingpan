@@ -707,8 +707,16 @@ export default function OrientalBody() {
           .hp .hero-art { display: none; }
           /* 同理副标题（26px 一行 + 行距 = 36px）：375 那一档 1/3 视口只有 271px，
              标题(46) + 意图两行(96) + 内边距(64) 已经 206，加上它就 284 超线。
-             这句在桌面上留着（那儿有 300 的预算，实读 264）。 */
-          .hp .hero-sub { display: none; }
+
+          /* 2026-10-22 裁定：装饰可以让位，说明不许消失。375 上把副标题降到 meta 档一行
+             （13px，约 20px），hero 仍在 1/3 视口线内；不整条隐藏。 */
+          .hp .hero-sub {
+            display: block;
+            font-size: var(--qn-fs-meta);
+            line-height: 1.5;
+            margin: 0.4rem 0 0;
+            letter-spacing: 0.04em;
+          }
         }
         .hp .hero-noise {
           position: absolute; inset: 0; pointer-events: none; opacity: 0.03;
