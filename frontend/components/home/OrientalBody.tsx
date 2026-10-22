@@ -517,7 +517,7 @@ export default function OrientalBody() {
           而这条流程正是它区别于其余工具的地方。名称/状态/那句隐私说明全部现读目录，
           这里不写第二份真相。 */}
       {FP_ENTRY && (
-      <section className="band band-paper fp-entry-band">
+      <section className="band band-paper">
         <div className="wrap">
           <div className="qn-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
