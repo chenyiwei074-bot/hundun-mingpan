@@ -2062,6 +2062,10 @@ async function goto(url) {
 // 就是滚动位置为 0 时能看到什么。裁定 ① 的四条里有三条在这里测：四类意图各 ≥1 个可点入口、
 // 导航 ≤5 项、首屏不塞营销话。
 const INTENTS_EXPECT = ['认识自己', '问一件事', '择时看周期', '看关系'];
+// 问事框顶边的上限（运维 2026-10-22 裁定 E1：y≤360@1440×900）。harness 的桌面视口是 1280×900，
+// 比 1440 更窄 ⇒ 文字换行更多 ⇒ 页头更高，所以在 1280 上量是同一条线的更严一侧。
+// 另外在可达性那一趟里会按 1440×900 再量一次，把裁定写的那个视口的真实读数一起打出来。
+const QA_TOP_MAX = 360;
 const MARKETING_WORDS = ['限时', '立即', '爆款', '专属', '超值', '急速', '一键测算', '准确率', '最准', '权威', '大师', '开运'];
 const FIRST_SCREEN = `(() => {
   const vh = window.innerHeight;
@@ -2105,7 +2109,30 @@ const FIRST_SCREEN = `(() => {
         }
       }
       return bad;
-    })() };
+    })(),
+    // ── 首屏几何（运维 2026-10-22 裁定 E1：问事框顶边 ≤360、hero ≤1/3 视口、四类意图仍在首屏）。
+    // 量「.qa」而不是「.qa-pane」：判据说的是"输入框在首屏"，答案预留格是它的下半截。
+    qaTop: (() => { const e = document.querySelector('.qa'); if (!e) return null;
+      const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height) }; })(),
+    // main 的第一个可见区块就是这一页的 hero / 页头（东方是 section.hero，西方是 header）。
+    // 原来写死「main > section」会指错东西：西方那一页第一个 section 是问事框那张卡，
+    // 于是"hero 超高"红的是输入框 —— 读到一个数不算量对。
+    // （这一串注释在一个反引号模板里，所以这里绝对不能再出现反引号：会当场把模板截断，
+    //   而这台机上表现为整份 census 语法错。改这里之前先 node --check 一遍。）
+    heroH: (() => { const s = document.querySelector('main > :first-child'); if (!s) return null;
+      return { h: Math.round(s.getBoundingClientRect().height),
+        cls: s.tagName.toLowerCase() + '.' + String(s.className).slice(0, 22) }; })(),
+    intentTop: (() => { const e = document.querySelector('.intent-nav'); if (!e) return null;
+      const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; })(),
+    // 页面上残留的拉丁词（≥4 字母）。扫 body 不扫 main：页脚那句 "All Rights Reserved"
+    // 在 main 之外，只量 main 会把它漏成"已经清干净了"。RSC 的内部键不在 innerText 里。
+    latinWords: (() => { const src = document.body.innerText || '';
+      const set = new Set(); for (const m of src.matchAll(/[A-Za-z][A-Za-z]{3,}/g)) set.add(m[0]);
+      return [...set].slice(0, 14); })(),
+    // 这一页能点到的 href 全集，供跨页可达性审计比对（含导航/页脚，审计里再扣掉公共件）。
+    pageHrefs: [...new Set([...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')))],
+    h1s: [...document.querySelectorAll('h1')].filter(e => e.getClientRects().length)
+      .map(e => (e.innerText || '').trim().slice(0, 16)) };
 })()`;
 
 function check(tag, v) {
@@ -2244,6 +2271,26 @@ function check(tag, v) {
         if (!f.intents || !f.intents[t]) bad(`首屏没有「${t}」的可点入口（scrollY=${f.scrollY}、首屏内 ${f.links} 个链接）`);
       }
       console.log(`   FIRST-SCREEN intents=${f.intents ? Object.values(f.intents).filter(Boolean).length : '?'}/4 links=${f.links}`);
+    }
+  }
+  // 首屏几何与拉丁词（运维 2026-10-22 裁定 E1）：两页共用一套框架，问事框必须在首屏同一位置，
+  // hero 不许把页面撑成一整屏，页面上不许留着没人翻译的拉丁词。
+  // 每条都是"读不到就判红"——探针自己失效时静默通过，比没这条判据更糟（class-has-selector 同款）。
+  if (/-oriental$/.test(tag) || /-western$/.test(tag)) {
+    const f = v.firstScreen;
+    if (!f) bad('first-screen probe did not run — 首屏几何的要求没被测量过');
+    else {
+      const vh = f.vh || 0, third = Math.round(vh / 3);
+      if (!f.qaTop) bad('读不到 .qa —— 问事框位置的要求等于没测（选择器换了要跟着换，不许静默过）');
+      else if (f.qaTop.top > QA_TOP_MAX) bad(`问事框顶边 y=${f.qaTop.top}（vh=${vh}），裁定要求 ≤${QA_TOP_MAX}`);
+      if (!f.heroH) bad('读不到 main 的第一节，hero 高度要求等于没测');
+      else if (f.heroH.h > third) bad(`hero「${f.heroH.cls}」高 ${f.heroH.h}px，超过 1/3 视口（≤${third}px）`);
+      if (/-oriental$/.test(tag) && f.intentTop && f.intentTop.bottom > vh)
+        bad(`四类意图整块落在折线以下（底边 ${f.intentTop.bottom} > vh ${vh}）`);
+      if (f.latinWords && f.latinWords.length) bad(`页面上还有拉丁词：${f.latinWords.join('/')}`);
+      if (f.h1s && f.h1s.length > 1) bad(`可见 h1 有 ${f.h1s.length} 份：${f.h1s.join(' / ')} —— 收进共用框架后标题只该有一份`);
+      console.log(`   GEOM vh=${vh} hero=${f.heroH ? f.heroH.h : '?'}px(≤${third}) qa.top=${f.qaTop ? f.qaTop.top : '?'}(≤${QA_TOP_MAX})`
+        + ` intents=${f.intentTop ? f.intentTop.top + '→' + f.intentTop.bottom : '无'} 拉丁词=${f.latinWords ? f.latinWords.length : '?'} h1=${f.h1s ? f.h1s.length : '?'}`);
     }
   }
   if (/-home$/.test(tag)) {
@@ -3097,6 +3144,58 @@ for (const [tag, url] of ORPHAN_PAGES) {
 // second phase: same routes at 375x812 with touch, now that coarse is allowed to stick
 await metrics(375, 812, true);
 for (const [tag, url] of pages) { await metrics(375, 812, true); await measure('m1-' + tag, url); }
+
+// ── 目录 → 工作页可达性（运维 2026-10-22 裁定 E1：判据现在加，当下就该红）。
+// 规则只有一条：目录里挂着「进入」的东西，工作页上也必须能点到。
+// 期望集从 /tools 的 DOM 现读 —— 不在这里抄第二份工具清单，抄一份就等于目录改了它不会跟。
+// 反例就是这次的户型：目录 可用 + href=/fengshui，而 /oriental 上零个链接、零次提到户型。
+console.log('\n===== 目录 → 工作页可达性 =====');
+await metrics(1280, 900, false);
+// 这一趟是"额外加载了三个页面"，不是那三个态的判定 —— 所以它自己也得走同一张写账：
+// 只读判据按动作分并且必须网络观测，这条对补跑的导航同样成立（生产上悄悄 POST 一次就是先斩后奏）。
+const guardWrites = (where) => {
+  const denied = deniedOf(netWrites);
+  if (denied.length) fail.push(`${where}: 可达性补跑期间发出被禁的写请求：${denied.join('、')}`);
+  else if (netWrites.length) console.log(`    非禁写 ${netWrites.join('、')}（打印，不判负）`);
+  netWrites.length = 0;
+};
+await goto('/tools'); guardWrites('可达性/tools');
+const dirLive = await evl(`[...new Set([...document.querySelectorAll('a[href]')]
+  .filter(a => (a.innerText || '').includes('进入') && /^\\//.test(a.getAttribute('href') || ''))
+  .map(a => a.getAttribute('href')))]`);
+for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
+  if (!keep(tag, url)) { console.log(`  SKIP ${tag}（不在 --only 范围内，这条判据没跑）`); continue; }
+  await goto(url); guardWrites('可达性/' + tag);
+  const onPage = await evl(`(() => ({
+    hrefs: [...new Set([...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')))],
+    // 工作页自己渲染的卡里挂了几扇能进的门，与它页面上写的那句"可用 N"对不对得上。
+    ownEntries: [...document.querySelectorAll('a[href]')].filter(a => (a.innerText || '').includes('进入')).length,
+    tally: ((document.body.innerText || '').match(/目录[^。]*。/) || [''])[0].replace(/\\s+/g, ' '),
+    qaTop: (() => { const e = document.querySelector('.qa'); if (!e) return null;
+      const r = e.getBoundingClientRect(); return Math.round(r.top) + '/' + innerHeight; })() }))()`);
+  const list = Array.isArray(dirLive) ? dirLive : [];
+  if (tag === 'oriental') {
+    if (!list.length) fail.push('oriental: 目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（选择器失效就是这个形状）');
+    else {
+      const missing = list.filter(h => !(onPage.hrefs || []).includes(h));
+      if (missing.length) fail.push(`oriental: 目录可点而工作页点不到（${missing.length}/${list.length}）：${missing.join('、')}`);
+      console.log(`  oriental 目录入口 ${list.length} 个 / 工作页缺 ${missing.length ? missing.join('、') : '0 个'}`);
+    }
+    // 裁定那个 1440×900 的真实读数：换视口量一次再换回来，别把 1280 的数当成 1440 的数报。
+    await metrics(1440, 900, false); await goto('/oriental'); guardWrites('可达性/oriental@1440');
+    const wide = await evl(`(() => { const e = document.querySelector('.qa'); const s = document.querySelector('main > section');
+      return { qaTop: e ? Math.round(e.getBoundingClientRect().top) : null,
+        heroH: s ? Math.round(s.getBoundingClientRect().height) : null, vh: innerHeight }; })()`);
+    console.log(`  1440×900 实读 ${JSON.stringify(wide)}`);
+    if (wide && wide.qaTop === null) fail.push('oriental: 1440×900 下读不到 .qa');
+    await metrics(1280, 900, false);
+  } else {
+    const claimed = Number(((onPage.tally || '').match(/可用 (\d+)/) || [])[1] || 0);
+    console.log(`  western ${onPage.tally || '没读到目录那句'} / 页面入口 ${onPage.ownEntries} 个`);
+    if (claimed !== onPage.ownEntries)
+      fail.push(`western: 页面上写「可用 ${claimed}」却有 ${onPage.ownEntries} 扇能进的门（说可用就得有门，说没门就不许写可用）`);
+  }
+}
 
 // prefers-reduced-motion must leave nothing moving
 console.log('\n===== reduced motion =====');
