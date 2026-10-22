@@ -243,6 +243,16 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   .qn-shell { padding-left: 24px; padding-right: 24px; }
 }
 
+/* 共用框架（ModeLanding）在"满幅那一系"里的落位。东方工作页的主视觉与通栏色带要贴到视口边，
+   所以它的 main 用 .hp-shell（不限宽、自己不留内边距）；代价是框架给的两块 —— 问事框与页脚
+   那句法律话 —— 必须自己回到 760 的阅读宽度，否则同一套框架在两页给出两种宽度，
+   判据读到的 qa.top 与预留格高度就又是两回事。
+   西方那一页不匹配这几条（它的 main 已经带壳），所以那边一行都不变。 */
+.hp-shell { width: 100%; max-width: none; padding: 0; }
+.hp-shell .ml-qa, .hp-shell .ml-legal {
+  width: 100%; max-width: 808px; margin-left: auto; margin-right: auto; padding: 0 24px;
+}
+
 .qn-stack > * + * { margin-top: var(--qn-gap); }
 
 .qn-card {
