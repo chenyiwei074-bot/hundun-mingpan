@@ -713,8 +713,8 @@ export default function OrientalBody() {
           .hp .hero-copy .hero-sub {
             display: block;
             font-size: var(--qn-fs-meta);
-            line-height: 1.5;
-            margin: 0.4rem 0 0;
+            line-height: 1.4;
+            margin: 0.1rem 0 0;
             letter-spacing: 0.04em;
           }
         }
