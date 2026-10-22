@@ -881,22 +881,30 @@ const base: FloorInput = {
     && tagOf(tags1, { id: '不存在的洞' } as never) === '未编号',
     `每个开口恰好一个号、格式是 D#/W#、不重号，编号发不出来时明写"未编号"而不是画一个 undefined：${JSON.stringify(tags1)}`);
 
-  // 正向：每条判定的每一句依据，都要能在图上找到至少一个标号（房间名 / 宫名 / 门窗号）。
-  // 反向：词表只能由几何与九宫推出来，画不出"图上没有的号"，也留不下"没人引用的号"。
+  // 正向：依据里凡是「X 标在 Y」这种指认，X 必须是图上画得出的东西（房间名，或"主窗/入户门"
+  // 这两个由格子聚合出来的角色），Y 必须是九宫之一。
+  // 为什么不是"句子里出现词表任一项就算过"：我第一版那么写，把 labelVocabulary 里的房间名整个删掉
+  // 之后闸门照样绿 —— 每句依据都带一个宫名，房间名那一半从来没被验过。证伪不区分的判据等于没有判据。
   const bad: string[] = [];
   let checked = 0;
   for (const plan of SYNTHETIC_FLOORPLANS) {
     const t = toFloorInput(plan.几何, '南', true);
     const rep = analyzeFloor(t.输入 as never);
-    const vocab = labelVocabulary(plan.几何, openingTags(plan.几何));
+    const drawn = new Set(plan.几何.房间.map(r => r.名称));
     for (const n of rep.判定) for (const why of n.依据) {
-      checked += 1;
-      if (!vocab.some(v => why.includes(v))) bad.push(`${plan.名称}/${n.规则}：「${why}」`);
+      for (const m of why.matchAll(/(\S+)\s*标在\s*([^\s，。；]+)/g)) {
+        checked += 1;
+        // 「主窗只标在 巽」是规则层的原话（"只"是限定词，不是房间名的一部分）。
+        const who = m[1].replace(/^房间/, '').replace(/^主窗只$/, '主窗').trim();
+        if (!(drawn.has(who) || who === '主窗' || who === '入户门')) bad.push(`${plan.名称}：图上没有「${who}」这一间 —— 「${why}」`);
+        // Y 可以是一串（「主窗标在 震、兑」），逐个都要是九宫之一。
+        for (const y of m[2].split('、')) if (!PALACE_NAMES.includes(y as never)) bad.push(`${plan.名称}：「${y}」不是九宫之一 —— 「${why}」`);
+      }
     }
   }
-  ok('labels/basis-resolves-on-plan', checked > 0 && bad.length === 0,
-    `有几何依据的判定，每一句都要能解析到图上标号（词表 = 房间名 + 九宫宫名 + D#/W#）：`
-    + `核了 ${checked} 句依据，指不回图上的 ${bad.length} 句${bad.length ? `：${bad.slice(0, 3).join(' | ')}` : ''}`);
+  ok('labels/basis-resolves-on-plan', checked >= 8 && bad.length === 0,
+    `依据里的每一句「X 标在 Y」都要指得回图：X 是画上有的房间名（或主窗/入户门这两个聚合角色），Y 是九宫之一。`
+    + `核了 ${checked} 处指认（少于 8 处 = 样例太薄或正则没匹配上，判红不判过），指不回图上的 ${bad.length} 处${bad.length ? `：${bad.slice(0, 3).join(' | ')}` : ''}`);
 
   ok('labels/no-orphan-vocabulary', PALACE_NAMES.length === 9
     && new Set(PALACE_NAMES).size === 9

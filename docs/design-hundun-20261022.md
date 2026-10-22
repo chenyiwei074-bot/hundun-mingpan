@@ -353,3 +353,47 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 **套件**：assistant acceptance 46→64（并列白名单 / 假并列清零 / closed 解释必须引目录原文 /
 add-on 字段形状判废 / `needsFor` 单源 / 降级上屏 / IME 两条都要 / 来源不混用），
 19 项检查全绿（kline 的 `change-list/is-real` 会拒绝未提交的批次 —— 先 commit 再跑，这是设计）。
+
+---
+
+## 17. 批C 落地（2026-10-22，运维裁定的令牌与户型五步）
+
+**做了什么**：§8 的五步条、① 的「移除这张图」（二次确认，清图 + 几何 + 候选 + 朝向 + 同意勾选）、
+④ 关心点（只排序不改判定）、⑤ 图上标号与依据引用、未确认不再画红、两支令牌与三道新闸门、
+回执三档（info / pending / danger）。**命理算法层与 `server/` 一行未动。**
+
+**令牌（运维定的值）**：`--color-fp-stage-open` = 等待态金（浅 #7a5f31 / 墨 #e3cd96，
+复用"按底分支"那条规则），`--color-danger` = 浅 #b23a2e / 墨 #e88f80。西方块里不写字面色，
+墨底那支持 palette（`--color-western-danger`）—— census 的 CSS-TOKEN 判据就在守这条。
+
+**三条通用闸门（都是这一批踩坑踩出来的）**
+1. `dir/var-fallback-or-both-themes`：不带 fallback 的 `var()` 必须在西方块之前就声明（= 两主题都解得出）。
+   `usedVars` 里那个 `fallback` 字段以前就算好了，只是没人读。
+2. `dir/referenced-tokens-survive-bundle`：**读产物**验令牌。Tailwind v4 会把"没有任何 CSS 规则 var() 它"
+   的 `@theme` 令牌摇出产物 —— `--color-danger` 在 @theme 里那份根本没进 CSS，浅底上等于未定义，
+   而源码侧闸门全绿。声明挪到 `:root`，闸门比对 59 支声明 / 58 支引用。
+3. `dir/class-has-selector`：组件 className 里的自有类名必须有选择器。它自己坏过一次
+   （正则只扫到 1 个类名 = 空跑的绿），修好后扫到 92 个、当场点出 8 个孤儿，其中
+   `fp-steps__name` 是我真漏的。**这条的存在理由是一次真实的漏提交：DOM 提交了、样式没提交。**
+
+**回执三档**：`Callout` 的档位是必填第一项（`notice` 的状态从 `string` 变成 `{档, 文}`），
+所以"忘了给档"在类型上过不去，而不是所有消息默认套红底。三档都有非颜色通道：
+前缀是写出来的中文 + role 分档（只有 danger 用 `alert`）。`callout/tier-per-message` 逐句钉 13 条，
+证伪过：把「已载入合成样例」改成 danger → 精确 1 红并点名。
+
+**墨底不是"按构造成立"**：运维驳回推理，要求 DOM 侧注入量。`CALLOUT_INK_PROBE` 在 `fengshui` 态
+把 `main` 的 `data-mode` 临时切成 `western`、插三档各一条、量完删节点还原属性（还原失败本身判红）。
+实测 info 14.33/9.31、pending 12.29/7.36、danger 5.92/5.92。顺带修掉一处假绿：
+`color-mix()` 在 Chrome 里序列化成 `color(srgb …)`，解析不了就往上找祖先底，
+而祖先底比真正的洗色更深 → 量出来偏乐观（pending 曾报 15.89）。页内对比度算法现在只有一份。
+
+**图上标号**：俯视图画出九宫（来自 `palaceCells`，与规则层同一份）、房间名、门窗号 D#/W#
+（来自 `openingTags`，清单与图上同一支）。标签必须让开角点手柄 —— `placeTag` 是纯函数，
+第一次跑 LABELS 探针就红 8 条：6 条是探针自己的坑（SVG `<text>.textContent` 会把子 `<title>`
+一起带出来），1 条是真缺陷（375 那一档 D2 与手柄重叠 13×13px）。
+依据引用性断言的第一版**证伪不区分**（把词表里的房间名删掉照样绿，因为每句依据都带宫名），
+改成逐句解析「X 标在 Y」后，它立刻抓到"主窗标在 震、兑"这种多宫串与"主窗只标在"这种限定词 ——
+现在核 18 处指认，全部指得回图。
+
+**验证**：19 项检查全绿（directory 49→57、fengshui 103→123、assistant 64）、
+harness 全量 **82 态 ALL CHECKS PASSED**（3 条 warn 仍是既有六爻结果页加载期位移）。
