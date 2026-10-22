@@ -150,6 +150,14 @@ const STATIC_PAGES = [
   // 不测这一态，等于只审了一个空输入框 —— 路由对不对、来源标没标、未开放有没有入口，全在提交之后。
   ['oriental-ask', '/oriental'],
   ['western-ask', '/western'],
+  // 批B 把问事框的四种落点各做成一态：matched / choices / chosen（在并列里挑一个）/ closed（点示例）。
+  // 为什么要四态而不是两态：以前只钉"对上唯一一个"和"没开放"，于是"并列时系统替用户挑了一个"
+  // 这种错在屏上看不出来 —— 它看起来就是一次成功的匹配。
+  ['oriental-choices', '/oriental'],
+  ['oriental-chosen', '/oriental'],
+  ['western-example', '/western'],
+  // IME 门闩单独一态：它测的不是"答得对不对"，而是"组词中的回车有没有被当成发送"。
+  ['oriental-ime', '/oriental'],
   ['fengshui', '/fengshui'],
   // 户型页填一组标注之后的那一态：规则层的输出必须真的上屏（空页面过审没有意义）。
   ['fengshui-filled', '/fengshui'],
@@ -231,18 +239,68 @@ const CATALOG_HREFS = [...new Set(
 const QA_PINS = {
   'oriental-ask': {
     q: '帮我排个八字看看命格',
-    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数（可用）', '还要补：日期或生日、出生时辰、出生地点',
-      '这一轮由本机目录匹配给出，未经模型'],
+    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数（可用）', '还要补：日期或生日、出生时辰、出生地点'],
     entry: { text: '进入 · 八字 & 紫微斗数', href: '/create' },
-    absent: ['这一轮来自服务端路由'],
+    absent: [],
   },
   'western-ask': {
     q: '我的上升和月亮星座是什么',
-    mustSay: ['还没开放', '这一轮由本机目录匹配给出，未经模型'],
+    mustSay: ['还没开放'],
     entry: null,
-    absent: ['进入 ·', '这一轮来自服务端路由'],
+    // 「进入 ·」以前就钉在这里，现在由 closed 这一支的不变量代管：没开放就不许有入口。
+    absent: ['进入 ·'],
+  },
+  // 并列候选那一态：'我出生那天值哪一宿' 在东方表里 bazi 的「出生」与 xiu-benming 的
+  // 「哪一宿」各命中一次 → 并列。钉的是"两个 chip 都在、系统一个都没替我选"。
+  'oriental-choices': {
+    q: '我出生那天值哪一宿',
+    mustSay: ['你要先看哪一个', '八字 & 紫微斗数', '二十八宿 · 本命宿'],
+    entry: null,
+    absent: ['进入 ·'],
+    chips: 2,
+  },
+  // 挑了一个之后：入口出现，而且来源那一句必须换成"你自己挑的"。
+  'oriental-chosen': {
+    q: '我出生那天值哪一宿',
+    mustSay: ['你在并列的候选里自己挑的', '该用的是'],
+    entry: { text: '进入 · 八字 & 紫微斗数', href: '/create' },
+    absent: [],
+    choose: '八字 & 紫微斗数', chosenClean: true,
+  },
+  // 点西方那四条示例之一：例子来自目录（不再按状态过滤），点下去必须落到"没开放"那一支。
+  // 只钉工具名 + "还没开放"；"缺什么"那句由 assistant 套件的 route/closed-explains-from-catalog
+  // 钉（它引的是目录现读值，这里再抄一句就是第二份真相）。
+  'western-example': {
+    q: '',
+    mustSay: ['还没开放', '西洋占星 · 本命盘'],
+    entry: null,
+    absent: ['进入 ·'],
+    clickExample: 0,
   },
 };
+
+/** 交互之后不许有任何位移的那几态：答案面板预留过高度（.qa-pane 两条规则），内容在自己盒子里滚。
+ *  判定写成"态名列表"而不是点名某个 CSS 文件 —— 约束的是一类行为（预留过高度的面板），
+ *  以后再有预留的面板加进这张表就行。 */
+const RESERVED_PANES = ['oriental-ask', 'oriental-choices', 'oriental-chosen', 'oriental-ime',
+  'western-ask', 'western-example'];
+
+/** 问事框那一类 AFTER 钩子的公共形状：填句子 → 点提交 → 等回答卡出现。
+ *  等是必须的：`askRoute` 里那一发 fetch 是异步的，不等就点下一样东西，
+ *  测到的是"提交前的那一屏"，而那种屏永远不会有入口。 */
+const askHook = (modeKey, q, tail = 'return true;') => `(async () => {
+  const i = document.getElementById('qa-input-${modeKey}');
+  if (!i) return '问事框输入框不在页面上（#qa-input-${modeKey}）';
+  const proto = i instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, ${JSON.stringify(q)});
+  i.dispatchEvent(new Event('input', { bubbles: true }));
+  const b = [...document.querySelectorAll('button')].find(x => /问一下/.test(x.textContent || ''));
+  if (!b) return '「问一下」按钮不在页面上';
+  b.click();
+  const until = Date.now() + 4000;
+  while (Date.now() < until && !document.querySelector('.qa-turn')) await new Promise(r => setTimeout(r, 80));
+  ${tail}
+})()`;
 
 // tools/visual-harness/fixtures/floorplan-sample.png 的字节（156B 的 200×100 PNG，白底黑边）。
 // 之所以用 2:1 而不是正方：识别响应只有 0..1 归一化坐标，宽高比是本站唯一能拿到
@@ -294,22 +352,51 @@ const AFTER = {
   // 原因：AFTER 跑完之后、TRUSTED 之前会**再快照一次** __clsAtLoad，于是"选完图 → 预览卡出现
   // → 下面整块被推下去"这段位移被算进"加载期 CLS"。而真人选图是**用户输入**，
   // 500ms 内的位移按定义不计分。那两条 0.139 的 warn 是量法错了，不是产品回归。
-  // 问事框：填一句话并提交。React 受控 input 必须走原生 setter + input 事件，
+  // 问事框：填一句话并提交。React 受控组件必须走**该元素自己那一族**的原生 setter + input 事件，
   // 直接改 .value 不会触发 onChange，点提交就是空跑一趟（那种"绿"最骗人）。
-  'oriental-ask': `(() => { const i = document.getElementById('qa-input-oriental');
+  // 批B 把 <input> 换成 <textarea> 之后，写死 HTMLInputElement.prototype 会直接抛
+  // （在 textarea 上调用 input 的 setter 是 wrong-this），所以这里按元素类型取原型。
+  'oriental-ask': askHook('oriental', QA_PINS['oriental-ask'].q),
+  'western-ask': askHook('western', QA_PINS['western-ask'].q),
+  'oriental-choices': askHook('oriental', QA_PINS['oriental-choices'].q),
+  'oriental-chosen': askHook('oriental', QA_PINS['oriental-chosen'].q, `
+    const want = ${JSON.stringify(QA_PINS['oriental-chosen'].choose)};
+    const chip = [...document.querySelectorAll('.qa-turn .qn-chip')].find(x => (x.textContent || '').trim() === want);
+    if (!chip) return '并列候选里没有「' + want + '」那一枚 chip（实得 '
+      + [...document.querySelectorAll('.qa-turn .qn-chip')].map(x => x.textContent).join(' / ') + '）';
+    chip.click();
+    const t2 = Date.now() + 4000;
+    while (Date.now() < t2 && !document.querySelector('.qa-turn[data-outcome="matched"]')) await new Promise(r => setTimeout(r, 80));
+    return !!document.querySelector('.qa-turn[data-outcome="matched"]');`),
+  // 点西方那一系的示例问题（批B 起示例不再按状态过滤）：点了要落到"没开放"那一支。
+  'western-example': `(async () => {
+    const chip = [...document.querySelectorAll('.qa-examples .qn-chip')][${QA_PINS['western-example'].clickExample}];
+    if (!chip) return '西方工作页一条示例问题都没有（.qa-examples .qn-chip = 0）—— 示例区空着等于没测';
+    chip.click();
+    const until = Date.now() + 4000;
+    while (Date.now() < until && !document.querySelector('.qa-turn')) await new Promise(r => setTimeout(r, 80));
+    return !!document.querySelector('.qa-turn');
+  })()`,
+  // IME 门闩：组词中的回车不许发送。两步都要量：组词中按 Enter → 一轮都没多；
+  // 结束组词再按 Enter → 这一轮真的发出去了。只量后一步的话，"根本没实现门闩"也能过。
+  'oriental-ime': `(async () => {
+    const i = document.getElementById('qa-input-oriental');
     if (!i) return '问事框输入框不在页面上（#qa-input-oriental）';
-    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    set.call(i, ${JSON.stringify(QA_PINS['oriental-ask'].q)});
+    const proto = i instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, '我想看今年流年');
     i.dispatchEvent(new Event('input', { bubbles: true }));
-    const b = [...document.querySelectorAll('button')].find(x => /问一下/.test(x.textContent || ''));
-    if (!b) return '「问一下」按钮不在页面上'; b.click(); return true; })()`,
-  'western-ask': `(() => { const i = document.getElementById('qa-input-western');
-    if (!i) return '问事框输入框不在页面上（#qa-input-western）';
-    const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    set.call(i, ${JSON.stringify(QA_PINS['western-ask'].q)});
-    i.dispatchEvent(new Event('input', { bubbles: true }));
-    const b = [...document.querySelectorAll('button')].find(x => /问一下/.test(x.textContent || ''));
-    if (!b) return '「问一下」按钮不在页面上'; b.click(); return true; })()`,
+    const key = () => i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+    i.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+    key();
+    await new Promise(r => setTimeout(r, 400));
+    const during = document.querySelectorAll('.qa-turn').length;
+    i.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    key();
+    const until = Date.now() + 4000;
+    while (Date.now() < until && document.querySelectorAll('.qa-turn').length === during) await new Promise(r => setTimeout(r, 80));
+    window.__ime = { during, after: document.querySelectorAll('.qa-turn').length };
+    return true;
+  })()`,
   // 启动器在东方工作页上（#双体系 之后 / 只剩两个入口，门廊没有按钮可点）。
   'oriental': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /开始使用/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
@@ -883,8 +970,10 @@ const fsRecognizeProbe = p => `(() => {
 // 而截图对比不一定看得出（浅底页本来就白），只有反向断言能抓住。
 const WESTERN_DARK = { bg: 'rgb(27, 16, 48)', text: 'rgb(243, 238, 255)', card: 'rgb(36, 26, 61)' };
 const THEME_STATES = {
-  western: 'dark', 'western-ask': 'dark',
+  western: 'dark', 'western-ask': 'dark', 'western-example': 'dark',
   oriental: 'light', tools: 'light', create: 'light', fengshui: 'light', home: 'gate',
+  // 答完之后那一帧也必须还是那个主题：答案卡里塞一块浅底，就是"两套体系混在一页"的开始。
+  'oriental-ask': 'light', 'oriental-choices': 'light', 'oriental-chosen': 'light', 'oriental-ime': 'light',
 };
 const themeProbe = kind => `(() => {
   const main = document.querySelector('main');
@@ -1145,9 +1234,55 @@ const qaProbe = p => `(() => {
     const hit = links.find(l => l.href === want.href && l.text.replace(/\\s+/g, '') === want.text.replace(/\\s+/g, ''));
     if (!hit) out.push('该给的入口没给（要 ' + want.href + ' ' + want.text + '，实得 ' + JSON.stringify(links) + '）');
   } else if (links.length) {
-    out.push('这一系没有已开放的工具，回答里却出现了入口：' + JSON.stringify(links));
+    // 这一句在批B 之前只对"西方全未开放"那一态有意义；现在 choices / closed 两态也是 entry:null，
+    // 理由各不相同（并列还没选、没开放不给入口），所以措辞按"这一态不该有入口"来说。
+    out.push('这一态不该给入口，回答里却出现了：' + JSON.stringify(links));
   }
-  return { miss: out, links: links.length, chars: txt.length };
+  // 来源与降级理由这一对，批B 起改成钉"配对关系"而不是钉某一句：
+  // 桩下 /api/assistant 回 404（必然回落本机 + 必须写明为什么），真后端会真的答一句。
+  // 两种模式各钉一句的话，端点修好那天这套钉值就集体过期 —— 钉不变量才不会。
+  const srcLocal = txt.indexOf('本机目录匹配') >= 0, srcServer = txt.indexOf('来自服务端路由') >= 0;
+  const chosen = txt.indexOf('你在并列的候选里自己挑的') >= 0, degraded = txt.indexOf('服务端这一轮没用上') >= 0;
+  if (srcLocal && srcServer) out.push('同一轮既说"本机目录"又说"服务端路由"，读者不知道信哪个');
+  if (!srcLocal && !srcServer && !chosen) out.push('这一轮没写是谁算的（来源标注没上屏）');
+  if (srcLocal && !degraded)
+    out.push('写着回落本机却没写为什么 —— degraded 拿到了不上屏就是缺陷②的形状');
+  if (srcServer && degraded) out.push('真走了服务端却还挂着"没用上服务端"的理由');
+  // 入口必须"看得见"。预留块是内部滚动的，入口如果落在折线以下，用户读到的是
+  // "该用的是 X"却没有下一步 —— 这条是看截图补的（compact 预留 132px 那一版就是这样：
+  // 标题与说明都在，按钮在盒子底下要滚才看得到，而宽度/命中区/对比度/CLS 四条全绿）。
+  const pane = t.closest('.qa-pane');
+  let entryBox = null;
+  if (links.length && pane) {
+    const pr = pane.getBoundingClientRect();
+    const bottoms = [...t.querySelectorAll('a[href]')].map(a => a.getBoundingClientRect().bottom);
+    entryBox = { paneH: Math.round(pr.height), need: Math.round(Math.max(...bottoms) - pr.top) };
+    entryBox.fits = entryBox.need <= entryBox.paneH - 1;
+    if (!entryBox.fits) {
+      out.push('入口藏在预留块的滚动折线以下（这一格可见 ' + entryBox.paneH + 'px，最后一行入口要到 '
+        + entryBox.need + 'px）：这一态给了结论却没给能点到的下一步');
+    }
+  }
+  // 并列那一支：chip 数就是"系统有没有替用户选"的证据。少于 2 枚 = 它已经替你选了一个。
+  const chips = [...t.querySelectorAll('.qn-chip')].map(x => (x.innerText || '').trim()).filter(Boolean);
+  if (${JSON.stringify(p.chips || null)} !== null && chips.length < ${JSON.stringify(p.chips || 0)})
+    out.push('并列候选应有 ' + ${JSON.stringify(p.chips || 0)} + ' 枚 chip，实得 ' + chips.length + ' 枚：' + JSON.stringify(chips));
+  if (${JSON.stringify(p.entry || null)} && ${JSON.stringify(p.chosenClean || null)}) {
+    // 挑完之后的那一卡：入口给了，候选 chip 就必须收起来。
+    // 留着不撤等于让用户以为还能再挑一次，而这一轮的结论其实已经定了。
+    if (chips.length) out.push('挑过一个之后还挂着 ' + chips.length + ' 枚候选 chip：' + JSON.stringify(chips));
+  }
+  return { miss: out, links: links.length, chips: chips.length, entry: entryBox, chars: txt.length };
+})()`;
+
+// IME 门闩那一态读的是 AFTER 钩子留在 window 上的两个计数（组词中按 Enter / 组词后按 Enter）。
+const IME_PROBE = `(() => {
+  const v = window.__ime;
+  if (!v) return { miss: ['IME 那一态没跑起来（window.__ime 不在）—— 门闩从未被测量'] };
+  const out = [];
+  if (v.during !== 0) out.push('组词中的回车被当成发送了：那一刻已经有 ' + v.during + ' 轮（应当 0 轮）');
+  if (v.after < 1) out.push('组词结束之后的回车没发送：' + JSON.stringify(v) + ' —— 门闩把两条路一起关死了');
+  return { miss: out, during: v.during, after: v.after };
 })()`;
 
 // ---------------------------------------------------------------- chrome + cdp
@@ -1253,6 +1388,10 @@ const evl = async expression => {
 // ---------------------------------------------------------------- boot script
 // Paint observers run on every page. The fetch stub is only installed when --stub
 // was asked for, so a default run measures the real service.
+// 位移"来源"记录的门槛。默认 0.01（跟 Web Vitals 的最小计分粒度一致，日志不至于淹掉）。
+// 调它不是为了放宽判定 —— 判定读的是总分；是为了查那种 1~2px 的小位移到底是谁动的：
+// QN_CLS_SRC_MIN=0.0001 node tools/visual-harness/census.mjs ... --only=western-ask
+const CLS_SRC_MIN = Number(process.env.QN_CLS_SRC_MIN || 0.01);
 const OBSERVERS = `(() => {
   window.__vhBooted = 1;
   window.__cls = 0; window.__lcp = null; window.__clsSrc = [];
@@ -1260,7 +1399,7 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { for (const e of list.getEntries()) {
       if (e.hadRecentInput) continue;
       window.__cls += e.value;
-      if (e.value > 0.01 && window.__clsSrc.length < 14) window.__clsSrc.push({
+      if (e.value > ${CLS_SRC_MIN} && window.__clsSrc.length < 14) window.__clsSrc.push({
         v: Math.round(e.value * 1000) / 1000, time: Math.round(e.startTime),
         t: (e.sources || []).slice(0, 9).map(s => {
           const n = s.node, o = s.previousRect, x = s.currentRect;
@@ -1876,6 +2015,14 @@ function check(tag, v) {
     const load = typeof v.clsAtLoad === 'number' ? v.clsAtLoad : v.cls;
     const after = Math.round((v.cls - load) * 1000) / 1000;
     if (after >= 0.1) bad(`交互后 CLS +${after}（累计 ${v.cls}）—— 有内容在点击之后把页面推走了`);
+    // 预留过高度的那一类态（问事框六态）另立一条更狠的：位移按定义必须是 0。
+    // 为什么要单立：0.1 那条 Web Vitals 线咬不住这一类回归 —— 实测把 compact 那 132px 预留
+    // 撤掉，桌面 d1-oriental-chosen 只到 0.097、d1-oriental-ask 0.036，全都不红。
+    // 也就是说"修好了"与"又坏了"用通用阈值读出来是同一个颜色。预留的定义就是不动，
+    // 所以这一类态动了就红，不给自己留"这次只差一点"的余地。
+    if (RESERVED_PANES.some(s => tag.endsWith(s)) && after > 0) {
+      bad(`交互后 CLS +${after} —— 这一态的答案面板预留过高度 + 内部滚动，任何位移都说明预留没生效`);
+    }
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
     // 把"页面被滚了一下/被夹紧"与"内容真的被推走"分开。CLS 用视口坐标算，
@@ -2350,7 +2497,17 @@ async function measure(tag, url) {
     if (!miss) fail.push(tag + ': 问事探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 问事结果不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    QA MISMATCH ' + miss.join(' | ')
-      : `    问事「${QA_PINS[base].q}」→ 入口 ${got.links} 个，回答 ${got.chars} 字，全部对得上`);
+      : `    问事「${QA_PINS[base].q || '（点示例）'}」→ 入口 ${got.links} 个，回答 ${got.chars} 字`
+      + (got.entry ? `，预留格 ${got.entry.paneH}px / 入口要到 ${got.entry.need}px（看得见）` : '')
+      + '，全部对得上');
+  }
+  // IME 门闩单独一态：它钉的不是"答得对不对"，而是"组词中的回车有没有被当成发送"。
+  if (base === 'oriental-ime') {
+    const got = await evl(IME_PROBE);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': IME 探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': IME 门闩不成立 — ' + x);
+    console.log(`    IME 组词中 ${got && got.during} 轮 · 组词后 ${got && got.after} 轮`);
   }
   if (base === 'fengshui-filled') {
     const got = await evl(FS_PROBE);

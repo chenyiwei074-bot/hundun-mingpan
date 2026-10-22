@@ -162,16 +162,33 @@ async function sectionFallbacks() {
   ok('fallback/404-uses-local', gone.source === 'local' && !!gone.degraded && /404/.test(gone.degraded),
     `网关把 /api/* 整段转走、后端没有这条路由时（现状），必须回落本机并说明原因：${gone.degraded}`);
 
+  // 桩必须照 app/api/assistant/route.ts 的产线形状给：它回的是
+  // {success:true, data:{protocol, ...result, source, degraded}} —— source 是它自己声明"这一轮谁算的"。
+  // 批B 之前这两条桩漏了 source，于是客户端只看 HTTP 200 就认下"服务端算的"：
+  // 2026-10-22 实测生产回的正是一份 source:"local" + degraded:"上游回的形状不合协议"。
   const srv = await run(async () => json({ data: { mode: 'oriental', toolSlug: 'liuyao', confidence: 0.9,
-    needsClarification: false, clarification: null, missingFields: [], available: true } }), 'oriental', '想摇一卦');
+    needsClarification: false, clarification: null, missingFields: [], available: true, source: 'server', degraded: null } }), 'oriental', '想摇一卦');
   ok('fallback/server-result-used', srv.source === 'server' && srv.result.toolSlug === 'liuyao' && srv.degraded === null,
-    '服务端正常返回时用的是它的结果（不是本机那份）');
+    '服务端正常返回（并且自己说这是它算的）时用的是它的结果（不是本机那份）');
 
   const srvForged = await run(async () => json({ mode: 'oriental', toolSlug: 'xingming', confidence: 0.99,
-    needsClarification: false, clarification: null, missingFields: [], available: true }), 'oriental', '想摇一卦');
+    needsClarification: false, clarification: null, missingFields: [], available: true, source: 'server', degraded: null }), 'oriental', '想摇一卦');
   ok('fallback/server-still-reconciled', srvForged.source === 'server' && srvForged.result.toolSlug === null
     && !srvForged.result.available,
     '服务端说"未开放的 xingming 可用"也不作数：白名单核对对本机与服务端两条路一视同仁');
+
+  // 服务端自己回落本机目录时，页面不许把它说成"模型/服务端算的"。这就是生产今天的实际形状。
+  const srvLocal = await run(async () => json({ data: { protocol: ASSISTANT_PROTOCOL, mode: 'western', toolSlug: null,
+    confidence: 0, needsClarification: true, clarification: '这句话没对上这一系里已经开放的工具。',
+    missingFields: [], available: false, source: 'local', degraded: '上游回的形状不合协议' } }), 'western', '我的月亮落在哪个星座');
+  ok('fallback/server-says-local-is-kept-local', srvLocal.source === 'local'
+    && (srvLocal.degraded || '').includes('上游回的形状不合协议'),
+    `服务端报 source:local 时客户端必须照说"这是本机目录"，并把它的降级理由带上去：${srvLocal.source} / ${srvLocal.degraded}`);
+
+  const noWho = await run(async () => json({ data: { mode: 'oriental', toolSlug: 'liuyao', confidence: 0.9,
+    needsClarification: false, clarification: null, missingFields: [], available: true } }), 'oriental', '想摇一卦');
+  ok('fallback/missing-source-not-credited', noWho.source === 'local' && /没说明/.test(noWho.degraded || ''),
+    `响应不声明是谁算的 → 不替它认"服务端算的"，按本机处理并写明：${noWho.degraded}`);
 
   const junk = await run(async () => json({ hello: 'world' }), 'oriental', '想摇一卦');
   ok('fallback/bad-shape-uses-local', junk.source === 'local' && /形状/.test(junk.degraded || ''),
@@ -357,6 +374,78 @@ async function sectionServer() {
   ok('srv/log-has-no-question-text', !/console\.log\([^)]*\bquestion\b(?!\.length)/.test(thin.replace(/Array\.from\(question\)\.length/g, ''))
     && /chars=\$\{Array\.from\(question\)\.length\}/.test(thin),
     '日志只打长度与耗时，问题原文一个字都不落（这条是隐私边界的代码侧凭据）');
+}
+
+// ── 7. 批B：四种落点、降级理由上屏、IME 门闩、needs 只有一个出处 ──
+{
+  const CAT: Record<Mode, ToolEntry[]> = { oriental: CATALOGS.oriental, western: CATALOGS.western };
+  // 7.1 并列候选必须过同一道白名单：模型/本机给的 slug 一个都不许直接变成 chip。
+  const tie = reconcile({
+    mode: 'oriental', toolSlug: null, confidence: 0.5, needsClarification: true,
+    clarification: '并列', missingFields: [], available: false,
+    candidates: ['bazi', 'liuyao'],
+  }, 'oriental', CAT.oriental);
+  ok('route/candidates-kept-when-open', JSON.stringify(tie.candidates) === JSON.stringify(['bazi', 'liuyao']),
+    `两个都已开放的并列候选原样留下：实得 ${JSON.stringify(tie.candidates)}`);
+  const dirty = reconcile({
+    mode: 'oriental', toolSlug: null, confidence: 0.5, needsClarification: true,
+    clarification: '并列', missingFields: [], available: false,
+    candidates: ['bazi', 'liuyao', 'xingming', '不存在的-slug'],
+  }, 'oriental', CAT.oriental);
+  ok('route/candidates-whitelisted', JSON.stringify(dirty.candidates) === JSON.stringify(['bazi', 'liuyao']),
+    `未开放的 xingming 与目录里没有的 slug 都不许留在 chip 里（模型幻觉一个 slug 就摆一个按钮）：实得 ${JSON.stringify(dirty.candidates)}`);
+  const one = reconcile({
+    mode: 'oriental', toolSlug: null, confidence: 0.5, needsClarification: true,
+    clarification: '并列', missingFields: [], available: false, candidates: ['bazi', 'xingming'],
+  }, 'oriental', CAT.oriental);
+  ok('route/no-single-chip', (one.candidates ?? []).length === 0,
+    '只剩一枚 chip 的"并列"是假并列（用户没有得选），必须清空而不是摆一个看起来可选的东西');
+
+  // 7.2 命中未开放 → closedSlug 记着它，解释直接引目录自己写的那句（页面不另写一份"缺什么"）。
+  const closed = reconcile({
+    mode: 'western', toolSlug: 'tarot-draw', confidence: 0.6, needsClarification: false,
+    clarification: null, missingFields: [], available: true,
+  }, 'western', CAT.western);
+  const tarot = CAT.western.find(t => t.slug === 'tarot-draw');
+  const tarotNote = tarot?.note || '';
+  ok('route/closed-slug-marked', closed.closedSlug === 'tarot-draw' && closed.toolSlug === null
+    && closed.available === false && !!closed.clarification && closed.clarification.includes('还没开放'),
+    `未开放的命中要标出来且不给入口：${JSON.stringify({ s: closed.closedSlug, slug: closed.toolSlug, a: closed.available })}`);
+  // 这一条不留 `!tarotNote ||` 那种"目录没写就算了"的活口：目录条目本来就必须写明缺什么
+  // （ western-catalog 里每条未开放都有 note/basis），活口留着就是给漂移留门。
+  ok('route/closed-explains-from-catalog', !!tarotNote
+    && (closed.clarification || '').includes(tarotNote.slice(0, 12)),
+    `「缺什么」这句必须是目录自己写的那句（两份解释迟早漂移）：目录「${tarotNote.slice(0, 24)}…」/ 页面「${(closed.clarification || '').slice(0, 60)}…」`);
+
+  // 7.3 协议是 add-on 的：不带新字段的老服务端响应仍然合法，带了但形状不对就整份判废。
+  const base = { mode: 'oriental', toolSlug: 'bazi', confidence: 0.5, needsClarification: false, clarification: null, missingFields: [], available: true };
+  ok('protocol/additive-fields-optional', !!parseRouteResult(base) && !!parseRouteResult({ ...base, candidates: ['bazi'] })
+    && !parseRouteResult({ ...base, candidates: 'bazi' }) && !parseRouteResult({ ...base, closedSlug: 7 }),
+    'candidates/closedSlug 不带 = 合法（老服务端），带了但形状不对 = 整份按不合法处理（宁可回落，不要半个字段能用）');
+  // 7.4 needsFor 是"还要补什么"的唯一实现：组件里不许出现第二份字段名表。
+  const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'assistant', 'QuestionComposer.tsx'), 'utf8'));
+  ok('comp/needs-single-source', /needsFor\(/.test(comp) && !/日期或生日/.test(comp) && !/出生时辰/.test(comp),
+    '「进这个工具还要补什么」只许由 intent.ts 的 needsFor 算；组件里再抄一份字段名表就是第二个真相');
+  ok('comp/degraded-on-screen', /服务端这一轮没用上/.test(comp) && /t\.degraded/.test(comp),
+    '降级理由必须真的渲染出来（缺陷②：askRoute 返回了 degraded 而组件拿到不显示，界面上"回落"与"算过"长得一样）');
+  ok('comp/ime-latch', /onCompositionStart/.test(comp) && /onCompositionEnd/.test(comp)
+    && /isComposing/.test(comp) && /composing\.current/.test(comp),
+    '中文输入法门闩：组词中的回车不发送。两条都要（部分浏览器不在 nativeEvent.isComposing 上置位，所以自己记一份）');
+  ok('comp/multiline-and-keys', /<textarea/.test(comp) && /rows=\{4\}/.test(comp) && /e\.shiftKey/.test(comp)
+    && /e\.key\s*!==\s*'Enter'/.test(comp),
+    '多行输入：4 行起、Enter 发送、Shift+Enter 换行（单行 input 里 Shift+Enter 什么都不做，等于没给换行）');
+  ok('comp/turns-capped', /\.slice\(0, 6\)/.test(comp),
+    '对话轮数封顶 6 条：不封顶的话长会话会把答案区撑到不可读，也让 CLS 读数依赖历史');
+  ok('comp/choice-label', /你在并列的候选里自己挑的/.test(comp) && /chosen/.test(comp),
+    '用户自己挑的那一条要单独标注 —— 把"你选的"说成"系统算的"，与把"目录匹配"说成"模型算的"是同一种错');
+  // 示例区：按函数体取段来判，不按整行正则判 —— 上一次我钉的是
+  // `flatMap(g => g.tools)\n .slice(0, 4)` 这种带换行的形状，改一下折行就假红。
+  const exStart = comp.indexOf('function examples');
+  const exBody = exStart >= 0 ? comp.slice(exStart, comp.indexOf('function toolOf')) : '';
+  ok('comp/western-examples-not-empty', /GROUPS\[mode\]\.flatMap/.test(exBody) && !!exBody
+    && !/status/.test(exBody) && !/href/.test(exBody),
+    '示例问题只按目录取前四条，不再按状态过滤（西方五项全未开放 → 过滤后示例区是空的）。'
+    + '点了示例落到 closed 那一支，由 harness 的 western-example 态钉');
 }
 
 function report() {
