@@ -202,6 +202,7 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 | 缺陷6（新量到，属文案口径矛盾） | [catalog.ts:129](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/tools/catalog.ts#L129) 对 [fengshui/page.tsx:34](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/fengshui/page.tsx#L34) | 目录 `note` 写着「**不上传户型图**：图片要落地就得加存储与告知流程，那一半属于后端」，而 `FloorPlanStudio` 早已实装上传+识别（`components/fengshui/FloorPlanStudio.tsx:229` 选户型图、:231 `<input type="file">`），`/fengshui` 页第 34 行也写着「上传是可选的…勾选同意之前，图片不会离开这台设备」。**这句 note 由 `/tools` 页原样渲染**（`app/tools/page.tsx:64`）→ 用户在同一站里读到两句相反的话 | 待裁：改目录那句以匹配实装（含"7 天自动删、可移除"）还是收紧产品；改哪一处都要同步 `directory-acceptance` 的文本断言（先剥注释）。**批10 不动它** —— 目录是口径单一来源，不是我能顺手改的 | 运维已裁：改目录那侧，**批A 已落** |
 | 缺陷7（批B 开工当天实测线上量到） | `route-client.ts` 的 source 判定 + 线上 `POST /api/assistant` | 缺陷① 修好之后服务端**确实回了 200**，但 body 里是 `source:"local"` + `degraded:"上游回的形状不合协议"` —— 服务端自己也回落了本机目录。客户端原来按"HTTP 200 就算服务端答的"标来源，于是页面会把一次本机关键词匹配说成"这一轮来自服务端路由" | 以响应里自己声明的 `source` 为准；不声明来源的按"没用到"处理并写明原因。两条新断言（`fallback/server-says-local-is-kept-local` / `fallback/missing-source-not-credited`）+ 桩改成照产线形状带 source | **批B 已落** |
 | 缺陷8（批B 的新判据自己抓到的） | `globals.css` `.qa-submit` + harness 的 CLS 判定 | 预留过高度的面板用 0.1 那条 Web Vitals 线**测不出回归**（撤掉 132px 预留只到 0.036 / 0.096）；判据改成"动了就红"之后，当天就点出提交瞬间标签「问一下」→「在想」让按钮盒子窄 16px、行尾按钮左边线来回跳（两态各 +0.001） | 六态判据改零位移；按钮宽度钉成「问一下」的实测盒宽（110px + nowrap）；位移来源记录门槛做成可调（`QN_CLS_SRC_MIN`） | **批B 已落** |
+| 缺陷9（六爻结果页加载期那 3~4 条 warn，批D 归因，未修） | `app/liuyao/result/[id]/page.tsx` 首帧 + `Footer.tsx` 的 `margin-top:auto` | 盘活在 sessionStorage，SSR 那一份 `<main>` 里只有「起卦中…」（curl 数出来 6 个字），文档恰好一屏（900/812），页脚贴在视口底；水合 + `POST /api/reports` 之后文档长 916~1132px，页脚整块被推出去。位移源只有页脚一个，它以上没有一行字在动，分数却 0.171~0.237，因为影响区是整条页脚带 1265×213。桌面红、375 读 0 **不是两档达标一档不达标**：慢放 20 倍（`QN_VH_CPU_THROTTLE=20`）后移动端同一次长高记到 **0.262**，说明快的时候是客户端渲染赶在首帧之前、旧位置从没被画过，Chrome 不记账 | 待裁修法（三条都可走，代价不同）：首帧就按盘面高度预留 / 「起卦中…」占位撑到接近真实高度 / 让页脚不参与这次位移。归因证据在 harness README 通用纪律 11–12 条 | **批D 只交归因，不改产品**（运维 2026-10-22：下一批只做新鲜度闸门 + 归因）|
 
 ## 13. 批次
 
@@ -397,3 +398,43 @@ add-on 字段形状判废 / `needsFor` 单源 / 降级上屏 / IME 两条都要 
 
 **验证**：19 项检查全绿（directory 49→57、fengshui 103→123、assistant 64）、
 harness 全量 **82 态 ALL CHECKS PASSED**（3 条 warn 仍是既有六爻结果页加载期位移）。
+
+## 18. 批D 落地（2026-10-22，运维限定只做两件：产物新鲜度闸门 + 那 3 条 warn 的归因）
+
+**产物新鲜度**（`tools/directory-acceptance/acceptance.ts`，改测试）。读产物的三条闸门
+（`bundle-free-of-dead-styles` / `danger-token-in-bundle` / `referenced-tokens-survive-bundle`）
+上次合进 main 后首跑报 2 红，读到的却是合并前那份 `.next` —— 与「3018 实例发旧 chunk」同一类：
+量具读的不是被测物。现在先证明产物比源码新再让它们说话：
+
+- `dir/bundle-is-fresh`：拿 `frontend/.next/BUILD_ID` 的写入时间对上 `frontend/` 下最新源文件
+  （`.ts/.tsx/.css/.json/.js/.mjs`，跳过 `node_modules` 与 `.next`）。比源码旧就判红，
+  并把落后的秒数与那支源码的路径一起打出来；同时明写「三条读产物的闸门不作数」，
+  免得下一行的红被当成产品坏了。有 CSS 却没有 `BUILD_ID` 也判红（来历不可考的产物无法证明新鲜，
+  这一支是补自查时发现的洞：原来的条件会把它读成绿）。
+- `dir/bundle-present`：没有 `.next` 里的 CSS 产物时**默认判红**，不再打一行 SKIP。
+  干净 clone 这类场景要显式设 `QN_ALLOW_NO_BUILD=1` 才降级成 SKIP —— 豁免留名，不走默认路径。
+- git 会把 checkout/merge 之后的源码 mtime 写成"现在"，所以这套判据偏保守：
+  刚 checkout 完跑一定红，重新 build 就好；不会反过来放走真陈旧。
+- 证伪四次，每次都是点名的一红（或一行明写的 SKIP），不是崩：
+  ① `touch` 一支源码 → `dir/bundle-is-fresh` 红并报「比源码旧 2859s（BUILD_ID 早于 lib/fengshui/labels.ts）」，
+  同时那三条读产物的闸门**从输出里消失**（58 绿变 54 绿，红 1，exit 1）—— 不作数是真的不作数；
+  ② 把产物 CSS 移走、不设环境变量 → `dir/bundle-present` 红，exit 1；
+  ③ 同样条件下设 `QN_ALLOW_NO_BUILD=1` → 打印 `SKIP  dir/bundle-present …不计通过`，
+  **不计 PASS**（第一版写成 `ok(..., allowed)` 会打一行 PASS 再附一句"降级为 SKIP"，
+  自查时按"豁免不等于达标"改掉了），exit 0；
+  ④ CSS 在、`BUILD_ID` 不在 → `dir/bundle-is-fresh` 红（"有产物却来历不可考"那一支）。
+
+**六爻结果页那几条 warn 的归因**（不改产品）。轨迹探针 `QN_CLS_DIAG=1` 与慢放旋钮
+`QN_VH_CPU_THROTTLE` 都是新加的诊断入口，默认不装、不干预正常运行。量到的东西推翻了两处猜测：
+
+1. `clsSrc` 里 `qn-footer 前=0,687,1265,213 后=0,0,0,0` 看着像"页脚被摘掉"。全程没有一条 `摘[footer]`，
+   `vh=900` 而那一刻页脚 `top=1603` —— 它只是**跑出视口**，与视口不相交就是 0 面积。
+   真实过程：SSR 那一份 `<main>` 只有「起卦中…」（`curl` 那份 HTML 数出 6 个字，盘活在 sessionStorage），
+   文档恰好一屏、页脚被 `margin-top:auto` 贴在视口底；水合 + `POST /api/reports` 之后文档长 916~1132px，
+   页脚整块滑出去。位移源始终只有页脚一个，它以上一行字都没动。
+2. "桌面红、移动 0"看着像移动端达标。把主线程压慢 20 倍，`first-paint` 28ms→964ms、位移在 3227ms，
+   `m1-liuyao-result` 记到 **0.262**（比桌面的 0.171 还高）。所以那个 0 是竞态赢了一格：
+   客户端渲染赶在首帧呈现之前，旧位置从没被画过，Chrome 不记账。慢设备/慢网络上它会红。
+
+结论写进 §12 缺陷9 与 harness README 通用纪律 11–12 条。修法（首帧预留盘面高度 / 占位撑到接近真实高度 /
+让页脚不参与这次位移）待裁，本批不动产品。

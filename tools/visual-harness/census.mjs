@@ -1474,6 +1474,36 @@ const evl = async expression => {
 // 调它不是为了放宽判定 —— 判定读的是总分；是为了查那种 1~2px 的小位移到底是谁动的：
 // QN_CLS_SRC_MIN=0.0001 node tools/visual-harness/census.mjs ... --only=western-ask
 const CLS_SRC_MIN = Number(process.env.QN_CLS_SRC_MIN || 0.01);
+// 归因探针（QN_CLS_DIAG=1 才装，默认一行都不多）。LayoutShift 的 currentRect 清空只能说
+// "这一帧这个节点没被渲染"，分不清是节点自己被摘、还是父级整块被换，也答不出什么时候回来。
+// 六爻结果页那 0.17~0.24 就是靠这里把「谁摘了页脚」量出来的。
+// 只盯页级节点（footer/nav/main）与 body/html 的直接增删：解析期每个元素都在挂，
+// 全都记的话 24 条名额会被正常的解析流水占满，真正那一下反而看不见。
+const DIAG = process.env.QN_CLS_DIAG ? `
+  window.__footTrail = [];
+  const rec = (s, at) => { if (window.__footTrail.length < 24) window.__footTrail.push(Math.round(at === undefined ? performance.now() : at) + 'ms ' + s); };
+  window.__vhRec = rec;
+  const tag = (n) => n.tagName.toLowerCase() + (n.className ? '.' + String(n.className).split(' ')[0] : '');
+  new MutationObserver(ms => { for (const m of ms) {
+    const top = m.target === document.body || m.target === document.documentElement;
+    const hot = [...m.removedNodes, ...m.addedNodes].some(n => n.nodeType === 1 && /^(FOOTER|NAV|MAIN)$/.test(n.tagName));
+    if (!top && !hot) continue;
+    if (m.removedNodes.length) rec('摘[' + [...m.removedNodes].filter(n => n.nodeType === 1).map(tag).join(',') + '] 于 ' + m.target.nodeName.toLowerCase());
+    if (m.addedNodes.length) rec('挂[' + [...m.addedNodes].filter(n => n.nodeType === 1).map(tag).join(',') + '] 于 ' + m.target.nodeName.toLowerCase());
+  } }).observe(document, { childList: true, subtree: true });
+  // 绘制时刻：位移只有"先前已经画出来过"的那块内容才算数，所以 first-paint 落在内容长高之前
+  // 还是之后，直接决定同一次长高计不计进 CLS —— 桌面 0.17 与移动 0 的差别就在这里。
+  try { new PerformanceObserver(l => { for (const e of l.getEntries())
+    rec('绘制 ' + e.name + '=' + Math.round(e.startTime), e.startTime); })
+    .observe({ type: 'paint', buffered: true }); } catch (e) {}
+  let __fp = '';
+  const __tick = () => { const f = document.querySelector('footer.qn-footer');
+    const r = f && f.getBoundingClientRect();
+    const s = f ? ((document.body && document.body.contains(f))
+      ? Math.round(r.top) + '*' + Math.round(r.height) : '不在body里') : '无';
+    if (s !== __fp) { __fp = s; rec('页脚 ' + s + '（top*高） docH=' + document.documentElement.scrollHeight + ' vh=' + innerHeight); }
+    if (performance.now() < 3000) requestAnimationFrame(__tick); };
+  requestAnimationFrame(__tick);` : '';
 const OBSERVERS = `(() => {
   window.__vhBooted = 1;
   window.__cls = 0; window.__lcp = null; window.__clsSrc = [];
@@ -1481,11 +1511,17 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { for (const e of list.getEntries()) {
       if (e.hadRecentInput) continue;
       window.__cls += e.value;
+      // 探针装着的时候，位移条目也落到同一条时间线上，才能和绘制、页脚轨迹对着看。
+      if (window.__vhRec) window.__vhRec('位移条目 value=' + (Math.round(e.value * 1000) / 1000) + ' 源 ' + (e.sources || []).length + ' 个', e.startTime);
       if (e.value > ${CLS_SRC_MIN} && window.__clsSrc.length < 14) window.__clsSrc.push({
         v: Math.round(e.value * 1000) / 1000, time: Math.round(e.startTime),
         t: (e.sources || []).slice(0, 9).map(s => {
           const n = s.node, o = s.previousRect, x = s.currentRect;
-          const d = (o && x) ? 'dy=' + Math.round(x.top - o.top) + ' dx=' + Math.round(x.left - o.left) + ' h=' + Math.round(x.height) : 'inserted/removed';
+          const d = (o && x) ? 'dy=' + Math.round(x.top - o.top) + ' dx=' + Math.round(x.left - o.left)
+            // 完整两个矩形：只印 dy 分不清"自己变矮了"与"被上面的东西推走"，
+            // 归因那一次就是靠 h/w 的变化才定到位的。
+            + ' 前=' + [o.x, o.y, o.width, o.height].map(Math.round).join(',')
+            + ' 后=' + [x.x, x.y, x.width, x.height].map(Math.round).join(',') : 'inserted/removed';
           const cn = n && n.className ? String(n.className).slice(0, 34) : (n ? n.nodeName : '?');
           return cn + ' ' + d;
         })
@@ -1494,6 +1530,7 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { const a = list.getEntries(); window.__lcp = a[a.length - 1].startTime; })
       .observe({ type: 'largest-contentful-paint', buffered: true });
   } catch (e) {}
+  ${DIAG}
 })()`;
 
 // 识别桩的成功体不在这里抄第二份：读的就是验收套件 cases/ 里那一份。
@@ -1853,6 +1890,7 @@ const CENSUS = String.raw`(() => {
     overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     bodyText: (document.body.innerText || '').replace(/\s+/g, '').length,
     booted: !!window.__vhBooted,
+    footTrail: [...(window.__footTrail || [])],
     tokens: resolved,
     paletteCollisions: collisions,
     cssInkData: cssInked,
@@ -1974,6 +2012,10 @@ async function metrics(w, h, touch) {
   W = w; H = h; TOUCH = !!touch;
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!touch });
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!touch, maxTouchPoints: touch ? 5 : 0 });
+  // 慢放主线程（默认 1 倍 = 不干预）。归因那次用它来分"这条判据没红"到底是机制不存在，
+  // 还是这一帧刚好赢了竞态：把加载压慢，同一张页面的位移会挪到首帧呈现之后，红就出来了。
+  const thr = Number(process.env.QN_VH_CPU_THROTTLE || 1);
+  if (thr > 1) await send('Emulation.setCPUThrottlingRate', { rate: thr });
   // Turning touch emulation off does not always clear (pointer: coarse) inside the
   // same target, so desktop states were being reported as coarse. Emulate the
   // media features directly instead of inferring them from the touch flag.
@@ -2875,6 +2917,10 @@ const fsEditProbe = p => `(() => {
     console.log(`   CONTRAST ${cr('main')} | ${cr('nav')} | ${cr('footer')}`);
     if (v.foot) console.log(`   nav=${v.nav && v.nav.h}px shell=${v.shell && v.shell.w}px foot=${v.foot.top}->${v.foot.bottom} docH=${v.docH}${v.docH <= H + 1 ? ' (dead band ' + (H - v.foot.bottom) + 'px)' : ''}`);
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
+    // 按各条自己的时刻排（回调投递有先后，装的顺序不等于发生的顺序）。
+    if ((v.footTrail || []).length) console.log('   DIAG ' + v.footTrail
+      .map(s => ({ t: Number((s.match(/^(\d+)ms/) || [])[1] || 0), s }))
+      .sort((a, b) => a.t - b.t).map(x => x.s).join('\n        | '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
     if ((v.tapIssues || []).length) console.log('   TAP44 (effective 44px box not reachable) ' + v.tapIssues.join(' | '));
     if ((v.overflowClips || []).length) console.log('   CLIP ' + v.overflowClips.map(c =>
