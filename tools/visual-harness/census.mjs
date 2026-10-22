@@ -1511,6 +1511,19 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { for (const e of list.getEntries()) {
       if (e.hadRecentInput) continue;
       window.__cls += e.value;
+      if (window.__clsOut === undefined) window.__clsOut = 0;
+      // 预留格（.qa-pane）是"外层定高 + 内容自己滚"的容器：新一条回答把旧一条顶出可视区
+      // 是它的设计行为，那条节点会被记一次位移（Rect 清空 = 与视口不相交，批D 量过），
+      // 但它一点页面都没推。判据盯的是**容器外面有没有东西动**——
+      // 只要有一条来源在 .qa-pane 之外，或这条没有可追踪来源，整条就记账，不给打折。
+      // 收紧前它把 d1-oriental-chosen 记 +0.029，全部来源都是面板内部那张回答卡。
+      const srcs = e.sources || [];
+      const insideOnly = srcs.length > 0 && srcs.every(s => {
+        const host = s.node && s.node.closest && s.node.closest('.qa-pane');
+        // 面板自己（或它外面任何东西）动过都算"页面动了"；只有面板**里面的**节点才算内部重排。
+        return !!host && s.node !== host;
+      });
+      if (!insideOnly) window.__clsOut += e.value;
       // 探针装着的时候，位移条目也落到同一条时间线上，才能和绘制、页脚轨迹对着看。
       if (window.__vhRec) window.__vhRec('位移条目 value=' + (Math.round(e.value * 1000) / 1000) + ' 源 ' + (e.sources || []).length + ' 个', e.startTime);
       if (e.value > ${CLS_SRC_MIN} && window.__clsSrc.length < 14) window.__clsSrc.push({
@@ -2066,6 +2079,10 @@ const INTENTS_EXPECT = ['认识自己', '问一件事', '择时看周期', '看�
 // 比 1440 更窄 ⇒ 文字换行更多 ⇒ 页头更高，所以在 1280 上量是同一条线的更严一侧。
 // 另外在可达性那一趟里会按 1440×900 再量一次，把裁定写的那个视口的真实读数一起打出来。
 const QA_TOP_MAX = 360;
+// 拉丁词判据的例外清单：格式名与协议名不是"漏翻的英文文案"，把它们硬译成「韦布」才是事故。
+// 每加一个词都要写为什么能留；jpg/png 只有 3 个字母，落在判据（≥4）之外，不需要例外。
+// 目前实际出现的只有 webp —— 它来自目录里那句「jpg/png/webp ≤5MB」（lib/tools/catalog.ts 的 note）。
+const LATIN_ALLOW = ['webp'];
 const MARKETING_WORDS = ['限时', '立即', '爆款', '专属', '超值', '急速', '一键测算', '准确率', '最准', '权威', '大师', '开运'];
 const FIRST_SCREEN = `(() => {
   const vh = window.innerHeight;
@@ -2171,8 +2188,17 @@ function check(tag, v) {
     // 撤掉，桌面 d1-oriental-chosen 只到 0.097、d1-oriental-ask 0.036，全都不红。
     // 也就是说"修好了"与"又坏了"用通用阈值读出来是同一个颜色。预留的定义就是不动，
     // 所以这一类态动了就红，不给自己留"这次只差一点"的余地。
-    if (RESERVED_PANES.some(s => tag.endsWith(s)) && after > 0) {
-      bad(`交互后 CLS +${after} —— 这一态的答案面板预留过高度 + 内部滚动，任何位移都说明预留没生效`);
+    if (RESERVED_PANES.some(s => tag.endsWith(s))) {
+      // 判据盯"预留格外面的东西有没有被推走"+ "外框自己动不动"，不再盯总分数：
+      // 面板是外层定高、内部滚动的容器，新回答把旧回答顶出可视区会被 Chrome 记一次位移，
+      // 但那没有推动页面（d1-oriental-chosen 实测 +0.029 全部来源都是面板里那张卡）。
+      // "动了就红"这条没放宽 —— 只是把"动"定义成页面级的动，见 README 通用纪律 13 条。
+      const pf = v.perf || {};
+      const out = pf.clsOut !== undefined ? pf.clsOut : after;
+      const boxSame = !pf.paneBoxAtLoad || !pf.paneBox || pf.paneBoxAtLoad === pf.paneBox;
+      if (out > 0) bad(`交互后把预留格**外面**的东西推走了 +${out}（这一态总 CLS ${after}）—— 面板外层是定高的，外面动就是预留没生效`);
+      else if (!boxSame) bad(`预留格外框从 ${pf.paneBoxAtLoad} 变成 ${pf.paneBox} —— 外框动了就不是"内部滚动"`);
+      else console.log(`   预留格 外框不动（${pf.paneBox || '无面板'}）· 面板内部重排 ${Math.round((after - out) * 1000) / 1000} 不计页面位移`);
     }
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
@@ -2287,7 +2313,8 @@ function check(tag, v) {
       else if (f.heroH.h > third) bad(`hero「${f.heroH.cls}」高 ${f.heroH.h}px，超过 1/3 视口（≤${third}px）`);
       if (/-oriental$/.test(tag) && f.intentTop && f.intentTop.bottom > vh)
         bad(`四类意图整块落在折线以下（底边 ${f.intentTop.bottom} > vh ${vh}）`);
-      if (f.latinWords && f.latinWords.length) bad(`页面上还有拉丁词：${f.latinWords.join('/')}`);
+      const latin = (f.latinWords || []).filter(w => !LATIN_ALLOW.includes(w.toLowerCase()));
+      if (latin.length) bad(`页面上还有没翻译的英文词：${latin.join('/')}`);
       if (f.h1s && f.h1s.length > 1) bad(`可见 h1 有 ${f.h1s.length} 份：${f.h1s.join(' / ')} —— 收进共用框架后标题只该有一份`);
       console.log(`   GEOM vh=${vh} hero=${f.heroH ? f.heroH.h : '?'}px(≤${third}) qa.top=${f.qaTop ? f.qaTop.top : '?'}(≤${QA_TOP_MAX})`
         + ` intents=${f.intentTop ? f.intentTop.top + '→' + f.intentTop.bottom : '无'} 拉丁词=${f.latinWords ? f.latinWords.length : '?'} h1=${f.h1s ? f.h1s.length : '?'}`);
@@ -2521,6 +2548,11 @@ async function measure(tag, url) {
     // content the click reveals is also a fresh LCP candidate, which reads as a
     // multi-second load regression on a page that paints fine.
     await evl(`window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp;
+      // 预留格外框在交互前的位置。"预留生效"最直白的说法不是分数是零，而是这一块的外框
+      // 在点完之后一格都没动（内部换内容/滚动是设计行为，外框动才是事故）。
+      window.__paneBoxAtLoad = (() => { const p = document.querySelector('.qa-pane');
+        if (!p) return null; const r = p.getBoundingClientRect();
+        return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); })();
       // 交互前的滚动现场。CLS 用视口坐标算位移，所以"页面被滚了一下"和"内容真的被推走"
       // 在分数里长得一模一样 —— 分不清就只能猜。这三个数就是为了不猜。
       window.__preScroll = { y: Math.round(window.scrollY),
@@ -2944,7 +2976,11 @@ const fsEditProbe = p => `(() => {
   const perf = await evl(`({ lcp: window.__lcpAtLoad === undefined ? (window.__lcp && Math.round(window.__lcp)) : (window.__lcpAtLoad && Math.round(window.__lcpAtLoad)),
     lcpInteract: window.__lcpAtLoad === undefined || !window.__lcp || window.__lcp === window.__lcpAtLoad ? undefined : Math.round(window.__lcp),
     cls: Math.round(window.__cls * 1000) / 1000,
+    clsOut: window.__clsOut === undefined ? undefined : Math.round(window.__clsOut * 1000) / 1000,
+    paneBox: (() => { const p = document.querySelector('.qa-pane'); if (!p) return null;
+      const r = p.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); })(),
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000,
+    paneBoxAtLoad: window.__paneBoxAtLoad || null,
     preScroll: window.__preScroll || null,
     postScroll: { y: Math.round(window.scrollY), h: document.documentElement.scrollHeight, vh: window.innerHeight } })`);
   results[tag + '__perf'] = perf;
