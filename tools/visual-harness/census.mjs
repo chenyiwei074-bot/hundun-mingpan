@@ -2792,11 +2792,20 @@ const fsEditProbe = p => `(() => {
   // 图上标号（批C-5b）：凡是几何已经在屏上的态都量一次，因为"依据指回图上"这一半
   // 只有在画了东西的那一帧才谈得上。
   if (['fengshui-filled', 'fengshui-edit', 'fengshui-recognize-candidates'].includes(base)) {
+    // 真后端下 recognize-candidates 这一态的几何来自 stub 注入（识别交互本身在 live 下不点，
+    // 免得把图真送给供应商烧一次调用）——没有图就没有标号可言。有图才断言，没图明写 SKIP，
+    // 不许静默通过（这正是"空跑绿"的老坑）。
+    const hasPlan = await evl(`Boolean(document.querySelector('[data-fp="labels"]') || document.querySelector('[data-fp="grid"]'))`);
+    if (!hasPlan) {
+      console.log('   LABELS SKIP：这一态没有图（真后端下识别交互不点），标号断言不适用');
+      // 跳出本段：下面的墨底探针与其它读数照跑
+    } else {
     const got = await evl(FP_LABEL_PROBE);
     if (!got || !Array.isArray(got.miss)) fail.push(tag + ': 标号探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
     else { for (const x of got.miss) fail.push(tag + ': 图上标号不成立 — ' + x); }
     console.log(`   LABELS 房间名 ${got && got.rooms} · 门窗号 ${got && got.tags} · 九宫 ${got && got.palaces} · 手柄 ${got && got.handles} 个，`
       + (got && got.miss && got.miss.length ? `${got.miss.length} 处不对` : '全部对得上'));
+    }
   }
   // 三档回执的墨底读数（运维要求：不接受"按构造成立"）。跑在本态所有读数之后 ——
   // 它注入又删除节点，放在中间会把注入本身的那次位移算进 CLS。
