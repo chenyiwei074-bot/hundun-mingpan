@@ -1160,6 +1160,46 @@ const CALLOUT_INK_PROBE = `(() => {
   return { rows, restored: main.getAttribute('data-mode') === was };
 })()`;
 
+/** 图上标号（批C-5b）。钉四件事，全部是"看得见"这一侧的：
+ *  · 数量：房间名 / 门窗号 / 九宫格 三组都必须与几何一致（少画一个 = 依据无处可指）；
+ *  · 手柄不许被压：标签与角点手柄的矩形不许相交（手柄要能拖，且 375 那一档挤得最凶）；
+ *  · 每个 marker 带 <title>：读屏与悬停都要能说出这是哪一间、哪一个洞；
+ *  · 字号不许低于阶梯下限 11px（低于 11 在 375 上就是糊的）。 */
+const FP_LABEL_PROBE = `(() => {
+  const g = document.querySelector('[data-fp="labels"]');
+  const grid = document.querySelector('[data-fp="grid"]');
+  if (!g || !grid) return { miss: ['俯视图里没有标号层（data-fp="labels" / data-fp="grid"）—— 依据无处可指'] };
+  const svg = g.ownerSVGElement || document.querySelector('svg');
+  const rooms = [...g.querySelectorAll('[data-fp="room"]')];
+  const tags = [...g.querySelectorAll('[data-fp="opening-tag"]')];
+  const palaces = [...grid.querySelectorAll('[data-fp="palace"]')];
+  const handles = [...svg.querySelectorAll('circle')];
+  // SVG <text> 的 textContent 会把子 <title> 一起带出来（"D1：门，宽 0.9m…D1"），
+  // 所以比对与报错都读 data-tag / data-name —— 这是探针自己的坑，不是产品的。
+  const nameOf = el => el.getAttribute('data-tag') || el.getAttribute('data-name') || el.textContent.trim();
+  const out = [];
+  const hit = (a, b) => {
+    const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return x > 0.5 && y > 0.5;
+  };
+  for (const l of rooms.concat(tags)) {
+    const r = l.getBoundingClientRect();
+    if (parseFloat(getComputedStyle(l).fontSize) < 11) out.push('标号字号 ' + getComputedStyle(l).fontSize + ' < 11px：' + nameOf(l));
+    if (!l.querySelector('title')) out.push('标号没有 <title>（读屏与悬停说不出它是谁）：' + nameOf(l));
+    for (const h of handles) if (hit(r, h.getBoundingClientRect()))
+      out.push('标号「' + nameOf(l) + '」被角点手柄压住（手柄 r=' + Math.round(h.getBoundingClientRect().width / 2) + 'px）');
+  }
+  if (palaces.length !== 9) out.push('九宫格画了 ' + palaces.length + ' 格，应为 9');
+  // 图上那个号与下面清单里那一条必须一一对应：编号只发一次这件事才有机器形状。
+  const cardRows = [...document.querySelectorAll('[id^="fp-opening-"]')].filter(e => !e.id.startsWith('fp-opening-tag'));
+  if (cardRows.length !== tags.length) out.push('门窗清单 ' + cardRows.length + ' 条，图上标号 ' + tags.length + ' 个 —— 对不上就是有两份编号');
+  const cardTags = [...document.querySelectorAll('[id^="fp-opening-tag-"]')].map(e => e.textContent.trim()).sort().join(' ');
+  const svgTags = tags.map(e => e.getAttribute('data-tag')).sort().join(' ');
+  if (cardTags !== svgTags) out.push('清单里的编号与图上的不是一套：「' + cardTags + '」vs「' + svgTags + '」');
+  return { miss: [...new Set(out)], rooms: rooms.length, tags: tags.length, palaces: palaces.length, handles: handles.length };
+})()`;
+
 const dotProbe = want => `(() => {
   ${CONTRAST_JS}
   const out = []; const seen = {};
@@ -2748,6 +2788,15 @@ const fsEditProbe = p => `(() => {
     else for (const x of miss) fail.push(tag + ': 主题不等于钉值 — ' + x);
     console.log(`   THEME[${kind}] main=${got && got.mainBg} card=${got && got.cardBg} body=${got && got.bodyBg}`
       + ` text=${got && got.color} scheme=${got && got.scheme}${got && got.cards ? ' cards=' + JSON.stringify(got.cards) : ''}`);
+  }
+  // 图上标号（批C-5b）：凡是几何已经在屏上的态都量一次，因为"依据指回图上"这一半
+  // 只有在画了东西的那一帧才谈得上。
+  if (['fengshui-filled', 'fengshui-edit', 'fengshui-recognize-candidates'].includes(base)) {
+    const got = await evl(FP_LABEL_PROBE);
+    if (!got || !Array.isArray(got.miss)) fail.push(tag + ': 标号探针跑不起来 ' + JSON.stringify(got).slice(0, 140));
+    else { for (const x of got.miss) fail.push(tag + ': 图上标号不成立 — ' + x); }
+    console.log(`   LABELS 房间名 ${got && got.rooms} · 门窗号 ${got && got.tags} · 九宫 ${got && got.palaces} · 手柄 ${got && got.handles} 个，`
+      + (got && got.miss && got.miss.length ? `${got.miss.length} 处不对` : '全部对得上'));
   }
   // 三档回执的墨底读数（运维要求：不接受"按构造成立"）。跑在本态所有读数之后 ——
   // 它注入又删除节点，放在中间会把注入本身的那次位移算进 CLS。

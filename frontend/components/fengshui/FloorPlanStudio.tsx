@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { analyzeFloor } from '@/lib/fengshui/analysis';
-import { MAX_SPAN_M, buildWalkGrid, openingSegment, toFloorInput } from '@/lib/fengshui/geometry';
+import { MAX_SPAN_M, buildWalkGrid, openingSegment, palaceCells, toFloorInput } from '@/lib/fengshui/geometry';
 import type { FloorGeometry, Opening, Pt, RoomShape, Wall } from '@/lib/fengshui/geometry';
 import {
   RECOGNIZE_SPAN_M, buildRecognizeRequest, confidenceText, failReason, parseRecognize,
@@ -27,6 +27,7 @@ import {
   resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
 } from '@/lib/fengshui/edit';
 import { ROOM_KINDS } from '@/lib/fengshui/types';
+import { openingTags, placeTag, tagOf } from '@/lib/fengshui/labels';
 import { CONCERNS, currentStep, orderNotes, stepStates } from '@/lib/fengshui/steps';
 import type { Concern } from '@/lib/fengshui/steps';
 import { isoSvg, planProject, planSvg } from '@/lib/fengshui/svg';
@@ -209,6 +210,9 @@ export default function FloorPlanStudio() {
   }, [image, consent, recognizing, visitorId]);
 
   const plan = useMemo(() => planSvg(geom, CANVAS_W, CANVAS_H), [geom]);
+  // 九宫格与门窗编号都从"规则层用的同一份算法"取：图上那格写着巽，依据里的巽才是同一格。
+  const cells = useMemo(() => palaceCells(geom), [geom]);
+  const tags = useMemo(() => openingTags(geom), [geom]);
   const translated = useMemo(() => toFloorInput(geom, 朝向, 已确认), [geom, 朝向, 已确认]);
   const report = useMemo(() => analyzeFloor(translated.输入 as never), [translated]);
   const walkable = useMemo(() => buildWalkGrid(geom, 0.25), [geom]);
@@ -252,6 +256,12 @@ export default function FloorPlanStudio() {
 
   const sel = geom.房间.find(r => r.id === 选中) || null;
   const selWall = geom.墙体.find(w => w.id === 选中墙) || null;
+  // 角点手柄是最后画的、压在标签上面，所以标签必须绕开它们（r=9 是 SVG 用户单位，
+  // 与下面 <circle r={9}> 同一个数 —— 两处不一致的话，"让开"就是让了个假位置）。
+  const handleBoxes = [
+    ...(sel ? sel.外环.map(p => planProject(p, plan.frame, plan.box)) : []),
+    ...(selWall ? selWall.折线.map(p => planProject(p, plan.frame, plan.box)) : []),
+  ].map(h => ({ x: h.x, y: h.y, r: 9 }));
   /** 墙上没有可读的名字（识别回来的只有 墙N，手工加的是 w-N），所以列表一律按序号称呼。
    *  序号取自 墙体 数组本身，删掉一道墙后面的会自动改号 —— 不会出现"墙3"其实只有两道。 */
   const 墙名 = (id: string) => `墙 ${geom.墙体.findIndex(w => w.id === id) + 1}`;
@@ -374,6 +384,26 @@ export default function FloorPlanStudio() {
             onPointerMove={e => { const d = dragRef.current; if (!d) return; const p = svgPoint(e); if (p) moveHandle(d, p); }}
             onPointerUp={() => { dragRef.current = null; }}
             onPointerLeave={() => { dragRef.current = null; }}>
+            {/* 九宫底格：格子与宫名都取自 palaceCells（规则层算宫位用的就是这一份），
+                所以"依据说巽宫"和"图上那格写着巽"必然是同一格。整组不吃指针事件，
+                否则会把角点手柄盖住 —— 手柄要能拖。 */}
+            <g data-fp="grid" pointerEvents="none">
+              {(cells || []).map(c => {
+                const a = planProject({ x: c.minX, y: c.minY }, plan.frame, plan.box);
+                const b = planProject({ x: c.maxX, y: c.maxY }, plan.frame, plan.box);
+                return (
+                  <g key={`cell-${c.宫}`}>
+                    <rect x={a.x} y={a.y} width={b.x - a.x} height={b.y - a.y}
+                      fill="none" stroke="var(--color-hairline)" strokeWidth={0.8} strokeDasharray="3 4" />
+                    <text x={a.x + 4} y={a.y + 12} fontSize={11} fill="var(--color-text-secondary)"
+                      data-fp="palace" id={`fp-palace-${c.宫}`}>
+                      <title>{`九宫 · ${c.宫}`}</title>
+                      {c.宫}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
             {plan.房间.map(r => (
               <polygon key={r.id} points={r.points} fill={r.id === 选中 ? 'rgba(178,149,93,.14)' : 'rgba(120,120,130,.07)'}
                 stroke="var(--color-text-secondary)" strokeWidth={1.2}
@@ -399,6 +429,34 @@ export default function FloorPlanStudio() {
                 stroke="var(--color-accent-gold-text)" strokeWidth={4} strokeLinecap="round"
                 strokeDasharray={o.已确认 ? undefined : '7 5'} />;
             })}
+            {/* 房间名与门窗编号画在几何之上、手柄之下（手柄是最后画的，压得住）。
+                这一组是"依据指回图上"的那一半：规则层说「客厅 标在 巽」，
+                图上就得同时有「客厅」这个字和「巽」这一格。 */}
+            <g data-fp="labels" pointerEvents="none">
+              {plan.房间.map(r => (
+                <text key={`name-${r.id}`} x={r.cx} y={r.cy} fontSize={11} textAnchor="middle"
+                  fill="var(--color-text-primary)" data-name={r.名称} data-fp="room" id={`fp-room-${r.id}`}>
+                  <title>{`房间：${r.名称}`}</title>
+                  {r.名称}
+                </text>
+              ))}
+              {geom.开口.map(o => {
+                const w = geom.墙体.find(x => x.id === o.墙); if (!w) return null;
+                const seg = openingSegment(o, w); if (!seg) return null;
+                const [a, b] = seg;
+                const f = plan.frame;
+                const mid = planProject({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }, f, plan.box);
+                const at = placeTag(mid, handleBoxes);
+                return (
+                  <text key={`tag-${o.id}`} x={at.x} y={at.y}
+                    fontSize={11} textAnchor="middle" data-tag={tagOf(tags, o)}
+                    fill="var(--color-accent-gold-text)" data-fp="opening-tag" id={`fp-tag-${o.id}`}>
+                    <title>{`${tagOf(tags, o)}：${o.类型}，宽 ${Math.round(o.宽 * 100) / 100}m，${o.已确认 ? '已确认' : '还没确认'}`}</title>
+                    {tagOf(tags, o)}
+                  </text>
+                );
+              })}
+            </g>
             {/* 角点只在选中的那一间上出现：一间房的顶点相距至少 1m，44px 手柄不会互相盖住。 */}
             {sel && sel.外环.map((p, i) => {
               const q = planProject(p, plan.frame, plan.box);
@@ -548,6 +606,10 @@ export default function FloorPlanStudio() {
             {geom.开口.length === 0 && <p className="qn-note" style={{ margin: '6px 0 0' }}>一个开口都没标：采光、对流与动线三类判定都会写成"缺输入"，不猜。要补的话，在下面「墙体」那一格里对着某道墙按「加门」「加窗」。</p>}
             {geom.开口.map(o => (
               <div key={o.id} id={`fp-opening-${o.id}`} className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+                {/* 图上那个 D1/W2 与这里同一支：编号只由 openingTags() 发一次。 */}
+                <span className="qn-meta" id={`fp-opening-tag-${o.id}`} style={{ minWidth: 28, fontVariantNumeric: 'tabular-nums' }}>
+                  {tagOf(tags, o)}
+                </span>
                 <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44 }}
                   onClick={() => setGeom(g => toggleOpeningKind(g, o.id))}
                   title="点一下换成另一种：宽度会按新类型重新夹">

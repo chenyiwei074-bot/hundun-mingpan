@@ -29,6 +29,8 @@ import {
   moveWallVertex, resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
 } from '../../frontend/lib/fengshui/edit';
 import { openingSegment } from '../../frontend/lib/fengshui/geometry';
+import { labelVocabulary, openingTags, PALACE_NAMES, placeTag, tagOf } from '../../frontend/lib/fengshui/labels';
+import { SYNTHETIC_FLOORPLANS } from '../../frontend/lib/fengshui/synthetic';
 import { currentStep, orderNotes, stepStates } from '../../frontend/lib/fengshui/steps';
 import { ROOM_KINDS } from '../../frontend/lib/fengshui/types';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
@@ -866,6 +868,54 @@ const base: FloorInput = {
   ok('callout/both-themes-by-tokens', rules.length >= 4 && literals.length === 0
     && /\.qn-callout--info\b/.test(css) && /\.qn-callout--pending\b/.test(css) && /\.qn-callout--danger\b/.test(css),
     `三档规则齐备且零字面色（字面 = 只给一种底做了样式；西方靠令牌重指向自动跟随）：规则 ${rules.length} 条 / 字面色 ${literals.join('、') || '0 处'}`);
+}
+
+// ── 16. 图上标号（批C-5b）：依据要指得回图，编号不许有两份 ──
+{
+  const studio = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanStudio.tsx'), 'utf8'));
+  const tags1 = openingTags(SYNTHETIC_FLOORPLANS[0].几何);
+  const ids = SYNTHETIC_FLOORPLANS[0].几何.开口.map(o => o.id);
+  ok('labels/one-tag-per-opening', JSON.stringify(Object.keys(tags1).sort()) === JSON.stringify([...ids].sort())
+    && Object.values(tags1).every(t => /^(D|W)\d+$/.test(t))
+    && new Set(Object.values(tags1)).size === Object.values(tags1).length
+    && tagOf(tags1, { id: '不存在的洞' } as never) === '未编号',
+    `每个开口恰好一个号、格式是 D#/W#、不重号，编号发不出来时明写"未编号"而不是画一个 undefined：${JSON.stringify(tags1)}`);
+
+  // 正向：每条判定的每一句依据，都要能在图上找到至少一个标号（房间名 / 宫名 / 门窗号）。
+  // 反向：词表只能由几何与九宫推出来，画不出"图上没有的号"，也留不下"没人引用的号"。
+  const bad: string[] = [];
+  let checked = 0;
+  for (const plan of SYNTHETIC_FLOORPLANS) {
+    const t = toFloorInput(plan.几何, '南', true);
+    const rep = analyzeFloor(t.输入 as never);
+    const vocab = labelVocabulary(plan.几何, openingTags(plan.几何));
+    for (const n of rep.判定) for (const why of n.依据) {
+      checked += 1;
+      if (!vocab.some(v => why.includes(v))) bad.push(`${plan.名称}/${n.规则}：「${why}」`);
+    }
+  }
+  ok('labels/basis-resolves-on-plan', checked > 0 && bad.length === 0,
+    `有几何依据的判定，每一句都要能解析到图上标号（词表 = 房间名 + 九宫宫名 + D#/W#）：`
+    + `核了 ${checked} 句依据，指不回图上的 ${bad.length} 句${bad.length ? `：${bad.slice(0, 3).join(' | ')}` : ''}`);
+
+  ok('labels/no-orphan-vocabulary', PALACE_NAMES.length === 9
+    && new Set(PALACE_NAMES).size === 9
+    && labelVocabulary(SYNTHETIC_FLOORPLANS[0].几何, tags1).filter(x => /^(D|W)\d+$/.test(x)).length === ids.length,
+    `九宫恰好 9 格不重名，门窗号数量 = 开口数量（多出来的号就是孤儿）：${JSON.stringify(PALACE_NAMES)}`);
+
+  // 让位是纯函数：给定手柄位置必得同一个点，所以没有浏览器也能钉。
+  const h = [{ x: 100, y: 100, r: 9 }];
+  const moved = placeTag({ x: 100, y: 100 }, h);
+  const free = placeTag({ x: 40, y: 40 }, h);
+  const stillOn = (moved.x - 100) ** 2 + (moved.y - 100) ** 2 > 9 * 9;
+  ok('labels/place-tag-yields-to-handles', stillOn && free.x === 40 && free.y === 40,
+    `标签压到手柄时必须让开（实测 375 那一档 D2 与角点手柄重叠 13×13px 就是这个函数没写之前的样子），`
+    + `空位上不许无谓移动：让开=(${moved.x},${moved.y}) / 原地=(${free.x},${free.y})`);
+
+  ok('labels/single-source-in-component', /openingTags\(geom\)/.test(studio) && /palaceCells\(geom\)/.test(studio)
+    && /placeTag\(mid, handleBoxes\)/.test(studio) && /data-fp="grid"/.test(studio) && /data-fp="labels"/.test(studio)
+    && !/`D\$\{|`W\$\{/.test(studio),
+    '组件不自己拼编号、不自己切九宫：宫格来自 palaceCells、号来自 openingTags、让位来自 placeTag（画面侧由 harness 的 LABELS 探针量）');
 }
 
 // ── 15. 「未确认」这一档怎么画（运维 2026-10-22 裁定：红留给真正非法输入；未确认必须有文字标签）──
