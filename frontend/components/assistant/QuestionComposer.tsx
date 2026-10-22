@@ -63,7 +63,10 @@ function outcomeOf(r: AssistantRouteResult): 'matched' | 'choices' | 'closed' | 
   return 'clarify';
 }
 
-export default function QuestionComposer({ mode, compact = false }: { mode: Mode; compact?: boolean }) {
+// 只有一版尺寸：批E 把东方页收进共用框架之后，"塞在 hero 里的紧凑版"没有任何调用点了
+// （`compact` 与 `.qa-pane[data-compact]` 那 152px 一起删掉，见 globals.css 同处注释）。
+// 两页共用一版，预留高度与"入口看得见"的读数才不会长成两套。
+export default function QuestionComposer({ mode }: { mode: Mode }) {
   const [text, setText] = useState('');
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [busy, setBusy] = useState(false);
@@ -74,16 +77,12 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
   // 所以 compositionstart/end 自己记一份，两个条件任一成立就不发送 —— 误发一次的代价是
   // 用户看到一条半截的问题被当成一句话去路由，比多按一次回车大得多。
   const composing = useRef(false);
-  const boxRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const grow = () => {
-    const el = boxRef.current;
-    if (!el) return;
-    // 4 行起、最多 8 行：超过就内部滚。让 textarea 无限长会把下面的意图区/目录推出首屏，
-    // 而"四类意图必须在首屏内"是一条钉着的契约。
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 8 * 24 + 20) + 'px';
-  };
+  // 输入框的高度由 CSS 的 rows 定，不随内容长。
+  // 这里原来有一个 grow()：把 style.height 设成 auto 再读 scrollHeight 回填（封顶 8 行）。
+  // 它保证不了"不推出首屏"（8 行仍然推），却每次都改变 composer 的外框高度 ——
+  // 实测预留格整体位移 2px（批E 把面板外框钉成判据之后才看见；旧版没看见是因为
+  // 那一版整个输入框在折线以下）。超过 4 行的字在框内滚，页面一寸不动。
 
   const ask = async (raw: string, chosenSlug?: string) => {
     const q = raw.trim();
@@ -118,13 +117,12 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
     setTurns(t => [turn, ...t].slice(0, 6));
     setText('');
     setBusy(false);
-    requestAnimationFrame(grow);
   };
 
   const ex = examples(mode);
 
   return (
-    <div className="qa" data-mode={mode} data-compact={compact ? '1' : undefined}>
+    <div className="qa" data-mode={mode}>
       <form
         onSubmit={e => { e.preventDefault(); void ask(text); }}
         style={{ display: 'grid', gap: 8 }}>
@@ -135,9 +133,9 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
             CLS 0.106），所以这一行 nowrap + 按钮固定最小宽；输入框自己 min-width:0，永远让得起。 */}
         <div className="qa-row">
           <textarea
-            id={`qa-input-${mode}`} ref={boxRef} className="qn-input qn-textarea" rows={4}
+            id={`qa-input-${mode}`} className="qn-input qn-textarea" rows={4}
             value={text}
-            onChange={e => { setText(e.target.value); grow(); }}
+            onChange={e => setText(e.target.value)}
             onCompositionStart={() => { composing.current = true; }}
             onCompositionEnd={() => { composing.current = false; }}
             onKeyDown={e => {
@@ -152,7 +150,7 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
             {busy ? '在想' : '问一下'}
           </button>
         </div>
-        <p className="qn-cap qa-keys">Enter 发送 · Shift + Enter 换行 · 中文组词中的回车不算发送</p>
+        <p className="qn-cap qa-keys">回车发送 · 上档键＋回车换行 · 中文组词中的回车不算发送</p>
       </form>
 
       <p id={`qa-note-${mode}`} className="qn-cap" style={{ marginTop: 6 }}>
@@ -172,11 +170,11 @@ export default function QuestionComposer({ mode, compact = false }: { mode: Mode
 
       {err && <p className="qn-alert" role="alert" style={{ marginTop: 10 }}>{err}</p>}
 
-      {/* 两种模式都给答案面板固定高度 + 内部滚动：答案卡插进来不再把下面的目录或意图区推下去。
-          /western 问事态实测 CLS 0.155 就是这么来的，compact 那一版桌面实测一条回答 0.039、
-          两条 0.103（超 0.1 判红）。预留多少 px 只写在 globals.css 的 .qa-pane 上（数字与
-          推导都在那里，组件不抄第二份），这里只说约束：四类意图必须仍在首屏内。 */}
-      <div className="qa-pane" data-compact={compact ? '1' : undefined}>
+      {/* 两系都给答案面板固定高度 + 内部滚动：答案卡插进来不再把下面的目录或意图区推下去。
+          /western 问事态当初实测 CLS 0.155 就是这么来的（东方那版没预留时一条回答 0.039、
+          两条 0.103，超 0.1 判红）。预留多少 px 只写在 globals.css 的 .qa-pane 上
+          （数字与推导都在那里，组件不抄第二份），这里只说约束：四类意图必须仍在首屏内。 */}
+      <div className="qa-pane">
         <div className="qa-turns" aria-live="polite">
         {/* 两种模式都渲染这一句：预留的那一块必须有内容，否则首屏就是一截空白。 */}
         {turns.length === 0 && (

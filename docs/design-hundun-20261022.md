@@ -202,6 +202,7 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 | 缺陷6（新量到，属文案口径矛盾） | [catalog.ts:129](file:///C:/Users/Kobe/Documents/HDAI/frontend/lib/tools/catalog.ts#L129) 对 [fengshui/page.tsx:34](file:///C:/Users/Kobe/Documents/HDAI/frontend/app/fengshui/page.tsx#L34) | 目录 `note` 写着「**不上传户型图**：图片要落地就得加存储与告知流程，那一半属于后端」，而 `FloorPlanStudio` 早已实装上传+识别（`components/fengshui/FloorPlanStudio.tsx:229` 选户型图、:231 `<input type="file">`），`/fengshui` 页第 34 行也写着「上传是可选的…勾选同意之前，图片不会离开这台设备」。**这句 note 由 `/tools` 页原样渲染**（`app/tools/page.tsx:64`）→ 用户在同一站里读到两句相反的话 | 待裁：改目录那句以匹配实装（含"7 天自动删、可移除"）还是收紧产品；改哪一处都要同步 `directory-acceptance` 的文本断言（先剥注释）。**批10 不动它** —— 目录是口径单一来源，不是我能顺手改的 | 运维已裁：改目录那侧，**批A 已落** |
 | 缺陷7（批B 开工当天实测线上量到） | `route-client.ts` 的 source 判定 + 线上 `POST /api/assistant` | 缺陷① 修好之后服务端**确实回了 200**，但 body 里是 `source:"local"` + `degraded:"上游回的形状不合协议"` —— 服务端自己也回落了本机目录。客户端原来按"HTTP 200 就算服务端答的"标来源，于是页面会把一次本机关键词匹配说成"这一轮来自服务端路由" | 以响应里自己声明的 `source` 为准；不声明来源的按"没用到"处理并写明原因。两条新断言（`fallback/server-says-local-is-kept-local` / `fallback/missing-source-not-credited`）+ 桩改成照产线形状带 source | **批B 已落** |
 | 缺陷8（批B 的新判据自己抓到的） | `globals.css` `.qa-submit` + harness 的 CLS 判定 | 预留过高度的面板用 0.1 那条 Web Vitals 线**测不出回归**（撤掉 132px 预留只到 0.036 / 0.096）；判据改成"动了就红"之后，当天就点出提交瞬间标签「问一下」→「在想」让按钮盒子窄 16px、行尾按钮左边线来回跳（两态各 +0.001） | 六态判据改零位移；按钮宽度钉成「问一下」的实测盒宽（110px + nowrap）；位移来源记录门槛做成可调（`QN_CLS_SRC_MIN`） | **批B 已落** |
+| 缺陷9（六爻结果页加载期那 3~4 条 warn，批D 归因，未修） | `app/liuyao/result/[id]/page.tsx` 首帧 + `Footer.tsx` 的 `margin-top:auto` | 盘活在 sessionStorage，SSR 那一份 `<main>` 里只有「起卦中…」（curl 数出来 6 个字），文档恰好一屏（900/812），页脚贴在视口底；水合 + `POST /api/reports` 之后文档长 916~1132px，页脚整块被推出去。位移源只有页脚一个，它以上没有一行字在动，分数却 0.171~0.237，因为影响区是整条页脚带 1265×213。桌面红、375 读 0 **不是两档达标一档不达标**：慢放 20 倍（`QN_VH_CPU_THROTTLE=20`）后移动端同一次长高记到 **0.262**，说明快的时候是客户端渲染赶在首帧之前、旧位置从没被画过，Chrome 不记账 | 待裁修法（三条都可走，代价不同）：首帧就按盘面高度预留 / 「起卦中…」占位撑到接近真实高度 / 让页脚不参与这次位移。归因证据在 harness README 通用纪律 11–12 条 | **批D 只交归因，不改产品**（运维 2026-10-22：下一批只做新鲜度闸门 + 归因）|
 
 ## 13. 批次
 
@@ -215,6 +216,12 @@ empty ──输入──> ready ──Enter / 点「开始分析」──> think
 产品算法层不动，`server/` 不动，只推分支不合 main。
 
 ## 14. 静态稿
+
+> **仅存档 —— 以线上为验收基准（运维 2026-10-22 裁定②）。**
+> 这几张稿画的是"同一个页面里用小按钮切主题"那一版，与后来定下的"门廊两块大入口 → 独立工作页"不一致，
+> 所以它不能再当复现依据。不重出稿：改哪一处都直接照线上量（`tools/visual-harness` 读几何与状态，
+> `directory-acceptance` 读目录口径）。这里写的内容差异仍然有效的那部分：稿里的数、名字、状态都是现读目录的，
+> 这一点后来落成了代码里的单一出处（`lib/tools/status.ts`）。
 
 `docs/design/mock/`：`mock.css` + `gate-1440.html` / `gate-375.html` + `oriental-1440.html` / `oriental-375.html`。
 每份文件底部有 default / hover / focus **三态并排**一条，且真实 `:hover`、`:focus-visible` 也可当场试；
@@ -397,3 +404,79 @@ add-on 字段形状判废 / `needsFor` 单源 / 降级上屏 / IME 两条都要 
 
 **验证**：19 项检查全绿（directory 49→57、fengshui 103→123、assistant 64）、
 harness 全量 **82 态 ALL CHECKS PASSED**（3 条 warn 仍是既有六爻结果页加载期位移）。
+
+## 18. 批D 落地（2026-10-22，运维限定只做两件：产物新鲜度闸门 + 那 3 条 warn 的归因）
+
+**产物新鲜度**（`tools/directory-acceptance/acceptance.ts`，改测试）。读产物的三条闸门
+（`bundle-free-of-dead-styles` / `danger-token-in-bundle` / `referenced-tokens-survive-bundle`）
+上次合进 main 后首跑报 2 红，读到的却是合并前那份 `.next` —— 与「3018 实例发旧 chunk」同一类：
+量具读的不是被测物。现在先证明产物比源码新再让它们说话：
+
+- `dir/bundle-is-fresh`：拿 `frontend/.next/BUILD_ID` 的写入时间对上 `frontend/` 下最新源文件
+  （`.ts/.tsx/.css/.json/.js/.mjs`，跳过 `node_modules` 与 `.next`）。比源码旧就判红，
+  并把落后的秒数与那支源码的路径一起打出来；同时明写「三条读产物的闸门不作数」，
+  免得下一行的红被当成产品坏了。有 CSS 却没有 `BUILD_ID` 也判红（来历不可考的产物无法证明新鲜，
+  这一支是补自查时发现的洞：原来的条件会把它读成绿）。
+- `dir/bundle-present`：没有 `.next` 里的 CSS 产物时**默认判红**，不再打一行 SKIP。
+  干净 clone 这类场景要显式设 `QN_ALLOW_NO_BUILD=1` 才降级成 SKIP —— 豁免留名，不走默认路径。
+- git 会把 checkout/merge 之后的源码 mtime 写成"现在"，所以这套判据偏保守：
+  刚 checkout 完跑一定红，重新 build 就好；不会反过来放走真陈旧。
+- 证伪四次，每次都是点名的一红（或一行明写的 SKIP），不是崩：
+  ① `touch` 一支源码 → `dir/bundle-is-fresh` 红并报「比源码旧 2859s（BUILD_ID 早于 lib/fengshui/labels.ts）」，
+  同时那三条读产物的闸门**从输出里消失**（58 绿变 54 绿，红 1，exit 1）—— 不作数是真的不作数；
+  ② 把产物 CSS 移走、不设环境变量 → `dir/bundle-present` 红，exit 1；
+  ③ 同样条件下设 `QN_ALLOW_NO_BUILD=1` → 打印 `SKIP  dir/bundle-present …不计通过`，
+  **不计 PASS**（第一版写成 `ok(..., allowed)` 会打一行 PASS 再附一句"降级为 SKIP"，
+  自查时按"豁免不等于达标"改掉了），exit 0；
+  ④ CSS 在、`BUILD_ID` 不在 → `dir/bundle-is-fresh` 红（"有产物却来历不可考"那一支）。
+
+**六爻结果页那几条 warn 的归因**（不改产品）。轨迹探针 `QN_CLS_DIAG=1` 与慢放旋钮
+`QN_VH_CPU_THROTTLE` 都是新加的诊断入口，默认不装、不干预正常运行。量到的东西推翻了两处猜测：
+
+1. `clsSrc` 里 `qn-footer 前=0,687,1265,213 后=0,0,0,0` 看着像"页脚被摘掉"。全程没有一条 `摘[footer]`，
+   `vh=900` 而那一刻页脚 `top=1603` —— 它只是**跑出视口**，与视口不相交就是 0 面积。
+   真实过程：SSR 那一份 `<main>` 只有「起卦中…」（`curl` 那份 HTML 数出 6 个字，盘活在 sessionStorage），
+   文档恰好一屏、页脚被 `margin-top:auto` 贴在视口底；水合 + `POST /api/reports` 之后文档长 916~1132px，
+   页脚整块滑出去。位移源始终只有页脚一个，它以上一行字都没动。
+2. "桌面红、移动 0"看着像移动端达标。把主线程压慢 20 倍，`first-paint` 28ms→964ms、位移在 3227ms，
+   `m1-liuyao-result` 记到 **0.262**（比桌面的 0.171 还高）。所以那个 0 是竞态赢了一格：
+   客户端渲染赶在首帧呈现之前，旧位置从没被画过，Chrome 不记账。慢设备/慢网络上它会红。
+
+结论写进 §12 缺陷9 与 harness README 通用纪律 11–12 条。修法（首帧预留盘面高度 / 占位撑到接近真实高度 /
+让页脚不参与这次位移）待裁，本批不动产品。
+
+## 19. 批E1 落地（2026-10-22，运维纠偏后的第一批：以线上为基准做两张工作页）
+
+先记两句前提纠正，因为它们决定了这一批改什么：
+「西方页是英文页面」不成立（实测 h1「西方工作页」，五行工具名全中文，全页拉丁词只有页脚
+`All Rights Reserved` 与快捷键提示的 `Enter/Shift`，印象来自 §14 那张旧稿）；
+户型的问题也不是"流程没呈现完"——`/fengshui` 那一页五步闭环是齐的，**真正缺的是入口**：
+`HOME_FEATURED_SLUGS`、`LAUNCHER_SLUGS`、四类意图入口都不含 `fengshui`，全站指向它的产品代码
+只剩 catalog 那条 href，实测线上 `/oriental` 户型文本 0 次、链接 0 个。
+
+**判据先行**（`tools/visual-harness/census.mjs`，改测试，单独一个提交，那个提交本身是红的）：
+首屏几何（`qa.top ≤360`、`hero ≤1/3 视口`、四类意图仍在首屏、可见 h1 只有一份）、
+目录→工作页可达性（期望集从 `/tools` 的 DOM 现读，不抄第二份清单；期望集为空判红）、
+拉丁词清零（扫 body 不扫 main，否则页脚那句漏成"已清干净"；例外只留格式名 `webp` 并写理由）。
+当时实读：`hero=1119/1451`、`qa.top=450/782`、`工作页缺 /fengshui`、`拉丁词 4 个` —— 全红，红得对。
+
+**产品半边**：`/oriental` 收进共用框架（`ModeLanding` 加 `hero` 槽与 `shellClass`：
+传了 hero 就不再渲染文字页头，h1 因此只有一份；主视觉与通栏色带要满幅，所以壳是每页的属性，
+页头/输入框/页脚才是框架的）。hero 从 `min-height:100dvh` 收成一条窄带 ——
+**动的是排列，不是缩字号**：中途把「混沌」改成 64px 被字号梯判红（梯只认 token 那七级），
+改回 display 那一阶，宽屏把四类意图摊成一行、375 让副标题与圆盘出首屏（两者在核心引擎那一节还会出现）。
+户型给一张独立入口卡（名称/状态/隐私那句全部现读目录，`isLiveEntry` 为假就不画这张卡），
+里面写清五步流程。页脚与快捷键提示中文化。
+
+**实读收口**：`hero 264 / 248`（线 300 / 271）、`qa.top 265 / 249`（线 360，1440×900 另量也是 265）、
+`intents 197→257 / 114→242` 都在首屏、`h1=1`、可达性 6 个入口缺 0、拉丁词只剩被放行的 `webp`。
+
+**一处判据口径变化要运维点头**（README 通用纪律 13 条）：东方输入框提到首屏之后，六态"动了就红"
+立刻红了 6 个态，但位移源逐条看全部在 `.qa-pane` **里面** —— 面板是外层定高、内容自己滚的容器，
+新回答把旧回答顶出可视区会被记一次位移，页面一寸没动（旧版读不到只因为整个框在折线以下）。
+判据因此改成两条同时成立：① 只要有任何一个来源不是面板的严格后代（面板自己也算外面）就整条记账；
+② 面板外框 rect 交互前后逐字相等。内部重排多少仍单独打印，不吞。配套删掉输入框的 `grow()`
+（它每次改外框高度，实测 2px，又保证不了不推出首屏）。这是**收紧边界的定义，不是放宽阈值**。
+顺带收掉一份死代码：`compact` 那一版问事框（预留 152px）本来是给塞在 hero 里的东方版用的，
+东方进框架之后没有任何调用点，prop 与 `.qa-pane[data-compact]` 一起删 —— 两页共用一个 200px 的预留格，
+"入口看得见"的读数才只有一套（实测入口底线 143 / 139，两视口都在格内）。

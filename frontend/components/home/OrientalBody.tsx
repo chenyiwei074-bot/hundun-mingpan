@@ -5,9 +5,10 @@ import Link from 'next/link';
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { HOME_FEATURED_SLUGS, INTENT_ENTRIES, LAUNCHER_SLUGS, homeCard } from '@/lib/tools/catalog';
-import type { HomeCard } from '@/lib/tools/catalog';
-import QuestionComposer from '@/components/assistant/QuestionComposer';
+import { HOME_FEATURED_SLUGS, INTENT_ENTRIES, LAUNCHER_SLUGS, TOOL_BY_SLUG, homeCard } from '@/lib/tools/catalog';
+import type { HomeCard, ToolEntry } from '@/lib/tools/catalog';
+import { isLiveEntry, STATUS_DOT } from '@/lib/tools/status';
+import ModeLanding from '@/components/home/ModeLanding';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
 
@@ -403,6 +404,12 @@ const LAUNCHER: (HomeCard & Skin)[] = LAUNCHER_SLUGS
   .map(s => { const c = homeCard(s); return c ? { ...c, ...rowSkin(s) } : null; })
   .filter((x): x is HomeCard & Skin => !!x);
 
+// 户型入口卡整份现读目录：名称、状态、那句隐私说明、href 都不在这里重写第二份。
+// isLiveEntry 为假就不画这张卡 —— 目录哪天把它改成未开放，这里不许还留着一扇门。
+const FP_TOOL = TOOL_BY_SLUG['fengshui'];
+const FP_ENTRY: (ToolEntry & { href: string }) | null =
+  FP_TOOL && isLiveEntry(FP_TOOL) && FP_TOOL.href ? { ...FP_TOOL, href: FP_TOOL.href } : null;
+
 // 「即将上线」只预告目录里确实没有的东西。星座命盘这一项已经归到西方目录
 // （lib/tools/western-catalog 里的 astro-natal / astro-synasty，状态未开放），
 // 再在这里挂一遍就是两处各说一套 —— 用户在东方页看到"即将上线"、在西方页看到"未开放"。
@@ -422,10 +429,6 @@ export default function OrientalBody() {
   const ctaRef   = useRef<HTMLElement>(null);
 
   const [showLauncher, setShowLauncher] = useState(false);
-
-  const scrollTo = (el: Element | null) => {
-    el?.scrollIntoView({ behavior: prefersReduced() ? 'auto' : 'smooth', block: 'start' });
-  };
 
   useGSAP(() => {
     if (prefersReduced()) return;
@@ -463,14 +466,14 @@ export default function OrientalBody() {
     });
   }, { scope: ctaRef });
 
-  return (
-    <div className="hp">
-
-      {/* 首页正文整体进 <main>：没有这个地标时，harness 的 main 区间审计是空过的
-          ——字号、对比度、可点尺寸全部落在 region "other"，报告照样"全绿"。 */}
-      <main>
-
-      {/* ════════════ HERO：一整屏，左盘右字 ════════════ */}
+  // 首屏主视觉交给共用框架的 hero 槽（见 components/home/ModeLanding.tsx）：
+  // 框架在它后面紧接问事框，两页的 qa.top 才是同一个数。
+  // 原来这一节写着"一整屏"并吃 min-height:100dvh —— 实测把问事框顶到 y=450（375 上 782），
+  // 而"问事框在首屏"是裁定的硬线，所以这里改成一条 ≤1/3 视口的窄带：
+  // 圆盘留在桌面（与文字并排），窄屏让位给文字与四类意图（判据要的是意图可点，不是一张图）。
+  // 同时去掉这一节里的「开始使用」大按钮与"核心引擎 ↓"那条：两者合计 ~120px，
+  // 保留任何一条都会把 hero 顶出 1/3 视口；启动器仍由页尾 CTA 那一发打开（harness 点的是按钮文本，不认位置）。
+  const hero = (
       <section ref={heroRef} className="hero">
         <div className="hero-noise" aria-hidden="true" />
 
@@ -482,14 +485,11 @@ export default function OrientalBody() {
                 旧 tagline「Ai+传统命理研究平台」退役 —— 它把站说成"AI 算命"，而这里 AI 只解释、不算命。 */}
             <h1 className="h1 fx fx-title">混沌</h1>
             <p className="hero-sub fx fx-sub">东方玄学 · 工具箱</p>
-            <div className="hero-actions fx fx-cta">
-              <button onClick={() => setShowLauncher(true)} className="btn-primary">
-                开始使用 <span aria-hidden="true">→</span>
-              </button>
-            </div>
-            {/* 首屏四类意图。入口全部来自 lib/tools/catalog 的 INTENT_ENTRIES ——
-                首页不再维护第二份工具清单，未开放的术数也不会在这里被伪装成入口。
-                文字用墨色：13px 次要灰压在这张浅底上只有 4.48:1，过不了 AA。 */}
+            {/* 首屏四类意图，仍在问事框之前：把意图挪到输入框下面看着更"框优先"，
+                但 375 那一档会算不过来 —— 一个完整输入框（4 行 + 预留答案格 ~500px）
+                加意图两行必然出折线。留在上面，靠压 hero 自己的内边距同时满足两条线：
+                桌面 hero ~296px（≤1/3 视口 300）· qa.top ~312（≤360）·
+                375 hero ~246（≤271）· qa.top ~262，四类意图底边 ~238 仍在屏内。 */}
             <nav className="intent-nav fx fx-cta" aria-label="按你想问的事查找">
               {INTENT_ENTRIES.map(it => (
                 <Link key={it.intent} href={it.href} className="intent-item">
@@ -498,20 +498,48 @@ export default function OrientalBody() {
                 </Link>
               ))}
             </nav>
-            {/* 问事框排在四类意图之后：它一出现就把上面那些挤出了首屏，
-                而"首屏四类意图各有一个可点入口"是 harness 钉着的既有契约。 */}
-            <div className="fx fx-cta" style={{ marginTop: 14 }}>
-              <QuestionComposer mode="oriental" compact />
-            </div>
           </div>
         </div>
+      </section>
+  );
 
-        <div className="hero-foot fx fx-foot">
-          <button onClick={() => scrollTo(coreRef.current)} className="btn-quiet">
-            核心引擎 <span aria-hidden="true">↓</span>
-          </button>
+  return (
+    <div className="hp">
+
+      {/* 正文由框架给 <main>（批E 之前这里自己写了一个 main）：没有这个地标时，
+          harness 的 main 区间审计是空过的 —— 字号、对比度、可点尺寸全部落在 region "other"，报告照样"全绿"。 */}
+      <ModeLanding mode="oriental" shellClass="hp-shell" hero={hero}>
+
+      {/* ════════════ 户型：独立入口卡（运维 2026-10-22 裁定 E1）════════════
+          这张卡解决的是"功能在、入口无"：目录里 可用 + href=/fengshui，而东方页此前
+          零个链接、正文零次提到户型，只能从页脚「工具状态与取数口径」再点一层。
+          没塞进启动器那一格 —— 启动器一格说不清"上传→标注→逐条确认→规则→带标号报告"这件事，
+          而这条流程正是它区别于其余工具的地方。名称/状态/那句隐私说明全部现读目录，
+          这里不写第二份真相。 */}
+      {FP_ENTRY && (
+      <section className="band band-paper">
+        <div className="wrap">
+          <div className="qn-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h2 className="qn-title" style={{ margin: 0 }}>{FP_ENTRY.name}</h2>
+              <span className="qn-badge">
+                <span className="qn-badge__dot" style={{ background: STATUS_DOT[FP_ENTRY.status] }} />
+                {FP_ENTRY.status}
+              </span>
+            </div>
+            <p className="qn-meta" style={{ marginTop: 8, marginBlockEnd: 0 }}>{FP_ENTRY.question}</p>
+            <p className="qn-note" style={{ margin: '8px 0 0' }}>
+              五步走：选图或拍图 → 识别出墙与门窗 → 你逐条确认（没确认的一律画虚线）→
+              规则层按九宫推 → 每条判定都指回图上的标号。朝向没确认时日照那一层不出判定。
+            </p>
+            <p className="qn-cap" style={{ margin: '8px 0 0' }}>{FP_ENTRY.note}</p>
+            <Link href={FP_ENTRY.href} className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 12 }}>
+              进入 · {FP_ENTRY.name}
+            </Link>
+          </div>
         </div>
       </section>
+      )}
 
       {/* ════════════ BRAND：一句断句，一句解释 ════════════ */}
       <section ref={brandRef} className="band band-paper brand">
@@ -602,7 +630,7 @@ export default function OrientalBody() {
         </div>
       </section>
 
-      </main>
+      </ModeLanding>
 
       {/* ════════════ LAUNCHER MODAL ════════════ */}
       {showLauncher && (
@@ -661,13 +689,26 @@ export default function OrientalBody() {
         .hp { background: var(--color-bg-card); color: var(--color-text-primary); }
         .hp * { box-sizing: border-box; }
 
-        /* ===== 首屏 ===== */
+        /* ===== 首屏：一条窄带，不再是一整屏 =====
+           原来 min-height:100dvh + align-content:center 把问事框顶到 y=450（375 上 782）。
+           裁定 E1 要"问事框顶边 ≤360 且 hero ≤1/3 视口"，两条同时成立只能靠收紧这一节的
+           内边距：「混沌」必须留在字号梯的 display 那一阶（桌面 88 / 窄屏 44）——
+           我之前试过去 64px，被字号梯判红（梯只认 token 定义的级），那才是对的结果。
+           圆盘桌面与文字并排（不额外加高），窄屏让位给文字与四类意图。 */
         .hp .hero {
           position: relative; overflow: hidden;
-          min-height: 100dvh;
           display: flex; flex-direction: column;
-          padding: calc(var(--qn-nav-h) + 12px) 1.5rem 1.25rem;
+          padding: calc(var(--qn-nav-h) + 2px) 1.5rem 6px;
           background: linear-gradient(180deg, var(--color-bg-card) 0%, #fafaf8 100%);
+        }
+        @media (max-width: 699px) {
+          /* 整块圆盘在 375 上比标题加四类意图还高，留着就把问事框挤出首屏。
+             圆盘不删 —— 核心引擎那一节它还会出现一次，首屏让路给可点的入口。 */
+          .hp .hero-art { display: none; }
+          /* 同理副标题（26px 一行 + 行距 = 36px）：375 那一档 1/3 视口只有 271px，
+             标题(46) + 意图两行(96) + 内边距(64) 已经 206，加上它就 284 超线。
+             这句在桌面上留着（那儿有 300 的预算，实读 264）。 */
+          .hp .hero-sub { display: none; }
         }
         .hp .hero-noise {
           position: absolute; inset: 0; pointer-events: none; opacity: 0.03;
@@ -680,14 +721,15 @@ export default function OrientalBody() {
           align-items: center; align-content: center;
           gap: clamp(1.75rem, 5svh, 3.5rem);
         }
-        .hp .hero-art { width: 100%; max-width: min(500px, 74svh); margin: 0 auto; }
+        /* 圆盘按"高度 ≤1/3 视口减掉文字那一列"来给：原来是 min(500px, 74svh)，
+           在一整屏的 hero 里没问题，收成窄带之后它自己就能把 hero 顶到 500+。 */
+        .hp .hero-art { width: 100%; max-width: 200px; margin: 0 auto; }
         .hp .pan { display: block; width: 100%; height: auto; overflow: visible; }
         .hp .hero-copy { text-align: center; }
-        .hp .hero-actions { margin-top: clamp(1.25rem, 3svh, 2rem); }
         /* 四类意图入口：两列，窄屏也放得下；每项 ≥44px 可点高度。 */
         .hp .intent-nav {
           display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 8px; margin-top: clamp(0.9rem, 2.4svh, 1.5rem);
+          gap: 8px; margin-top: 10px;
         }
         .hp .intent-item {
           display: grid; gap: 2px; align-content: center; text-align: left;
@@ -697,11 +739,6 @@ export default function OrientalBody() {
         .hp .intent-item:hover { box-shadow: inset 0 0 0 1px rgba(178, 149, 93, 0.55); }
         .hp .intent-name { font-size: var(--qn-fs-body); font-weight: 600; letter-spacing: 0.06em; color: var(--color-text-primary); }
         .hp .intent-tool { font-size: var(--qn-fs-meta); color: var(--color-text-primary); opacity: 0.78; }
-        .hp .hero-foot {
-          position: relative; z-index: 1; width: 100%; max-width: 1180px; margin: 0 auto;
-          padding-top: 0.75rem; border-top: var(--qn-hairline);
-          display: flex; justify-content: center;
-        }
 
         /* ===== 版面 ===== */
         .hp .band { padding: clamp(4.5rem, 11svh, 8rem) 1.5rem; }
@@ -733,7 +770,7 @@ export default function OrientalBody() {
         }
         .hp .body { font-size: var(--qn-fs-body); line-height: 1.8; margin: 0 0 1.25rem; max-width: 34rem; }
         .hp .muted { color: var(--color-text-secondary); }
-        .hp .hero-sub { font-size: var(--qn-fs-hero); line-height: 1.5; margin: 0.75rem 0 0; color: var(--color-text-secondary); }
+        .hp .hero-sub { font-size: var(--qn-fs-hero); line-height: 1.2; margin: 0.3rem 0 0; color: var(--color-text-secondary); }
         /* brand-line 不能再叠 font-family: inherit —— inherit 取的是父元素(.brand-say)的
            无衬线，会把 .h2 的宋体整条吃掉，断句就变成一坨黑体。 */
         .hp .brand-say { display: grid; gap: 0.1em; }
@@ -874,7 +911,6 @@ export default function OrientalBody() {
         .hp .fx-title { animation-name: hpFade; animation-delay: 160ms; }
         .hp .fx-sub   { animation-name: hpFade; animation-delay: 260ms; }
         .hp .fx-cta   { animation-name: hpFade; animation-delay: 360ms; }
-        .hp .fx-foot  { animation-name: hpFade; animation-delay: 520ms; }
         /* transform-box:view-box 让旋转中心落在 viewBox 的几何中心（圆心就是 0,0） */
         .hp .pan-orb, .hp .pan-orb-rev { transform-box: view-box; transform-origin: 50% 50%; }
         .hp .pan-orb { animation: hpSpin 220s linear infinite; }
@@ -892,9 +928,12 @@ export default function OrientalBody() {
 
         @media (min-width: 900px) {
           .hp .hero-inner { grid-template-columns: 1.05fr 0.95fr; gap: clamp(2.5rem, 6vw, 5rem); }
+          /* 宽屏把四类意图摊成一行：两行 2×2 时文案列高 234，加内边距正好把 hero 顶到 330，
+             超开 1/3 视口那条线（300）。摊开之后文案列 ~182，hero ~246 ——
+             动的是排列，不是砍掉副标题或压缩行距那种"挤"。窄屏仍按 2×2（一行放不下四个）。 */
+          .hp .intent-nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
           .hp .hero-art { margin: 0; justify-self: end; }
           .hp .hero-copy { text-align: left; }
-          .hp .hero-foot { justify-content: flex-end; }
           .hp .brand-grid { grid-template-columns: 1.1fr 0.9fr; align-items: end; }
           .hp .ink-grid { grid-template-columns: 0.85fr 1.15fr; }
           .hp .ink-art { margin: 0; }

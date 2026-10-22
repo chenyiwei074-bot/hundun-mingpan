@@ -1474,6 +1474,36 @@ const evl = async expression => {
 // 调它不是为了放宽判定 —— 判定读的是总分；是为了查那种 1~2px 的小位移到底是谁动的：
 // QN_CLS_SRC_MIN=0.0001 node tools/visual-harness/census.mjs ... --only=western-ask
 const CLS_SRC_MIN = Number(process.env.QN_CLS_SRC_MIN || 0.01);
+// 归因探针（QN_CLS_DIAG=1 才装，默认一行都不多）。LayoutShift 的 currentRect 清空只能说
+// "这一帧这个节点没被渲染"，分不清是节点自己被摘、还是父级整块被换，也答不出什么时候回来。
+// 六爻结果页那 0.17~0.24 就是靠这里把「谁摘了页脚」量出来的。
+// 只盯页级节点（footer/nav/main）与 body/html 的直接增删：解析期每个元素都在挂，
+// 全都记的话 24 条名额会被正常的解析流水占满，真正那一下反而看不见。
+const DIAG = process.env.QN_CLS_DIAG ? `
+  window.__footTrail = [];
+  const rec = (s, at) => { if (window.__footTrail.length < 24) window.__footTrail.push(Math.round(at === undefined ? performance.now() : at) + 'ms ' + s); };
+  window.__vhRec = rec;
+  const tag = (n) => n.tagName.toLowerCase() + (n.className ? '.' + String(n.className).split(' ')[0] : '');
+  new MutationObserver(ms => { for (const m of ms) {
+    const top = m.target === document.body || m.target === document.documentElement;
+    const hot = [...m.removedNodes, ...m.addedNodes].some(n => n.nodeType === 1 && /^(FOOTER|NAV|MAIN)$/.test(n.tagName));
+    if (!top && !hot) continue;
+    if (m.removedNodes.length) rec('摘[' + [...m.removedNodes].filter(n => n.nodeType === 1).map(tag).join(',') + '] 于 ' + m.target.nodeName.toLowerCase());
+    if (m.addedNodes.length) rec('挂[' + [...m.addedNodes].filter(n => n.nodeType === 1).map(tag).join(',') + '] 于 ' + m.target.nodeName.toLowerCase());
+  } }).observe(document, { childList: true, subtree: true });
+  // 绘制时刻：位移只有"先前已经画出来过"的那块内容才算数，所以 first-paint 落在内容长高之前
+  // 还是之后，直接决定同一次长高计不计进 CLS —— 桌面 0.17 与移动 0 的差别就在这里。
+  try { new PerformanceObserver(l => { for (const e of l.getEntries())
+    rec('绘制 ' + e.name + '=' + Math.round(e.startTime), e.startTime); })
+    .observe({ type: 'paint', buffered: true }); } catch (e) {}
+  let __fp = '';
+  const __tick = () => { const f = document.querySelector('footer.qn-footer');
+    const r = f && f.getBoundingClientRect();
+    const s = f ? ((document.body && document.body.contains(f))
+      ? Math.round(r.top) + '*' + Math.round(r.height) : '不在body里') : '无';
+    if (s !== __fp) { __fp = s; rec('页脚 ' + s + '（top*高） docH=' + document.documentElement.scrollHeight + ' vh=' + innerHeight); }
+    if (performance.now() < 3000) requestAnimationFrame(__tick); };
+  requestAnimationFrame(__tick);` : '';
 const OBSERVERS = `(() => {
   window.__vhBooted = 1;
   window.__cls = 0; window.__lcp = null; window.__clsSrc = [];
@@ -1481,11 +1511,30 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { for (const e of list.getEntries()) {
       if (e.hadRecentInput) continue;
       window.__cls += e.value;
+      if (window.__clsOut === undefined) window.__clsOut = 0;
+      // 预留格（.qa-pane）是"外层定高 + 内容自己滚"的容器：新一条回答把旧一条顶出可视区
+      // 是它的设计行为，那条节点会被记一次位移（Rect 清空 = 与视口不相交，批D 量过），
+      // 但它一点页面都没推。判据盯的是**容器外面有没有东西动**——
+      // 只要有一条来源在 .qa-pane 之外，或这条没有可追踪来源，整条就记账，不给打折。
+      // 收紧前它把 d1-oriental-chosen 记 +0.029，全部来源都是面板内部那张回答卡。
+      const srcs = e.sources || [];
+      const insideOnly = srcs.length > 0 && srcs.every(s => {
+        const host = s.node && s.node.closest && s.node.closest('.qa-pane');
+        // 面板自己（或它外面任何东西）动过都算"页面动了"；只有面板**里面的**节点才算内部重排。
+        return !!host && s.node !== host;
+      });
+      if (!insideOnly) window.__clsOut += e.value;
+      // 探针装着的时候，位移条目也落到同一条时间线上，才能和绘制、页脚轨迹对着看。
+      if (window.__vhRec) window.__vhRec('位移条目 value=' + (Math.round(e.value * 1000) / 1000) + ' 源 ' + (e.sources || []).length + ' 个', e.startTime);
       if (e.value > ${CLS_SRC_MIN} && window.__clsSrc.length < 14) window.__clsSrc.push({
         v: Math.round(e.value * 1000) / 1000, time: Math.round(e.startTime),
         t: (e.sources || []).slice(0, 9).map(s => {
           const n = s.node, o = s.previousRect, x = s.currentRect;
-          const d = (o && x) ? 'dy=' + Math.round(x.top - o.top) + ' dx=' + Math.round(x.left - o.left) + ' h=' + Math.round(x.height) : 'inserted/removed';
+          const d = (o && x) ? 'dy=' + Math.round(x.top - o.top) + ' dx=' + Math.round(x.left - o.left)
+            // 完整两个矩形：只印 dy 分不清"自己变矮了"与"被上面的东西推走"，
+            // 归因那一次就是靠 h/w 的变化才定到位的。
+            + ' 前=' + [o.x, o.y, o.width, o.height].map(Math.round).join(',')
+            + ' 后=' + [x.x, x.y, x.width, x.height].map(Math.round).join(',') : 'inserted/removed';
           const cn = n && n.className ? String(n.className).slice(0, 34) : (n ? n.nodeName : '?');
           return cn + ' ' + d;
         })
@@ -1494,6 +1543,7 @@ const OBSERVERS = `(() => {
     new PerformanceObserver(list => { const a = list.getEntries(); window.__lcp = a[a.length - 1].startTime; })
       .observe({ type: 'largest-contentful-paint', buffered: true });
   } catch (e) {}
+  ${DIAG}
 })()`;
 
 // 识别桩的成功体不在这里抄第二份：读的就是验收套件 cases/ 里那一份。
@@ -1853,6 +1903,7 @@ const CENSUS = String.raw`(() => {
     overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     bodyText: (document.body.innerText || '').replace(/\s+/g, '').length,
     booted: !!window.__vhBooted,
+    footTrail: [...(window.__footTrail || [])],
     tokens: resolved,
     paletteCollisions: collisions,
     cssInkData: cssInked,
@@ -1974,6 +2025,10 @@ async function metrics(w, h, touch) {
   W = w; H = h; TOUCH = !!touch;
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: !!touch });
   await send('Emulation.setTouchEmulationEnabled', { enabled: !!touch, maxTouchPoints: touch ? 5 : 0 });
+  // 慢放主线程（默认 1 倍 = 不干预）。归因那次用它来分"这条判据没红"到底是机制不存在，
+  // 还是这一帧刚好赢了竞态：把加载压慢，同一张页面的位移会挪到首帧呈现之后，红就出来了。
+  const thr = Number(process.env.QN_VH_CPU_THROTTLE || 1);
+  if (thr > 1) await send('Emulation.setCPUThrottlingRate', { rate: thr });
   // Turning touch emulation off does not always clear (pointer: coarse) inside the
   // same target, so desktop states were being reported as coarse. Emulate the
   // media features directly instead of inferring them from the touch flag.
@@ -2020,6 +2075,14 @@ async function goto(url) {
 // 就是滚动位置为 0 时能看到什么。裁定 ① 的四条里有三条在这里测：四类意图各 ≥1 个可点入口、
 // 导航 ≤5 项、首屏不塞营销话。
 const INTENTS_EXPECT = ['认识自己', '问一件事', '择时看周期', '看关系'];
+// 问事框顶边的上限（运维 2026-10-22 裁定 E1：y≤360@1440×900）。harness 的桌面视口是 1280×900，
+// 比 1440 更窄 ⇒ 文字换行更多 ⇒ 页头更高，所以在 1280 上量是同一条线的更严一侧。
+// 另外在可达性那一趟里会按 1440×900 再量一次，把裁定写的那个视口的真实读数一起打出来。
+const QA_TOP_MAX = 360;
+// 拉丁词判据的例外清单：格式名与协议名不是"漏翻的英文文案"，把它们硬译成「韦布」才是事故。
+// 每加一个词都要写为什么能留；jpg/png 只有 3 个字母，落在判据（≥4）之外，不需要例外。
+// 目前实际出现的只有 webp —— 它来自目录里那句「jpg/png/webp ≤5MB」（lib/tools/catalog.ts 的 note）。
+const LATIN_ALLOW = ['webp'];
 const MARKETING_WORDS = ['限时', '立即', '爆款', '专属', '超值', '急速', '一键测算', '准确率', '最准', '权威', '大师', '开运'];
 const FIRST_SCREEN = `(() => {
   const vh = window.innerHeight;
@@ -2063,7 +2126,30 @@ const FIRST_SCREEN = `(() => {
         }
       }
       return bad;
-    })() };
+    })(),
+    // ── 首屏几何（运维 2026-10-22 裁定 E1：问事框顶边 ≤360、hero ≤1/3 视口、四类意图仍在首屏）。
+    // 量「.qa」而不是「.qa-pane」：判据说的是"输入框在首屏"，答案预留格是它的下半截。
+    qaTop: (() => { const e = document.querySelector('.qa'); if (!e) return null;
+      const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height) }; })(),
+    // main 的第一个可见区块就是这一页的 hero / 页头（东方是 section.hero，西方是 header）。
+    // 原来写死「main > section」会指错东西：西方那一页第一个 section 是问事框那张卡，
+    // 于是"hero 超高"红的是输入框 —— 读到一个数不算量对。
+    // （这一串注释在一个反引号模板里，所以这里绝对不能再出现反引号：会当场把模板截断，
+    //   而这台机上表现为整份 census 语法错。改这里之前先 node --check 一遍。）
+    heroH: (() => { const s = document.querySelector('main > :first-child'); if (!s) return null;
+      return { h: Math.round(s.getBoundingClientRect().height),
+        cls: s.tagName.toLowerCase() + '.' + String(s.className).slice(0, 22) }; })(),
+    intentTop: (() => { const e = document.querySelector('.intent-nav'); if (!e) return null;
+      const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; })(),
+    // 页面上残留的拉丁词（≥4 字母）。扫 body 不扫 main：页脚那句 "All Rights Reserved"
+    // 在 main 之外，只量 main 会把它漏成"已经清干净了"。RSC 的内部键不在 innerText 里。
+    latinWords: (() => { const src = document.body.innerText || '';
+      const set = new Set(); for (const m of src.matchAll(/[A-Za-z][A-Za-z]{3,}/g)) set.add(m[0]);
+      return [...set].slice(0, 14); })(),
+    // 这一页能点到的 href 全集，供跨页可达性审计比对（含导航/页脚，审计里再扣掉公共件）。
+    pageHrefs: [...new Set([...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')))],
+    h1s: [...document.querySelectorAll('h1')].filter(e => e.getClientRects().length)
+      .map(e => (e.innerText || '').trim().slice(0, 16)) };
 })()`;
 
 function check(tag, v) {
@@ -2102,8 +2188,17 @@ function check(tag, v) {
     // 撤掉，桌面 d1-oriental-chosen 只到 0.097、d1-oriental-ask 0.036，全都不红。
     // 也就是说"修好了"与"又坏了"用通用阈值读出来是同一个颜色。预留的定义就是不动，
     // 所以这一类态动了就红，不给自己留"这次只差一点"的余地。
-    if (RESERVED_PANES.some(s => tag.endsWith(s)) && after > 0) {
-      bad(`交互后 CLS +${after} —— 这一态的答案面板预留过高度 + 内部滚动，任何位移都说明预留没生效`);
+    if (RESERVED_PANES.some(s => tag.endsWith(s))) {
+      // 判据盯"预留格外面的东西有没有被推走"+ "外框自己动不动"，不再盯总分数：
+      // 面板是外层定高、内部滚动的容器，新回答把旧回答顶出可视区会被 Chrome 记一次位移，
+      // 但那没有推动页面（d1-oriental-chosen 实测 +0.029 全部来源都是面板里那张卡）。
+      // "动了就红"这条没放宽 —— 只是把"动"定义成页面级的动，见 README 通用纪律 13 条。
+      const pf = v.perf || {};
+      const out = pf.clsOut !== undefined ? pf.clsOut : after;
+      const boxSame = !pf.paneBoxAtLoad || !pf.paneBox || pf.paneBoxAtLoad === pf.paneBox;
+      if (out > 0) bad(`交互后把预留格**外面**的东西推走了 +${out}（这一态总 CLS ${after}）—— 面板外层是定高的，外面动就是预留没生效`);
+      else if (!boxSame) bad(`预留格外框从 ${pf.paneBoxAtLoad} 变成 ${pf.paneBox} —— 外框动了就不是"内部滚动"`);
+      else console.log(`   预留格 外框不动（${pf.paneBox || '无面板'}）· 面板内部重排 ${Math.round((after - out) * 1000) / 1000} 不计页面位移`);
     }
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
@@ -2202,6 +2297,27 @@ function check(tag, v) {
         if (!f.intents || !f.intents[t]) bad(`首屏没有「${t}」的可点入口（scrollY=${f.scrollY}、首屏内 ${f.links} 个链接）`);
       }
       console.log(`   FIRST-SCREEN intents=${f.intents ? Object.values(f.intents).filter(Boolean).length : '?'}/4 links=${f.links}`);
+    }
+  }
+  // 首屏几何与拉丁词（运维 2026-10-22 裁定 E1）：两页共用一套框架，问事框必须在首屏同一位置，
+  // hero 不许把页面撑成一整屏，页面上不许留着没人翻译的拉丁词。
+  // 每条都是"读不到就判红"——探针自己失效时静默通过，比没这条判据更糟（class-has-selector 同款）。
+  if (/-oriental$/.test(tag) || /-western$/.test(tag)) {
+    const f = v.firstScreen;
+    if (!f) bad('first-screen probe did not run — 首屏几何的要求没被测量过');
+    else {
+      const vh = f.vh || 0, third = Math.round(vh / 3);
+      if (!f.qaTop) bad('读不到 .qa —— 问事框位置的要求等于没测（选择器换了要跟着换，不许静默过）');
+      else if (f.qaTop.top > QA_TOP_MAX) bad(`问事框顶边 y=${f.qaTop.top}（vh=${vh}），裁定要求 ≤${QA_TOP_MAX}`);
+      if (!f.heroH) bad('读不到 main 的第一节，hero 高度要求等于没测');
+      else if (f.heroH.h > third) bad(`hero「${f.heroH.cls}」高 ${f.heroH.h}px，超过 1/3 视口（≤${third}px）`);
+      if (/-oriental$/.test(tag) && f.intentTop && f.intentTop.bottom > vh)
+        bad(`四类意图整块落在折线以下（底边 ${f.intentTop.bottom} > vh ${vh}）`);
+      const latin = (f.latinWords || []).filter(w => !LATIN_ALLOW.includes(w.toLowerCase()));
+      if (latin.length) bad(`页面上还有没翻译的英文词：${latin.join('/')}`);
+      if (f.h1s && f.h1s.length > 1) bad(`可见 h1 有 ${f.h1s.length} 份：${f.h1s.join(' / ')} —— 收进共用框架后标题只该有一份`);
+      console.log(`   GEOM vh=${vh} hero=${f.heroH ? f.heroH.h : '?'}px(≤${third}) qa.top=${f.qaTop ? f.qaTop.top : '?'}(≤${QA_TOP_MAX})`
+        + ` intents=${f.intentTop ? f.intentTop.top + '→' + f.intentTop.bottom : '无'} 拉丁词=${f.latinWords ? f.latinWords.length : '?'} h1=${f.h1s ? f.h1s.length : '?'}`);
     }
   }
   if (/-home$/.test(tag)) {
@@ -2432,6 +2548,11 @@ async function measure(tag, url) {
     // content the click reveals is also a fresh LCP candidate, which reads as a
     // multi-second load regression on a page that paints fine.
     await evl(`window.__clsAtLoad = window.__cls; window.__lcpAtLoad = window.__lcp;
+      // 预留格外框在交互前的位置。"预留生效"最直白的说法不是分数是零，而是这一块的外框
+      // 在点完之后一格都没动（内部换内容/滚动是设计行为，外框动才是事故）。
+      window.__paneBoxAtLoad = (() => { const p = document.querySelector('.qa-pane');
+        if (!p) return null; const r = p.getBoundingClientRect();
+        return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); })();
       // 交互前的滚动现场。CLS 用视口坐标算位移，所以"页面被滚了一下"和"内容真的被推走"
       // 在分数里长得一模一样 —— 分不清就只能猜。这三个数就是为了不猜。
       window.__preScroll = { y: Math.round(window.scrollY),
@@ -2855,7 +2976,11 @@ const fsEditProbe = p => `(() => {
   const perf = await evl(`({ lcp: window.__lcpAtLoad === undefined ? (window.__lcp && Math.round(window.__lcp)) : (window.__lcpAtLoad && Math.round(window.__lcpAtLoad)),
     lcpInteract: window.__lcpAtLoad === undefined || !window.__lcp || window.__lcp === window.__lcpAtLoad ? undefined : Math.round(window.__lcp),
     cls: Math.round(window.__cls * 1000) / 1000,
+    clsOut: window.__clsOut === undefined ? undefined : Math.round(window.__clsOut * 1000) / 1000,
+    paneBox: (() => { const p = document.querySelector('.qa-pane'); if (!p) return null;
+      const r = p.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); })(),
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000,
+    paneBoxAtLoad: window.__paneBoxAtLoad || null,
     preScroll: window.__preScroll || null,
     postScroll: { y: Math.round(window.scrollY), h: document.documentElement.scrollHeight, vh: window.innerHeight } })`);
   results[tag + '__perf'] = perf;
@@ -2875,6 +3000,10 @@ const fsEditProbe = p => `(() => {
     console.log(`   CONTRAST ${cr('main')} | ${cr('nav')} | ${cr('footer')}`);
     if (v.foot) console.log(`   nav=${v.nav && v.nav.h}px shell=${v.shell && v.shell.w}px foot=${v.foot.top}->${v.foot.bottom} docH=${v.docH}${v.docH <= H + 1 ? ' (dead band ' + (H - v.foot.bottom) + 'px)' : ''}`);
     if ((v.clsSrc || []).length) console.log('   CLS-SRC ' + v.clsSrc.map(s => `${s.v}@${s.time}ms: ${s.t.join(' ; ')}`).join('\n          '));
+    // 按各条自己的时刻排（回调投递有先后，装的顺序不等于发生的顺序）。
+    if ((v.footTrail || []).length) console.log('   DIAG ' + v.footTrail
+      .map(s => ({ t: Number((s.match(/^(\d+)ms/) || [])[1] || 0), s }))
+      .sort((a, b) => a.t - b.t).map(x => x.s).join('\n        | '));
     if ((v.paletteCollisions || []).length) console.log('   COLLIDE (data token shares a rendered value with a text token) ' + v.paletteCollisions.join(' | '));
     if ((v.tapIssues || []).length) console.log('   TAP44 (effective 44px box not reachable) ' + v.tapIssues.join(' | '));
     if ((v.overflowClips || []).length) console.log('   CLIP ' + v.overflowClips.map(c =>
@@ -3051,6 +3180,58 @@ for (const [tag, url] of ORPHAN_PAGES) {
 // second phase: same routes at 375x812 with touch, now that coarse is allowed to stick
 await metrics(375, 812, true);
 for (const [tag, url] of pages) { await metrics(375, 812, true); await measure('m1-' + tag, url); }
+
+// ── 目录 → 工作页可达性（运维 2026-10-22 裁定 E1：判据现在加，当下就该红）。
+// 规则只有一条：目录里挂着「进入」的东西，工作页上也必须能点到。
+// 期望集从 /tools 的 DOM 现读 —— 不在这里抄第二份工具清单，抄一份就等于目录改了它不会跟。
+// 反例就是这次的户型：目录 可用 + href=/fengshui，而 /oriental 上零个链接、零次提到户型。
+console.log('\n===== 目录 → 工作页可达性 =====');
+await metrics(1280, 900, false);
+// 这一趟是"额外加载了三个页面"，不是那三个态的判定 —— 所以它自己也得走同一张写账：
+// 只读判据按动作分并且必须网络观测，这条对补跑的导航同样成立（生产上悄悄 POST 一次就是先斩后奏）。
+const guardWrites = (where) => {
+  const denied = deniedOf(netWrites);
+  if (denied.length) fail.push(`${where}: 可达性补跑期间发出被禁的写请求：${denied.join('、')}`);
+  else if (netWrites.length) console.log(`    非禁写 ${netWrites.join('、')}（打印，不判负）`);
+  netWrites.length = 0;
+};
+await goto('/tools'); guardWrites('可达性/tools');
+const dirLive = await evl(`[...new Set([...document.querySelectorAll('a[href]')]
+  .filter(a => (a.innerText || '').includes('进入') && /^\\//.test(a.getAttribute('href') || ''))
+  .map(a => a.getAttribute('href')))]`);
+for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
+  if (!keep(tag, url)) { console.log(`  SKIP ${tag}（不在 --only 范围内，这条判据没跑）`); continue; }
+  await goto(url); guardWrites('可达性/' + tag);
+  const onPage = await evl(`(() => ({
+    hrefs: [...new Set([...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')))],
+    // 工作页自己渲染的卡里挂了几扇能进的门，与它页面上写的那句"可用 N"对不对得上。
+    ownEntries: [...document.querySelectorAll('a[href]')].filter(a => (a.innerText || '').includes('进入')).length,
+    tally: ((document.body.innerText || '').match(/目录[^。]*。/) || [''])[0].replace(/\\s+/g, ' '),
+    qaTop: (() => { const e = document.querySelector('.qa'); if (!e) return null;
+      const r = e.getBoundingClientRect(); return Math.round(r.top) + '/' + innerHeight; })() }))()`);
+  const list = Array.isArray(dirLive) ? dirLive : [];
+  if (tag === 'oriental') {
+    if (!list.length) fail.push('oriental: 目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（选择器失效就是这个形状）');
+    else {
+      const missing = list.filter(h => !(onPage.hrefs || []).includes(h));
+      if (missing.length) fail.push(`oriental: 目录可点而工作页点不到（${missing.length}/${list.length}）：${missing.join('、')}`);
+      console.log(`  oriental 目录入口 ${list.length} 个 / 工作页缺 ${missing.length ? missing.join('、') : '0 个'}`);
+    }
+    // 裁定那个 1440×900 的真实读数：换视口量一次再换回来，别把 1280 的数当成 1440 的数报。
+    await metrics(1440, 900, false); await goto('/oriental'); guardWrites('可达性/oriental@1440');
+    const wide = await evl(`(() => { const e = document.querySelector('.qa'); const s = document.querySelector('main > section');
+      return { qaTop: e ? Math.round(e.getBoundingClientRect().top) : null,
+        heroH: s ? Math.round(s.getBoundingClientRect().height) : null, vh: innerHeight }; })()`);
+    console.log(`  1440×900 实读 ${JSON.stringify(wide)}`);
+    if (wide && wide.qaTop === null) fail.push('oriental: 1440×900 下读不到 .qa');
+    await metrics(1280, 900, false);
+  } else {
+    const claimed = Number(((onPage.tally || '').match(/可用 (\d+)/) || [])[1] || 0);
+    console.log(`  western ${onPage.tally || '没读到目录那句'} / 页面入口 ${onPage.ownEntries} 个`);
+    if (claimed !== onPage.ownEntries)
+      fail.push(`western: 页面上写「可用 ${claimed}」却有 ${onPage.ownEntries} 扇能进的门（说可用就得有门，说没门就不许写可用）`);
+  }
+}
 
 // prefers-reduced-motion must leave nothing moving
 console.log('\n===== reduced motion =====');

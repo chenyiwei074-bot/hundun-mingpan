@@ -3,11 +3,14 @@ import QuestionComposer from '@/components/assistant/QuestionComposer';
 
 // 两套体系共用的工作页框架。
 //
-// 分工要说清楚：框架负责"这一系是哪一系、怎么回去、页脚那几句话"，
-// 以及主题作用域（data-mode）；具体的工具内容各系自己给。
-// 东方那一页目前不用这个框架 —— 它的首屏是改版前就上线的那张主视觉，
-// 四类意图入口必须在首屏内（harness 有这条硬断言），把框架的页头插到它上面
-// 就会把意图区挤出首屏。等设计稿定了两套首屏的版式再统一收进来。
+// 分工要说清楚：框架负责"这一系是哪一系、怎么回去、页脚那几句话"、主题作用域（data-mode），
+// 以及**问事框的位置** —— 这一条是批E 收进来的原因：两页的输入框必须落在首屏同一个 y 上，
+// 各自排一遍就会漂（东方那一版漂到 y=450，西方在 251，而两条判据本来都该是同一句话）。
+// 具体的工具内容各系自己给。
+//
+// hero 槽是给"自带主视觉的那一系"留的：传了 hero 就不渲染文字页头，h1 因此只有一份。
+// shellClass 同理：主视觉与通栏色带要满幅，不能被套进 760px 的阅读壳里 —— 壳是每页的属性，
+// 页头/输入框/页脚才是框架的。
 
 // Mode 只有一个出处：lib/assistant/types。这里再写一遍字面量联合，
 // 将来加第三套体系时就会有两份要同时改的东西 —— 而那正是本站最擅长漏掉的那种。
@@ -26,25 +29,32 @@ const COPY: Record<Mode, { eyebrow: string; title: string; lead: string }> = {
   },
 };
 
-export default function ModeLanding({ mode, children }: {
+export default function ModeLanding({ mode, hero, shellClass, children }: {
   mode: Mode;
+  hero?: React.ReactNode;
+  shellClass?: string;
   children: React.ReactNode;
 }) {
   const c = COPY[mode];
   return (
-    <main className="qn-shell qn-shell--wide" data-mode={mode}>
-      <header className="qn-rise" style={{ paddingTop: 24 }}>
-        {/* 「← 返回选择体系」这一条搬进了导航（工作页导航里有「返回选择」）。
-            同一件事在页面上出现两次，第二次就会与第一次漂移。 */}
-        <p className="qn-eyebrow" style={{ marginTop: 0 }}>{c.eyebrow}</p>
-        <h1 className="qn-hero">{c.title}</h1>
-        <p className="qn-meta" style={{ marginTop: 10, maxWidth: '62ch' }}>{c.lead}</p>
-      </header>
-      <section className="qn-card qn-rise" style={{ marginTop: 16 }}>
+    <main className={shellClass || 'qn-shell qn-shell--wide'} data-mode={mode}>
+      {hero ?? (
+        <header className="qn-rise" style={{ paddingTop: 24 }}>
+          {/* 「← 返回选择体系」这一条搬进了导航（工作页导航里有「返回选择」）。
+              同一件事在页面上出现两次，第二次就会与第一次漂移。 */}
+          <p className="qn-eyebrow" style={{ marginTop: 0 }}>{c.eyebrow}</p>
+          <h1 className="qn-hero">{c.title}</h1>
+          <p className="qn-meta" style={{ marginTop: 10, maxWidth: '62ch' }}>{c.lead}</p>
+        </header>
+      )}
+      {/* 输入框永远紧跟在页头之后：两页的 qa.top 是同一个数，这才是"共用一套框架"的含义。
+          居中那份约束写在框架里而不是各页 —— 满幅那一系（东方）与 760 阅读壳那一系（西方）
+          拿到的输入框宽度必须一致，否则两页的预留格高度又会长成两个值。 */}
+      <section className="qn-card qn-rise ml-qa">
         <QuestionComposer mode={mode} />
       </section>
       {children}
-      <section className="qn-legal" style={{ marginTop: 22 }}>
+      <section className="qn-legal ml-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
           这一页只列{mode === 'western' ? '西方' : '东方'}体系里的工具；换体系请回到选体系那一页。
           排盘与抽取由各自的规则引擎执行，模型只做解释与引导。

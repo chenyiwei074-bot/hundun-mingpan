@@ -15,7 +15,7 @@ export default function Footer() {
   return (
     <footer className="qn-footer">
       <div className="qn-footer__inner">
-        <p className="qn-footer__meta">© 2026 混沌 All Rights Reserved</p>
+        <p className="qn-footer__meta">© 2026 混沌 · 保留所有权利</p>
 
         {icpNumber && (
           <a

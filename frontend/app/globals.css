@@ -243,6 +243,16 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   .qn-shell { padding-left: 24px; padding-right: 24px; }
 }
 
+/* 共用框架（ModeLanding）在"满幅那一系"里的落位。东方工作页的主视觉与通栏色带要贴到视口边，
+   所以它的 main 用 .hp-shell（不限宽、自己不留内边距）；代价是框架给的两块 —— 问事框与页脚
+   那句法律话 —— 必须自己回到 760 的阅读宽度，否则同一套框架在两页给出两种宽度，
+   判据读到的 qa.top 与预留格高度就又是两回事。
+   西方那一页不匹配这几条（它的 main 已经带壳），所以那边一行都不变。 */
+.hp-shell { width: 100%; max-width: none; padding: 0; }
+.hp-shell .ml-qa, .hp-shell .ml-legal {
+  width: 100%; max-width: 808px; margin-left: auto; margin-right: auto; padding: 0 24px;
+}
+
 .qn-stack > * + * { margin-top: var(--qn-gap); }
 
 .qn-card {
@@ -930,26 +940,18 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   row-gap: 12px;
 }
 .qa-examples .qn-chip { max-width: 100%; }
-/* 答案面板：尺寸恒定，内容自己滚。这样"答一题"永远不改变页面布局 —— CLS 只可能来自
-   位移，把位移源拿掉比把阈值放宽诚实。compact 那一版在首屏里，不预留高度。 */
 /* 答案面板：外层占位、内层绝对定位。绝对定位的内容不参与父级布局，
-   所以"插一条回答"在数学上不可能把页面推走 —— 固定高度与 contain 都试过，
-   实测仍记到 54px 位移；这一版是把可能性掐掉，不是把阈值放宽。 */
-.qa-pane:not([data-compact="1"]) { position: relative; height: 200px; }
-/* compact（东方 hero 里那一版）以前完全不预留，于是每问一句就把下面的意图区与整页推一次：
-   实测桌面 1280×900 —— 一条回答 CLS 0.039，两条 0.103（超 0.1 判红）。
-   375 那一档恰好为 0 只是因为 hero 比视口高、被推走的东西本来就在屏外，不是没问题。
-   预留 + 内部滚动：答案再长也不改变页面高度；空着的那一块有提示文字（下面组件里
-   两种模式都渲染），所以预留不是"留一截空白"。
-   152 这个数是量出来的，不是凑的：matched 那一张卡（你问 / 该用的是 / 入口 / 还要补 / 怎么读）
-   的入口底线在桌面 143px、375 那一档 139px —— 预留 132px 时是"结论给了、下一步点不到"，
-   现在由 harness 的"入口必须在预留格里看得见"那条判据钉住（改高度或改卡片内容顺序都会被咬）。 */
-.qa-pane[data-compact="1"] { position: relative; height: 152px; margin-top: 10px; }
-.qa-pane[data-compact="1"] .qa-turns {
-  position: absolute; inset: 0; overflow-y: auto;
-  display: grid; align-content: start;
-}
-.qa-pane:not([data-compact="1"]) .qa-turns {
+   所以"插一条回答"在数学上不可能把页面推走 —— 只给固定高度与 contain 都试过，
+   实测仍记到 54px 位移；这一版是把可能性掐掉，不是把阈值放宽。
+   空着的那一块有提示文字（组件里渲染），所以预留不是"留一截空白"。
+   200 也过判据：harness 那条"入口必须落在预留格里看得见"读的是这张卡的实际底线
+   （matched 那张 你问 / 该用的是 / 入口 / 还要补 / 怎么读，入口底线桌面 143px、375 那一档 139px，
+   都在 200 之内；132px 那一版就是"结论给了、下一步点不到"）。
+   批E 之前这里是两版：紧凑版 152px 专给塞在东方 hero 里的那一版。东方页收进共用框架之后
+   它再没有任何调用点，于是删掉只留一版 —— 两页共用一个尺寸，预留高度与"看得见"的读数
+   才不会各长成一套、判据也只能分别钉住一边。 */
+.qa-pane { position: relative; height: 200px; }
+.qa-pane .qa-turns {
   position: absolute; inset: 0; overflow-y: auto;
   display: grid; align-content: start;
 }
