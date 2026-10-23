@@ -30,3 +30,10 @@ frontend/_*.txt
 **/*.bak*
 **/*.bak
 *.traineddata
+# 验收套件与 harness 的机器输出：跑一次就重新生成一份，进版本库只会互相覆盖。
+# 历批留下的根目录散件只挡不删（删不删归运维）。条数别信注释，现读：
+#   git status --porcelain --ignored=matching | grep -c '^!!'
+/.all*/
+/.[a-z]*.txt
+/.[a-z]*.out
+/.[a-z]*.log
