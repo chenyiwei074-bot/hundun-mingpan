@@ -2,7 +2,7 @@
 
 @theme {
   /* ===== 中性 · 以线上实际渲染值为准 ===== */
-  --color-bg-primary: #f5f5f7;
+  --color-bg-primary: #f5f2ea;
   --color-bg-card: #ffffff;
   --color-bg-card-hover: #fafafa;
   /* 顶栏/页脚共用的暖纸面：顶栏带透明度，页脚实色，值取自线上实渲 */
@@ -955,6 +955,10 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   position: absolute; inset: 0; overflow-y: auto;
   display: grid; align-content: start;
 }
+.qa-empty { height: 100%; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 18px; border: 1px solid color-mix(in srgb, var(--color-accent-gold) 16%, transparent); border-radius: 14px; background: radial-gradient(circle at 18% 50%, color-mix(in srgb, var(--color-accent-gold) 9%, transparent), transparent 43%), linear-gradient(135deg, color-mix(in srgb, var(--color-bg-card) 80%, transparent), transparent); text-align: left; }
+.qa-empty__seal { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid color-mix(in srgb, var(--color-accent-gold) 48%, transparent); border-radius: 50%; color: var(--color-accent-gold-text); font: 600 var(--qn-fs-body)/1 "Noto Serif SC", "Source Han Serif SC", serif; box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--color-accent-gold) 7%, transparent), 0 5px 14px rgba(34,25,15,.07); }
+.qa-empty p { display: grid; gap: 4px; margin: 0; color: var(--color-text-secondary); font-size: var(--qn-fs-meta); line-height: 1.55; }
+.qa-empty strong { color: var(--color-text-primary); font-family: "Noto Serif SC", "Source Han Serif SC", serif; font-size: var(--qn-fs-title); font-weight: 600; }
 
 /* ---- 西方体系：固定深紫主题（不是切换器、不跟随系统）----
    作用域只有两处：main[data-mode="western"] 那一页，与门廊上"西方"那一张卡。
@@ -1220,6 +1224,18 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 }
 .qn-shell[data-mode="western"] > header:first-child > * { position: relative; z-index: 1; }
 
+/* 东方起卦与排盘页共用暖纸罗盘印记；静态装饰不参与内容布局。 */
+.qn-shell:not([data-mode="western"]) > header:first-child { position: relative; isolation: isolate; min-height: 148px; display: flex; flex-direction: column; justify-content: center; }
+.qn-shell:not([data-mode="western"]) > header:first-child::after {
+  content: ""; position: absolute; z-index: 0; pointer-events: none; width: 136px; height: 136px; right: 8px; top: 4px; border-radius: 50%; opacity: .28;
+  background:
+    radial-gradient(circle, transparent 0 24%, color-mix(in srgb, var(--color-accent-gold) 68%, transparent) 24.5% 25%, transparent 25.5% 43%, color-mix(in srgb, var(--color-accent-gold) 42%, transparent) 43.5% 44%, transparent 44.5% 59%, color-mix(in srgb, var(--color-accent-gold) 28%, transparent) 59.5% 60%, transparent 60.5%),
+    repeating-conic-gradient(from 0deg, transparent 0 14deg, color-mix(in srgb, var(--color-accent-gold) 48%, transparent) 14.5deg 15deg, transparent 15.5deg 30deg);
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--color-accent-gold) 12%, transparent), var(--qn-shadow);
+  transform: perspective(520px) rotateX(18deg) rotateY(-14deg) rotateZ(-10deg);
+}
+.qn-shell:not([data-mode="western"]) > header:first-child > * { position: relative; z-index: 1; }
+
 @media (hover: hover) {
   .qn-card:hover {
     transform: translateY(-1px);
@@ -1233,6 +1249,8 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 }
 
 @media (max-width: 639px) {
+  .qn-shell:not([data-mode="western"]) > header:first-child { min-height: 132px; }
+  .qn-shell:not([data-mode="western"]) > header:first-child::after { width: 104px; height: 104px; right: 3px; top: 8px; opacity: .24; }
   .domain-card__art { width: min(210px, 58vw); right: -4px; top: -12px; }
   .qn-shell[data-mode="western"] > header:first-child { min-height: 172px; }
   .qn-shell[data-mode="western"] > header:first-child::after {
@@ -1287,6 +1305,12 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
   font-size: var(--qn-fs-meta);
   letter-spacing: .04em;
 }
+.tarot-question { margin: 16px 0; padding: 16px 18px; border: 1px solid var(--color-western-line); border-radius: 16px; background: linear-gradient(130deg, color-mix(in srgb, var(--color-western-surface) 92%, transparent), color-mix(in srgb, var(--color-western-surface-2) 74%, transparent)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-western-text) 5%, transparent), 0 12px 28px var(--color-western-shadow); }
+.tarot-question__heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; color: var(--color-western-text); font-size: var(--qn-fs-meta); }
+.tarot-question__heading label { font: 600 var(--qn-fs-title)/1.4 "Noto Serif SC", "Source Han Serif SC", serif; }
+.tarot-question__heading span, .tarot-question__note { color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); }
+.tarot-question .qn-textarea { min-height: 82px; background: color-mix(in srgb, var(--color-western-bg) 55%, transparent); }
+.tarot-question__note { margin: 6px 0 0; line-height: 1.5; }
 .tarot-stage {
   position: relative;
   margin-top: 22px;
@@ -1489,11 +1513,7 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
   transform: rotate(52deg);
 }
 .tarot-card__front {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 16px 10px;
+  display: block;
   border: 1px solid var(--color-western-gold);
   background:
     radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--color-western-gold) 17%, var(--color-western-bg)), var(--color-western-bg) 70%);
@@ -1503,11 +1523,24 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
   box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--color-western-gold) 11%, transparent), 0 15px 28px var(--color-western-shadow);
 }
 .tarot-card__front-frame { inset: 7px; }
-.tarot-card__number { position: absolute; top: 12px; color: var(--color-western-gold); font-size: var(--qn-fs-eyebrow); letter-spacing: .12em; }
-.tarot-card__symbol { margin-top: 8px; color: var(--color-western-gold); font: 400 var(--qn-fs-display)/1 Georgia, serif; text-shadow: 0 0 22px color-mix(in srgb, var(--color-western-gold) 24%, transparent); }
-.tarot-card__name { min-height: 2.6em; margin-top: 6px; color: var(--color-western-text); font: 600 var(--qn-fs-meta)/1.3 "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; overflow-wrap: anywhere; }
-.tarot-card__english { max-width: 100%; margin-top: 3px; color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.3; overflow-wrap: anywhere; }
-.tarot-card__meaning { margin-top: auto; padding-top: 8px; color: var(--color-western-gold); font-size: var(--qn-fs-eyebrow); }
+.tarot-card__front-content { position: absolute; inset: 14px 13px 28px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; transition: transform 260ms ease; }
+.tarot-card--reversed .tarot-card__front-content { transform: rotate(180deg); }
+.tarot-card__number { position: absolute; z-index: 1; top: 1px; color: var(--color-western-gold); font: 600 var(--qn-fs-eyebrow)/1 Georgia, serif; letter-spacing: .12em; }
+.tarot-card__name { min-height: 1.3em; margin-top: 2px; color: var(--color-western-text); font: 600 var(--qn-fs-meta)/1.25 "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; overflow-wrap: anywhere; }
+.tarot-card__english { max-width: 100%; margin-top: 2px; color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.2; overflow-wrap: anywhere; }
+.tarot-card__meaning { margin-top: auto; padding-top: 3px; color: var(--color-western-gold); font-size: var(--qn-fs-eyebrow); }
+.tarot-card__orientation { position: absolute; right: 9px; bottom: 8px; z-index: 1; padding: 2px 5px; border: 1px solid color-mix(in srgb, var(--color-western-gold) 56%, transparent); border-radius: 999px; background: var(--color-western-bg); color: var(--color-western-gold); font-size: var(--qn-fs-eyebrow); line-height: 1.2; }
+.tarot-card__orientation.is-reversed { color: var(--color-western-text); }
+.tarot-art { display: block; width: 100%; min-height: 0; flex: 1 1 auto; overflow: visible; }
+.tarot-art__hero { fill: #e8d8af; font: 28px Georgia, "Noto Serif SC", serif; }
+.tarot-art__pip { fill: #ead7a6; font: 26px Georgia, "Noto Serif SC", serif; }
+.tarot-art__scene { fill: #e6d6aa; font: 11px "Noto Serif SC", "Source Han Serif SC", serif; letter-spacing: .2em; }
+.tarot-art__stars { fill: #dbc893; font: 8px Georgia, serif; letter-spacing: .12em; }
+.tarot-sources { margin-top: 12px; border-top: 1px solid var(--color-western-line); color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.6; }
+.tarot-sources summary { min-height: 44px; padding: 12px 0 8px; color: var(--color-western-gold); cursor: pointer; }
+.tarot-sources p { margin: 0 0 6px; }
+.tarot-sources ul { margin: 0; padding: 0 0 0 18px; }
+.tarot-sources a { color: var(--color-western-text); text-decoration: underline; text-underline-offset: 3px; }
 .tarot-card--flying {
   position: absolute;
   inset: auto;
@@ -1560,6 +1593,15 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 .tarot-integrity__row code { min-width: 0; color: var(--color-western-text); font: 400 var(--qn-fs-eyebrow)/1.6 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
 .tarot-integrity__note { min-height: 42px; margin: 4px 0 0; color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.6; }
 .tarot-reading { min-height: 136px; margin-top: 14px; }
+.tarot-reading__question { margin: 10px 0 0; padding: 10px 14px; border-left: 2px solid var(--color-western-gold); color: var(--color-western-text); font-size: var(--qn-fs-body); line-height: 1.6; }
+.tarot-record-list { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }
+.tarot-record-list li { display: grid; grid-template-columns: 58px minmax(0,1fr) auto; align-items: center; gap: 5px 10px; padding: 12px; border: 1px solid var(--color-western-line); border-radius: 12px; background: color-mix(in srgb, var(--color-western-surface) 76%, transparent); }
+.tarot-record-list__position { color: var(--color-western-gold); font-size: var(--qn-fs-meta); }
+.tarot-record-list strong { color: var(--color-western-text); font: 600 var(--qn-fs-body)/1.35 "Noto Serif SC", "Source Han Serif SC", serif; }
+.tarot-record-list__facts { grid-column: 1 / 4; color: var(--color-western-muted); font-size: var(--qn-fs-meta); line-height: 1.45; }
+.tarot-record-list__orientation { grid-column: 3; grid-row: 1; padding: 3px 8px; border: 1px solid var(--color-western-gold-line); border-radius: 999px; color: var(--color-western-gold); font-size: var(--qn-fs-meta); }
+.tarot-record-list__meaning { grid-column: 1 / 4; color: var(--color-western-text); font-size: var(--qn-fs-body); line-height: 1.65; }
+.tarot-record-list__source { grid-column: 1 / 4; color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.5; }
 .tarot-reading .qn-eyebrow { margin: 0 0 5px; }
 .tarot-reading .qn-title { margin-bottom: 4px; color: var(--color-western-text); }
 .tarot-reading .qn-meta { max-width: 70ch; }

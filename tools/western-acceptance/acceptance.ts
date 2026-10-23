@@ -63,18 +63,20 @@ const ok = (id: string, cond: boolean, detail: string) => {
   const thin = WESTERN_TOOLS.filter(t => t.status === '未开放' && ((t.note || '').length < 8 || !t.basis.includes('缺')));
   ok('west/closed-explains-what-is-missing', thin.length === 0,
     `未开放的每一项都要在 basis 里写"缺什么"、在 note 里给读者一句解释：不符 ${thin.map(t => t.slug).join('、') || '无'}`);
-  // 批D 这一条钉的是"今天一项都不开放"，并注明开第一项时要连同样例验收一起改。
-  // E2（2026-10-23 裁定①）真的开了第一项，所以这里改成**更难满足**的形态：开放的那一项必须
-  // ① 恰好一项（多一项就多一套没核对过的算法）；② 状态是「部分可用」而不是「可用」；
-  // ③ 带口径戳，且这个戳由引擎导出（对拍与降级都由 astro-acceptance 那侧盯着）。
-  // 判据没变松，只是从"零项"换成"这一项必须齐证据"。
+  // 占星与塔罗各自实现了可核对的部分链路。不要强行要求两种独立体系共享一个引擎戳：
+  // 占星戳由天文引擎验，塔罗抽取由其自身的种子复算测试验。
   const open = WESTERN_TOOLS.filter(t => t.status !== '未开放');
-  ok('west/open-one-only', open.length <= 1,
-    `西方一次只开一项（实得 ${open.length} 项：${open.map(t => t.slug).join('、') || '无'}）`);
-  ok('west/open-item-carries-stamp', open.every(t => t.status === '部分可用'
-    && (t.basis || '').includes('astro-planets-v1') && !!t.href && (t.done?.length ?? 0) > 0 && (t.notDone?.length ?? 0) > 0),
-    `开放项必须是「部分可用」+ 带 astro-planets-v1 戳 + 有入口 + 已做/未做都非空（戳的形状与引擎导出值由 astro-acceptance 逐字比对）：`
-    + `实得 ${open.map(t => `${t.slug}:${t.status}`).join(' ') || '无开放项'}`);
+  ok('west/open-items-have-scoped-evidence', open.length === 2 && open.every(t => t.status === '部分可用'
+    && !!t.href && (t.done?.length ?? 0) > 0 && (t.notDone?.length ?? 0) > 0),
+    `只开放已有真实部分链路且清楚列出已做/未做的条目；占星与塔罗共 ${open.length} 项：${open.map(t => t.slug).join('、') || '无开放项'}`);
+  const astroLive = open.find(t => t.slug === 'astro-natal');
+  const tarotLive = open.find(t => t.slug === 'tarot-draw');
+  ok('west/astro-open-item-still-carries-stamp', !!astroLive && astroLive.basis.includes('astro-planets-v1'),
+    `本命行星项继续由天文口径戳识别：${astroLive?.basis.match(/astro-planets-v1/)?.[0] || '缺少戳'}`);
+  ok('west/tarot-open-item-stays-honest', !!tarotLive && tarotLive.href === '/tarot'
+    && /正位与逆位/.test(tarotLive.method) && /Waite 1910/.test(tarotLive.reading)
+    && /跨传统牌义比较/.test(tarotLive.notDone?.join(' ') || ''),
+    `塔罗目录指向真实抽牌页面，标明正逆位、逐牌历史译述，并如实列出尚未完成的跨传统比较：${tarotLive?.href || '无入口'}`);
   const openStamps = [...new Set(open.flatMap(t => (t.basis || '').match(/[a-z]+(?:-[a-z]+)+-v\d+/g) || []))];
   ok('west/open-stamp-has-engine', openStamps.every(s => s === ASTRO_BASIS || s === MOMENT_BASIS),
     `目录里凡是长得像口径戳的字串，必须是引擎真的导出的那一个（写一个不存在的版本号 = 假出处）：实得 ${openStamps.join('、') || '无'}`);

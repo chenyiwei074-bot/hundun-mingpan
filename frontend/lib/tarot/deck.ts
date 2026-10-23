@@ -71,7 +71,8 @@ export const TAROT_DECK: TarotCard[] = [
 
 export const THREE_CARD_POSITIONS = ['过去', '现在', '未来'] as const;
 export type TarotPosition = (typeof THREE_CARD_POSITIONS)[number];
-export type TarotDraw = { card: TarotCard; position: TarotPosition };
+export type TarotOrientation = '正位' | '逆位';
+export type TarotDraw = { card: TarotCard; position: TarotPosition; orientation: TarotOrientation };
 
 function seededRandom(seedHex: string) {
   if (!/^(?:[0-9a-f]{2}){32}$/i.test(seedHex)) throw new Error('随机种子格式不正确。');
@@ -115,5 +116,9 @@ export function drawThree(seedHex: string): TarotDraw[] {
     const j = value % upperBound;
     [cards[i], cards[j]] = [cards[j], cards[i]];
   }
-  return THREE_CARD_POSITIONS.map((position, index) => ({ card: cards[index], position }));
+  return THREE_CARD_POSITIONS.map((position, index) => ({
+    card: cards[index],
+    position,
+    orientation: next() & 1 ? '逆位' : '正位',
+  }));
 }

@@ -84,7 +84,8 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
         + '这句话必须走"没对上已开放的工具"并指向目录（目录里写着未做上升）' },
     { mode: 'western', q: '我的月亮星座和太阳星座是什么', slug: 'astro-natal', clarify: true,
       why: '月亮星座/太阳星座 命中 astro-natal，E2 起它「部分可用」且带 /astro 入口 → reconcile 后 available；问句里没日期没时辰没地点，仍要追问' },
-    { mode: 'western', q: '帮我抽个塔罗牌阵', slug: null, clarify: true, why: 'tarot-draw 未开放 → 同上' },
+    { mode: 'western', q: '帮我抽个塔罗牌阵', slug: 'tarot-draw', clarify: true,
+      why: '塔罗抽牌已部分开放；问句缺少具体问题，路由到真实页面并追问，不得伪称牌义已接入' },
     { mode: 'western', q: '今天黄历宜忌', slug: null, clarify: true, why: '东方工具在西方页不该被路由过去（跨体系要问，不要自动换）' },
   ];
   let bad = 0;
@@ -129,9 +130,9 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
     '目录里存在但未开放的 slug 也不许给入口（xingming「姓名合盘（五格剖象）」在表里，但今天没有门）');
   // 上面那条只钉"不给入口"。harness 的 western-ask 那一态抓到过更细的一种假：
   // 入口是没了，可回答里还留着"进入「西洋占星」还要补：日期、时辰、地点" —— 半开的门。
-  // E2 之后换 tarot-draw 当这一条的实验对象（astro-natal 已开放，不再是"未开放"那一支的样本）。
+  // 用仍未开放的月相项检验半开门约束，塔罗抽牌已开放为部分可用。
   const halfOpen = reconcile(
-    routeLocal('western', '帮我抽个塔罗牌阵', CATALOGS.western, OTHER.western), 'western', CATALOGS.western);
+    routeLocal('western', '下个满月是什么时候', CATALOGS.western, OTHER.western), 'western', CATALOGS.western);
   ok('gate/no-half-open-door', halfOpen.toolSlug === null && halfOpen.missingFields.length === 0
     && !(halfOpen.clarification || '').includes('还要补') && (halfOpen.clarification || '').includes('还没开放'),
     `未开放工具被抹掉时，"还要补什么"必须一起抹掉：${JSON.stringify(halfOpen.clarification)}`);
@@ -407,19 +408,19 @@ async function sectionServer() {
 
   // 7.2 命中未开放 → closedSlug 记着它，解释直接引目录自己写的那句（页面不另写一份"缺什么"）。
   const closed = reconcile({
-    mode: 'western', toolSlug: 'tarot-draw', confidence: 0.6, needsClarification: false,
+    mode: 'western', toolSlug: 'lunar-phase', confidence: 0.6, needsClarification: false,
     clarification: null, missingFields: [], available: true,
   }, 'western', CAT.western);
-  const tarot = CAT.western.find(t => t.slug === 'tarot-draw');
-  const tarotNote = tarot?.note || '';
-  ok('route/closed-slug-marked', closed.closedSlug === 'tarot-draw' && closed.toolSlug === null
+  const lunar = CAT.western.find(t => t.slug === 'lunar-phase');
+  const lunarNote = lunar?.note || '';
+  ok('route/closed-slug-marked', closed.closedSlug === 'lunar-phase' && closed.toolSlug === null
     && closed.available === false && !!closed.clarification && closed.clarification.includes('还没开放'),
     `未开放的命中要标出来且不给入口：${JSON.stringify({ s: closed.closedSlug, slug: closed.toolSlug, a: closed.available })}`);
   // 这一条不留 `!tarotNote ||` 那种"目录没写就算了"的活口：目录条目本来就必须写明缺什么
   // （ western-catalog 里每条未开放都有 note/basis），活口留着就是给漂移留门。
-  ok('route/closed-explains-from-catalog', !!tarotNote
-    && (closed.clarification || '').includes(tarotNote.slice(0, 12)),
-    `「缺什么」这句必须是目录自己写的那句（两份解释迟早漂移）：目录「${tarotNote.slice(0, 24)}…」/ 页面「${(closed.clarification || '').slice(0, 60)}…」`);
+  ok('route/closed-explains-from-catalog', !!lunarNote
+    && (closed.clarification || '').includes(lunarNote.slice(0, 12)),
+    `「缺什么」这句必须是目录自己写的那句（两份解释迟早漂移）：目录「${lunarNote.slice(0, 24)}…」/ 页面「${(closed.clarification || '').slice(0, 60)}…」`);
 
   // 7.3 协议是 add-on 的：不带新字段的老服务端响应仍然合法，带了但形状不对就整份判废。
   const base = { mode: 'oriental', toolSlug: 'bazi', confidence: 0.5, needsClarification: false, clarification: null, missingFields: [], available: true };
