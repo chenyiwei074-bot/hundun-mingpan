@@ -46,17 +46,24 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0a0806] flex items-center justify-center">
-        <div className="w-10 h-10 border-2 border-[#c9a84c]/20 border-t-[#c9a84c] rounded-full animate-spin" />
-      </div>
+      <main className="qn-shell qn-shell--wide">
+        <section className="qn-card" style={{ minHeight: 360, display: 'grid', placeItems: 'center' }} aria-label="正在加载运营数据">
+          <div aria-hidden="true" style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid rgba(178,149,93,0.2)', borderTopColor: 'var(--color-accent-gold)', animation: 'qn-spin 0.9s linear infinite' }} />
+        </section>
+      </main>
     );
   }
 
   if (!stats) {
     return (
-      <div className="min-h-screen bg-[#0a0806] flex items-center justify-center text-[#a89a85]">
-        数据加载失败：请在网址后加 ?token=你的 ADMIN_STATS_TOKEN
-      </div>
+      <main className="qn-shell qn-shell--wide">
+        <section className="qn-card" style={{ textAlign: 'center', padding: '44px 24px' }}>
+          <h1 className="qn-title" style={{ margin: '0 0 12px' }}>运营数据暂不可用</h1>
+          <p className="qn-alert" role="alert" style={{ margin: 0 }}>
+            数据加载失败：请在网址后加 ?token=你的 ADMIN_STATS_TOKEN
+          </p>
+        </section>
+      </main>
     );
   }
 
@@ -64,101 +71,76 @@ export default function AdminDashboard() {
   const maxVal = Math.max(...eventOrder.map(k => stats.today[k] || 0), 1);
 
   return (
-    <div className="min-h-screen bg-[#0a0806] text-[#e8e0d5] px-4 py-8">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-2xl tracking-[6px] font-normal text-[#c9a84c] mb-2">
-            混沌 · 运营面板
-          </h1>
-          <p className="text-xs text-[#6b5f52] tracking-[2px]">
-            {new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' })}
-          </p>
-        </div>
+    <main className="qn-shell qn-shell--wide">
+      <header className="qn-rise" style={{ textAlign: 'center', marginBottom: 24 }}>
+        <p className="qn-eyebrow" style={{ margin: 0 }}>混沌 · 数据概览</p>
+        <h1 className="qn-hero" style={{ margin: '10px 0 6px' }}>运营面板</h1>
+        <p className="qn-meta">
+          {new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' })}
+        </p>
+      </header>
 
-        {/* 今日数据卡片 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          {eventOrder.map(k => (
-            <div key={k} className="bg-[#1c1815] border border-[#2a2520] rounded-lg p-4 text-center">
-              <div className="text-2xl mb-2">{ICONS[k]}</div>
-              <div className="text-2xl font-bold" style={{color: COLORS[k]}}>
-                {stats.today[k] || 0}
+      <section aria-label="今日数据" className="grid grid-cols-2 md:grid-cols-4 gap-3 qn-rise qn-rise--2">
+        {eventOrder.map(k => (
+          <article key={k} className="qn-card" style={{ padding: 18, textAlign: 'center' }}>
+            <div aria-hidden="true" style={{ fontSize: 22, marginBottom: 8 }}>{ICONS[k]}</div>
+            <p className="qn-title" style={{ color: COLORS[k], margin: 0 }}>{stats.today[k] || 0}</p>
+            <p className="qn-cap" style={{ marginTop: 6 }}>{LABELS[k]}</p>
+          </article>
+        ))}
+      </section>
+
+      <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }} aria-labelledby="admin-funnel-title">
+        <h2 id="admin-funnel-title" className="qn-axis" style={{ margin: '0 0 12px', textAlign: 'center' }}>转化漏斗</h2>
+        <div>
+          {eventOrder.map((k, i) => {
+            const val = stats.total[k] || 0;
+            const pct = (val / maxVal) * 100;
+            const convKey = i > 0
+              ? [null, 'visit_to_create', 'create_to_complete', 'complete_to_wechat'][i]
+              : null;
+
+            return (
+              <div key={k}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
+                  <div style={{ flex: '0 0 88px', fontSize: 12, textAlign: 'right' }}>{LABELS[k]}</div>
+                  <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                    <div role="meter" aria-label={`${LABELS[k]}累计`} aria-valuemin={0} aria-valuemax={maxVal} aria-valuenow={val}
+                      style={{ height: 18, width: Math.max(pct, 2) + '%', borderRadius: 999,
+                        background: 'linear-gradient(90deg, ' + COLORS[k] + ', ' + COLORS[k] + '88)',
+                        opacity: 0.3 + (0.7 * (1 - i * 0.2)), minWidth: val > 0 ? 40 : 2, transition: 'width 0.5s ease' }} />
+                  </div>
+                  <div style={{ flex: '0 0 auto', minWidth: 74, textAlign: 'right' }}>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: COLORS[k] }}>{val}</span>
+                    {convKey && <span className="qn-cap" style={{ marginLeft: 4 }}>({stats.conversion[convKey]})</span>}
+                  </div>
+                </div>
+                {i < eventOrder.length - 1 && (
+                  <p className="qn-cap" style={{ textAlign: 'center', margin: '0 0 4px' }}>
+                    ↓ {stats.conversion[['visit_to_create','create_to_complete','complete_to_wechat'][i]]}
+                  </p>
+                )}
               </div>
-              <div className="text-xs text-[#6b5f52] mt-1 tracking-[1px]">{LABELS[k]}</div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }} aria-labelledby="admin-total-title">
+        <h2 id="admin-total-title" className="qn-axis" style={{ margin: '0 0 14px', textAlign: 'center' }}>累计数据</h2>
+        <dl style={{ display: 'grid', gap: 10, margin: 0 }}>
+          {eventOrder.map(k => (
+            <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid var(--color-hairline)', paddingBottom: 10 }}>
+              <dt className="qn-meta">{LABELS[k]}</dt>
+              <dd className="qn-body" style={{ fontVariantNumeric: 'tabular-nums', margin: 0 }}>{stats.total[k] || 0}</dd>
             </div>
           ))}
-        </div>
+        </dl>
+      </section>
 
-        {/* 漏斗 */}
-        <div className="bg-[#1c1815] border border-[#2a2520] rounded-lg p-6 mb-8">
-          <h2 className="text-sm text-[#c9a84c] tracking-[3px] mb-6 text-center font-normal">
-            转化漏斗
-          </h2>
-          <div className="space-y-0">
-            {eventOrder.map((k, i) => {
-              const val = stats.total[k] || 0;
-              const pct = (val / maxVal) * 100;
-              const convKey = i > 0
-                ? [null, 'visit_to_create', 'create_to_complete', 'complete_to_wechat'][i]
-                : null;
-
-              return (
-                <div key={k} className="relative">
-                  {/* 漏斗条 */}
-                  <div className="flex items-center gap-4 py-3">
-                    <div className="w-16 text-xs text-[#a89a85] tracking-[1px] flex-shrink-0 text-right">
-                      {LABELS[k]}
-                    </div>
-                    <div className="flex-1">
-                      <div className="h-10 rounded" style={{
-                        width: Math.max(pct, 2) + '%',
-                        background: 'linear-gradient(90deg, ' + COLORS[k] + ', ' + COLORS[k] + '88)',
-                        opacity: 0.3 + (0.7 * (1 - i * 0.2)),
-                        minWidth: val > 0 ? '40px' : '2px',
-                        transition: 'width 0.5s ease',
-                      }} />
-                    </div>
-                    <div className="w-20 text-right flex-shrink-0">
-                      <span className="text-lg font-bold" style={{color: COLORS[k]}}>{val}</span>
-                      {convKey && (
-                        <span className="text-xs text-[#6b5f52] ml-1">
-                          ({stats.conversion[convKey]})
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* 箭头 */}
-                  {i < eventOrder.length - 1 && (
-                    <div className="flex justify-center py-1">
-                      <span className="text-[#6b5f52] text-xs">↓ {stats.conversion[['visit_to_create','create_to_complete','complete_to_wechat'][i]]}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 累计数据表 */}
-        <div className="bg-[#1c1815] border border-[#2a2520] rounded-lg p-6">
-          <h2 className="text-sm text-[#c9a84c] tracking-[3px] mb-4 text-center font-normal">
-            累计数据
-          </h2>
-          <div className="space-y-2">
-            {eventOrder.map(k => (
-              <div key={k} className="flex justify-between text-sm">
-                <span className="text-[#a89a85]">{LABELS[k]}</span>
-                <span className="text-[#e8e0d5] font-mono">{stats.total[k] || 0}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <p className="text-center text-[10px] text-[#6b5f52] mt-8 tracking-[2px]">
-          混沌 · 本地运营面板 · 无需登录
-        </p>
-      </div>
-    </div>
+      <p className="qn-cap" style={{ textAlign: 'center', marginTop: 22 }}>
+        混沌 · 本地运营面板 · 无需登录
+      </p>
+    </main>
   );
 }
