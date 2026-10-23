@@ -318,10 +318,17 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   const ahead = Number(execSync(`git rev-list --count ${base}..HEAD`, { cwd: ROOT, encoding: 'utf8' }).trim());
   const touched = execSync(`git diff --name-only ${base}..HEAD`, { cwd: ROOT, encoding: 'utf8' })
     .split('\n').map(s => s.trim()).filter(Boolean);
-  skips.push(...(ahead > 0 ? [] : ['批范围三条断言（改动清单 / 算法层范围 / server 不碰）']));
-  ok('change-list/is-real', ahead > 0 && touched.length >= 1,
-    ahead === 0 ? 'HEAD 相对 merge-base 还没有提交：这几条判定的是"本批交了什么"，先 commit 再跑（现在计 SKIP，不算通过）'
-      : `本批提交里能列出改动文件（否则下面"没乱动算法层"是空过）：${ahead} 个提交 / ${touched.length} 个文件`);
+  const worktreeDirty = execSync('git status --porcelain --untracked-files=no', { cwd: ROOT, encoding: 'utf8' }).trim().length > 0;
+  const onMain = ['master', 'main'].includes(execSync('git rev-parse --abbrev-ref HEAD', { cwd: ROOT, encoding: 'utf8' }).trim());
+  if (ahead === 0 && !worktreeDirty) {
+    // 2026-10-23：在 main 上做"合后复验"时没有"本批"可审（origin/main == HEAD）。
+    // 这三条按 SKIP 处理：既不算通过，也不算违规；工作区脏时仍走下面的判红。
+    skips.push(`批范围三条断言（改动清单 / 算法层范围 / server 不碰）—— HEAD 已与 origin/main 同步${onMain ? '（在 main 上做合后复验）' : ''}，没有"本批"可审`);
+  } else {
+    ok('change-list/is-real', ahead > 0 && touched.length >= 1,
+      ahead === 0 ? 'HEAD 相对 merge-base 还没有提交：这几条判定的是"本批交了什么"，先 commit 再跑（现在计 SKIP，不算通过）'
+        : `本批提交里能列出改动文件（否则下面"没乱动算法层"是空过）：${ahead} 个提交 / ${touched.length} 个文件`);
+  }
   // 2026-10-19 裁定：合冲落点这一批**只许**在 zhi-relations.ts 就地开成对入口。
   // 所以这一条不再是"算法层一个字节都不许动"，而是"只能动那一个文件的那一个导出，
   // 且行为必须逐字节不变"（由 tools/zhi-relations 的全枚举 golden 钉），
