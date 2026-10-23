@@ -49,6 +49,24 @@ export default function WesternWorkspace() {
                     <p className="qn-meta" style={{ margin: '2px 0 0' }}>{t[f.key]}</p>
                   </div>
                 ))}
+                {/* 「部分可用」必须逐项摊开：只写状态词等于让读者自己猜缺的是哪一样，
+                    猜错的人会以为宫位也算了。清单与引擎导出值由 astro-acceptance 逐字钉住。 */}
+                {(t.done?.length ?? 0) > 0 && (
+                  <div className="qn-row" style={{ marginTop: 8 }}>
+                    <p className="qn-cap" style={{ margin: 0 }}>已做（{t.done!.length} 项）</p>
+                    <ul className="qn-meta" style={{ margin: '2px 0 0', paddingLeft: '1.2em' }}>
+                      {t.done!.map(s => <li key={s}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {(t.notDone?.length ?? 0) > 0 && (
+                  <div className="qn-row" style={{ marginTop: 8 }}>
+                    <p className="qn-cap" style={{ margin: 0 }}>未做（{t.notDone!.length} 项）</p>
+                    <ul className="qn-meta" style={{ margin: '2px 0 0', paddingLeft: '1.2em' }}>
+                      {t.notDone!.map(s => <li key={s}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
                 {t.note && <p className="qn-note" style={{ marginTop: 8 }}>{t.note}</p>}
                 {isLiveEntry(t) && t.href
                   ? <Link className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 12 }} href={t.href}>
