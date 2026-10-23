@@ -628,7 +628,7 @@ export default function FloorPlanStudio() {
                   onClick={() => setGeom(g => resizeOpening(g, o.id, -1))} aria-label={`${o.类型} 变窄`}>窄</button>
                 <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44 }}
                   onClick={() => setGeom(g => resizeOpening(g, o.id, 1))} aria-label={`${o.类型} 变宽`}>宽</button>
-                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, marginLeft: 'auto' }}
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 48, minWidth: 48, marginLeft: 'auto' }}
                   onClick={() => setGeom(g => deleteOpening(g, o.id))}>删</button>
               </div>
             ))}

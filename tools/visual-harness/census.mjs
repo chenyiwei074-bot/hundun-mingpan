@@ -162,6 +162,12 @@ const STATIC_PAGES = [
   // 度数取整错一位，只有那一帧才看得见。空态也不是白跑：它钉的是"缺什么的清单已经在屏上"。
   ['astro', '/astro'],
   ['astro-computed', '/astro'],
+  // 塔罗是本轮新增的独立路由。空态、真实抽满三张、移动端、键盘与减少动态效果都各留一态。
+  ['tarot-idle', '/tarot'],
+  ['tarot-drawn', '/tarot'],
+  ['tarot-375', '/tarot'],
+  ['tarot-keyboard', '/tarot'],
+  ['tarot-reduced-motion', '/tarot'],
   // IME 门闩单独一态：它测的不是"答得对不对"，而是"组词中的回车有没有被当成发送"。
   ['oriental-ime', '/oriental'],
   ['fengshui', '/fengshui'],
@@ -183,6 +189,8 @@ const STATIC_PAGES = [
   // 这批补的是"页面承诺过但没有控件"的缺陷，所以判据必须落在控件真的能改动画面上。
   ['fengshui-edit', '/fengshui'],
   ['create', '/create'],
+  ['bazi-chart', '/bazi-chart'],
+  ['admin-dashboard', '/admin/dashboard'],
   // 农历态从没被审过：闰月开关、日期下拉、农历换算提示都只在 calendar==='农历' 时存在，
   // 而 create 那一态停在默认的公历上。本批把三处 qn-chip 的内联 minHeight:30 摘掉，
   // 不新增这一态就没法证明 44px 真的成立了。
@@ -218,10 +226,8 @@ const DYNAMIC_PAGES = [
   // from the API, so an id cannot make it render. See the LIUYAO_ROUTES block below.
   ['report', '/report/', 'report'],
 ];
-// Orphan routes: out of scope for the redesign, they only have to not error.
+// Routes kept as smoke-only because they are outside the current redesign scope.
 const ORPHAN_PAGES = [
-  ['orphan-admin', '/admin/dashboard'],
-  ['orphan-bazi-chart', '/bazi-chart'],
   ['orphan-chart-preview', '/chart/preview'],
 ];
 
@@ -471,7 +477,33 @@ const FS_PICK = `(async () => {
   if (!document.getElementById('fp-consent')) return '塞了图但同意框没出现（onPick 没走完或校验把文件拒了）';
   return true; })()`;
 
+const TAROT_DRAW_HOOK = `(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const main = document.querySelector('main[data-tarot-state]');
+  if (!main) return '没有 main[data-tarot-state]';
+  const stages = [...document.querySelectorAll('.tarot-slot__stage')];
+  window.__tarotStageBounds = stages.map(x => {
+    const r = x.getBoundingClientRect();
+    return [r.left, r.top + window.scrollY, r.width, r.height].map(n => Math.round(n * 10) / 10).join(',');
+  });
+  window.__tarotDocHeight = document.documentElement.scrollHeight;
+  const buttons = [...document.querySelectorAll('button')];
+  const shuffle = buttons.find(x => (x.textContent || '').includes('洗牌并公布承诺摘要'));
+  if (!shuffle) return '没有「洗牌并公布承诺摘要」按钮';
+  shuffle.click();
+  for (let n = 0; n < 40 && main.dataset.tarotState !== 'shuffled'; n++) await wait(50);
+  if (main.dataset.tarotState !== 'shuffled') return '洗牌后状态不是 shuffled：' + main.dataset.tarotState;
+  const draw = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '抽出三张');
+  if (!draw) return '没有「抽出三张」按钮';
+  draw.click();
+  for (let n = 0; n < 100 && main.dataset.tarotState !== 'revealed'; n++) await wait(50);
+  if (main.dataset.tarotState !== 'revealed') return '抽牌后状态不是 revealed：' + main.dataset.tarotState;
+  return true;
+})()`;
+
 const AFTER = {
+  'tarot-drawn': TAROT_DRAW_HOOK,
+  'tarot-reduced-motion': TAROT_DRAW_HOOK,
   // /astro：把样例的三个输入都填上 —— 页面自己一个都不预填（批F③），所以那十个钉值
   // 现在得由 harness 提供；时区拨到 UTC 让这一刻与跑 harness 的这台机器无关。
   // 受控控件必须走各自元素族的原生 setter + change/input —— 直接赋 .value 不触发 onChange，
@@ -1140,7 +1172,10 @@ const THEME_STATES = {
   // /astro 是西方工作页开出去的那一页：main 上挂着 data-mode="western"，所以它必须与
   // /western 同色。东方那套浅底令牌要是漏进这一页，深底上的浅字就是 AA 的红。
   astro: 'dark', 'astro-computed': 'dark',
-  oriental: 'light', tools: 'light', create: 'light', fengshui: 'light', home: 'gate',
+  'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-375': 'dark',
+  'tarot-keyboard': 'dark', 'tarot-reduced-motion': 'dark',
+  oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
+  'admin-dashboard': 'light', fengshui: 'light', home: 'gate',
   // 答完之后那一帧也必须还是那个主题：答案卡里塞一块浅底，就是"两套体系混在一页"的开始。
   'oriental-ask': 'light', 'oriental-choices': 'light', 'oriental-chosen': 'light', 'oriental-ime': 'light',
 };
@@ -1151,7 +1186,7 @@ const themeProbe = kind => `(() => {
     const f = x => x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
     const [r, g, b] = [+m[1], +m[2], +m[3]].map(v => f(v / 255)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
   const cs = getComputedStyle(main), bs = getComputedStyle(document.body);
-  const card = main.querySelector('.qn-card');
+  const card = main.querySelector('.qn-card, .tarot-integrity');
   const got = { mainBg: cs.backgroundColor, color: cs.color, bodyBg: bs.backgroundColor,
     scheme: cs.colorScheme, cardBg: card ? getComputedStyle(card).backgroundColor : null,
     bodyLum: Math.round(lum(bs.backgroundColor) * 1000) / 1000,
@@ -1181,6 +1216,77 @@ const themeProbe = kind => `(() => {
     got.cards = cards;
   }
   return { miss: out, ...got };
+})()`;
+
+const tarotProbe = kind => `(async () => {
+  const main = document.querySelector('main[data-tarot-state]');
+  if (!main) return { miss: ['缺少 main[data-tarot-state]'] };
+  const miss = [];
+  const state = main.dataset.tarotState;
+  const wantsRevealed = ['drawn', 'keyboard', 'reduced'].includes(${JSON.stringify(kind)});
+  if (wantsRevealed && state !== 'revealed') miss.push('预期 revealed，实际 ' + state);
+  if (!wantsRevealed && state !== 'idle') miss.push('预期 idle，实际 ' + state);
+  const slots = [...main.querySelectorAll('.tarot-slot')];
+  const positions = slots.map(x => (x.querySelector('.tarot-slot__position')?.textContent || '').trim());
+  if (slots.length !== 3) miss.push('牌位数量应为 3，实际 ' + slots.length);
+  if (positions.join('/') !== '过去/现在/未来') miss.push('牌位次序不是过去/现在/未来：' + positions.join('/'));
+  const scope = main.querySelector('.tarot-scope-note')?.textContent || '';
+  const body = main.innerText || '';
+  if (!/无古籍出处/.test(scope + body)) miss.push('页面缺少「无古籍出处」说明');
+  if (!/牌义待接入/.test(body)) miss.push('页面缺少「牌义待接入」说明');
+  if (!/仅正位/.test(scope + body) || !/逆位未做/.test(scope + body)) miss.push('页面没有说明仅正位及逆位未做');
+  let ids = [], names = [], cards = [];
+  if (wantsRevealed) {
+    cards = [...main.querySelectorAll('.tarot-slot .tarot-card__front')];
+    ids = [...main.querySelectorAll('.tarot-slot .tarot-card[data-card-id]')].map(x => x.dataset.cardId);
+    names = cards.map(x => (x.querySelector('.tarot-card__name')?.textContent || '').trim());
+    if (cards.length !== 3) miss.push('揭示后的牌面数应为 3，实际 ' + cards.length);
+    if (ids.length !== 3 || new Set(ids).size !== 3) miss.push('三张牌必须有三个可识别且互不重复的牌 id：' + JSON.stringify(ids));
+    if (names.length !== 3 || names.some(x => !x || /[A-Za-z]{3,}/.test(x))) miss.push('牌面名称缺失或未以中文呈现：' + JSON.stringify(names));
+    if (cards.some(x => !/牌义待接入/.test(x.textContent || ''))) miss.push('每张牌都必须显示「牌义待接入」');
+    const before = window.__tarotStageBounds || [];
+    const after = [...main.querySelectorAll('.tarot-slot__stage')].map(x => {
+      const r = x.getBoundingClientRect();
+      return [r.left, r.top + window.scrollY, r.width, r.height].map(n => Math.round(n * 10) / 10).join(',');
+    });
+    if (before.length !== 3 || before.join('|') !== after.join('|')) miss.push('翻牌前后固定牌位几何发生变化：' + JSON.stringify({ before, after }));
+    const beforeHeight = window.__tarotDocHeight;
+    if (typeof beforeHeight === 'number' && Math.abs(document.documentElement.scrollHeight - beforeHeight) > 1)
+      miss.push('抽牌前后页面总高变化：' + beforeHeight + ' → ' + document.documentElement.scrollHeight);
+    const rows = [...main.querySelectorAll('.tarot-integrity__row')];
+    const row = label => rows.find(x => (x.textContent || '').includes(label));
+    const hash = row('承诺摘要')?.querySelector('code')?.textContent.trim() || '';
+    const seed = row('随机种子')?.querySelector('code')?.textContent.trim() || '';
+    if (!/^[0-9a-f]{64}$/i.test(hash) || !/^[0-9a-f]{64}$/i.test(seed)) miss.push('揭晓后应公开 64 位摘要与种子');
+    else {
+      const bytes = new Uint8Array(seed.match(/.{2}/g).map(x => Number.parseInt(x, 16)));
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+      const actual = [...digest].map(x => x.toString(16).padStart(2, '0')).join('');
+      if (actual !== hash.toLowerCase()) miss.push('SHA-256 承诺摘要无法由揭晓种子复算');
+    }
+    if (!/不发送到服务器/.test(body) || !/不是区块链存证/.test(body)) miss.push('页面未说明本地保存边界与非链上存证');
+  } else if (main.querySelectorAll('.tarot-empty').length !== 3) {
+    miss.push('idle 态三个牌位都应为空');
+  }
+  if (${JSON.stringify(kind)} === 'mobile' && innerWidth <= 375) {
+    const rects = slots.map(x => x.querySelector('.tarot-slot__stage')?.getBoundingClientRect());
+    if (rects.length !== 3 || rects.some(r => !r || r.width < 90 || r.width > 125 || r.height < 140 || r.height > 205))
+      miss.push('375px 下三张卡应约 100×160：' + JSON.stringify(rects.map(r => r && { w: Math.round(r.width), h: Math.round(r.height) })));
+    if (rects.length === 3 && !(rects[0].left < rects[1].left && rects[1].left < rects[2].left)) miss.push('375px 下三张牌必须横向排列');
+    if (document.documentElement.scrollWidth > innerWidth) miss.push('375px 下页面存在横向滚动');
+  }
+  if (${JSON.stringify(kind)} === 'reduced') {
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) miss.push('浏览器未启用 prefers-reduced-motion: reduce');
+    const flying = [...main.querySelectorAll('.tarot-card--flying')];
+    if (flying.length) miss.push('减少动态效果下仍渲染飞牌覆层：' + flying.length);
+    const durations = [...main.querySelectorAll('.tarot-card__inner')].map(x => ({
+      flip: getComputedStyle(x).transitionDuration,
+    }));
+    const milliseconds = value => parseFloat(value) * (value.trim().endsWith('ms') ? 1 : 1000);
+    if (durations.some(x => milliseconds(x.flip) > 0.01))
+      miss.push('减少动态效果下仍有可感知的翻面动画：' + JSON.stringify(durations));
+  }
+  return { miss, state, positions, ids, names, mobileWidth: innerWidth };
 })()`;
 
 // 静态稿那三态在真盘上的对应物：default（刚加载）→ hover（CDP 真指针挪进栏里）→
@@ -1860,11 +1966,14 @@ ws.addEventListener('message', ev => {
 await send('Runtime.enable');
 // 浏览器那本账：CDP Network 看见的每一发非 GET 请求（真发出去的才算，--stub 下页内桩不会到这里 —— 所以两本账要分开报）。
 const netWrites = [];
+const netRequests = [];
 let mountWrites = [];   // 同一个态在"挂载落定"那一刻的页内账本快照
 ws.addEventListener('message', ev => {
   const m = JSON.parse(ev.data);
   if (m.method !== 'Network.requestWillBeSent') return;
+  const params = m.params || {};
   const r = (m.params && m.params.request) || {};
+  netRequests.push({ type: String(params.type || 'Other'), url: String(r.url || '') });
   const meth = String(r.method || 'GET').toUpperCase();
   if (meth === 'GET' || meth === 'HEAD' || meth === 'OPTIONS') return;
   netWrites.push(`${meth} ${String(r.url || '').slice(0, 120)}`);
@@ -2240,7 +2349,7 @@ async function shot(name, full = false) {
 
 async function goto(url) {
   consoleErrors.length = 0; pageErrors.length = 0;
-  netWrites.length = 0;   // 每个态一本新账，别把上一页的写算到这一页头上
+  netWrites.length = 0; netRequests.length = 0; // 每个态一本新账，别把上一页的请求算进来
   const r = await send('Page.navigate', { url: BASE + url });
   if (r.__error) throw new Error('navigate rejected ' + url + ': ' + JSON.stringify(r.__error));
   await sleep(2600);
@@ -2744,7 +2853,10 @@ const deniedOf = list => list.filter(x => WRITE_DENY.some(f => x.includes(f)));
 
 async function measure(tag, url) {
   // 契约态必须在导航之前就开拦截：POST 是点出来的，但拦晚一发的风险不值得留。
-  const wireBase = tag.replace(/^(d1|m1)-/, '');
+  const base = tag.replace(/^(d1|m1)-/, '');
+  RM = base === 'tarot-reduced-motion' ? 'reduce' : 'no-preference';
+  await metrics(W, H, TOUCH);
+  const wireBase = base;
   const wire = !STUB && wireBase === 'fengshui-recognize-wire';
   if (wire) {
     wirePauses.length = 0;
@@ -2753,7 +2865,6 @@ async function measure(tag, url) {
   }
   await goto(url);
   await sleep(900);   // let late LCP / CLS candidates land
-  const base = tag.replace(/^(d1|m1)-/, '');
   // 挂载阶段到底发不发写请求，要**观测**出来 —— 不许拿"我读了代码觉得没有"当结论（2026-10-21 细化裁定）。
   // 页内账本在 --stub 下同样记（桩替换的也是 window.fetch），所以"这一页挂载就写"这件事能在本机
   // 注入盘的那一趟看到，不必拿生产去试 —— 试出来就已经落库了。
@@ -2762,6 +2873,38 @@ async function measure(tag, url) {
     '.map(function (x) { return x.m + " " + x.u; }); } catch (e) { return []; } })()') || [];
   // 首屏必须在任何点击/滚动之前抓，晚了测的就不是首屏了。
   const fold = await evl(FIRST_SCREEN);
+  if (base === 'tarot-keyboard') {
+    const prepared = await evl(`(() => {
+      window.__tarotStageBounds = [...document.querySelectorAll('.tarot-slot__stage')].map(x => {
+        const r = x.getBoundingClientRect();
+        return [r.left, r.top + window.scrollY, r.width, r.height].map(n => Math.round(n * 10) / 10).join(',');
+      });
+      window.__tarotDocHeight = document.documentElement.scrollHeight;
+      const b = document.querySelector('.tarot-deck-button');
+      if (!b) return false; b.focus(); return document.activeElement === b;
+    })()`);
+    if (!prepared) fail.push(tag + ': 无法用键盘聚焦牌堆按钮');
+    else {
+      for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', {
+        type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: type === 'keyDown' ? '\r' : undefined,
+      });
+      for (let n = 0; n < 30 && await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`) !== 'shuffled'; n++) await sleep(50);
+      const afterEnter = await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`);
+      if (afterEnter !== 'shuffled') fail.push(tag + ': Enter 没有触发洗牌，状态为 ' + afterEnter);
+      else {
+        const actionFocused = await evl(`(() => { const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '抽出三张'); if (!b) return false; b.focus(); return document.activeElement === b; })()`);
+        if (!actionFocused) fail.push(tag + ': 洗牌后找不到可聚焦的「抽出三张」按钮');
+        else {
+          for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', {
+            type, key: ' ', code: 'Space', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32, text: type === 'keyDown' ? ' ' : undefined,
+          });
+          for (let n = 0; n < 70 && await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`) !== 'revealed'; n++) await sleep(50);
+          const afterSpace = await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`);
+          if (afterSpace !== 'revealed') fail.push(tag + ': Space 没有揭晓三张牌，状态为 ' + afterSpace);
+        }
+      }
+    }
+  }
   if (AFTER[base]) {
     // A programmatic .click() does not set hadRecentInput, so the expansion shift
     // would land in CLS and look like a load regression. Mark both load values first:
@@ -3170,6 +3313,23 @@ const fsEditProbe = p => `(() => {
     console.log(`   THEME[${kind}] main=${got && got.mainBg} card=${got && got.cardBg} body=${got && got.bodyBg}`
       + ` text=${got && got.color} scheme=${got && got.scheme}${got && got.cards ? ' cards=' + JSON.stringify(got.cards) : ''}`);
   }
+  if (base.startsWith('tarot-')) {
+    const tarotKind = ({
+      'tarot-idle': 'idle', 'tarot-drawn': 'drawn', 'tarot-375': 'mobile',
+      'tarot-keyboard': 'keyboard', 'tarot-reduced-motion': 'reduced',
+    })[base];
+    const got = await evl(tarotProbe(tarotKind));
+    if (!got || !Array.isArray(got.miss)) fail.push(tag + ': 塔罗验收探针运行失败 ' + JSON.stringify(got).slice(0, 180));
+    else for (const x of got.miss) fail.push(tag + ': ' + x);
+    const baseOrigin = new URL(BASE).origin;
+    const externalImages = netRequests.filter(x => x.type === 'Image' && (() => {
+      try { return new URL(x.url).origin !== baseOrigin; } catch { return false; }
+    })());
+    if (externalImages.length) fail.push(tag + ': 牌面产生了外部图片请求 ' + externalImages.map(x => x.url).join(' | '));
+    console.log(got && got.miss && got.miss.length
+      ? '   TAROT MISMATCH ' + got.miss.join(' | ')
+      : `   TAROT ${tarotKind}：${got?.state || '探针未返回'} · ${(got?.positions || []).join('/')} · ${(got?.ids || []).length} 张牌 · 无外部图片`);
+  }
   // 图上标号（批C-5b）：凡是几何已经在屏上的态都量一次，因为"依据指回图上"这一半
   // 只有在画了东西的那一帧才谈得上。
   if (['fengshui-filled', 'fengshui-edit', 'fengshui-recognize-candidates'].includes(base)) {
@@ -3350,6 +3510,7 @@ const fsEditProbe = p => `(() => {
   check(tag, v);
   if (SECTION_SHOTS[base]) await shotSection(tag, SECTION_SHOTS[base]);
   await shot(tag, true);
+  RM = 'no-preference';
   return v;
 }
 

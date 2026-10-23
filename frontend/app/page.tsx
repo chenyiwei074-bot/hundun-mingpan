@@ -18,15 +18,51 @@ import { isLiveEntry, statusCounts, statusTally } from '@/lib/tools/status';
 // 描边走低透明度，绝不用来承托文字（文字底下变浅变深都会改对比度）。
 function HexagramArt() {
   return (
-    <svg width="84" height="96" viewBox="0 0 84 96" fill="none" aria-hidden="true">
-      <g stroke="currentColor" strokeWidth="5" opacity="0.22">
-        <line x1="4" y1="10" x2="80" y2="10" />
-        <line x1="4" y1="30" x2="34" y2="30" />
-        <line x1="50" y1="30" x2="80" y2="30" />
-        <line x1="4" y1="50" x2="80" y2="50" />
-        <line x1="4" y1="70" x2="34" y2="70" />
-        <line x1="50" y1="70" x2="80" y2="70" />
-        <line x1="4" y1="90" x2="80" y2="90" />
+    <svg width="320" height="320" viewBox="0 0 320 320" fill="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="east-bronze" cx="34%" cy="24%" r="78%">
+          <stop offset="0%" stopColor="#f4e5b9" />
+          <stop offset="24%" stopColor="#c4a66b" />
+          <stop offset="58%" stopColor="#866a3c" />
+          <stop offset="100%" stopColor="#4d402d" />
+        </radialGradient>
+        <radialGradient id="east-stone" cx="38%" cy="28%" r="78%">
+          <stop offset="0%" stopColor="#fffaf0" />
+          <stop offset="100%" stopColor="#d9d0bd" />
+        </radialGradient>
+        <filter id="east-shadow" x="-30%" y="-30%" width="160%" height="180%">
+          <feDropShadow dx="0" dy="18" stdDeviation="14" floodColor="#30251a" floodOpacity="0.24" />
+        </filter>
+      </defs>
+      <ellipse cx="170" cy="266" rx="112" ry="22" fill="#342719" opacity="0.18" />
+      <g filter="url(#east-shadow)" transform="translate(166 146) rotate(-18)">
+        <ellipse cy="28" rx="126" ry="104" fill="#453b2e" opacity="0.72" />
+        <ellipse cy="12" rx="124" ry="103" fill="url(#east-bronze)" stroke="#55442b" strokeWidth="5" />
+        <ellipse cy="10" rx="108" ry="88" fill="url(#east-stone)" stroke="#f0dfb4" strokeWidth="2" />
+        <ellipse cy="10" rx="91" ry="72" stroke="#866a3c" strokeWidth="1.5" opacity="0.72" />
+        <ellipse cy="10" rx="74" ry="58" stroke="#9b8154" strokeWidth="1" opacity="0.56" />
+        <path d="M-102 10H102M0-79V99M-71-42L71 62M71-42L-71 62" stroke="#9b8154" strokeWidth="1" opacity="0.28" />
+        <g stroke="#725b38" strokeLinecap="round" opacity="0.72">
+          {Array.from({ length: 24 }, (_, i) => {
+            const angle = (i * Math.PI) / 12;
+            const x1 = Math.cos(angle) * 96;
+            const y1 = 10 + Math.sin(angle) * 77;
+            const x2 = Math.cos(angle) * (i % 3 === 0 ? 108 : 102);
+            const y2 = 10 + Math.sin(angle) * (i % 3 === 0 ? 87 : 82);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={i % 3 === 0 ? 2 : 1} />;
+          })}
+        </g>
+        <circle cy="10" r="42" fill="#ece2ce" stroke="#8a7045" strokeWidth="2" />
+        <path d="M0-35C20-35 35-20 35 0C35 20 20 35 0 35C-20 35-35 20-35 0C-35-20-20-35 0-35Z" fill="#f7f0df" />
+        <path d="M0-35C-8-21-8-10 0 0C8 10 8 21 0 35C20 35 35 20 35 0C35-20 20-35 0-35Z" fill="#4d4638" />
+        <circle cy="-17" r="5" fill="#4d4638" />
+        <circle cy="17" r="5" fill="#f7f0df" />
+        <circle cy="10" r="42" stroke="#fffaf0" strokeWidth="1" opacity="0.76" />
+      </g>
+      <g transform="translate(248 214) rotate(18)" fill="#7a5f31" opacity="0.72">
+        <path d="M0-35L6-6L0 0L-6-6Z" />
+        <path d="M0 35L-6 6L0 0L6 6Z" opacity="0.52" />
+        <circle r="5" fill="#d0b780" />
       </g>
     </svg>
   );
@@ -34,16 +70,49 @@ function HexagramArt() {
 
 function EclArt() {
   return (
-    <svg width="104" height="104" viewBox="0 0 104 104" fill="none" aria-hidden="true">
-      <circle cx="52" cy="52" r="48" stroke="currentColor" strokeWidth="1" opacity="0.2" />
-      <circle cx="52" cy="52" r="30" stroke="currentColor" strokeWidth="1" opacity="0.13" />
-      <g stroke="currentColor" strokeWidth="2" opacity="0.3">
-        <line x1="52" y1="4" x2="52" y2="12" />
-        <line x1="100" y1="52" x2="92" y2="52" />
-        <line x1="52" y1="100" x2="52" y2="92" />
-        <line x1="4" y1="52" x2="12" y2="52" />
+    <svg width="320" height="320" viewBox="0 0 320 320" fill="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="west-metal" cx="30%" cy="24%" r="78%">
+          <stop offset="0%" stopColor="#f4e7c1" />
+          <stop offset="26%" stopColor="#c8ad72" />
+          <stop offset="65%" stopColor="#806b4b" />
+          <stop offset="100%" stopColor="#352a48" />
+        </radialGradient>
+        <radialGradient id="west-moon" cx="30%" cy="25%" r="80%">
+          <stop offset="0%" stopColor="#fff9e9" />
+          <stop offset="45%" stopColor="#d8c6a2" />
+          <stop offset="100%" stopColor="#9280a8" />
+        </radialGradient>
+        <filter id="west-shadow" x="-30%" y="-30%" width="160%" height="180%">
+          <feDropShadow dx="0" dy="20" stdDeviation="16" floodColor="#080314" floodOpacity="0.52" />
+        </filter>
+      </defs>
+      <ellipse cx="161" cy="264" rx="112" ry="19" fill="#080314" opacity="0.4" />
+      <g filter="url(#west-shadow)" transform="translate(160 150) rotate(-22)">
+        <circle r="116" fill="#211936" stroke="url(#west-metal)" strokeWidth="12" />
+        <circle r="101" fill="#241a3d" stroke="#d9b877" strokeWidth="1.5" opacity="0.92" />
+        <circle r="82" stroke="#d9b877" strokeWidth="1" opacity="0.58" />
+        <ellipse rx="110" ry="43" stroke="#e3d2ac" strokeWidth="5" opacity="0.72" transform="rotate(48)" />
+        <ellipse rx="109" ry="38" stroke="#d9b877" strokeWidth="3" opacity="0.68" transform="rotate(-56)" />
+        <ellipse rx="102" ry="31" stroke="#a89abf" strokeWidth="2" opacity="0.66" transform="rotate(8)" />
+        <g stroke="#e7d5ad" strokeLinecap="round" opacity="0.75">
+          {Array.from({ length: 24 }, (_, i) => {
+            const angle = (i * Math.PI) / 12;
+            const x1 = Math.cos(angle) * 88;
+            const y1 = Math.sin(angle) * 88;
+            const x2 = Math.cos(angle) * (i % 3 === 0 ? 102 : 96);
+            const y2 = Math.sin(angle) * (i % 3 === 0 ? 102 : 96);
+            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={i % 3 === 0 ? 2 : 1} />;
+          })}
+        </g>
+        <circle r="46" fill="url(#west-moon)" stroke="#f2e2bf" strokeWidth="2" />
+        <path d="M10-43C-11-28-18-4-8 17C1 36 21 45 37 39C50 12 38-27 10-43Z" fill="#80738f" opacity="0.74" />
+        <circle r="46" stroke="#fff7e5" strokeWidth="1" opacity="0.75" />
+        <circle cx="-13" cy="-12" r="4" fill="#8d7b62" opacity="0.55" />
+        <circle cx="17" cy="14" r="6" fill="#8d7b62" opacity="0.34" />
       </g>
-      <circle cx="82" cy="26" r="3" fill="currentColor" opacity="0.5" />
+      <circle cx="247" cy="84" r="7" fill="#e9d6aa" opacity="0.86" />
+      <circle cx="247" cy="84" r="15" stroke="#d9b877" strokeWidth="1" opacity="0.42" />
     </svg>
   );
 }
