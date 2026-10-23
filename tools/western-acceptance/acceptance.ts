@@ -101,17 +101,30 @@ const ok = (id: string, cond: boolean, detail: string) => {
   ok('west/vetted-engine-is-exact-mit', astroDep === VETTED_PINNED['astronomy-engine'] && astroLicense === 'MIT',
     `放行的那一个必须按裁定钉死：astronomy-engine 期望 ${VETTED_PINNED['astronomy-engine']} + MIT，实得 ${astroDep || '不在依赖里'} / ${astroLicense || '读不到 license'}`);
   const ws = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8'));
+  const card = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'tools', 'ToolCatalog.tsx'), 'utf8'));
   // 批A：双闸门从各页自己写一遍，改成 lib/tools/status.ts 的 isLiveEntry 一份。
-  // 原来这条钉的是"页面里出现那句 status !== '未开放' && href"，于是每多一个页面就多一份
-  // 同一条判据（三处三份），现在钉的是"这一页吃的是那一份"——判据仍然在，只是只有一个出处。
-  ok('west/page-renders-from-catalog', /WESTERN_INTENTS\.map/.test(ws)
-    && /isLiveEntry/.test(ws) && /from '@\/lib\/tools\/status'/.test(ws)
-    && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(ws),
-    '西方工作页必须渲染自目录，入口判定吃 lib/tools/status.ts 的 isLiveEntry（页面里再写一遍双闸门 = 第二份真相）');
+  // 批F ①：卡片渲染也从"每页一份"收成 components/tools/ToolCatalog 一份（/tools 与 /western 共用）。
+  // 这条因此往上挪一层：钉的是"这一页吃共用渲染器、且不自己写判定"，判据本身仍在那一份里。
+  ok('west/page-renders-from-catalog', /WESTERN_INTENTS/.test(ws) && /<ToolCatalog/.test(ws)
+    && /from '@\/components\/tools\/ToolCatalog'/.test(ws)
+    && !/FIELDS|isLiveEntry|qn-btn--block/.test(ws),
+    '西方工作页必须把卡片交给共用的 ToolCatalog 渲染，自己不再留一份字段表、一份入口判定（那两份都会与目录漂移）');
+  ok('west/card-renders-single-gate', /isLiveEntry/.test(card) && /from '@\/lib\/tools\/status'/.test(card)
+    && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(card),
+    '共用的目录卡片必须吃 lib/tools/status.ts 的 isLiveEntry（页面里再写一遍双闸门 = 第二份真相）');
   const landing = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
   ok('west/gate-count-derived', /WESTERN_INTENTS/.test(landing) && /statusCounts|statusTally/.test(landing)
     && !/已开放\s*[0-9]/.test(landing) && !/(可用|未开放)\s*[0-9]/.test(landing),
     '门廊上西方那张卡的数也是现算的（走 status.ts），旧写法「已开放 N」与新写法「可用 N」都不许写死');
+  // 批F②：眉标改成按目录现算之后，还剩一件会被悄悄做错的事 —— 分隔符。
+  // 条目名自己就带「 · 」（「西洋占星 · 合盘」「二十八宿 · 本命宿」），拿「 · 」当列表分隔符
+  // 会把三个名字切成四个：分隔符不许出现在被分隔的数据里。首屏读的是渲染出来的那一行，
+  // 这条读的是写法，两侧都钉才咬得住（harness 的 GATE 那段按名字逐个复核）。
+  const withDot = WESTERN_TOOLS.filter(t => t.name.includes(' · ')).map(t => t.name);
+  ok('west/gate-eyebrow-from-catalog', /eyebrowLine\(e\.groups\)/.test(landing)
+    && !/eyebrow:\s*'/.test(landing) && /join\('、'\)/.test(landing) && !/join\(' · '\)/.test(landing),
+    `门廊眉标必须由目录现算、并用「、」分隔：名字里带「 · 」的已有 ${withDot.length} 项`
+    + `（${withDot.join('、') || '无'}），用「 · 」当分隔符就会把名字切错`);
 }
 
 const summary = `western acceptance: tools=${WESTERN_TOOLS.length} open=${WESTERN_LIVE_HREFS.length} pass=${pass} fail=${fail}`;

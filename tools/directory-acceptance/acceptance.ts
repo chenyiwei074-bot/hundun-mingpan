@@ -175,11 +175,31 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 {
   const page = stripComments(readFileSync(join(APP, 'tools', 'page.tsx'), 'utf8'));
   const statusSrc = stripComments(readFileSync(join(APP, '..', 'lib', 'tools', 'status.ts'), 'utf8'));
-  // 双闸门本身仍在，只是从"每个页面各写一遍"收成一份；这条因此改钉两件事：
-  // 判据在 status.ts 里存在，而消费它的页面不许再自己写第二份。
+  const cardSrc = stripComments(readFileSync(join(APP, '..', 'components', 'tools', 'ToolCatalog.tsx'), 'utf8'));
+  // 双闸门本身仍在，只是从"每个页面各写一遍"收成一份；批F 之后连卡片也只有一份
+  // （components/tools/ToolCatalog），所以这条往上挪：页与卡都不许自己写判定。
   ok('dir/page-gates-link', /status\s*!==\s*'未开放'\s*&&\s*!!t\.href/.test(statusSrc)
-    && /isLiveEntry/.test(page) && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(page),
-    '「非未开放 且 有 href」这道双闸门只许存在于 lib/tools/status.ts 一份，目录页吃它而不是重写一遍');
+    && /isLiveEntry/.test(cardSrc) && !/isLiveEntry/.test(page)
+    && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(page) && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(cardSrc),
+    '「非未开放 且 有 href」这道双闸门只许存在于 lib/tools/status.ts 一份；目录页与共用的卡片渲染器都吃它而不是重写一遍');
+  // 批F ①：这一页以前只渲染东方那一套，而四个地方的页脚链接都把它叫「全部工具目录」。
+  // 名不副实是读不出来的那种错 —— 页面自己看着正常，缺的是整一套没渲染。所以两条钉死：
+  // 两套目录都必须是 import 进来的（不许抄），且西方那一套必须交给渲染器。
+  ok('dir/tools-page-covers-both-catalogs', /import\s*\{[^}]*\bINTENTS\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(page)
+    && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(page)
+    && /<ToolCatalog/.test(page) && /statusCounts/.test(page),
+    '/tools 必须同时渲染东方与西方两套目录（共用 ToolCatalog），并按各自目录现算三档计数 —— 少一套就是"全部工具目录"说谎');
+  ok('dir/tools-page-no-forked-list', !/slug:\s*'|name:\s*'[^']*占星|title:\s*'/.test(page)
+    && !/WESTERN_TOOLS\.map|TOOL_BY_SLUG\['/.test(page),
+    '目录页不许自己列条目（抄一份就不会跟目录改）：所有条目必须由两套 catalog 现读');
+  ok('dir/single-card-renderer', (() => {
+    const users = ['app/tools/page.tsx', 'components/western/WesternWorkspace.tsx'];
+    const ownCards = users.filter(rel => {
+      const src = stripComments(readFileSync(join(APP, '..', rel), 'utf8'));
+      return /qn-btn--block/.test(src) || /'结果怎么读'/.test(src);
+    });
+    return ownCards.length === 0;
+  })(), '目录卡片只许有一份实现（components/tools/ToolCatalog）；目录页或工作页里再留一份字段表/按钮 = 两份迟早各说各话');
   const statusLabels = ['可用', '部分可用', '未开放'];
   ok('dir/status-vocabulary', statusLabels.every(s => statusSrc.includes(s)) && page.includes('「可用」') && page.includes('「未开放」'),
     `状态只允许 ${statusLabels.join('/')} 三档（定义在 status.ts），且目录页给出每一档是什么意思（读者能据此判断标签含义）`);

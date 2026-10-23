@@ -156,6 +156,7 @@ const STATIC_PAGES = [
   ['oriental-choices', '/oriental'],
   ['oriental-chosen', '/oriental'],
   ['western-example', '/western'],
+  ['western-example-open', '/western'],
   // E2 西方第一项开放：/astro 的两态。为什么必须是两态 —— 空页面永远过审（它什么都不显示，
   // 什么都不可能算错），而"部分可用"这张表的全部风险都在算完之后：控件接错、偏移没换算、
   // 度数取整错一位，只有那一帧才看得见。空态也不是白跑：它钉的是"缺什么的清单已经在屏上"。
@@ -234,15 +235,48 @@ const ORPHAN_PAGES = [
 // 松了而没有任何信号（globals.css 那处 token 审计同一做法）。
 // 这里只能内联写这两行 replace —— census.mjs 由 node 直接当 ESM 跑，import 不了
 // tools/_lib/codesrc.ts 那个 TypeScript 件。
-const CATALOG_SRC = [join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'catalog.ts'),
+const CATALOG_FILES = {
+  oriental: join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'catalog.ts'),
   // E2 起西方目录也有入口了。少读这一个文件，/western 卡面上「进入 · 本命行星位置 → /astro」
   // 就会被当成"入口不在目录里"判红 —— 目录有两份而量具只认一份，是量具坏了，不是产品坏了。
-  join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'western-catalog.ts')]
-  .map(f => readFileSync(f, 'utf8'))
-  .join('\n')
-  .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  western: join(import.meta.dirname, '..', '..', 'frontend', 'lib', 'tools', 'western-catalog.ts'),
+};
+const CATALOG_PARSED = Object.fromEntries(Object.entries(CATALOG_FILES).map(([k, f]) => [k,
+  readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')]));
+// 批F：/tools 现在同时渲染两套目录，所以"西方项必须在目录页上"这类判据要能按套算。
+// 抓取范围必须钉在"意图数组那一段"里，不能扫整个文件：catalog.ts 在 INTENTS 之外还导出
+// TOOLS_INDEX（目录页自己在首页启动器里那一格，href '/tools'）。扫整份文件会把它当成
+// 一个术数条目要的门，于是 /tools 页面上明明没有「进入 · 玄学百宝箱 → /tools」却被报红 ——
+// 这次真红了，红的是量具的口径，不是产品。
+const intentsSlice = (src, marker) => {
+  const at = src.indexOf(marker);
+  if (at < 0) throw new Error(`${marker} 不在目录源码里 —— 期望集读不出来就该炸，不该安静地给一个空集`);
+  const rest = src.slice(at);
+  const next = rest.indexOf('\nexport const', marker.length);
+  return next < 0 ? rest : rest.slice(0, next);
+};
+const CATALOG_INTENTS = {
+  oriental: intentsSlice(CATALOG_PARSED.oriental, 'export const INTENTS'),
+  western: intentsSlice(CATALOG_PARSED.western, 'export const WESTERN_INTENTS'),
+};
+const CATALOG_SRC = Object.values(CATALOG_INTENTS).join('\n');
 const CATALOG_HREFS = [...new Set(
   (CATALOG_SRC.match(/href:\s*['"]\/[^'"]+['"]/g) || []).map(s => s.replace(/.*['"](\/[^'"]+)['"]/, '$1')))];
+const catalogExpect = (src) => {
+  // 按条目切：一个条目从它的 slug: ' 起，到下一个 slug: ' 止。这样 name/href/status 只在
+  // 同一条目内配对，跨条目串味（把上一项的 href 算到下一项头上）就不会发生。
+  const entries = src.split(/slug:\s*'/).slice(1);
+  const name = (e) => ((/name:\s*'([^']+)'/.exec(e) || [])[1] || '').trim();
+  return {
+    names: [...new Set(entries.map(name).filter(Boolean))],
+    liveNames: entries.filter(e => /status:\s*'(可用|部分可用)'/.test(e) && /href:\s*['"]\/[^'"]+['"]/.test(e))
+      .map(name).filter(Boolean),
+    live: [...new Set((src.match(/href:\s*['"]\/[^'"]+['"]/g) || []).map(s => s.replace(/.*['"](\/[^'"]+)['"]/, '$1')))],
+    counts: ['可用', '部分可用', '未开放']
+      .map(s => [s, (src.match(new RegExp(`status: '${s}'`, 'g')) || []).length]),
+  };
+};
+const CATALOG_EXPECT = { oriental: catalogExpect(CATALOG_INTENTS.oriental), western: catalogExpect(CATALOG_INTENTS.western) };
 
 // 问事框两态的钉值。期望全部是照 lib/assistant/intent.ts 的关键词表人工推出来的
 // （与 kline 那 144 组成对表同一做法），不是跑一遍再把输出抄回来。
@@ -278,27 +312,39 @@ const QA_PINS = {
     absent: [],
     choose: '八字 & 紫微斗数', chosenClean: true,
   },
-  // 点西方那四条示例之一：例子来自目录（不再按状态过滤），点下去必须落到"没开放"那一支。
+  // 点西方那四条示例之一：例子来自目录（不再按状态过滤），点下去必须落到**它自己那一项**。
   // 只钉工具名 + "还没开放"；"缺什么"那句由 assistant 套件的 route/closed-explains-from-catalog
   // 钉（它引的是目录现读值，这里再抄一句就是第二份真相）。
   'western-example': {
     q: '',
-    // 钉第 4 条例子（月相），因为它才是"点了自己那一项 → closed 那一支"的那一条：
-    // 实测 routeLocal 只按 ask 词表匹配用户那句话 —— 前三条里 0 号现在 matched（本命行星位置），
-    // 1、2 号那句话不含自己工具的关键词，落到"没对上"而不是"还没开放"。
-    // 「点了目录里的例子却说没对上」是另一件事，已记进 report-only 缺陷清单，本批不改产品。
-    clickExample: 3,
-    mustSay: ['还没开放', '月相 · 盈亏周期'],
+    // 批F④ 改了这里钉的那一条：以前只能点第 4 条（月相），因为第 2、3 条那句话
+    // 不含自己工具的关键词，走关键词匹配会落到"没对上"而不是"还没开放" —— 那正是
+    // report-only 清单里「点了目录里的例子却说没对上」那条。现在示例带着自己的 slug，
+    // 所以这一态点的是**当年会错的那一条**（西洋占星 · 合盘），落点必须是它自己的 closed。
+    clickExample: 1,
+    mustSay: ['还没开放', '西洋占星 · 合盘'],
     entry: null,
-    absent: ['进入 ·'],
+    absent: ['进入 ·', '没能对上'],
+  },
+  // 同一支的另一边：示例里那一项是开着的（本命行星位置，部分可用）→ 必须给入口，
+  // 并且来源那一句要说清"是目录里该项自己的例子"，不是模型匹配出来的。
+  'western-example-open': {
+    q: '',
+    clickExample: 0,
+    mustSay: ['该用的是', '本命行星位置', '目录里该项自己登记的例子'],
+    entry: { text: '进入 · 本命行星位置', href: '/astro' },
+    absent: ['还没开放'],
   },
 };
 
-/** /astro 的钉值：2000-01-01 12:00 且强制 UTC 时区（AFTER 钩子负责把下拉拨到 UTC），
- *  所以这是一个与跑在哪台机器上无关的世界时刻。十颗星的落座由 lib/astro/planets.ts 在同一
- *  版本（2.1.19 精确钉死）下算出，与 JPL 的对拍在 tools/astro-acceptance —— 这里钉的是
- *  "页面把那十个数原样端上来了"，不是"数是对的"（那是套件的活，两边不重复也不互相顶）。 */
+/** /astro 的钉值：2000-01-01 12:00 且强制 UTC 时区。批F③ 起页面不再预填这三个值
+ *  （预填的形状是"一张已经填好时间的表单"，用户没挑过时刻就拿到一张看起来属于他的盘），
+ *  所以它们由下面 astro-computed 的 AFTER 钩子填进来 —— 填完之后这仍然是一个与跑在哪台
+ *  机器上无关的世界时刻。十颗星的落座由 lib/astro/planets.ts 在同一版本（2.1.19 精确钉死）
+ *  下算出，与 JPL 的对拍在 tools/astro-acceptance —— 这里钉的是"页面把那十个数原样端上来了"，
+ *  不是"数是对的"（那是套件的活，两边不重复也不互相顶）。 */
 const ASTRO_PINS = {
+  date: '2000-01-01', clock: '12:00', zone: 'UTC',
   rows: [['太阳', '摩羯座', '10°22′'], ['月亮', '天蝎座', '13°19′'], ['水星', '摩羯座', '1°53′'],
     ['金星', '射手座', '1°33′'], ['火星', '水瓶座', '27°57′'], ['木星', '白羊座', '25°15′'],
     ['土星', '金牛座', '10°23′'], ['天王星', '水瓶座', '14°48′'], ['海王星', '水瓶座', '3°11′'],
@@ -316,7 +362,7 @@ function astroProbe(computed) {
   const flat = (document.body.innerText || '').replace(/\\s+/g, '');
   // 两态共有的部分：口径戳、"不叫星盘"那句、已做/未做两张清单真的渲染了（计数只验非零，
   // 数字本身由目录与引擎那两侧钉 —— 在这里钉个数就成了第三份真相）。
-  for (const s of ['astro-planets-v1', 'astro-moment-iana-v1', '不叫星盘'])
+  for (const s of ['astro-planets-v1', 'astro-moment-iana-v1', '不叫星盘', '不打包票'])
     if (flat.indexOf(s) < 0) miss.push('页面上找不到「' + s + '」');
   const done = /已做（(\\d+)项）/.exec(flat), notDone = /未做（(\\d+)项）/.exec(flat);
   if (!done || !notDone || !+done[1] || !+notDone[1])
@@ -345,6 +391,17 @@ function astroProbe(computed) {
     if (flat.indexOf('还没算') < 0) miss.push('空态没写"还没算"（预留那一格不能是空白）');
     if (flat.indexOf('生辰不出这台设备') < 0 && flat.indexOf('不离开这台设备') < 0)
       miss.push('空态没写"数据不出这台设备"那句');
+    // 批F③ 在 DOM 上的那一条：页面打开时出生时刻是空的。源码闸门（astro/no-prefilled-birth-moment）
+    // 钉的是写法，这里钉的是用户第一眼看到的像素 —— 两者缺一：改法没落地 / 落地了又漂回去。
+    const d = document.querySelector('#astro-date'), c = document.querySelector('#astro-clock');
+    if (!d || !c) miss.push('缺 #astro-date 或 #astro-clock（id 换了这条就空过，必须跟着换）');
+    else {
+      if (d.value !== '') miss.push('出生日期预填了「' + d.value + '」：本站不替用户挑出生时刻');
+      if (c.value !== '') miss.push('钟面时间预填了「' + c.value + '」：同上');
+      const btn = [...document.querySelectorAll('button')].find(x => /算行星位置/.test(x.textContent || ''));
+      if (!btn) miss.push('「算行星位置」按钮不在页面上');
+      else if (!btn.disabled) miss.push('两个时间都空着，按钮却是可点的（点了只会拿到一条"缺时刻"）');
+    }
   }
   return { miss, rows: rows.length, zone, done: done && +done[1], notDone: notDone && +notDone[1] };
 })()`;
@@ -354,7 +411,19 @@ function astroProbe(computed) {
  *  判定写成"态名列表"而不是点名某个 CSS 文件 —— 约束的是一类行为（预留过高度的面板），
  *  以后再有预留的面板加进这张表就行。 */
 const RESERVED_PANES = ['oriental-ask', 'oriental-choices', 'oriental-chosen', 'oriental-ime',
-  'western-ask', 'western-example'];
+  'western-ask', 'western-example', 'western-example-open'];
+
+/** 点示例那一支的两态共用：按 QA_PINS[状态].clickExample 取第 N 枚示例 chip 点下去。
+ *  用脚本 click 而不是 TRUSTED：示例点在预留格（.qa-pane）里插一张卡，版面本来就不该动，
+ *  合成点击不算 hadRecentInput —— 也就是说这一支是在"更严"的条件下量的。 */
+const exampleHook = name => `(async () => {
+  const chip = [...document.querySelectorAll('.qa-examples .qn-chip')][${QA_PINS[name].clickExample}];
+  if (!chip) return '${name}：第 ${QA_PINS[name].clickExample} 枚示例 chip 不在页面上（.qa-examples .qn-chip = 0 说明示例区空着，等于没测）';
+  chip.click();
+  const until = Date.now() + 4000;
+  while (Date.now() < until && !document.querySelector('.qa-turn')) await new Promise(r => setTimeout(r, 80));
+  return !!document.querySelector('.qa-turn');
+})()`;
 
 /** 问事框那一类 AFTER 钩子的公共形状：填句子 → 点提交 → 等回答卡出现。
  *  等是必须的：`askRoute` 里那一发 fetch 是异步的，不等就点下一样东西，
@@ -398,18 +467,31 @@ const FS_PICK = `(async () => {
   return true; })()`;
 
 const AFTER = {
-  // /astro：把时区拨到 UTC，好让 ASTRO_PINS 那十个数与跑 harness 的这台机器无关。
-  // 受控 select 必须走 HTMLSelectElement 的原生 setter + change —— 直接赋 .value 不触发 onChange，
-  // 页面里的 zone 状态还是设备时区，那十个数就"看着对、其实量的是别的东西"（批C 同款坑）。
-  // 这一步留在 AFTER 而不是 TRUSTED：它不改版面（拨下拉不插入内容），放到真实点击之后就来不及了。
+  // /astro：把样例的三个输入都填上 —— 页面自己一个都不预填（批F③），所以那十个钉值
+  // 现在得由 harness 提供；时区拨到 UTC 让这一刻与跑 harness 的这台机器无关。
+  // 受控控件必须走各自元素族的原生 setter + change/input —— 直接赋 .value 不触发 onChange，
+  // 页面里的 state 还是空串，按钮仍然是灰的，后面那一枪真实点击打在 disabled 上什么也不会发生
+  // （那种"没报错也没结果"的绿最骗人，批C 踩过同款）。
   'astro-computed': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
     const sel = document.querySelector('#astro-zone');
     if (!sel) return '时区下拉 #astro-zone 不在页面上（id 换了要跟着换，否则这一态量的是设备默认时区）';
-    const set = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    set.call(sel, 'UTC');
+    Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(sel, ${JSON.stringify(ASTRO_PINS.zone)});
     sel.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise(r => setTimeout(r, 120));
-    return sel.value === 'UTC' || '拨不到 UTC：实得 ' + sel.value;
+    for (const [id, val] of [['#astro-date', ${JSON.stringify(ASTRO_PINS.date)}], ['#astro-clock', ${JSON.stringify(ASTRO_PINS.clock)}]]) {
+      const inp = document.querySelector(id);
+      if (!inp) return id + ' 不在页面上（id 换了要跟着换，否则这一态没被喂过值）';
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(inp, val);
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await wait(120);
+    if (sel.value !== ${JSON.stringify(ASTRO_PINS.zone)}) return '拨不到 UTC：实得 ' + sel.value;
+    const d = document.querySelector('#astro-date').value, c = document.querySelector('#astro-clock').value;
+    if (d !== ${JSON.stringify(ASTRO_PINS.date)} || c !== ${JSON.stringify(ASTRO_PINS.clock)})
+      return '日期/钟面没被喂进受控输入：实得 ' + JSON.stringify([d, c]);
+    const btn = [...document.querySelectorAll('button')].find(x => /算行星位置/.test(x.textContent || ''));
+    if (!btn) return '「算行星位置」按钮不在页面上';
+    return !btn.disabled || '两个值都填上了按钮还是灰的（可算判据与输入格式对不上）';
   })()`,
   // 农历态：先把历法切到农历，再把年/月设成 2025 年 6 月（该年闰六月），闰月开关才会出现。
   // select 是 React 受控的，必须走 HTMLSelectElement 的原生 setter + change 事件，
@@ -452,15 +534,10 @@ const AFTER = {
     const t2 = Date.now() + 4000;
     while (Date.now() < t2 && !document.querySelector('.qa-turn[data-outcome="matched"]')) await new Promise(r => setTimeout(r, 80));
     return !!document.querySelector('.qa-turn[data-outcome="matched"]');`),
-  // 点西方那一系的示例问题（批B 起示例不再按状态过滤）：点了要落到"没开放"那一支。
-  'western-example': `(async () => {
-    const chip = [...document.querySelectorAll('.qa-examples .qn-chip')][${QA_PINS['western-example'].clickExample}];
-    if (!chip) return '西方工作页一条示例问题都没有（.qa-examples .qn-chip = 0）—— 示例区空着等于没测';
-    chip.click();
-    const until = Date.now() + 4000;
-    while (Date.now() < until && !document.querySelector('.qa-turn')) await new Promise(r => setTimeout(r, 80));
-    return !!document.querySelector('.qa-turn');
-  })()`,
+  // 点西方那一系的示例问题（批B 起示例不再按状态过滤；批F④ 起示例带着自己那一项的 slug）。
+  // 两态点的是不同的 chip：一枚是未开放的那一项（落 closed），一枚是开着的那一项（落 matched）。
+  'western-example': exampleHook('western-example'),
+  'western-example-open': exampleHook('western-example-open'),
   // IME 门闩：组词中的回车不许发送。两步都要量：组词中按 Enter → 一轮都没多；
   // 结束组词再按 Enter → 这一轮真的发出去了。只量后一步的话，"根本没实现门闩"也能过。
   'oriental-ime': `(async () => {
@@ -1054,7 +1131,7 @@ const fsRecognizeProbe = p => `(() => {
 // 而截图对比不一定看得出（浅底页本来就白），只有反向断言能抓住。
 const WESTERN_DARK = { bg: 'rgb(27, 16, 48)', text: 'rgb(243, 238, 255)', card: 'rgb(36, 26, 61)' };
 const THEME_STATES = {
-  western: 'dark', 'western-ask': 'dark', 'western-example': 'dark',
+  western: 'dark', 'western-ask': 'dark', 'western-example': 'dark', 'western-example-open': 'dark',
   // /astro 是西方工作页开出去的那一页：main 上挂着 data-mode="western"，所以它必须与
   // /western 同色。东方那套浅底令牌要是漏进这一页，深底上的浅字就是 AA 的红。
   astro: 'dark', 'astro-computed': 'dark',
@@ -1412,8 +1489,14 @@ const qaProbe = p => `(() => {
   // 两种模式各钉一句的话，端点修好那天这套钉值就集体过期 —— 钉不变量才不会。
   const srcLocal = txt.indexOf('本机目录匹配') >= 0, srcServer = txt.indexOf('来自服务端路由') >= 0;
   const chosen = txt.indexOf('你在并列的候选里自己挑的') >= 0, degraded = txt.indexOf('服务端这一轮没用上') >= 0;
-  if (srcLocal && srcServer) out.push('同一轮既说"本机目录"又说"服务端路由"，读者不知道信哪个');
-  if (!srcLocal && !srcServer && !chosen) out.push('这一轮没写是谁算的（来源标注没上屏）');
+  // 批F④ 起有第四种来源：点的是目录里某一项自己的例子（目标工具是登记过的，没再匹配一遍）。
+  // 仍然钉的是那个不变量 —— 每一轮都必须说出"是谁算的"，四种里恰好一种；
+  // 少一句会红（这一轮没人认领），两句同时出现也会红（读者不知道信哪个）。
+  const fromExample = txt.indexOf('目录里该项自己登记的例子') >= 0;
+  const howMany = [srcLocal, srcServer, chosen, fromExample].filter(Boolean).length;
+  if (howMany > 1) out.push('同一轮写了两种来源标注，读者不知道信哪个：'
+    + JSON.stringify({ srcLocal, srcServer, chosen, fromExample }));
+  if (howMany === 0) out.push('这一轮没写是谁算的（来源标注没上屏）');
   if (srcLocal && !degraded)
     out.push('写着回落本机却没写为什么 —— degraded 拿到了不上屏就是缺陷②的形状');
   if (srcServer && degraded) out.push('真走了服务端却还挂着"没用上服务端"的理由');
@@ -2193,7 +2276,10 @@ const FIRST_SCREEN = `(() => {
       href: a.getAttribute('href'), fold: inFold(a),
       // 类名跟着门廊改版换了（原来那行挂在 .qn-axis 上）。这里必须跟着换，
       // 否则读回来的是空串，形状判定会在"什么都没读到"上一直绿着。
-      tally: ((a.querySelector('.domain-card__tally') || {}).innerText || '').replace(/\s+/g, ' ').trim() })),
+      tally: ((a.querySelector('.domain-card__tally') || {}).innerText || '').replace(/\s+/g, ' ').trim(),
+      // 眉标那行现在是按目录现算的（批F②），所以它也得回读：手写条目名的旧写法被删之后，
+      // 这一行唯一可能错的方式就是"列出来的不是真开了的那几项"或"分隔符把名字切错了"。
+      eyebrow: ((a.querySelector('.qn-eyebrow') || {}).innerText || '').replace(/\s+/g, ' ').trim() })),
     // 导航是 position:fixed，不占文档流 —— 页面主体必须自己让出那 56px。
     // 这条判据是批A 补的：门廊改版后 h1 顶到 49px，被吸顶导航压掉上半截，而当时
     // 没有任何一条断言看这件事（宽度、溢出、命中区、对比度全都过了 —— 压住的字照样是"够对比度的字"）。
@@ -2451,6 +2537,26 @@ function check(tag, v) {
             bad(`门廊卡片 ${c.href} 上 ${open}+${partial}+${closed}≠${total} —— 数是从目录现算的，出现这种结果就是算错了`);
           if (total === 0) bad(`门廊卡片 ${c.href} 上总项数 0：那一侧的目录没读进来（空目录会安静地印出 0）`);
           if (open > total || closed > total) bad(`门廊卡片 ${c.href} 上单项大于总数：${open}/${partial}/${closed} vs ${total}`);
+        }
+        // 批F②：眉标不再是手写的三个词，而是"这一套里真能进的那几项"。所以它必须能被目录复核：
+        // 列出的每个名字都得是已开放条目的登记名，"等 N 项"的 N 必须等于目录里的已开放项数。
+        // 这一条同时管住分隔符：条目名自己带「 · 」（「二十八宿 · 本命宿」），拿「 · 」当列表分隔
+        // 会把三个名字切成四个，切出来的碎片就不再是任何登记名 —— 红在这里，而不是悄悄少列一项。
+        const modeKey = c.href === '/western' ? 'western' : 'oriental';
+        const wantNames = (CATALOG_EXPECT[modeKey] || {}).liveNames || [];
+        const eb = c.eyebrow || '';
+        if (!eb) bad(`门廊卡片 ${c.href} 没有眉标 —— 这一行由目录现算，空着说明那套目录没读进来`);
+        else if (eb === '本套目录暂无开放项') {
+          if (wantNames.length) bad(`门廊卡片 ${c.href} 写"暂无开放项"，目录里却有 ${wantNames.length} 项能进：${wantNames.join('、')}`);
+        } else {
+          const tail = /\s*等 (\d+) 项$/.exec(eb);
+          const shown = (tail ? eb.slice(0, tail.index) : eb).split('、').map(s => s.trim()).filter(Boolean);
+          if (!shown.length) bad(`门廊卡片 ${c.href} 眉标切不出任何名字：${JSON.stringify(eb)}`);
+          for (const n of shown) if (!wantNames.includes(n))
+            bad(`门廊卡片 ${c.href} 眉标里的「${n}」不是已开放条目的登记名（已开放的是 ${wantNames.join('、') || '无'}）`);
+          const claimed = tail ? +tail[1] : shown.length;
+          if (claimed !== wantNames.length)
+            bad(`门廊卡片 ${c.href} 眉标说 ${claimed} 项能进，目录里现算是 ${wantNames.length} 项`);
         }
       }
       console.log(`   GATE cards=${cards.length} [${cards.map(c => `${c.href}:${c.tally.replace(/\s+/g, '')}`).join(' ')}] nav=${(f.navItems || []).length} marketing=${(f.marketing || []).length}`);
@@ -2828,6 +2934,38 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': 本命行星位置不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    ASTRO MISMATCH ' + miss.join(' | ')
       : `    ${base === 'astro' ? '空态' : '算完那态'}：表 ${got.rows} 行 · 时区 ${got.zone} · 已做 ${got.done} 项 / 未做 ${got.notDone} 项 · 戳与"不叫星盘"都在屏上`);
+  }
+  // 目录页（批F ①）：/tools 必须两套目录都在，且卡上的状态与计数与目录源码一致。
+  // 为什么单独钉这一页：以前它只渲染东方那一套，而全站有四处页脚链接把它叫「全部工具目录」——
+  // 名不副实是"读不出来"的那种错：页面自己看着完全正常，缺的是没被渲染的那一套。
+  if (base === 'tools') {
+    const got = await evl(`(() => {
+      const flat = (document.body.innerText || '').replace(/\\s+/g, '');
+      const miss = [];
+      const hrefs = [...document.querySelectorAll('a[href]')]
+        .filter(a => (a.innerText || '').indexOf('进入') >= 0).map(a => a.getAttribute('href'));
+      const expect = ${JSON.stringify(CATALOG_EXPECT)};
+      const allow = ${JSON.stringify(CATALOG_HREFS)};
+      for (const n of expect.western.names) if (flat.indexOf(n.replace(/\\s+/g, '')) < 0)
+        miss.push('西方项「' + n + '」不在目录页上（这一页只渲染了一套？）');
+      for (const h of expect.western.live) if (hrefs.indexOf(h) < 0)
+        miss.push('西方已开放的入口 ' + h + ' 在目录页上没有「进入」链接');
+      for (const h of hrefs) if (allow.indexOf(h) < 0) miss.push('目录页给了一个不在两套目录里的入口：' + h);
+      const tally = (name, counts) => {
+        const n = Object.fromEntries(counts);
+        const total = (n['可用'] || 0) + (n['部分可用'] || 0) + (n['未开放'] || 0);
+        const want = (name + '可用' + (n['可用'] || 0) + '·部分可用' + (n['部分可用'] || 0)
+          + '·未开放' + (n['未开放'] || 0) + '·共' + total + '项').replace(/\\s+/g, '');
+        if (flat.indexOf(want) < 0) miss.push('数不对或缺一行：页面上该有「' + want + '」');
+      };
+      tally('东方', expect.oriental.counts); tally('西方', expect.western.counts);
+      return { miss, western: expect.western.names.length, entries: hrefs.length };
+    })()`);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 目录页探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
+    else for (const x of miss) fail.push(tag + ': 目录页与两套目录不一致 — ' + x);
+    console.log(miss && miss.length ? '    TOOLS MISMATCH ' + miss.join(' | ')
+      : `    目录页两套齐备：西方 ${got.western} 项全在、入口 ${got.entries} 个全部来自目录`);
   }
   if (base === 'fengshui-filled') {
     const got = await evl(FS_PROBE);
@@ -3316,6 +3454,18 @@ await goto('/tools'); guardWrites('可达性/tools');
 const dirLive = await evl(`[...new Set([...document.querySelectorAll('a[href]')]
   .filter(a => (a.innerText || '').includes('进入') && /^\\//.test(a.getAttribute('href') || ''))
   .map(a => a.getAttribute('href')))]`);
+// 期望集按"套"取，不按整页取。/tools 从批F① 起两套并列，如果仍然拿整页读到的入口
+// 去要求 /oriental 那一页，就等于让东方工作页替西方项负责 —— /astro 明明在 /western
+// 上点得到，却会被报成"oriental 点不到"（这次真红了，红的是判据的形状）。
+// 这里比的两件事各自成立才有意义：
+//   · /tools 这一页必须挂着两套里所有能进的门（合流没漏）；
+//   · 每个工作页必须挂着自己那一套里所有能进的门（本套不缺门）。
+const wantAll = [...new Set([...CATALOG_EXPECT.oriental.live, ...CATALOG_EXPECT.western.live])];
+const dirList = Array.isArray(dirLive) ? dirLive : [];
+const dirMissing = wantAll.filter(h => !dirList.includes(h));
+if (!wantAll.length) fail.push('tools: 两套目录都读不到 live 入口 —— 期望集为空，这条判据等于没跑（选择器或目录字段变了）');
+else if (dirMissing.length) fail.push(`tools: 目录源码里能进、/tools 页面上却没挂（${dirMissing.length}/${wantAll.length}）：${dirMissing.join('、')}`);
+else console.log(`  tools 两套入口 ${wantAll.length} 个全部挂在 /tools 上：${wantAll.join('、')}`);
 for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
   if (!keep(tag, url)) { console.log(`  SKIP ${tag}（不在 --only 范围内，这条判据没跑）`); continue; }
   await goto(url); guardWrites('可达性/' + tag);
@@ -3326,9 +3476,9 @@ for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
     tally: ((document.body.innerText || '').match(/目录[^。]*。/) || [''])[0].replace(/\\s+/g, ' '),
     qaTop: (() => { const e = document.querySelector('.qa'); if (!e) return null;
       const r = e.getBoundingClientRect(); return Math.round(r.top) + '/' + innerHeight; })() }))()`);
-  const list = Array.isArray(dirLive) ? dirLive : [];
+  const list = Array.isArray(CATALOG_EXPECT[tag]?.live) ? CATALOG_EXPECT[tag].live : [];
   if (tag === 'oriental') {
-    if (!list.length) fail.push('oriental: 目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（选择器失效就是这个形状）');
+    if (!list.length) fail.push('oriental: 东方目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（选择器失效就是这个形状）');
     else {
       const missing = list.filter(h => !(onPage.hrefs || []).includes(h));
       if (missing.length) fail.push(`oriental: 目录可点而工作页点不到（${missing.length}/${list.length}）：${missing.join('、')}`);
@@ -3343,6 +3493,11 @@ for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
     if (wide && wide.qaTop === null) fail.push('oriental: 1440×900 下读不到 .qa');
     await metrics(1280, 900, false);
   } else {
+    // 同一句话对西方那一页也说一遍：期望集是西方目录里能进的那几项，不是整页读到的入口。
+    const missingW = list.filter(h => !(onPage.hrefs || []).includes(h));
+    if (!list.length) fail.push('western: 西方目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（开第一项之后就不该再是空）');
+    else if (missingW.length) fail.push(`western: 目录可点而 /western 页面上没挂（${missingW.length}/${list.length}）：${missingW.join('、')}`);
+    else console.log(`  western 本套入口 ${list.length} 个都在页面上：${list.join('、')}`);
     // 以前这里比的是「可用 N」== 页面入口数，西方整页未开放时那个 N 永远是 0，等式看着成立。
     // E2 开出第一项（部分可用）之后这条必须改成三档相加：能进的门 = 可用 + 部分可用，
     // 与 lib/tools/status.ts 的 isLiveEntry 同一条判据（只看"可用"会把半开的门数丢）。
