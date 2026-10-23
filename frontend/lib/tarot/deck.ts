@@ -71,7 +71,8 @@ export const TAROT_DECK: TarotCard[] = [
 
 export const THREE_CARD_POSITIONS = ['过去', '现在', '未来'] as const;
 export type TarotPosition = (typeof THREE_CARD_POSITIONS)[number];
-export type TarotDraw = { card: TarotCard; position: TarotPosition; reversed: boolean };
+export type TarotOrientation = '正位' | '逆位';
+export type TarotDraw = { card: TarotCard; position: TarotPosition; orientation: TarotOrientation };
 
 function seededRandom(seedHex: string) {
   if (!/^(?:[0-9a-f]{2}){32}$/i.test(seedHex)) throw new Error('随机种子格式不正确。');
@@ -115,11 +116,9 @@ export function drawThree(seedHex: string): TarotDraw[] {
     const j = value % upperBound;
     [cards[i], cards[j]] = [cards[j], cards[i]];
   }
-  // 正逆位也由同一颗种子决定：洗牌用掉 N 个随机数后，再为三张各取一位（0=正位, 1=逆位）。
-  // 这样同一种子在任何设备上都能复算出同一组牌、同一个朝向；不用系统随机重抽。
   return THREE_CARD_POSITIONS.map((position, index) => ({
     card: cards[index],
     position,
-    reversed: (next() & 1) === 1,
+    orientation: next() & 1 ? '逆位' : '正位',
   }));
 }

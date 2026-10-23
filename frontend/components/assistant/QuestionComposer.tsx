@@ -192,7 +192,10 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
         <div className="qa-turns" aria-live="polite">
         {/* 两种模式都渲染这一句：预留的那一块必须有内容，否则首屏就是一截空白。 */}
         {turns.length === 0 && (
-          <p className="qn-cap" style={{ margin: 0 }}>问一句之后，结果出现在这一块。</p>
+          <div className="qa-empty">
+            <span className="qa-empty__seal" aria-hidden="true">问</span>
+            <p><strong>待你发问</strong><span>匹配到的工具与口径说明会在这里出现</span></p>
+          </div>
         )}
         {turns.map(t => {
           const kind = outcomeOf(t.result);

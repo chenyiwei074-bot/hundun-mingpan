@@ -260,7 +260,7 @@ const ref = refText ? JSON.parse(refText) : null;
       if (t.status === '部分可用') {
         return !t.href || (t.done?.length ?? 0) === 0 || (t.notDone?.length ?? 0) === 0
           || /astro-planets-v1|astro-moment-iana-v1/.test(t.basis || '')
-          || !/未接入|缺/.test((t.basis || '') + (t.note || ''));
+          || !/未接入|缺|待校核/.test((t.basis || '') + (t.note || ''));
       }
       return true;
     });
