@@ -37,3 +37,6 @@ frontend/_*.txt
 /.[a-z]*.txt
 /.[a-z]*.out
 /.[a-z]*.log
+
+# 本地视觉验收证据（截图/日志，不入库）
+.visual-harness/
