@@ -1508,10 +1508,17 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 .tarot-card__name { min-height: 2.6em; margin-top: 6px; color: var(--color-western-text); font: 600 var(--qn-fs-meta)/1.3 "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif; overflow-wrap: anywhere; }
 .tarot-card__english { max-width: 100%; margin-top: 3px; color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.3; overflow-wrap: anywhere; }
 .tarot-card__meaning { margin-top: auto; padding-top: 8px; color: var(--color-western-gold); font-size: var(--qn-fs-eyebrow); }
-.tarot-card--arriving { animation: tarot-deal 540ms cubic-bezier(.16,.8,.2,1) both; animation-delay: calc(var(--deal-order) * 70ms); }
-@keyframes tarot-deal {
-  from { opacity: .3; transform: translate3d(0,-72px,110px) rotateZ(-5deg) scale(.84); }
-  to { opacity: 1; transform: translate3d(0,0,0) rotateZ(0) scale(1); }
+.tarot-card--flying {
+  position: absolute;
+  inset: auto;
+  z-index: 3;
+  pointer-events: none;
+  transform-origin: center;
+  animation: tarot-flight 540ms cubic-bezier(.16,.8,.2,1) both;
+}
+@keyframes tarot-flight {
+  from { opacity: .65; transform: translate3d(var(--flight-from-x), var(--flight-from-y), 110px) scale(var(--flight-from-scale)) rotateZ(-5deg); }
+  to { opacity: 1; transform: translate3d(0,0,0) scale(1) rotateZ(0); }
 }
 .tarot-action-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .tarot-action { min-height: 46px; min-width: 148px; }
@@ -1583,7 +1590,7 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 
 @media (prefers-reduced-motion: reduce) {
   .tarot-deck, .tarot-deck-button:hover:not(:disabled) .tarot-deck { transform: none; transition: none; }
-  .tarot-deck-button.is-shuffled .tarot-deck__card, .tarot-card--arriving { animation: none; }
+  .tarot-deck-button.is-shuffled .tarot-deck__card, .tarot-card--flying { animation: none; }
   .tarot-card__inner { transition: none; }
 }
 

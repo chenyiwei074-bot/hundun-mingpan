@@ -1277,13 +1277,14 @@ const tarotProbe = kind => `(async () => {
   }
   if (${JSON.stringify(kind)} === 'reduced') {
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) miss.push('浏览器未启用 prefers-reduced-motion: reduce');
-    const durations = cards.map(x => ({
-      deal: getComputedStyle(x.closest('.tarot-card--arriving')).animationDuration,
-      flip: getComputedStyle(x.closest('.tarot-card__inner')).transitionDuration,
+    const flying = [...main.querySelectorAll('.tarot-card--flying')];
+    if (flying.length) miss.push('减少动态效果下仍渲染飞牌覆层：' + flying.length);
+    const durations = [...main.querySelectorAll('.tarot-card__inner')].map(x => ({
+      flip: getComputedStyle(x).transitionDuration,
     }));
     const milliseconds = value => parseFloat(value) * (value.trim().endsWith('ms') ? 1 : 1000);
-    if (durations.some(x => milliseconds(x.deal) > 0.01 || milliseconds(x.flip) > 0.01))
-      miss.push('减少动态效果下仍有可感知的飞牌或翻面动画：' + JSON.stringify(durations));
+    if (durations.some(x => milliseconds(x.flip) > 0.01))
+      miss.push('减少动态效果下仍有可感知的翻面动画：' + JSON.stringify(durations));
   }
   return { miss, state, positions, ids, names, mobileWidth: innerWidth };
 })()`;

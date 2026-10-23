@@ -36,19 +36,19 @@ function CardFront({ card }: { card: TarotCard }) {
 }
 
 function TarotSlot({
-  position, drawn, visible, index,
+  position, drawn, visible, stageElementRef,
 }: {
   position: TarotPosition;
   drawn?: TarotDraw;
   visible: boolean;
-  index: number;
+  stageElementRef?: (node: HTMLDivElement | null) => void;
 }) {
   return (
     <article className="tarot-slot" aria-label={`${position}牌位${visible && drawn ? `：${drawn.card.nameZh}` : '，尚未揭示'}`}>
       <h2 className="tarot-slot__position">{position}</h2>
-      <div className="tarot-slot__stage">
+      <div className="tarot-slot__stage" ref={stageElementRef}>
         {visible && drawn ? (
-          <div className="tarot-card tarot-card--arriving is-revealed" data-card-id={drawn.card.id} style={{ '--deal-order': index } as CSSProperties}>
+          <div className="tarot-card is-revealed" data-card-id={drawn.card.id}>
             <div className="tarot-card__inner">
               <CardBack />
               <CardFront card={drawn.card} />
@@ -65,15 +65,39 @@ function TarotSlot({
   );
 }
 
+function TarotCardFace({ card }: { card: TarotCard }) {
+  return (
+    <div className="tarot-card__inner">
+      <CardBack />
+      <CardFront card={card} />
+    </div>
+  );
+}
+
 export default function TarotPage() {
   const [drawState, setDrawState] = useState<DrawState>('idle');
   const [seedHex, setSeedHex] = useState('');
   const [seedHash, setSeedHash] = useState('');
   const [drawnCards, setDrawnCards] = useState<TarotDraw[]>([]);
   const [visibleCount, setVisibleCount] = useState(0);
+  const [flight, setFlight] = useState<{
+    card: TarotCard;
+    index: number;
+    fromX: number;
+    fromY: number;
+    fromScale: number;
+    targetX: number;
+    targetY: number;
+    targetWidth: number;
+    targetHeight: number;
+    revealed: boolean;
+  } | null>(null);
   const [notice, setNotice] = useState('洗牌后先公布承诺摘要；三张牌只在本机抽取。');
   const [announcement, setAnnouncement] = useState('三张牌位已准备好。');
   const timers = useRef<number[]>([]);
+  const stageRef = useRef<HTMLElement>(null);
+  const deckRef = useRef<HTMLButtonElement>(null);
+  const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => () => timers.current.forEach(timer => window.clearTimeout(timer)), []);
 
@@ -90,6 +114,7 @@ export default function TarotPage() {
       setSeedHash(toHex(new Uint8Array(digest)));
       setDrawnCards([]);
       setVisibleCount(0);
+      setFlight(null);
       setDrawState('shuffled');
       setNotice('承诺摘要已生成。抽牌前保持不变；三张牌揭晓后再公开随机种子。');
       setAnnouncement('洗牌完成，承诺摘要已公布。现在可以抽出三张牌。');
@@ -101,6 +126,12 @@ export default function TarotPage() {
   const reveal = async () => {
     if (!seedHex || drawState !== 'shuffled') return;
     const result = drawThree(seedHex);
+    const stageRect = stageRef.current?.getBoundingClientRect();
+    const deckRect = deckRef.current?.querySelector('.tarot-deck')?.getBoundingClientRect();
+    if (!stageRect || !deckRect) {
+      setNotice('未能定位牌堆与牌位，请重新洗牌后再试。');
+      return;
+    }
     setDrawnCards(result);
     setVisibleCount(0);
     setDrawState('drawing');
@@ -115,11 +146,31 @@ export default function TarotPage() {
     }
 
     for (let index = 0; index < THREE_CARD_POSITIONS.length; index += 1) {
+      const slotRect = slotRefs.current[index]?.getBoundingClientRect();
+      if (!slotRect) continue;
+      setFlight({
+        card: result[index].card,
+        index,
+        fromX: deckRect.left + deckRect.width / 2 - slotRect.left - slotRect.width / 2,
+        fromY: deckRect.top + deckRect.height / 2 - slotRect.top - slotRect.height / 2,
+        fromScale: Math.min(1, deckRect.width / slotRect.width, deckRect.height / slotRect.height),
+        targetX: slotRect.left - stageRect.left,
+        targetY: slotRect.top - stageRect.top,
+        targetWidth: slotRect.width,
+        targetHeight: slotRect.height,
+        revealed: false,
+      });
       await new Promise<void>(resolve => {
-        const timer = window.setTimeout(resolve, 560);
+        const timer = window.setTimeout(resolve, 540);
+        timers.current.push(timer);
+      });
+      setFlight(current => current ? { ...current, revealed: true } : current);
+      await new Promise<void>(resolve => {
+        const timer = window.setTimeout(resolve, 480);
         timers.current.push(timer);
       });
       setVisibleCount(index + 1);
+      setFlight(null);
       setAnnouncement(`${THREE_CARD_POSITIONS[index]}牌已揭晓：${result[index].card.nameZh}。`);
     }
     timers.current = [];
@@ -136,6 +187,7 @@ export default function TarotPage() {
     setSeedHash('');
     setDrawnCards([]);
     setVisibleCount(0);
+    setFlight(null);
     setNotice('洗牌后先公布承诺摘要；三张牌只在本机抽取。');
     setAnnouncement('已重置。三张牌位已准备好。');
   };
@@ -169,7 +221,7 @@ export default function TarotPage() {
         <p className="tarot-scope-note">本站简化玩法 · 无古籍出处 · 仅正位 · 逆位未做</p>
       </header>
 
-      <section className="tarot-stage qn-rise" aria-label="塔罗抽牌区">
+      <section ref={stageRef} className="tarot-stage qn-rise" aria-label="塔罗抽牌区">
         <div className="tarot-stage__heading">
           <div>
             <p className="tarot-stage__eyebrow">三张 · 过去 / 现在 / 未来</p>
@@ -179,6 +231,7 @@ export default function TarotPage() {
         </div>
 
         <button
+          ref={deckRef}
           type="button"
           className={`tarot-deck-button${drawState === 'shuffled' ? ' is-shuffled' : ''}`}
           onClick={primaryAction}
@@ -203,6 +256,25 @@ export default function TarotPage() {
           <span className="tarot-deck__caption">{drawState === 'idle' ? '点击洗牌' : drawState === 'shuffled' ? '点击抽出三张' : drawState === 'drawing' ? '牌面揭晓中' : '牌堆已完成'}</span>
         </button>
 
+        {flight && (
+          <div
+            key={`${flight.card.id}-${flight.index}`}
+            className={`tarot-card tarot-card--flying${flight.revealed ? ' is-revealed' : ''}`}
+            aria-hidden="true"
+            style={{
+              left: `${flight.targetX}px`,
+              top: `${flight.targetY}px`,
+              width: `${flight.targetWidth}px`,
+              height: `${flight.targetHeight}px`,
+              '--flight-from-x': `${flight.fromX}px`,
+              '--flight-from-y': `${flight.fromY}px`,
+              '--flight-from-scale': flight.fromScale,
+            } as CSSProperties}
+          >
+            <TarotCardFace card={flight.card} />
+          </div>
+        )}
+
         <div className="tarot-slots" aria-label="过去、现在、未来三个固定牌位">
           {THREE_CARD_POSITIONS.map((position, index) => (
             <TarotSlot
@@ -210,7 +282,7 @@ export default function TarotPage() {
               position={position}
               drawn={drawnCards[index]}
               visible={index < visibleCount}
-              index={index}
+              stageElementRef={(node: HTMLDivElement | null) => { slotRefs.current[index] = node; }}
             />
           ))}
         </div>
