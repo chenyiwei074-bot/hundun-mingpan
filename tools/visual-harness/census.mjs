@@ -366,8 +366,8 @@ function astroProbe(computed) {
   // 最容易被悄悄删掉的地方（原文留着一行说明、白话与口径标注没了，读起来还是"有出处"）。
   // flat 已把所有空白抹掉，所以钉的是无空格形态（'Thetropicalsigns…'）。
   for (const s of ['astro-planets-v1', 'astro-moment-iana-v1', '不叫星盘', '不打包票',
-    '依据（原文·白话·口径）', '本站白话', '非原文、非他人译本', '近代约定·非古籍',
-    'Thetropicalsignsaretwo', 'tetrabiblos-i-xiv-tropical-signs.md'])
+    '依据（原文·白话·口径）', '本站白话', '非原文、非他人译本', '无古籍出处·近代约定',
+    'Thetropicalsignsaretwo', 'Mutualconfigurationattaches', 'docs/classics/western/tetrabiblos.txt'])
     if (flat.indexOf(s) < 0) miss.push('页面上找不到「' + s + '」');
   const done = /已做（(\\d+)项）/.exec(flat), notDone = /未做（(\\d+)项）/.exec(flat);
   if (!done || !notDone || !+done[1] || !+notDone[1])

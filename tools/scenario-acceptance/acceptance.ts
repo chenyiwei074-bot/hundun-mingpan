@@ -36,14 +36,14 @@ const ok = (id: string, cond: boolean, detail: string) => {
 // 安静地少读一整个域 —— 表现是"引文未命中"，红得很有说服力，而坏的是量具。
 // README.md 是规则说明、不是底本，从语料里排掉（它里面确实抄着几句原文当例子）。
 const CLASSICS_DIR = join(ROOT, 'docs', 'classics');
-/** 期望的**底本**份数：东方三份 + 批H 西方打样一份。加一篇底本就把这个数字一起改。 */
-const EXPECT_BASES = 4;
+/** 期望的**底本**份数：东方三份 .md + 批H-W 西方两份规范化 .txt。加一篇就把这个数一起改。 */
+const EXPECT_BASES = 5;
 function walkBases(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true }).flatMap(d => {
     const p = join(dir, d.name);
     if (d.isDirectory()) return walkBases(p);
-    return d.name.endsWith('.md') && d.name !== 'README.md' ? [p] : [];
+    return (d.name.endsWith('.md') || d.name.endsWith('.txt')) && d.name !== 'README.md' ? [p] : [];
   });
 }
 const classicsFiles = walkBases(CLASSICS_DIR);
