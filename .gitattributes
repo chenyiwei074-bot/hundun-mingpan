@@ -9,3 +9,6 @@ tools/astro-acceptance/horizons/*.txt -text
 # 判据按类写，不按文件名点名 —— 下一次再加一套对拍（比如上升点与星历台的那 20 组）不用再改这里。
 tools/*/cases/*.json -text
 tools/*/cases/*.txt -text
+# 底本的"逐字"声明不能取决于谁在哪个平台 checkout：行尾一律按原样存。
+# 批H 第一篇西方底本入仓时源是 CRLF、入仓做了行尾归一并写进了元数据，这条保证它不再被改动第二次。
+docs/classics/** -text
