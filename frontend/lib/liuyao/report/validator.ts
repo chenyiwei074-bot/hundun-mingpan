@@ -7,7 +7,7 @@
 const REQUIRED_KEYWORDS: string[] = [
   '卦象',
   '世应',
-  '用神',
+  '关键六亲',
   '动爻',
   '应期',
   '建议',
@@ -17,7 +17,7 @@ const REQUIRED_KEYWORDS: string[] = [
 const KEYWORD_ALIASES: Record<string, string[]> = {
   卦象: ['卦象', '卦象总览', '卦象总断', '总体卦象', '本卦'],
   世应: ['世应', '世爻', '世应关系'],
-  用神: ['用神'],
+  关键六亲: ['用神', '官鬼', '妻财', '父母', '子孙', '兄弟'],
   动爻: ['动爻', '爻动', '变爻'],
   应期: ['应期', '时间与结果', '落定', '信号日'],
   建议: ['建议', '三条实在建议', '行动建议'],
@@ -40,6 +40,11 @@ export function validateReport(report: string): ValidateResult {
   }
 
   if (report.length < 200) warnings.push('报告内容过短，可能不完整');
+
+  // 逐爻全过：bot 模板要求六条都在，缺一条就不是"全解"
+  const yaoLabels = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
+  const missingYao = yaoLabels.filter(y => !report.includes(y));
+  if (missingYao.length) warnings.push('逐爻不全，缺：' + missingYao.join('、'));
 
   // 技术结构泄漏：JSON 括号/代码块/字段名/异常值
   if (/[{}]/.test(report) || report.includes('```')) warnings.push('报告里出现了 JSON/代码块符号');
