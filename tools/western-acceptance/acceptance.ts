@@ -20,7 +20,7 @@ import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS, WESTERN_TOOL
 // 所以这两个值从出处那边读进来，不在测试里重抄一遍（重抄就是第二个真相）。
 import { ASTRO_BASIS } from '../../frontend/lib/astro/planets';
 import { MOMENT_BASIS } from '../../frontend/lib/astro/moment';
-import { readWesternBases, sha256 } from '../_lib/classics';
+import { readDataText, readWesternBases, sha256 } from '../_lib/classics';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -151,7 +151,7 @@ const ok = (id: string, cond: boolean, detail: string) => {
     `每段记录的 sha256 必须与段内容自洽（改了底本就要重跑生成器并升 pgnorm 版本，不能手改）：不合 ${badSha.join('、') || '无'}`);
 
   // 窄路：底本只能来自 Project Gutenberg。写进机检，防止下一次有人把 IA 的 OCR 粘进来。
-  const offPath = files.filter(f => !/# 载体: Project Gutenberg #\d+ · https:\/\/www\.gutenberg\.org\//.test(readFileSync(f.abs, "utf8")));
+  const offPath = files.filter(f => !/# 载体: Project Gutenberg #\d+ · https:\/\/www\.gutenberg\.org\//.test(readDataText(f.abs)));
   ok('west/bases-are-gutenberg-only', offPath.length === 0,
     `载体窄路（业主 2026-10-23 裁定）：底本只能来自 PG 键入本，archive.org 的 OCR 只作定位 —— 非 PG 载体 ${(offPath.map(短名).join('、')) || '无'}`);
 }

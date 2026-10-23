@@ -11,7 +11,8 @@
 // 两个开关都不带 → 打用法并 exit 1（批F 学过的那条：静默空转与"跑过了"在命令行上同形）。
 // 没给原始文件路径时 --check 只打 SKIP，不计 PASS。
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
+import { readDataBytes, readDataText } from '../_lib/classics';
 import { join } from 'node:path';
 import { PGNORM_VERSION, canon, normalizePg, stripPgWrapper } from '../_lib/pgnorm';
 
@@ -70,7 +71,7 @@ function cut(norm: string, p: Passage) {
 }
 
 function build(book: Book, rawPath: string) {
-  const raw = readFileSync(rawPath);
+  const raw = readDataBytes(rawPath);
   const norm = normalizePg(stripPgWrapper(raw.toString('utf8')));
   const 头 = [
     `# 西方底本（规范化后的 PG 文本）—— 只由脚本生成，手改即视为坏`,
@@ -111,7 +112,7 @@ if (isEntry) {
       continue;
     }
     const next = build(book, rawPath);
-    const cur = existsSync(join(ROOT, book.文件)) ? readFileSync(join(ROOT, book.文件), 'utf8') : null;
+    const cur = existsSync(join(ROOT, book.文件)) ? readDataText(join(ROOT, book.文件)) : null;
     if (check) {
       const same = cur !== null && canon(next) === canon(cur);
       console.log(`${same ? 'PASS' : 'FAIL'}  west/reference-reproducible  ${book.文件} 重算与原入仓${same ? '逐字一致' : '不一致 —— 要么源文件变了，要么规范化规则变了（那要升 PGNORM_VERSION 并整档重生）'}`);
