@@ -1234,7 +1234,7 @@ const tarotProbe = kind => `(async () => {
   const body = main.innerText || '';
   if (!/无古籍出处/.test(scope + body)) miss.push('页面缺少「无古籍出处」说明');
   if (!/牌义待接入/.test(body)) miss.push('页面缺少「牌义待接入」说明');
-  if (!/仅正位/.test(scope + body) || !/逆位未做/.test(scope + body)) miss.push('页面没有说明仅正位及逆位未做');
+  if (!/正位与逆位/.test(scope + body) || !/逆位牌义待接入/.test(scope + body)) miss.push('页面没有说明正逆位都抽、且逆位牌义待接入');
   let ids = [], names = [], cards = [];
   if (wantsRevealed) {
     cards = [...main.querySelectorAll('.tarot-slot .tarot-card__front')];
@@ -1244,6 +1244,14 @@ const tarotProbe = kind => `(async () => {
     if (ids.length !== 3 || new Set(ids).size !== 3) miss.push('三张牌必须有三个可识别且互不重复的牌 id：' + JSON.stringify(ids));
     if (names.length !== 3 || names.some(x => !x || /[A-Za-z]{3,}/.test(x))) miss.push('牌面名称缺失或未以中文呈现：' + JSON.stringify(names));
     if (cards.some(x => !/牌义待接入/.test(x.textContent || ''))) miss.push('每张牌都必须显示「牌义待接入」');
+    const orientAttrs = [...main.querySelectorAll('.tarot-slot .tarot-card[data-orientation]')].map(x => x.dataset.orientation);
+    if (orientAttrs.length !== 3 || orientAttrs.some(x => x !== 'upright' && x !== 'reversed'))
+      miss.push('三张牌都要标出正位/逆位，且只能是 upright/reversed：' + JSON.stringify(orientAttrs));
+    const orientTexts = [...main.querySelectorAll('.tarot-slot__orient')].map(x => (x.textContent || '').trim());
+    if (orientTexts.length !== 3 || orientTexts.some(x => x !== '正位' && x !== '逆位'))
+      miss.push('三张牌外面都要有可读的正位/逆位字样：' + JSON.stringify(orientTexts));
+    const orientRows = [...main.querySelectorAll('.tarot-reading__row .tarot-reading__orient')];
+    if (orientRows.length !== 3) miss.push('解读区要常驻三行牌位（避免抽牌前后高度变化）：' + orientRows.length);
     const before = window.__tarotStageBounds || [];
     const after = [...main.querySelectorAll('.tarot-slot__stage')].map(x => {
       const r = x.getBoundingClientRect();

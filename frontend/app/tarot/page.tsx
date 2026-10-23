@@ -22,16 +22,18 @@ function CardBack() {
   );
 }
 
-function CardFront({ card }: { card: TarotCard }) {
+function CardFront({ card, reversed = false }: { card: TarotCard; reversed?: boolean }) {
   const suit = TAROT_SUITS.find(item => item.zh === card.suit);
   return (
     <div className="tarot-card__front">
-      <span className="tarot-card__front-frame" />
-      <span className="tarot-card__number">{card.numeral ?? card.rank}</span>
-      <span className="tarot-card__symbol" aria-hidden="true">{suit?.mark ?? '✧'}</span>
-      <span className="tarot-card__name">{card.nameZh}</span>
-      <span className="tarot-card__english" data-proper-name>{card.nameEn}</span>
-      <span className="tarot-card__meaning">牌义待接入</span>
+      <div className={`tarot-card__face${reversed ? ' is-reversed' : ''}`}>
+        <span className="tarot-card__front-frame" />
+        <span className="tarot-card__number">{card.numeral ?? card.rank}</span>
+        <span className="tarot-card__symbol" aria-hidden="true">{suit?.mark ?? '✧'}</span>
+        <span className="tarot-card__name">{card.nameZh}</span>
+        <span className="tarot-card__english" data-proper-name>{card.nameEn}</span>
+        <span className="tarot-card__meaning">牌义待接入</span>
+      </div>
     </div>
   );
 }
@@ -45,14 +47,24 @@ function TarotSlot({
   stageElementRef?: (node: HTMLDivElement | null) => void;
 }) {
   return (
-    <article className="tarot-slot" aria-label={`${position}牌位${visible && drawn ? `：${drawn.card.nameZh}` : '，尚未揭示'}`}>
+    <article
+      className="tarot-slot"
+      aria-label={`${position}牌位${visible && drawn
+        ? `：${drawn.card.nameZh}，${drawn.reversed ? '逆位' : '正位'}`
+        : '，尚未揭示'}`}
+      data-orientation={visible && drawn ? (drawn.reversed ? 'reversed' : 'upright') : 'empty'}
+    >
       <h2 className="tarot-slot__position">{position}</h2>
       <div className="tarot-slot__stage" ref={stageElementRef}>
         {visible && drawn ? (
-          <div className="tarot-card is-revealed" data-card-id={drawn.card.id}>
+          <div
+            className="tarot-card is-revealed"
+            data-card-id={drawn.card.id}
+            data-orientation={drawn.reversed ? 'reversed' : 'upright'}
+          >
             <div className="tarot-card__inner">
               <CardBack />
-              <CardFront card={drawn.card} />
+              <CardFront card={drawn.card} reversed={drawn.reversed} />
             </div>
           </div>
         ) : (
@@ -62,15 +74,19 @@ function TarotSlot({
           </div>
         )}
       </div>
+      {/* 朝向文字留在牌外：牌面整体倒转后里面的字会跟着倒，外面这一行才是可读的那份 */}
+      <span className="tarot-slot__orient">
+        {visible && drawn ? (drawn.reversed ? '逆位' : '正位') : ' '}
+      </span>
     </article>
   );
 }
 
-function TarotCardFace({ card }: { card: TarotCard }) {
+function TarotCardFace({ card, reversed = false }: { card: TarotCard; reversed?: boolean }) {
   return (
     <div className="tarot-card__inner">
       <CardBack />
-      <CardFront card={card} />
+      <CardFront card={card} reversed={reversed} />
     </div>
   );
 }
@@ -83,6 +99,7 @@ export default function TarotPage() {
   const [visibleCount, setVisibleCount] = useState(0);
   const [flight, setFlight] = useState<{
     card: TarotCard;
+    reversed: boolean;
     index: number;
     fromX: number;
     fromY: number;
@@ -133,16 +150,18 @@ export default function TarotPage() {
       setNotice('未能定位牌堆与牌位，请重新洗牌后再试。');
       return;
     }
+    const reversedCount = result.filter(item => item.reversed).length;
+    const orientSummary = reversedCount > 0 ? `其中 ${reversedCount} 张逆位` : '三张都是正位';
     setDrawnCards(result);
     setVisibleCount(0);
     setDrawState('drawing');
-    setNotice('正在依次揭晓过去、现在与未来牌位。');
+    setNotice(`正在依次揭晓过去、现在与未来牌位（${orientSummary}）。`);
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setVisibleCount(THREE_CARD_POSITIONS.length);
       setDrawState('revealed');
-      setNotice('三张牌已揭晓。牌义内容尚未接入，页面只展示牌名与牌位。');
-      setAnnouncement('三张牌已揭晓：过去、现在、未来。牌义待接入。');
+      setNotice(`三张牌已揭晓（${orientSummary}）。牌义内容尚未接入，页面只展示牌名、牌位与正逆位。`);
+      setAnnouncement(`三张牌已揭晓：过去、现在、未来，${orientSummary}。牌义待接入。`);
       return;
     }
 
@@ -151,6 +170,7 @@ export default function TarotPage() {
       if (!slotRect) continue;
       setFlight({
         card: result[index].card,
+        reversed: result[index].reversed,
         index,
         fromX: deckRect.left + deckRect.width / 2 - slotRect.left - slotRect.width / 2,
         fromY: deckRect.top + deckRect.height / 2 - slotRect.top - slotRect.height / 2,
@@ -172,12 +192,12 @@ export default function TarotPage() {
       });
       setVisibleCount(index + 1);
       setFlight(null);
-      setAnnouncement(`${THREE_CARD_POSITIONS[index]}牌已揭晓：${result[index].card.nameZh}。`);
+      setAnnouncement(`${THREE_CARD_POSITIONS[index]}牌已揭晓：${result[index].card.nameZh}，${result[index].reversed ? '逆位' : '正位'}。`);
     }
     timers.current = [];
     setDrawState('revealed');
-    setNotice('三张牌已揭晓。牌义内容尚未接入，页面只展示牌名与牌位。');
-    setAnnouncement('三张牌已揭晓：过去、现在、未来。牌义待接入。');
+    setNotice(`三张牌已揭晓（${orientSummary}）。牌义内容尚未接入，页面只展示牌名、牌位与正逆位。`);
+    setAnnouncement(`三张牌已揭晓：过去、现在、未来，${orientSummary}。牌义待接入。`);
   };
 
   const reset = () => {
@@ -220,7 +240,7 @@ export default function TarotPage() {
           <p className="qn-eyebrow">西方玄学 · 塔罗</p>
         <h1 className="qn-hero">三张牌阵</h1>
         <p className="qn-meta">把过去、现在与未来放在同一条时间线上，先完成抽牌，再查看牌位。</p>
-        <p className="tarot-scope-note">本站简化玩法 · 无古籍出处 · 仅正位 · 逆位未做</p>
+        <p className="tarot-scope-note">本站简化玩法 · 无古籍出处 · 正位与逆位都抽 · 逆位牌义待接入</p>
       </header>
 
       <section ref={stageRef} className="tarot-stage qn-rise" aria-label="塔罗抽牌区">
@@ -273,7 +293,7 @@ export default function TarotPage() {
               '--flight-from-scale': flight.fromScale,
             } as CSSProperties}
           >
-            <TarotCardFace card={flight.card} />
+            <TarotCardFace card={flight.card} reversed={flight.reversed} />
           </div>
         )}
 
@@ -328,19 +348,29 @@ export default function TarotPage() {
       </section>
 
       <section className="tarot-reading" aria-live="polite" aria-label="牌位说明">
-        {drawState === 'reading' ? (
-          <>
-            <p className="qn-eyebrow">牌位查看</p>
-            <h2 className="qn-title">牌义待接入</h2>
-            <p className="qn-meta">当前只提供三张牌的名称与位置。牌义资料尚未接入，因此本站不会在这里生成含义或综合结论。</p>
-          </>
-        ) : (
-          <>
-            <p className="qn-eyebrow">解读状态</p>
-            <h2 className="qn-title">{drawState === 'revealed' ? '牌义待接入' : '牌位已预留'}</h2>
-            <p className="qn-meta">{drawState === 'revealed' ? '三张牌已显示；牌义资料尚未接入。' : '三张牌揭晓后，这里会按过去、现在与未来列出牌面。牌义待接入。'}</p>
-          </>
-        )}
+        <p className="qn-eyebrow">{drawState === 'reading' ? '牌位查看' : '解读状态'}</p>
+        <h2 className="qn-title">{drawState === 'idle' ? '牌位已预留' : '牌义待接入'}</h2>
+        <p className="qn-meta">
+          {drawState === 'idle'
+            ? '三张牌揭晓后，这里会按过去、现在与未来列出牌面与正逆位。牌义待接入。'
+            : '当前只提供三张牌的名称、位置与正逆位。牌义资料尚未接入，因此本站不会在这里生成含义或综合结论。'}
+        </p>
+        <ol className="tarot-reading__list">
+          {THREE_CARD_POSITIONS.map((position, index) => {
+            const drawn = drawnCards[index];
+            const shown = index < visibleCount;
+            return (
+              <li key={position} className="tarot-reading__row" data-position={position}>
+                <span className="tarot-reading__pos">{position}</span>
+                <span className="tarot-reading__card">{shown && drawn ? drawn.card.nameZh : '待揭示'}</span>
+                <span className={`tarot-reading__orient${shown && drawn?.reversed ? ' is-reversed' : ''}`}>
+                  {shown && drawn ? (drawn.reversed ? '逆位' : '正位') : '—'}
+                </span>
+                <span className="tarot-reading__note">牌义待接入</span>
+              </li>
+            );
+          })}
+        </ol>
       </section>
 
       <p className="qn-linkrow" style={{ marginTop: 18 }}>
@@ -349,7 +379,7 @@ export default function TarotPage() {
         </p>
 
         <p className="sr-only" aria-live="polite">{announcement}</p>
-      <p className="tarot-footnote">此页面为本站简化抽牌玩法，暂无古籍出处。仅使用正位；逆位系统与牌义资料尚未接入。</p>
+      <p className="tarot-footnote">此页面为本站简化抽牌玩法，暂无古籍出处。正逆位由同一种子决定、可本地复算；牌义资料尚未接入。</p>
     </main>
   );
 }
