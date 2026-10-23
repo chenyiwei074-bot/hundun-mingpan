@@ -125,7 +125,10 @@ const next = JSON.stringify(build(), null, 1) + '\n';
 if (check) {
   if (!existsSync(OUT)) { console.log('FAIL  astro/reference-exists  没有对拍夹具 —— 先跑一次 make-reference.ts'); process.exit(1); }
   const cur = readFileSync(OUT, 'utf8');
-  if (cur !== next) {
+  // 不比行尾：数据文件已标 -text，但 autocrlf=true 的机器上一次 checkout 就能把 CRLF 换回来，
+  // 那条红会指向行尾而不是口径（本批 rebase 后真撞上过一次）。
+  const eolFree = (s: string) => s.replace(/\r\n/g, '\n');
+  if (eolFree(cur) !== eolFree(next)) {
     console.log('FAIL  astro/reference-reproducible  重算的对拍夹具与仓库里那份不一致 —— 要么星历源/口径变了，要么引擎升了版');
     console.log('      确认过之后重跑 make-reference.ts（不带 --check）把新的钉住');
     process.exit(1);

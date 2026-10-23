@@ -37,6 +37,10 @@ const ok = (id: string, cond: boolean, detail: string) => {
 
 const ENTRY = WESTERN_TOOL_BY_SLUG['astro-natal'];
 const REF_FILE = join(HERE, 'cases', 'astro-ephemeris-reference.json');
+// 比对前先去掉行尾差异：这一条要抓的是"重算的数变了"，不是"git 在 checkout 时把 LF 换成 CRLF"。
+// 数据文件已用 .gitattributes 标 -text 保住原样，这里再兜一层是因为 autocrlf=true 的机器上
+// 一次 rebase 就会把工作区换成 CRLF —— 那次红指的是行尾，会让人去查一个不存在的口径改动。
+const eolFree = (s: string) => s.replace(/\r\n/g, '\n');
 const refText = existsSync(REF_FILE) ? readFileSync(REF_FILE, 'utf8') : '';
 const ref = refText ? JSON.parse(refText) : null;
 
@@ -58,7 +62,7 @@ const ref = refText ? JSON.parse(refText) : null;
   // 这一条同时是"引擎升了版/口径改了却没升戳"的探针。
   let repro = '';
   try { repro = JSON.stringify(build(), null, 1) + '\n'; } catch (e) { repro = 'ERR ' + (e instanceof Error ? e.message : String(e)); }
-  ok('astro/reference-reproducible', !!ref && repro === refText,
+  ok('astro/reference-reproducible', !!ref && eolFree(repro) === eolFree(refText),
     '从 horizons/ 原始输出重算必须与夹具逐字一致 —— 不一致就是星历源、解析列义或引擎版本动过，'
     + '必须重跑 make-reference.ts 并核过新偏差才允许钉住' + (repro.startsWith('ERR') ? `（本次重算失败：${repro.slice(0, 120)}）` : ''));
 
