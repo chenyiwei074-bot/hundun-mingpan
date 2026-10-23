@@ -8,8 +8,12 @@
 //   · 本地时间有两次 —— 夏令时结束那天回拨（向后）的那一小时，墙钟读了两遍。
 // 两种都返回原因码，界面上明说并请用户改时刻或改用 UTC 直接输入。
 //
-// 只用 Intl（ES2015+ 的 timeZone 支持）自己算偏移：不去 import 一张城市表，
-// 因为那会变成 lib/liuyao/solar-basis.ts 之外的第二份"哪儿几点是什么"的真相。
+// 换算本体不在这一层：那套"墙上钟面 → 世界时刻"的枚举与自洽检查住在
+// app/lib/true-solar/dst-resolver.ts（真太阳时那批已经拿 openfate 的公开验证集回归过）。
+// 这一层只做三件事：把 kind 翻成界面上那三句话、把未知时区兜住、把 isoUtc 格式化。
+// 自己再写一遍就是第二份"哪儿几点是什么"的真相 —— 而第一版就是这么写、就是这么错的。
+
+import { resolveCivil, type CivilSolve } from '@/app/lib/true-solar/dst-resolver';
 
 export const MOMENT_BASIS = 'astro-moment-iana-v1' as const;
 
@@ -26,36 +30,14 @@ export type MomentOk = { ok: true; utcMs: number; isoUtc: string; offsetMin: num
 
 export type MomentResult = MomentOk | MomentFail;
 
-/** 该时区在那个本地时刻相对 UTC 的偏移（分钟）。用 Intl 的格式化器反推，不查表。 */
-const DTF_CACHE = new Map<string, Intl.DateTimeFormat>();
-function formatter(tz: string): Intl.DateTimeFormat {
-  let f = DTF_CACHE.get(tz);
-  if (!f) {
-    f = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz, hourCycle: 'h23',
-      year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    });
-    DTF_CACHE.set(tz, f);
-  }
-  return f;
-}
-
-function offsetAt(tz: string, asUtc: number): number {
-  const p: Record<string, string> = {};
-  for (const part of formatter(tz).formatToParts(asUtc)) p[part.type] = part.value;
-  const asLocal = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
-  return Math.round((asLocal - asUtc) / 60000);
-}
-
 /**
  * 把"当地年月日时分 + IANA 时区"解析成 UTC 时刻。
  *
- * 为什么不是"试两次收敛"：迭代求不动点只会找到**其中一个**根。夏令时回拨那一小时有两个根
- * （纽约 2024-11-03 01:30 既是 05:30Z 也是 06:30Z），收敛到哪一个都合法，于是"墙钟读了两遍"
- * 会被算成"算出来了"——这是最坏的一种错：它看起来自洽，而月亮在两个根之间正好差两度。
- * 所以这里改成枚举：把那一天前后各两天内出现过的偏移都取出来当候选，逐个验"该偏移在这一个
- * 瞬间确实生效"。一个根=唯一解；两个根=回拨歧义；零个根=跳表，那个墙钟从来没出现过。
+ * 枚举与自洽检查**不在这里**：那套"墙上钟面 → 世界时刻"的逻辑已经有一份经过 openfate
+ * 公开验证集回归的实现（app/lib/true-solar/dst-resolver.ts 的 resolveCivil），
+ * 这里只把它的三种落点翻成界面要说的那三句话。曾经这一层自己写了一遍枚举，
+ * 而第一版写错了（迭代求不动点只会收敛到两个根之一，把回拨那一小时算成一次成功换算）——
+ * 同一件事有两份实现时，错的那份往往是对的那份的抄本。
  */
 export function toUtc(input: { year: number; month: number; day: number; hour: number; minute: number; timeZone: string }): MomentResult {
   const { year, month, day, hour, minute, timeZone } = input;
@@ -64,38 +46,34 @@ export function toUtc(input: { year: number; month: number; day: number; hour: n
     return { ok: false, reason: '缺时刻', detail: '年/月/日/时/分里有没有填上的数' };
   }
   if (!timeZone) return { ok: false, reason: '缺时刻', detail: '没选出生地时区 —— 差一小时，月亮就差两度' };
+  // Date.UTC 会把 13 月 45 日顺延成下一年的某月某日 —— 那是一种静默的假数据：
+  // 界面（type=date）给不出这种值，但这个函数也要能被套件直接喂，所以这里就拒不猜。
+  if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return { ok: false, reason: '无效日期', detail: `${year} 年 ${month} 月 ${day} 日 ${pad(hour)}:${pad(minute)} 不是一个能落在校准日历上的时刻（本站不替你顺延）` };
+  }
 
-  const wall = Date.UTC(year, month - 1, day, hour, minute, 0);
-  if (!Number.isFinite(wall)) return { ok: false, reason: '无效日期', detail: `${year} 年 ${month} 月 ${day} 日拼不成一个日期` };
-
-  // 候选偏移：±2 天以内在这个时区生效过的所有偏移（含半小时/45 分钟那种非整点时区）。
-  let offsets: number[];
+  let solved: CivilSolve;
   try {
-    const set = new Set<number>();
-    for (let d = -48; d <= 48; d += 6) set.add(offsetAt(timeZone, wall + d * 3600000));
-    offsets = [...set];
+    solved = resolveCivil({ year, month, day, hour, minute }, timeZone);
   } catch {
     return { ok: false, reason: '时区未知', detail: `这台设备不认识时区标识 ${timeZone}` };
   }
+  const stamp = `${pad(year)}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}`;
 
-  const roots = offsets
-    .map(o => ({ off: o, utc: wall - o * 60000 }))
-    .filter(c => offsetAt(timeZone, c.utc) === c.off);
-
-  if (roots.length === 0) {
-    return { ok: false, reason: '本地时间不存在', detail: `${timeZone} 在这一天做夏令时跳表，${pad(year)}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)} 这个墙钟被跳过了` };
+  if (solved.kind === 'nonexistent') {
+    return { ok: false, reason: '本地时间不存在', detail: `${timeZone} 在这一天做夏令时跳表，${stamp} 这个墙钟被跳过了` };
   }
-  if (roots.length > 1) {
-    const spread = Math.abs(roots[0].off - roots[roots.length - 1].off) / 60;
+  if (solved.kind === 'ambiguous') {
+    const spread = (solved.roots[0].offsetMinutes - solved.roots[solved.roots.length - 1].offsetMinutes) / 60;
     return {
       ok: false, reason: '本地时间有两次',
-      detail: `${timeZone} 在这一天把钟往回拨，${pad(year)}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)} 出现了两次`
-        + `（两个世界时相差 ${spread} 小时）。请把分钟挪到旁边那一档再算 —— 这一小时差在月亮上就是两度，本站不替你选`,
+      detail: `${timeZone} 在这一天把钟往回拨，${stamp} 出现了两次（两个世界时相差 ${spread} 小时）`
+        + `。请把分钟挪到旁边那一档再算 —— 这一小时差在月亮上就是两度，本站不替你选`,
     };
   }
-  const { off, utc } = roots[0];
+  const utc = solved.utcMs;
   return {
-    ok: true, utcMs: utc, offsetMin: off,
+    ok: true, utcMs: utc, offsetMin: solved.offsetMinutes,
     isoUtc: new Date(utc).toISOString().slice(0, 16).replace('T', ' ') + 'Z',
   };
 }

@@ -198,6 +198,16 @@ const ref = refText ? JSON.parse(refText) : null;
   const missing = reasons.filter(r => !src.includes(`'${r}'`));
   ok('astro/reason-codes-exist', missing.length === 0,
     `每一个降级理由都要是代码里真的存在的字面量（文档里列了、代码里没有 = 界面上永远不会出现）：缺 ${missing.join('、') || '无'}`);
+  const badMonth = toUtc({ year: 2000, month: 13, day: 1, hour: 12, minute: 0, timeZone: 'UTC' });
+  ok('astro/invalid-date-rejected', !badMonth.ok && badMonth.reason === '无效日期',
+    `Date.UTC 会把 13 月顺延成下一年 —— 那种"看起来算出来了"的错要当场拒：${JSON.stringify(badMonth)}`);
+  // 「墙上钟面 → 世界时刻」只能有一份实现：真太阳时那批的 dst-resolver 已经拿公开验证集
+  // 回归过，这一层再写一遍枚举就是第二个真相（而 E2 第一版就是这么写、就是这么写错的）。
+  const moment = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'astro', 'moment.ts'), 'utf8'));
+  ok('astro/moment-delegates-dst-resolver', /resolveCivil\(/.test(moment)
+    && !/for \(let (h|d) = -(24|48)/.test(moment) && !/offsetMinutesAt\(/.test(moment),
+    'lib/astro/moment.ts 必须调 app/lib/true-solar/dst-resolver 的 resolveCivil，'
+    + '自己不许再出现候选偏移的采样循环（两份时区实现迟早一份对一份错）');
 }
 
 // ── 6. 时间轴与黄道几何的牙齿 ──
@@ -251,7 +261,7 @@ const ref = refText ? JSON.parse(refText) : null;
 
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
-const EXPECT = 45;
+const EXPECT = 47;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

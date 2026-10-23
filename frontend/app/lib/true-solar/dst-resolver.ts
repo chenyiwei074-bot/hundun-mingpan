@@ -63,12 +63,17 @@ export interface ZoneResolution {
   ambiguous: boolean;
 }
 
-/**
- * 由当地钟表时间 + IANA 时区反解 UTC 瞬间。
- * 重叠时段（夏令时回拨，同一读数出现两次）按 ICU 惯例**取较早的一次**（即偏移较大者），
- * 并把该情形暴露为 `ambiguous`，由 UI 决定是否提示用户。
- */
-export function civilToInstant(civil: CivilParts, timeZoneId: string): { utcMs: number; offsetMinutes: number; ambiguous: boolean } {
+/** 反解出的三种情况必须分得开：一个根=唯一解；两个根=墙钟读了两遍（回拨）；
+ *  零个根=那个墙钟从来没出现（跳表）。civilToInstant 历史上把后两种都压成 ambiguous:true，
+ *  对真太阳时够用（它总得有一个时刻可用），但要说"这个时间不存在"或"出现了两次"就不够用。
+ *  E2 之前 lib/astro/moment.ts 为此自己写了一遍同样的枚举 —— 那就是第二份"哪儿几点是什么"的
+ *  真相；现在枚举只住在这里，两边都读它。 */
+export type CivilSolve =
+  | { kind: 'ok'; utcMs: number; offsetMinutes: number }
+  | { kind: 'ambiguous'; roots: Array<{ utcMs: number; offsetMinutes: number }> }
+  | { kind: 'nonexistent'; naive: number };
+
+export function resolveCivil(civil: CivilParts, timeZoneId: string): CivilSolve {
   const naive = Date.UTC(
     civil.year, civil.month - 1, civil.day,
     civil.hour, civil.minute, civil.second ?? 0,
@@ -80,19 +85,32 @@ export function civilToInstant(civil: CivilParts, timeZoneId: string): { utcMs: 
     candidates.add(offsetMinutesAt(timeZoneId, naive + h * 3600000));
   }
   // 自洽的候选：用该偏移反解出的瞬间，其实际偏移必须与假设一致
-  const valid: Array<{ offset: number; utcMs: number }> = [];
+  const roots: Array<{ utcMs: number; offsetMinutes: number }> = [];
   for (const off of candidates) {
     const utc = naive - off * 60000;
-    if (offsetMinutesAt(timeZoneId, utc) === off) valid.push({ offset: off, utcMs: utc });
+    if (offsetMinutesAt(timeZoneId, utc) === off) roots.push({ utcMs: utc, offsetMinutes: off });
   }
-  if (valid.length === 0) {
-    // 理论不可达（含跳变缺口）：退化为单次迭代结果
-    const off = offsetMinutesAt(timeZoneId, naive);
-    return { utcMs: naive - off * 60000, offsetMinutes: off, ambiguous: true };
-  }
+  if (roots.length === 0) return { kind: 'nonexistent', naive };
   // 较早的一次 = 偏移较大的一次
-  valid.sort((a, b) => b.offset - a.offset);
-  return { utcMs: valid[0].utcMs, offsetMinutes: valid[0].offset, ambiguous: valid.length >= 2 };
+  roots.sort((a, b) => b.offsetMinutes - a.offsetMinutes);
+  if (roots.length === 1) return { kind: 'ok', utcMs: roots[0].utcMs, offsetMinutes: roots[0].offsetMinutes };
+  return { kind: 'ambiguous', roots };
+}
+
+/**
+ * 由当地钟表时间 + IANA 时区反解 UTC 瞬间。
+ * 重叠时段（夏令时回拨，同一读数出现两次）按 ICU 惯例**取较早的一次**（即偏移较大者），
+ * 并把该情形暴露为 `ambiguous`，由 UI 决定是否提示用户。
+ */
+export function civilToInstant(civil: CivilParts, timeZoneId: string): { utcMs: number; offsetMinutes: number; ambiguous: boolean } {
+  const s = resolveCivil(civil, timeZoneId);
+  if (s.kind === 'ok') return { utcMs: s.utcMs, offsetMinutes: s.offsetMinutes, ambiguous: false };
+  // 旧行为逐字保留：两种不确定都返回 ambiguous，且仍给得出一个时刻。
+  // 跳表那一支本来就是"不存在的墙钟"，这里退回单次迭代值 —— 真太阳时至少要有一个数可用，
+  // 而界面要能说"这个时间不存在"的话，读 resolveCivil 的 kind，别在这一层猜。
+  if (s.kind === 'ambiguous') return { utcMs: s.roots[0].utcMs, offsetMinutes: s.roots[0].offsetMinutes, ambiguous: true };
+  const off = offsetMinutesAt(timeZoneId, s.naive);
+  return { utcMs: s.naive - off * 60000, offsetMinutes: off, ambiguous: true };
 }
 
 /** 某年的标准偏移 = 12 个月采样的最小偏移（小时） */

@@ -505,6 +505,7 @@ harness 全量 **82 态 ALL CHECKS PASSED**（3 条 warn 仍是既有六爻结�
 
 **时间轴**：`lib/astro/moment.ts`（戳 `astro-moment-iana-v1`）把"当地墙上钟面 + IANA 时区"换成一个世界时刻，
 用 `Intl` 自己反推偏移，不 import 城市表（那会变成 `lib/liuyao/solar-basis.ts` 之外的第二份"哪儿几点是什么"）。
+**（这段写完就被推翻了一半：枚举搬到 `app/lib/true-solar/dst-resolver.ts` 去了，见本节末尾。）**
 这一层写完第一版是错的，被自己的套件咬住：迭代求不动点只会收敛到**其中一个**根，于是纽约
 2024-11-03 01:30 那种"回拨之后墙钟读了两遍"的时刻被算成一次成功换算（返回 05:30Z，偏移 −240）。
 界面看起来完全正常，而月亮在两个根之间正好差两度。改成**枚举**：取那一天前后各两天内出现过的全部偏移当候选，
@@ -512,6 +513,19 @@ harness 全量 **82 态 ALL CHECKS PASSED**（3 条 warn 仍是既有六爻结�
 两种歧义都只报不猜，页面把原因码与那句话说原样渲染（批D 缺陷②的形状：拿到了不显示）。
 `availableZones()` 另有一处实测坑：ICU 的 `supportedValuesOf('timeZone')` **不含 'UTC'**，
 不补上就没有"直接按世界时输入"这一档，对拍与截图复核少一个可复现入口。
+
+**这一层后来被合并回唯一实现。** 枚举与自洽检查的本体本来就该住在
+`app/lib/true-solar/dst-resolver.ts`（真太阳时那批留的资产，拿 openfate 公开验证集回归过），
+这一层自己再写一遍就是第二份"哪儿几点是什么"的真相 —— 而两份实现里错的那份通常就是抄的那份。
+于是那份枚举搬回去，并补一个 `resolveCivil()` 把三种落点**分开**返回
+（`ok` / `ambiguous(roots≥2)` / `nonexistent`）：原来的 `civilToInstant` 把后两种都压成
+`ambiguous: true`，对真太阳时够用（它总得有一个时刻可用），但要说出"这个时间不存在"就不够用。
+`civilToInstant` 改吃 `resolveCivil` 且行为逐字保持（歧义取较早的一次、跳表退回单次迭代值），
+`toUtc` 只剩"把 kind 翻成界面上那三句话 + 兜住未知时区 + 格式化"。
+新增的 `astro/moment-delegates-dst-resolver` 钉的就是这一条：`lib/astro/moment.ts` 里
+不许再出现候选偏移的采样循环，也不许自己调 `offsetMinutesAt`。
+`13 月 45 日` 那种输入 `Date.UTC` 会**静默顺延**成下一年的某一天 —— 界面（type=date）给不出这种值，
+但这个函数也要能被套件直接喂，所以现在当场拒（原因码 `无效日期`）。
 
 **目录状态**：`astro-natal` 从「未开放」改「部分可用」+ `href: '/astro'`，并新增 `done` / `notDone` 两个可选字段，
 卡面与工作页都渲染这两份清单（数据在目录里却没上屏 = 又是缺陷②）。两份清单的字面量与引擎导出的
