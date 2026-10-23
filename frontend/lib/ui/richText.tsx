@@ -32,7 +32,10 @@ export function RichText({ text, className }: { text: string; className?: string
     const list = items;
     items = [];
     out.push(
-      <ul key={`ul-${out.length}`} style={{ margin: '0 0 12px', paddingLeft: 20, lineHeight: 1.85 }}>
+      // 这一档以前没挂 className，于是 ul/li 吃浏览器默认 16px —— 不在字号阶梯上，
+      // 而且与同一篇里 qn-body 的 15px 正文并排出现（harness 报 off-ladder 就是这么来的）。
+      <ul key={`ul-${out.length}`} className={className || 'qn-body'}
+        style={{ margin: '0 0 12px', paddingLeft: 20, lineHeight: 1.85 }}>
         {list.map((t, i) => <li key={i}>{inline(t, `li-${out.length}-${i}`)}</li>)}
       </ul>,
     );
