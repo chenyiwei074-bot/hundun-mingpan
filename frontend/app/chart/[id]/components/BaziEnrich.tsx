@@ -21,7 +21,9 @@ const WUXING_COLORS: Record<string, string> = {
 
 function safeStr(v: any): string {
   if (v === null || v === undefined) return '-';
-  if (typeof v === 'object') return JSON.stringify(v);
+  // 2026-10-23 审计：对象不再 JSON.stringify 上屏（用户会看到 {"..."}）
+  if (Array.isArray(v)) return v.map(x => safeStr(x)).filter(x => x && x !== '-').join('、');
+  if (typeof v === 'object') return Object.values(v).map(x => safeStr(x)).filter(x => x && x !== '-').join('；');
   return String(v);
 }
 
@@ -53,7 +55,7 @@ export default function BaziEnrich({ enrichment }: BaziEnrichProps) {
             <div>
               <span className="text-sm font-bold text-text-primary">{safeStr(geju.primary)}</span>
               {geju.confidence && (
-                <span className="text-[10px] text-text-muted/60 ml-2">(置信度 {safeStr(geju.confidence)})</span>
+                <span className="text-[10px] text-text-muted/60 ml-2">（置信度 {safeStr(geju.confidence)}）</span>
               )}
               {geju.basis && <p className="text-xs text-text-secondary/60 mt-0.5">{safeStr(geju.basis)}</p>}
             </div>
@@ -67,7 +69,7 @@ export default function BaziEnrich({ enrichment }: BaziEnrichProps) {
             <div>
               <span className="text-sm font-bold text-text-primary">{safeStr(wangshuai.verdict)}</span>
               {wangshuai.score !== undefined && (
-                <span className="text-[10px] text-text-muted/60 ml-2">(score: {safeStr(wangshuai.score)})</span>
+                <span className="text-[10px] text-text-muted/60 ml-2">（评分 {safeStr(wangshuai.score)}）</span>
               )}
             </div>
           </div>

@@ -27,6 +27,9 @@ const DIM_LABEL: Record<string, string> = {
 
 const LEVEL = (v: unknown) => (typeof v === 'string' ? v : '');
 
+/** 去掉句末标点，便于 join 时统一补一个，避免出现「。。」「。；」 */
+const trimEnd = (s: string) => s.replace(/[。；;，,、\s]+$/u, '');
+
 function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
@@ -72,7 +75,7 @@ function legacySections(ai: Record<string, unknown>): ReadingSection[] {
   const final = (ai.final || {}) as Record<string, unknown>;
   const conf = (ai.confidence || {}) as Record<string, unknown>;
 
-  const headline = [str(meta.archetype_name), str(meta.axis_oneliner)].filter(Boolean).join('。');
+  const headline = [str(meta.archetype_name), str(meta.axis_oneliner)].filter(Boolean).map(trimEnd).join('。');
   if (headline) out.push({ title: '命局速览', body: headline + '。' });
 
   const axisParts: string[] = [];
@@ -100,7 +103,7 @@ function legacySections(ai: Record<string, unknown>): ReadingSection[] {
     if (str(d.ziwei)) parts.push(`紫微：${str(d.ziwei)}`);
     if (str(d.fused)) parts.push(`综合：${str(d.fused)}`);
     if (str(d.verdict)) parts.push(`结论：${str(d.verdict)}`);
-    if (parts.length) dimLines.push(`${label}\n${parts.join('；')}`);
+    if (parts.length) dimLines.push(`${label}\n${parts.map(trimEnd).join('；')}`);
   }
   if (dimLines.length) out.push({ title: '分领域解读', body: dimLines.join('\n\n') });
 
