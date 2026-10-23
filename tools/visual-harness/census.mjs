@@ -1712,7 +1712,10 @@ try {
   }
 } catch { /* tmpdir 读不了就不回收 */ }
 
-const chrome = spawn(CHROME, ['--headless=new', ...(GPU ? [] : ['--disable-gpu']), '--no-first-run',
+// 2026-10-23：本机系统代理（Clash 127.0.0.1:7897）常指向不可用上游，Chrome 继承后整页变成
+// 「无法访问此网站 ERR_CONNECTION_CLOSED」，读数全成假红（975 条假 FAIL 的现场）。
+// harness 面向本机服务与自有站点，直连即可：显式关掉系统代理，不改变任何判据。
+const chrome = spawn(CHROME, ['--headless=new', ...(GPU ? [] : ['--disable-gpu']), '--no-first-run', '--no-proxy-server',
   '--no-sandbox', '--disable-dev-shm-usage', `--remote-debugging-port=${PORT}`,
   `--user-data-dir=${PROFILE}`, 'about:blank'],
   { stdio: 'ignore' });
