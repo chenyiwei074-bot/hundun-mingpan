@@ -1,5 +1,7 @@
 'use client';
 import { calcShenSha, calcZhangSheng } from './shensha';
+import { getNaYin as coreNaYin } from '@/app/lib/core/yiqi-core/nayin';
+import type { Dizhi, Tiangan } from '@/app/lib/core/yiqi-core/types';
 interface BaziPillar {
   gan: string;
   zhi: string;
@@ -82,21 +84,15 @@ function getKongWang(gan: string, zhi: string): string {
   return DIZHI[kong1] + DIZHI[kong2];
 }
 
-// 纳音
-function getNaYin(gan: string, zhi: string): string {
-  const nayinTable: Record<string, Record<string,string>> = {
-    '甲':{'子':'海中金','丑':'海中金','寅':'大溪水','卯':'大溪水','辰':'覆灯火','巳':'覆灯火','午':'沙中金','未':'沙中金','申':'泉中水','酉':'泉中水','戌':'山头火','亥':'山头火'},
-    '乙':{'子':'海中金','丑':'海中金','寅':'大溪水','卯':'大溪水','辰':'覆灯火','巳':'覆灯火','午':'沙中金','未':'沙中金','申':'泉中水','酉':'泉中水','戌':'山头火','亥':'山头火'},
-    '丙':{'子':'涧下水','丑':'涧下水','寅':'炉中火','卯':'炉中火','辰':'沙中土','巳':'沙中土','午':'天河水','未':'天河水','申':'山下火','酉':'山下火','戌':'屋上土','亥':'屋上土'},
-    '丁':{'子':'涧下水','丑':'涧下水','寅':'炉中火','卯':'炉中火','辰':'沙中土','巳':'沙中土','午':'天河水','未':'天河水','申':'山下火','酉':'山下火','戌':'屋上土','亥':'屋上土'},
-    '戊':{'子':'霹雳火','丑':'霹雳火','寅':'城头土','卯':'城头土','辰':'大林木','巳':'大林木','午':'天上火','未':'天上火','申':'大驿土','酉':'大驿土','戌':'平地木','亥':'平地木'},
-    '己':{'子':'霹雳火','丑':'霹雳火','寅':'城头土','卯':'城头土','辰':'大林木','巳':'大林木','午':'天上火','未':'天上火','申':'大驿土','酉':'大驿土','戌':'平地木','亥':'平地木'},
-    '庚':{'子':'壁上土','丑':'壁上土','寅':'松柏木','卯':'松柏木','辰':'白蜡金','巳':'白蜡金','午':'路旁土','未':'路旁土','申':'石榴木','酉':'石榴木','戌':'钗钏金','亥':'钗钏金'},
-    '辛':{'子':'壁上土','丑':'壁上土','寅':'松柏木','卯':'松柏木','辰':'白蜡金','巳':'白蜡金','午':'路旁土','未':'路旁土','申':'石榴木','酉':'石榴木','戌':'钗钏金','亥':'钗钏金'},
-    '壬':{'子':'桑柘木','丑':'桑柘木','寅':'金箔金','卯':'金箔金','辰':'长流水','巳':'长流水','午':'杨柳木','未':'杨柳木','申':'剑锋金','酉':'剑锋金','戌':'大海水','亥':'大海水'},
-    '癸':{'子':'桑柘木','丑':'桑柘木','寅':'金箔金','卯':'金箔金','辰':'长流水','巳':'长流水','午':'杨柳木','未':'杨柳木','申':'剑锋金','酉':'剑锋金','戌':'大海水','亥':'大海水'},
-  };
-  return nayinTable[gan]?.[zhi] || '';
+// 纳音只有一份表：app/lib/core/yiqi-core/nayin.ts。
+// 这里原来自己抄了一份「10 天干 × 12 地支」= 120 格的表，而干支只有 60 对（天干地支同奇偶才成对），
+// 那多出来的 60 格（甲丑、乙子……）也照样填了值 —— 于是"调用方给了个不存在的对"与
+// "这一柱本来就没排出来"在屏上长得一样，都是两个字能看的纳音。批F⑥ 对拍（60 甲子逐字）
+// 证过单源与那份抄本在**真实存在的 60 对**上完全一致，所以这里删表不改变任何正常盘的输出；
+// 不存在的对从此不再被编造：空输入 → 这一栏不渲染，非空又查不到 → 让单源抛（数据事故，不猜）。
+function nayinOf(gan: string, zhi: string): string {
+  if (!gan || !zhi) return '';
+  return coreNaYin(gan as Tiangan, zhi as Dizhi);
 }
 
 // 五行统计
@@ -405,10 +401,10 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <span className="text-[10px] text-text-muted/50">{getNaYin(dayunGan||'', dayunZhi||'')}</span>
+                    <span className="text-[10px] text-text-muted/50">{nayinOf(dayunGan||'', dayunZhi||'')}</span>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <span className="text-[10px] text-text-muted/50">{getNaYin(liuNianGan||'', liuNianZhi||'')}</span>
+                    <span className="text-[10px] text-text-muted/50">{nayinOf(liuNianGan||'', liuNianZhi||'')}</span>
                   </td>
                 </>
               )}
