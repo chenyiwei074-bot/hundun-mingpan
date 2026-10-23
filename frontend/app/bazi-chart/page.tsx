@@ -88,116 +88,94 @@ export default function BaziChartDemoPage() {
 
   if (!submitted) {
     return (
-      <div style={{ minHeight:"100vh", background:"#f5f5f7" }}>
-        {/* NAV */}
-        
+      <main className="qn-shell qn-shell--wide bazi-demo">
+        <header className="qn-rise" style={{ textAlign: "center", marginBottom: 24 }}>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>东方 · 八字与紫微</p>
+          <h1 className="qn-hero" style={{ margin: "12px 0 6px" }}>输入你的出生信息</h1>
+          <p className="qn-meta">混沌将为你排出八字命盘与紫微斗数</p>
+        </header>
 
-        {/* FORM */}
-        <div className="max-w-lg mx-auto px-6 pt-16 pb-20">
-          <div className="text-center mb-10">
-            <p className="text-[10px] tracking-[0.25em] font-semibold mb-3" style={{ color:"#b2955d" }}>八字排盘</p>
-            <h1 className="font-serif font-bold tracking-[-0.03em] leading-[1.2] mb-2"
-              style={{ fontSize:'clamp(1.6rem, 5vw, 2rem)', color:"#1d1d1f" }}>输入你的出生信息</h1>
-            <p className="text-[14px]" style={{ color:"#86868b" }}>混沌将为你排出八字命盘与紫微斗数</p>
+        <form onSubmit={handleSubmit} className="qn-card qn-stack qn-rise qn-rise--2">
+          <div>
+            <label className="qn-label" htmlFor="demo-name">姓名</label>
+            <input id="demo-name" type="text" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required
+              placeholder="请输入姓名" className="qn-input" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* 姓名 */}
-            <div>
-              <label className="block text-[12px] font-medium tracking-[0.05em] mb-1.5" style={{ color:"#1d1d1f" }}>姓名</label>
-              <input type="text" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} required
-                placeholder="请输入姓名"
-                className="w-full rounded-xl px-4 py-3 text-[15px] outline-none transition-all duration-300 focus:ring-2"
-                style={{ background:"white", border:'0.5px solid rgba(0,0,0,0.08)', color:"#1d1d1f" }} />
+          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend className="qn-label">性别</legend>
+            <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+              {["男","女"].map(g=>(
+                <button key={g} type="button" onClick={()=>setForm({...form,gender:g})}
+                  aria-pressed={form.gender===g}
+                  className={`qn-chip${form.gender===g ? " qn-chip--on" : ""}`}
+                  style={{ flex: "1 1 0", minHeight: 44 }}>{g}</button>
+              ))}
             </div>
+          </fieldset>
 
-            {/* 性别 */}
-            <div>
-              <label className="block text-[12px] font-medium tracking-[0.05em] mb-1.5" style={{ color:"#1d1d1f" }}>性别</label>
-              <div className="flex gap-3">
-                {["男","女"].map(g=>(
-                  <button key={g} type="button" onClick={()=>setForm({...form,gender:g})}
-                    className="flex-1 rounded-xl px-4 py-3 text-[15px] font-medium transition-all duration-300"
-                    style={{
-                      background: form.gender===g ? "rgba(178,149,93,0.08)" : "white",
-                      border: form.gender===g ? '1px solid rgba(178,149,93,0.3)' : '0.5px solid rgba(0,0,0,0.08)',
-                      color: form.gender===g ? "#b2955d" : "#1d1d1f"
-                    }}>{g}</button>
-                ))}
-              </div>
+          <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+            <legend className="qn-label">出生日期（阳历）</legend>
+            <div className="grid grid-cols-3 gap-3" style={{ marginTop: 8 }}>
+              <label className="sr-only" htmlFor="demo-year">出生年份</label>
+              <input id="demo-year" type="text" inputMode="numeric" value={form.year} onChange={e=>setForm({...form,year:e.target.value})} required
+                placeholder="1990" maxLength={4} aria-label="出生年份" className="qn-input" style={{ textAlign: "center" }} />
+              <label className="sr-only" htmlFor="demo-month">出生月份</label>
+              <input id="demo-month" type="text" inputMode="numeric" value={form.month} onChange={e=>setForm({...form,month:e.target.value})} required
+                placeholder="05" maxLength={2} aria-label="出生月份" className="qn-input" style={{ textAlign: "center" }} />
+              <label className="sr-only" htmlFor="demo-day">出生日期</label>
+              <input id="demo-day" type="text" inputMode="numeric" value={form.day} onChange={e=>setForm({...form,day:e.target.value})} required
+                placeholder="20" maxLength={2} aria-label="出生日期" className="qn-input" style={{ textAlign: "center" }} />
             </div>
+          </fieldset>
 
-            {/* 出生日期 */}
-            <div>
-              <label className="block text-[12px] font-medium tracking-[0.05em] mb-1.5" style={{ color:"#1d1d1f" }}>出生日期（阳历）</label>
-              <div className="grid grid-cols-3 gap-3">
-                <input type="text" value={form.year} onChange={e=>setForm({...form,year:e.target.value})} required
-                  placeholder="1990" maxLength={4}
-                  className="rounded-xl px-4 py-3 text-[15px] text-center outline-none transition-all duration-300 focus:ring-2"
-                  style={{ background:"white", border:'0.5px solid rgba(0,0,0,0.08)', color:"#1d1d1f" }} />
-                <input type="text" value={form.month} onChange={e=>setForm({...form,month:e.target.value})} required
-                  placeholder="05" maxLength={2}
-                  className="rounded-xl px-4 py-3 text-[15px] text-center outline-none transition-all duration-300 focus:ring-2"
-                  style={{ background:"white", border:'0.5px solid rgba(0,0,0,0.08)', color:"#1d1d1f" }} />
-                <input type="text" value={form.day} onChange={e=>setForm({...form,day:e.target.value})} required
-                  placeholder="20" maxLength={2}
-                  className="rounded-xl px-4 py-3 text-[15px] text-center outline-none transition-all duration-300 focus:ring-2"
-                  style={{ background:"white", border:'0.5px solid rgba(0,0,0,0.08)', color:"#1d1d1f" }} />
-              </div>
-            </div>
+          <div>
+            <label className="qn-label" htmlFor="demo-hour">出生时辰</label>
+            <select id="demo-hour" value={form.hour} onChange={e=>setForm({...form,hour:e.target.value})} className="qn-select">
+              {["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"].map(h=>(
+                <option key={h} value={h}>{h}:00</option>
+              ))}
+            </select>
+          </div>
 
-            {/* 出生时辰 */}
-            <div>
-              <label className="block text-[12px] font-medium tracking-[0.05em] mb-1.5" style={{ color:"#1d1d1f" }}>出生时辰</label>
-              <select value={form.hour} onChange={e=>setForm({...form,hour:e.target.value})}
-                className="w-full rounded-xl px-4 py-3 text-[15px] outline-none transition-all duration-300 focus:ring-2 appearance-none"
-                style={{ background:"white", border:'0.5px solid rgba(0,0,0,0.08)', color:"#1d1d1f" }}>
-                {["00","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"].map(h=>(
-                  <option key={h} value={h}>{h}:00</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label className="qn-label" htmlFor="demo-birthplace">出生地</label>
+            <input id="demo-birthplace" type="text" value={form.birthplace} onChange={e=>setForm({...form,birthplace:e.target.value})}
+              placeholder="例如：北京" className="qn-input" />
+          </div>
 
-            {/* 出生地 */}
-            <div>
-              <label className="block text-[12px] font-medium tracking-[0.05em] mb-1.5" style={{ color:"#1d1d1f" }}>出生地</label>
-              <input type="text" value={form.birthplace} onChange={e=>setForm({...form,birthplace:e.target.value})}
-                placeholder="例如：北京"
-                className="w-full rounded-xl px-4 py-3 text-[15px] outline-none transition-all duration-300 focus:ring-2"
-                style={{ background:"white", border:'0.5px solid rgba(0,0,0,0.08)', color:"#1d1d1f" }} />
-            </div>
-
-            {/* Submit */}
-            <button type="submit"
-              className="w-full rounded-xl py-3.5 text-[15px] font-medium tracking-[0.05em] transition-all duration-500 hover:scale-[1.01] active:scale-[0.99] mt-8"
-              style={{ background:"#b2955d", color:"white", boxShadow:'0 4px 20px rgba(178,149,93,0.25)' }}>
-              开始排盘
-            </button>
-          </form>
-        </div>
-      </div>
+          <button type="submit" className="qn-btn qn-btn--solid qn-btn--block" style={{ marginTop: 4 }}>
+            开始排盘
+          </button>
+        </form>
+      </main>
     );
   }
 
   // ════════════ RESULT VIEW ════════════
   return (
-    <div style={{ minHeight:"100vh", background:"#f5f5f7" }}>
-      {/* NAV */}
-      <div className="max-w-3xl mx-auto px-4 pt-14 pb-2 flex justify-end"><button onClick={() => setSubmitted(false)} className="text-[12px] tracking-[0.05em] px-3 py-1 rounded-full transition-all duration-300" style={{ color:"#86868b", background:"rgba(0,0,0,0.03)" }}>重新输入</button></div>
+    <main className="qn-shell qn-shell--wide bazi-demo">
+      <header className="qn-card qn-rise" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>东方 · 命盘示例</p>
+          <h1 className="qn-title" style={{ margin: "8px 0 4px" }}>八字与紫微合参</h1>
+          <p className="qn-meta">当前展示的是固定样例盘，表单仅用于体验页面交互</p>
+        </div>
+        <button type="button" onClick={() => setSubmitted(false)} className="qn-btn qn-btn--ghost">重新输入</button>
+      </header>
 
       <BaziChart data={SAMPLE_BAZI} />
 
-      {/* 紫微斗数分隔 */}
-      <div className="max-w-3xl mx-auto px-4 pb-4">
-        <div className="flex items-center gap-3 py-4">
-          <div className="flex-1 h-px" style={{background:"linear-gradient(90deg,transparent,rgba(178,149,93,0.18),transparent)"}}/>
-          <span style={{fontSize:"11px",color:"rgba(0,0,0,0.25)",letterSpacing:"0.2em"}}>紫微斗数</span>
-          <div className="flex-1 h-px" style={{background:"linear-gradient(90deg,transparent,rgba(178,149,93,0.18),transparent)"}}/>
+      <section aria-labelledby="demo-ziwei-title" style={{ marginTop: 18 }}>
+        <div className="qn-axis" style={{ display: "flex", alignItems: "center", gap: 12, margin: "0 0 12px" }}>
+          <span aria-hidden="true" style={{ height: 1, flex: 1, background: "var(--color-hairline)" }} />
+          <h2 id="demo-ziwei-title" className="qn-title" style={{ margin: 0 }}>紫微斗数</h2>
+          <span aria-hidden="true" style={{ height: 1, flex: 1, background: "var(--color-hairline)" }} />
         </div>
-        <ZiweiGongs gongs={SAMPLE_ZIWEI.gongs} mingGongIndex={0} shenGongIndex={6} />
-      </div>
-
-      
-    </div>
+        <div className="qn-card" style={{ padding: 8 }}>
+          <ZiweiGongs gongs={SAMPLE_ZIWEI.gongs} mingGongIndex={0} shenGongIndex={6} />
+        </div>
+      </section>
+    </main>
   );
 }
