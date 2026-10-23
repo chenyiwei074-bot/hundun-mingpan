@@ -5,7 +5,7 @@
 // 计算全在这台设备上：日期/时间/时区只用来在本地算一个绝对时刻，不发请求、不落任何库。
 // 这也是这一项能做而"AI 报告"那类不能做的原因 —— 没有原文要保护。
 import { useMemo, useState } from 'react';
-import { computePlanets, ASTRO_BASIS, PLANETS, SIGNS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
+import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, PLANETS, SIGNS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
 import { toUtc, availableZones, MOMENT_BASIS, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { WESTERN_TOOL_BY_SLUG } from '@/lib/tools/western-catalog';
 import Callout from '@/components/ui/Callout';
@@ -20,8 +20,11 @@ const deviceZone = () => {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
 };
 
-/** 一个固定样例：给 harness 与"先看看长什么样"用，不含任何真人信息。 */
-const SAMPLE = { year: 2000, month: 1, day: 1, hour: 12, minute: 0, timeZone: 'UTC' };
+// 出生时刻这一层的输入形状。
+// 这里**不预填任何值**（以前预填 2000-01-01 12:00 当样例）：一张已经填好时间的表单，
+// 用户改都没改就按下按钮，得到的是一张看起来属于他的盘 —— 那正是本站最不该给的东西。
+// 空着就不给算，样例值改由 harness 自己填（tools/visual-harness/census.mjs 的 astro-computed 态）。
+type Input = { year: number; month: number; day: number; hour: number; minute: number; timeZone: string };
 
 // 带标签的联合：'planets' in x 那种结构化收窄在这一层会被 TS 推成"可能 undefined"，
 // 于是每个读数都要 !. —— 用 kind 判别，收窄是确定的，屏上少一堆断言。
@@ -31,9 +34,9 @@ type Outcome =
 
 export default function NatalPlanets() {
   const [zone, setZone] = useState(deviceZone());
-  const [date, setDate] = useState('2000-01-01');
-  const [clock, setClock] = useState('12:00');
-  const [已算, set已算] = useState<typeof SAMPLE | null>(null);
+  const [date, setDate] = useState('');
+  const [clock, setClock] = useState('');
+  const [已算, set已算] = useState<Input | null>(null);
 
   const 结果 = useMemo<Outcome | null>(() => {
     if (!已算) return null;
@@ -43,7 +46,10 @@ export default function NatalPlanets() {
     return p.ok ? { kind: 'ok', moment: m, planets: p } : { kind: 'fail', why: p };
   }, [已算]);
 
+  // 没填完就不给算：宁可按钮是灰的，也不给一张"时间是我们替你挑的"盘。
+  const 可算 = /^\d{4}-\d{2}-\d{2}$/.test(date) && /^\d{2}:\d{2}$/.test(clock);
   const run = () => {
+    if (!可算) return;
     const [y, mo, d] = date.split('-').map(Number);
     const [h, mi] = clock.split(':').map(Number);
     set已算({ year: y, month: mo, day: d, hour: h, minute: mi, timeZone: zone });
@@ -59,6 +65,9 @@ export default function NatalPlanets() {
         <p className="qn-meta" style={{ margin: '4px 0 0' }}>
           地心、回归黄道（当日真春分点）、不作恒星黄道（岁差）换算；时刻换算用这台设备自带的时区数据库（含夏令时与历史偏移）。
           口径戳 {ASTRO_BASIS} 与时间口径 {MOMENT_BASIS}：改任何一条都要升戳，否则老截图分不出是哪一版算的。
+          每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
+          黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；过了 {ASTRO_CROSS_CHECK.to} 本站不打包票 ——
+          远未来那一批历元上月亮已经偏出这条线，逐颗星的实测偏差与出处都记在仓库里的对拍夹具中，不在这儿复述。
         </p>
       </section>
 
@@ -81,8 +90,10 @@ export default function NatalPlanets() {
         </div>
         <p className="qn-cap" style={{ margin: '10px 0 0' }}>
           填的是当地墙上钟面时间，不是世界时；不勾夏令时与否 —— 时区自己按那一天决定。
+          日期与钟面时间都要填，空着不给算：本站不替你挑一个出生时刻。
         </p>
-        <button type="button" className="qn-btn qn-btn--solid" style={{ marginTop: 12, minHeight: 44 }} onClick={run}>
+        <button type="button" className="qn-btn qn-btn--solid" style={{ marginTop: 12, minHeight: 44 }}
+          disabled={!可算} aria-disabled={!可算} onClick={run}>
           算行星位置
         </button>
       </section>
