@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, PLANETS, SIGNS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
 import { toUtc, availableZones, MOMENT_BASIS, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { WESTERN_TOOL_BY_SLUG } from '@/lib/tools/western-catalog';
+import { TROPICAL_SIGNS_BASIS } from '@/lib/astro/classics';
+import BasisQuote from '@/components/western/BasisQuote';
 import Callout from '@/components/ui/Callout';
 
 const ZONES = availableZones();
@@ -69,6 +71,7 @@ export default function NatalPlanets() {
           黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；过了 {ASTRO_CROSS_CHECK.to} 本站不打包票 ——
           远未来那一批历元上月亮已经偏出这条线，逐颗星的实测偏差与出处都记在仓库里的对拍夹具中，不在这儿复述。
         </p>
+        <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
       </section>
 
       <section className="qn-card" style={{ marginTop: 14 }}>
