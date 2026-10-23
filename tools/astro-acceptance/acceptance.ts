@@ -16,6 +16,7 @@ import { stripComments } from '../_lib/codesrc';
 import { VETTED_PINNED } from '../_lib/vettedDeps';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
 import { toUtc, MOMENT_BASIS, availableZones } from '../../frontend/lib/astro/moment';
+import { TROPICAL_SIGNS_BASIS } from '../../frontend/lib/astro/classics';
 import { WESTERN_INTENTS, WESTERN_TOOL_BY_SLUG } from '../../frontend/lib/tools/western-catalog';
 import { ROUTER_SPECS } from '../../frontend/lib/assistant/intent';
 import { build } from './make-reference';
@@ -344,9 +345,60 @@ const ref = refText ? JSON.parse(refText) : null;
     `裁定里批准的是 MIT 那一个（AGPL 与 1★ 仓库两条红线仍在）：实得 license=${JSON.stringify(license)}`);
 }
 
+// ── 7. 「依据」三层（批H 打样，业主 2026-10-23 三条裁定：换底本／白话分层自写／近代必须标）──
+{
+  // 引文比对前先折叠连续空白：源 TXT 是约 70 字符硬换行，不折叠就得把换行位置抄进前端代码，
+  // 那种引用一改版就烂。除空白以外的差异一律判红（证伪用的是改一个字母，不是改空格）。
+  const canon = (s: string) => s.replace(/\s+/g, ' ').trim();
+  const basisFile = join(ROOT, TROPICAL_SIGNS_BASIS.底本);
+  ok('astro/basis-file-registered', existsSync(basisFile),
+    `依据块登记了底本路径就必须取得到文件（悬空引文比没引文更坏 —— 它承诺了复核却没处可核）：${TROPICAL_SIGNS_BASIS.底本}`);
+  const basisText = existsSync(basisFile) ? readFileSync(basisFile, 'utf8') : '';
+
+  // 逐字性：页面那句原文，必须是入仓底本的连续子串（与东方侧 quote/substring-of-classics 同一纪律）
+  ok('astro/basis-quote-is-substring-of-classics',
+    basisText.length > 0 && canon(basisText).includes(canon(TROPICAL_SIGNS_BASIS.原文)),
+    `页面引文必须是入仓底本的连续子串，差一字即红（底本 ${TROPICAL_SIGNS_BASIS.底本} / 引文 ${TROPICAL_SIGNS_BASIS.原文.slice(0, 42)}…）`);
+
+  // 元数据九项 + 取文凭据：缺任一项就"不可核"，而不可核的原文与编造无差别
+  const NEED = ['书名', '卷篇', '转引关系', '版本', '取文方式', '抓取日期', '源文件校验', '繁简与标点处理', '比对规则'];
+  const missMeta = NEED.filter(k => !basisText.includes(k));
+  ok('astro/basis-metadata-complete', missMeta.length === 0 && /sha256\s*=\s*[0-9a-f]{64}/.test(basisText)
+    && /字符偏移\s*\d+…\d+/.test(basisText),
+    `底本元数据必须齐（${NEED.join('/')}）且带源文件 sha256 与字符偏移，否则下一个读的人没法复核：缺 ${missMeta.join('、') || '无'}；`
+    + `sha256 ${/sha256\s*=\s*[0-9a-f]{64}/.test(basisText) ? '有' : '无'}、偏移 ${/字符偏移\s*\d+…\d+/.test(basisText) ? '有' : '无'}`);
+
+  // 三层缺一层就不算有出处：原文／本站白话／口径标注，且白话要写明"非他人译本"
+  const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'BasisQuote.tsx'), 'utf8'));
+  const missLayer = ['原文', '白话', '口径'].filter(k => !comp.includes(k));
+  ok('astro/basis-three-layers', missLayer.length === 0 && /basis\.原文/.test(comp) && /basis\.白话/.test(comp)
+    && /basis\.口径/.test(comp) && /非原文、非他人译本/.test(comp),
+    `「依据」块三层必须齐且各自吃到数据（原文／本站白话／口径标注），白话还要自证不是他人译本：缺 ${missLayer.join('、') || '无'}`);
+
+  // 近代词条只许待在「近代约定」那一层，混进原文层就是把近代约定包装成古籍
+  const MODERN = ['orb', 'Placidus', 'synastry', 'Life Path'];
+  const tiers = TROPICAL_SIGNS_BASIS.口径;
+  const modernTier = tiers.filter(t => t.属于 === '近代约定 · 非古籍');
+  const leakedIntoQuote = MODERN.filter(w => TROPICAL_SIGNS_BASIS.原文.toLowerCase().includes(w.toLowerCase()));
+  const covered = modernTier.flatMap(t => MODERN.filter(w => t.说法.toLowerCase().includes(w.toLowerCase())));
+  ok('astro/basis-modern-tier-labeled', modernTier.length > 0 && covered.length === MODERN.length
+    && leakedIntoQuote.length === 0 && tiers.some(t => t.属于 === '古籍原文'),
+    `orb/Placidus/synastry/Life Path 这四个近代词条必须出现在「近代约定 · 非古籍」那一层且不出现在原文层：`
+    + `已标 ${covered.join('、') || '无'}（要 ${MODERN.length} 个）、混进原文 ${leakedIntoQuote.join('、') || '无'}、`
+    + `古籍原文层 ${tiers.some(t => t.属于 === '古籍原文') ? '有' : '无'}`);
+
+  // 拉丁原文只许出现在 /astro，不许塞进目录卡面 —— 那是裁定 E1 的拉丁词纪律（那边有独立判据，
+  // 这一条是为了"有人把引文当说明文字抄进目录"时能第一时间点名，而不是等 harness 在屏上找）。
+  const catalogFields = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || ''].join(' ');
+  ok('astro/basis-quote-stays-off-catalog', !catalogFields.includes('tropical') && !/Tetrabiblos|Gutenberg/.test(catalogFields),
+    '逐字原文只挂在 /astro 的依据块里；目录卡面（/tools 与 /western 共用那份渲染）出现英文原书名或译者名就等于把拉丁词搬进中文页');
+}
+
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
-const EXPECT = 57;
+// 批H 打样加了 6 条（底本在册／引文子串／元数据齐／三层齐／近代词条分层／引文不进目录），
+// 57 → 63。这条锁当场就抓到我把 6 数成 5。
+const EXPECT = 63;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

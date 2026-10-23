@@ -362,7 +362,12 @@ function astroProbe(computed) {
   const flat = (document.body.innerText || '').replace(/\\s+/g, '');
   // 两态共有的部分：口径戳、"不叫星盘"那句、已做/未做两张清单真的渲染了（计数只验非零，
   // 数字本身由目录与引擎那两侧钉 —— 在这里钉个数就成了第三份真相）。
-  for (const s of ['astro-planets-v1', 'astro-moment-iana-v1', '不叫星盘', '不打包票'])
+  // 批H 起再加上「依据」三层块：源码级断言永远证明不了"渲染出来了"，那正是白话层与近代层
+  // 最容易被悄悄删掉的地方（原文留着一行说明、白话与口径标注没了，读起来还是"有出处"）。
+  // flat 已把所有空白抹掉，所以钉的是无空格形态（'Thetropicalsigns…'）。
+  for (const s of ['astro-planets-v1', 'astro-moment-iana-v1', '不叫星盘', '不打包票',
+    '依据（原文·白话·口径）', '本站白话', '非原文、非他人译本', '近代约定·非古籍',
+    'Thetropicalsignsaretwo', 'tetrabiblos-i-xiv-tropical-signs.md'])
     if (flat.indexOf(s) < 0) miss.push('页面上找不到「' + s + '」');
   const done = /已做（(\\d+)项）/.exec(flat), notDone = /未做（(\\d+)项）/.exec(flat);
   if (!done || !notDone || !+done[1] || !+notDone[1])
