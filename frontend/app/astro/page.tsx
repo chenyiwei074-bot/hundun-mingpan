@@ -30,7 +30,7 @@ export default function AstroPage() {
         </p>
         <p className="qn-linkrow">
           <Link className="qn-link" href="/western">返回西方目录</Link>
-          <Link className="qn-link" href="/tools">全部工具目录</Link>
+          <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
         </p>
       </section>
     </main>
