@@ -5,3 +5,7 @@
 # 而红的理由是行尾，不是口径。数据文件按 -text 存原样，任何平台 checkout 都逐字一致。
 tools/astro-acceptance/cases/*.json -text
 tools/astro-acceptance/horizons/*.txt -text
+# 批F⑥ 起这条不再只护 astro 那一档：任何"重算必须复现同一份"的夹具都是同一类东西。
+# 判据按类写，不按文件名点名 —— 下一次再加一套对拍（比如上升点与星历台的那 20 组）不用再改这里。
+tools/*/cases/*.json -text
+tools/*/cases/*.txt -text

@@ -19,8 +19,7 @@ import Link from 'next/link';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
 import { STATUS_DOT } from '@/lib/tools/status';
-import { needsFor } from '@/lib/assistant/intent';
-import { reconcile } from '@/lib/assistant/types';
+import { routeByCatalogSlug } from '@/lib/assistant/intent';
 import { askRoute } from '@/lib/assistant/route-client';
 import type { RouteOutcome } from '@/lib/assistant/route-client';
 import type { AskTurn, AssistantRouteResult, Mode } from '@/lib/assistant/types';
@@ -35,8 +34,11 @@ const PLACEHOLDER: Record<Mode, string> = {
 
 /** 示例问题只从目录里现取，页面不写第二份例子。
  *  批B 改了一件事：不再按状态过滤。西方五项都还没开放，过滤之后示例区就是空的 ——
- *  空着不等于"这一系没有问法"，读者会以为整页都问不出东西。现在照目录给四条，
- *  点下去落到 closed 那一支（写明没开放、缺什么、不给入口），这比不给例子诚实。 */
+ *  空着不等于"这一系没有问法"，读者会以为整页都问不出东西。
+ *  批F④ 改了第二件事：每条例子连着它自己的 slug 一起给。例子那句「适用问题」常常
+ *  不含本项的关键词，让它去走关键词匹配，点下去会落到"没对上"而不是该项自己的落点
+ *  （批B 记进 report-only 的那条）。带上 slug 之后未开放的那几项仍然落到 closed ——
+ *  换了来源，没换那道门。 */
 function examples(mode: Mode): { slug: string; q: string }[] {
   return GROUPS[mode].flatMap(g => g.tools)
     .slice(0, 4)
@@ -50,7 +52,8 @@ function toolOf(mode: Mode, slug: string | null | undefined): ToolEntry | undefi
 
 /** 这一轮到底是谁给的：三种来源三句话，不许混用。 */
 function sourceLine(t: AskTurn): string {
-  if (t.chosen) return '这一条是你在并列的候选里自己挑的，不是系统替你选的。';
+  if (t.via === 'choice') return '这一条是你在并列的候选里自己挑的，不是系统替你选的。';
+  if (t.via === 'example') return '这一条点的是目录里该项自己登记的例子，去哪个工具写在目录里，不是系统按这句话猜的。';
   if (t.source === 'server') return '这一轮来自服务端路由';
   return '这一轮由本机目录匹配给出，未经模型';
 }
@@ -84,35 +87,45 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
   // 实测预留格整体位移 2px（批E 把面板外框钉成判据之后才看见；旧版没看见是因为
   // 那一版整个输入框在折线以下）。超过 4 行的字在框内滚，页面一寸不动。
 
-  const ask = async (raw: string, chosenSlug?: string) => {
+  const ask = async (raw: string, picked?: { slug: string; via: 'choice' | 'example' }) => {
     const q = raw.trim();
     if (!q || busy) return;
     setBusy(true);
     setErr(null);
-    let outcome: RouteOutcome;
-    try {
-      outcome = await askRoute({ mode, text: q, catalog: GROUPS[mode].flatMap(g => g.tools), otherCatalog: OTHER[mode].flatMap(g => g.tools) });
-    } catch (e) {
-      // askRoute 自己已经兜底了；走到这里说明是编码错误，明说，不假装算过了。
-      setErr('这一步在本机也没算出来（不是网络问题，是这一条判断的代码坏了）。请直接看下面的目录。');
-      setBusy(false);
-      return;
+    const catalog = GROUPS[mode].flatMap(g => g.tools);
+    // 目录点名的那一条（并列里挑的、或该项自己的例子）走 intent.ts 里那一个实现：
+    // 换了"目标工具由谁定"，没换判据 —— 仍过 reconcile 那道目录白名单，仍由 needsFor
+    // 算"还要补什么"。未开放的工具被例子点名，落点还是 closed（写明缺什么、不给入口），
+    // 不因"是目录自己推荐的"就放行 —— 半开的门比关着的门更容易让人以为能进。
+    const bySlug = (slug: string, confidence: number): AssistantRouteResult =>
+      routeByCatalogSlug(mode, slug, q, catalog, confidence);
+    let result: AssistantRouteResult;
+    let source: AskTurn['source'] = 'local';
+    let degraded: string | null;
+    if (picked?.via === 'example') {
+      // 这一条不打服务端：要去哪个工具目录里已经写死了。以前例子也走关键词匹配，
+      // 而目录那句「适用问题」往往不含本项的关键词，于是「点了目录里的例子却说没对上」
+      // （批B 记的 report-only 缺陷）。匹配错了不是降级，是把目录说的话又猜了一遍。
+      result = bySlug(picked.slug, 1);
+      degraded = '这一条不需要路由：点的就是目录里该项自己的例子，按它登记的编号带过去';
+    } else {
+      let outcome: RouteOutcome;
+      try {
+        outcome = await askRoute({ mode, text: q, catalog, otherCatalog: OTHER[mode].flatMap(g => g.tools) });
+      } catch {
+        // askRoute 自己已经兜底了；走到这里说明是编码错误，明说，不假装算过了。
+        setErr('这一步在本机也没算出来（不是网络问题，是这一条判断的代码坏了）。请直接看下面的目录。');
+        setBusy(false);
+        return;
+      }
+      source = outcome.source;
+      degraded = outcome.degraded;
+      result = picked ? bySlug(picked.slug, outcome.result.confidence) : outcome.result;
     }
     seq.current += 1;
-    let result = outcome.result;
-    if (chosenSlug) {
-      // 用户在并列里挑了一个。挑中不等于放行：仍然走 reconcile 那道目录白名单，
-      // "还要补什么"走 needsFor —— 两处都复用同一个实现，页面不抄第二份表。
-      const missing = needsFor(chosenSlug, q);
-      result = reconcile({
-        mode, toolSlug: chosenSlug, confidence: outcome.result.confidence,
-        needsClarification: missing.length > 0, clarification: null,
-        missingFields: missing, available: true,
-      }, mode, GROUPS[mode].flatMap(g => g.tools));
-    }
     const turn: AskTurn = {
       id: `t${seq.current}`, text: q, result,
-      source: outcome.source, degraded: outcome.degraded, chosen: !!chosenSlug,
+      source, degraded, via: picked?.via ?? 'typed',
     };
     setTurns(t => [turn, ...t].slice(0, 6));
     setText('');
@@ -160,7 +173,8 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
       {ex.length > 0 && (
         <div className="qa-examples" style={{ marginTop: 10 }}>
           {ex.map(x => (
-            <button key={x.slug} type="button" className="qn-chip" onClick={() => void ask(x.q)}
+            <button key={x.slug} type="button" className="qn-chip"
+              onClick={() => void ask(x.q, { slug: x.slug, via: 'example' })}
               style={{ minHeight: 44, maxWidth: '100%' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{x.q}</span>
             </button>
@@ -222,7 +236,7 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
                       return (
                         <button key={s} type="button" className="qn-chip"
                           style={{ minHeight: 44, maxWidth: '100%' }}
-                          onClick={() => void ask(t.text, s)}>
+                          onClick={() => void ask(t.text, { slug: s, via: 'choice' })}>
                           {c.name}
                         </button>
                       );

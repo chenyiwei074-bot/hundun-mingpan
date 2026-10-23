@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { stripComments } from '../_lib/codesrc';
 import { INTENTS } from '../../frontend/lib/tools/catalog';
 import { WESTERN_INTENTS } from '../../frontend/lib/tools/western-catalog';
-import { ROUTER_SPECS, routeLocal } from '../../frontend/lib/assistant/intent';
+import { ROUTER_SPECS, routeLocal, routeByCatalogSlug } from '../../frontend/lib/assistant/intent';
 import { ASSISTANT_PROTOCOL, parseRouteResult, reconcile } from '../../frontend/lib/assistant/types';
 import type { AssistantRouteResult, Mode } from '../../frontend/lib/assistant/types';
 import { askRoute } from '../../frontend/lib/assistant/route-client';
@@ -426,10 +426,13 @@ async function sectionServer() {
   ok('protocol/additive-fields-optional', !!parseRouteResult(base) && !!parseRouteResult({ ...base, candidates: ['bazi'] })
     && !parseRouteResult({ ...base, candidates: 'bazi' }) && !parseRouteResult({ ...base, closedSlug: 7 }),
     'candidates/closedSlug 不带 = 合法（老服务端），带了但形状不对 = 整份按不合法处理（宁可回落，不要半个字段能用）');
-  // 7.4 needsFor 是"还要补什么"的唯一实现：组件里不许出现第二份字段名表。
+  // 7.4 「进这个工具还要补什么」与「目录点名的那一条怎么去路由」都只许有一个实现。
+  // 批F④ 之后组件不再自己调 needsFor/reconcile，而是调 intent.ts 的 routeByCatalogSlug ——
+  // 判据跟着改成"这一支必须委托过去"，同时仍然钉：组件里不许出现第二份字段名表。
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'assistant', 'QuestionComposer.tsx'), 'utf8'));
-  ok('comp/needs-single-source', /needsFor\(/.test(comp) && !/日期或生日/.test(comp) && !/出生时辰/.test(comp),
-    '「进这个工具还要补什么」只许由 intent.ts 的 needsFor 算；组件里再抄一份字段名表就是第二个真相');
+  ok('comp/needs-single-source', /routeByCatalogSlug\(/.test(comp) && !/日期或生日/.test(comp) && !/出生时辰/.test(comp),
+    '目录点名的那一条必须由 intent.ts 的 routeByCatalogSlug 给出（里面含 needsFor + reconcile 那一条门）；'
+    + '组件里再抄一份字段名表或再拼一次 reconcile 就是第二个真相');
   ok('comp/degraded-on-screen', /服务端这一轮没用上/.test(comp) && /t\.degraded/.test(comp),
     '降级理由必须真的渲染出来（缺陷②：askRoute 返回了 degraded 而组件拿到不显示，界面上"回落"与"算过"长得一样）');
   ok('comp/ime-latch', /onCompositionStart/.test(comp) && /onCompositionEnd/.test(comp)
@@ -440,8 +443,38 @@ async function sectionServer() {
     '多行输入：4 行起、Enter 发送、Shift+Enter 换行（单行 input 里 Shift+Enter 什么都不做，等于没给换行）');
   ok('comp/turns-capped', /\.slice\(0, 6\)/.test(comp),
     '对话轮数封顶 6 条：不封顶的话长会话会把答案区撑到不可读，也让 CLS 读数依赖历史');
-  ok('comp/choice-label', /你在并列的候选里自己挑的/.test(comp) && /chosen/.test(comp),
+  ok('comp/choice-label', /你在并列的候选里自己挑的/.test(comp) && /t\.via === 'choice'/.test(comp),
     '用户自己挑的那一条要单独标注 —— 把"你选的"说成"系统算的"，与把"目录匹配"说成"模型算的"是同一种错');
+  // 批F④：点示例 = 目录里某一项自己给出的那句话，它对应哪个工具是登记过的。
+  // 这一支不再打服务端（要去的工具已经定了，再让模型猜一遍只会把"没对上"猜回来），
+  // 但必须仍然走同一道 reconcile —— 钉的是"换了来源、没换门"。
+  ok('comp/example-carries-own-slug', /via:\s*'example'/.test(comp)
+    && /via:\s*'choice'/.test(comp) && /\?\?\s*'typed'/.test(comp)
+    && /目录里该项自己登记的例子/.test(comp)
+    && comp.indexOf("picked?.via === 'example'") < comp.indexOf('askRoute({'),
+    `三种来源三句话都要在（少一种就有两种落点在页面上长得一样），且示例那一条要在 askRoute 之前分出去：`
+    + `点名分支 ${comp.indexOf("picked?.via === 'example'")} / askRoute ${comp.indexOf('askRoute({')}`);
+  {
+    // 真跑那一个实现，而不是跑复刻：两套目录里每一项的「适用问题」都点一遍，
+    // 落点只能是它自己（已开放 → matched 到本项；未开放 → closed 到本项）。
+    // 第三条统计是这条判据的牙齿所在：批F④ 之前这些句子走关键词匹配，
+    // 有多少条会判成"没对上"——那个数就是当年那条 report-only 缺陷的量级。
+    const bad: string[] = [];
+    let wouldMiss = 0;
+    for (const m of (['oriental', 'western'] as Mode[])) {
+      for (const t of CATALOGS[m]) {
+        const r = routeByCatalogSlug(m, t.slug, t.question, CATALOGS[m]);
+        const landed = (r.available && r.toolSlug === t.slug) || r.closedSlug === t.slug;
+        if (!landed) bad.push(`${m}/${t.slug}→${r.toolSlug ?? r.closedSlug ?? '没对上'}`);
+        const old = reconcile(routeLocal(m, t.question, CATALOGS[m], []), m, CATALOGS[m]);
+        if (!((old.available && old.toolSlug === t.slug) || old.closedSlug === t.slug)) wouldMiss++;
+      }
+    }
+    ok('route/example-lands-on-its-own-tool', bad.length === 0,
+      `目录里每一句「适用问题」点下去都要落到它自己那一项（未开放的落到"还没开放"也算自己）：`
+      + `跑偏 ${bad.slice(0, 6).join('、') || '无'}。同批统计：这一套句子若仍走关键词匹配，`
+      + `${wouldMiss}/${Object.values(CATALOGS).reduce((n, a) => n + a.length, 0)} 条会判成"没对上"`);
+  }
   // 示例区：按函数体取段来判，不按整行正则判 —— 上一次我钉的是
   // `flatMap(g => g.tools)\n .slice(0, 4)` 这种带换行的形状，改一下折行就假红。
   const exStart = comp.indexOf('function examples');

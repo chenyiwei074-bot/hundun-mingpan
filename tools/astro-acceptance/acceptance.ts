@@ -14,7 +14,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '../_lib/codesrc';
 import { VETTED_PINNED } from '../_lib/vettedDeps';
-import { computePlanets, ASTRO_BASIS, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
+import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
 import { toUtc, MOMENT_BASIS, availableZones } from '../../frontend/lib/astro/moment';
 import { WESTERN_INTENTS, WESTERN_TOOL_BY_SLUG } from '../../frontend/lib/tools/western-catalog';
 import { ROUTER_SPECS } from '../../frontend/lib/assistant/intent';
@@ -54,9 +54,14 @@ const ref = refText ? JSON.parse(refText) : null;
     `十颗星必须全进对拍集：少一颗就是那一颗没人核过（实得 ${bodies.length} 颗${bodies.length ? '：' + bodies.join('、') : ''}）`);
   const perBody = new Map<string, number>();
   for (const s of (ref?.samples || [])) perBody.set(s.body, (perBody.get(s.body) || 0) + 1);
-  const counts = [...new Set(perBody.values())];
-  ok('astro/uniform-epochs', !!ref && counts.length === 1 && counts[0] >= 3,
-    `每颗星取的历元数必须一致且 ≥3：只给一颗星多测几个历元，等于其余几颗还是单点自证（实得 ${[...perBody.entries()].map(([k, n]) => k + '=' + n).join(' ') || '无'}）`);
+  const counts = [...perBody.values()];
+  const minCount = counts.length ? Math.min(...counts) : 0;
+  // 原意是"别让某颗星只剩一个历元"。批F⑤ 之后月亮**故意**比别的星密（换座边界那 16 个点），
+  // 所以钉的不再是"大家都一样多"，而是"每颗都到得了那个下限，且多的那一颗多得有理由"。
+  ok('astro/uniform-epochs', !!ref && perBody.size === PLANETS.length && minCount >= 9
+    && (perBody.get('moon') || 0) > minCount,
+    `每颗星至少 9 个历元（5 常规 + 1860/2160 各 2），月亮还要再带贴换座边界那一串（实得最低 ${minCount}，`
+    + `月亮 ${perBody.get('moon') || 0}）：掉回个位数就是那颗又变成单点自证`);
 
   // 重算一次：权威那侧（原始星历输出）+ 引擎，必须复现仓库里那份夹具。
   // 这一条同时是"引擎升了版/口径改了却没升戳"的探针。
@@ -67,14 +72,69 @@ const ref = refText ? JSON.parse(refText) : null;
     + '必须重跑 make-reference.ts 并核过新偏差才允许钉住' + (repro.startsWith('ERR') ? `（本次重算失败：${repro.slice(0, 120)}）` : ''));
 
   const tol = ref?.toleranceDeg;
-  const worst = (ref?.samples || []).reduce((a, s) => Math.abs(s.dLon) > a ? Math.abs(s.dLon) : a, 0);
-  ok('astro/within-tolerance', typeof tol === 'number' && tol > 0 && tol <= 0.02 && worst <= tol,
-    `每点 |Δ黄经| 必须 ≤ 公差：公差 ${tol}°，实测最大 ${worst}°（0.02° = 1.2 角分，月亮约 2 分钟的走时）`);
+  // 窗口内/窗口外分开判：夹具里既有 1860—2026（全部达标），也有 2160 那一批（月亮实测超线）。
+  // 把它们混在一个 max 里只会得到两种坏结果 —— 要么放宽整条线（那 1860 的达标也就白钉了），
+  // 要么永远红着（那下次真出错就没人看）。所以窗口这件事必须是**数据**，不是注释。
+  const win = ref?.window;
+  const yearOf = (s: { iso: string }) => +/^(\d{4})/.exec(s.iso)![1];
+  const inWin = (ref?.samples || []).filter(s => !win || yearOf(s) <= win.to);
+  const outWin = (ref?.samples || []).filter(s => win && yearOf(s) > win.to);
+  const worstLon = inWin.reduce((a, s) => Math.max(a, Math.abs(s.dLon)), 0);
+  const worstLat = inWin.reduce((a, s) => Math.max(a, Math.abs(s.dLat)), 0);
+  ok('astro/within-tolerance', typeof tol === 'number' && tol > 0 && tol <= 0.02 && worstLon <= tol,
+    `窗口内每点 |Δ黄经| 必须 ≤ 公差：公差 ${tol}°，实测最大 ${worstLon}°（0.02° = 1.2 角分，月亮约 2 分钟的走时）`);
+  // 批F⑤ 补的那一维：黄纬。以前只核经度，"整个换了参考平面""黄纬符号反了""章动算歪"这三类
+  // 错里后两类在经度上几乎看不出来，却在盘面上是错的信息。
+  ok('astro/within-tolerance-latitude', typeof tol === 'number' && worstLat <= tol,
+    `窗口内每点 |Δ黄纬| 走同一条线：实测最大 ${worstLat}° vs 公差 ${tol}°（黄纬不进闸门 = 那一半没人核）`);
   ok('astro/tolerance-documented', !!ref && typeof ref.toleranceDeg === 'number',
     `公差必须写在夹具里随仓库走，不许只活在某人的终端记录里：${ref ? ref.toleranceDeg + '°' : '无夹具'}`);
+  ok('astro/window-documented', !!win && win.from < win.to && typeof ref?.countInWindow === 'number'
+    && typeof ref?.countOutOfWindow === 'number' && ref.countInWindow + ref.countOutOfWindow === ref.samples.length,
+    `对拍窗口必须是数据（from/to + 两侧各自的点数），否则"窗口外那条上限"就只是注释：`
+    + `${win ? `${win.from}—${win.to}` : '无'} / 窗口内 ${ref?.countInWindow ?? '无'} 点 / 窗口外 ${ref?.countOutOfWindow ?? '无'} 点`);
+  {
+    // 窗口外不是"没测"，是"测了、超线了、如实记着"。这一条要求：确实有点超 0.02°，
+    // 也确实给了它们一条自己的上限 —— 少了前者就是自欺（"我们的远未来也全部达标"这种绿不能要），
+    // 少了后者就是无人认领。
+    const outWorst = outWin.reduce((a, s) => Math.max(a, Math.abs(s.dLon), Math.abs(s.dLat)), 0);
+    const cap = ref?.outOfWindowToleranceDeg;
+    ok('astro/out-of-window-honest', outWin.length > 0 && typeof cap === 'number'
+      && outWorst > (tol || 0.02) && outWorst <= cap,
+      `2100 之后实测 ${outWorst}°（月亮），必须 > 窗口内公差 ${tol}° 且 ≤ 自己的上限 ${cap ?? '无'}°：`
+      + `这条判据红有两种意思 —— 要么远未来又长了一截，要么有人把"测出来超线"这件事删了`);
+  }
+  {
+    // 月亮贴 0°/30° 整数界的那一串：错了就整条线错，而这一批点同时是"落座边界"的判据。
+    const moon = (ref?.samples || []).filter(s => s.body === 'moon');
+    const near = moon.map(s => {
+      const into = ((s.refLon % 30) + 30) % 30;
+      return Math.min(into, 30 - into);
+    }).reduce((a, v) => Math.min(a, v), 99);
+    ok('astro/moon-pinned-at-sign-boundary', moon.length >= 20 && near <= 0.05,
+      `月亮必须有贴着换座整数界的样本（离边界 ≤0.05°）：实得最近 ${near.toFixed(4)}°、历元 ${moon.length} 个。`
+      + `没有贴边界的点，"30° 一条线切错位置"这类错在屏上是看不出来的`);
+    // 落座本身也要在边界上对得上：权威值与我方值算出的"第几宫"必须同一格（含 359.99→0 那种绕回）。
+    const signDiff = moon.filter(s => Math.floor(((s.refLon % 360) + 360) % 360 / 30) !== Math.floor(((s.ourLon % 360) + 360) % 360 / 30));
+    ok('astro/sign-index-agrees-at-boundary', signDiff.length === 0,
+      `每颗月亮样本的落座（⌊黄经/30⌋）两侧必须同一格，边界那一串尤其：不一致 ${signDiff.map(s => s.iso).join('、') || '无'}`);
+  }
+  {
+    const cov = ref?.coverage;
+    ok('astro/extreme-epochs-covered', !!cov && cov.pre1900 >= 10 && cov.after2100 >= 10
+      && cov.yearMin < 1870 && cov.yearMax > 2150,
+      `1900 前与 2100 后都必须真的进对拍集（不是文档里写一句"也测过"）：`
+      + `实得 ${cov ? `${cov.yearMin}—${cov.yearMax}，1900 前 ${cov.pre1900} 点 / 2100 后 ${cov.after2100} 点` : '无 coverage 字段'}`);
+  }
   const maxKeys = Object.keys(ref?.maxAbsDLon || {});
-  ok('astro/max-per-body-documented', maxKeys.length === PLANETS.length,
-    `逐颗星的实测最大偏差都要留档（只留一个总最大值就看不出是不是某颗星一直贴着线）：${maxKeys.length}/10`);
+  ok('astro/max-per-body-documented', maxKeys.length === PLANETS.length
+    && Object.keys(ref?.maxAbsDLat || {}).length === PLANETS.length,
+    `逐颗星的实测最大偏差（经、纬两份）都要留档（只留一个总最大值就看不出是不是某颗星一直贴着线）：`
+    + `经度 ${maxKeys.length}/10、纬度 ${Object.keys(ref?.maxAbsDLat || {}).length}/10`);
+  ok('astro/cross-check-single-source', !!ref && ref.toleranceDeg === ASTRO_CROSS_CHECK.toleranceDeg
+    && ref.window?.from === ASTRO_CROSS_CHECK.from && ref.window?.to === ASTRO_CROSS_CHECK.to,
+    `公差与窗口只有一个出处（lib/astro/planets.ts 的 ASTRO_CROSS_CHECK），夹具必须与它逐字相等：`
+    + `夹具 ${ref?.toleranceDeg}/${ref?.window?.from}-${ref?.window?.to} vs 常量 ${ASTRO_CROSS_CHECK.toleranceDeg}/${ASTRO_CROSS_CHECK.from}-${ASTRO_CROSS_CHECK.to}`);
 
   // 反空转：全零的 Δ 说明两边读的是同一个数（自证），历元不变 likewise。
   const deltas = (ref?.samples || []).map(s => Math.abs(s.dLon));
@@ -84,14 +144,23 @@ const ref = refText ? JSON.parse(refText) : null;
     `对拍必须同时满足"两侧不完全相等"与"同一颗星跨历元的权威值本身在动"：`
     + `全零点 ${deltas.filter(d => d === 0).length}/${deltas.length}，月亮历元 ${new Set(varies).size} 个不同值`);
   ok('astro/authority-is-jpl', (() => {
-    const files = ['body-10.txt', 'body-301.txt', 'body-999.txt'];
+    // 常规那三份 + 批F⑤ 新抓的两类历元（1860 / 2160 / 月亮换座边界）一起核：
+    // 新那份也得自己带着"地心 / DE441 / 列义"这三件事，否则那一类历元只是夹具里的数。
+    const files = ['body-10.txt', 'body-301.txt', 'body-999.txt',
+      'body-10-1860.txt', 'body-10-2160.txt', 'body-301-ingress.txt'];
     return files.every(f => {
       const t = readFileSync(join(HERE, 'horizons', f), 'utf8');
-      return /Center body name:.*Earth \(399\)/.test(t) && /source:\s*DE441/.test(t) && /ObsEcLon\s+ObsEcLat/.test(t);
+      const id = /^body-(\d{2,3})/.exec(f)![1];
+      return new RegExp(`Target body name:.*\\(${id}\\)`).test(t)
+        && /Center body name:.*Earth \(399\)/.test(t) && /source:\s*DE441/.test(t) && /ObsEcLon\s+ObsEcLat/.test(t);
     });
   })(),
-    '原始星历输出必须自己带着"观测中心=地球(399) 地心 / DE441 / 列义含 ObsEcLon ObsEcLat"三件事：'
-    + '这三样是对拍口径的证据，不在注释里，在权威那侧回写的表头里');
+    '原始星历输出必须自己带着"目标星 = 文件名那个编号、观测中心=地球(399) 地心 / DE441 / 列义含 ObsEcLon ObsEcLat"：'
+    + '这几样是对拍口径的证据，不在注释里，在权威那侧回写的表头里（含批F⑤ 新抓的极端历元）');
+  // 极端历元与换座边界那几份原始输出必须在仓库里（夹具是从它们算的；文件不在就等于那 40 个点没人能复核）。
+  ok('astro/extreme-raw-present', ['body-10-1860.txt', 'body-10-2160.txt', 'body-301-ingress.txt']
+    .every(f => existsSync(join(HERE, 'horizons', f))),
+    `批F⑤ 那两类新样本的原始输出要随仓库走：缺一份就是那一类历元只剩夹具里的数，别人没法重看`);
 }
 
 // ── 2. 口径戳：目录写的是字面量，引擎导出的是出处 ──
@@ -139,9 +208,11 @@ const ref = refText ? JSON.parse(refText) : null;
   ok('astro/no-undelivered-promise', banned.length === 0,
     `"做了什么"的每一行都不许出现没做的那几样（写了读者就会去找）：命中 ${banned.join('、') || '无'}`);
   ok('astro/partial-renders-both-lists', (() => {
-    const ws = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'WesternWorkspace.tsx'), 'utf8'));
-    return /t\.done/.test(ws) && /t\.notDone/.test(ws) && /已做/.test(ws) && /未做/.test(ws);
-  })(), '目录卡面必须真的渲染"已做/未做"两份清单（数据在目录里却没上屏 = 与缺陷②同一类：接口给了、界面不显示）');
+    // 批F 起卡片渲染收成 components/tools/ToolCatalog 一份（/tools 与 /western 共用），
+    // 所以这一条钉的是那一份：数据在目录里却没上屏 = 与缺陷②同一类。
+    const card = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'tools', 'ToolCatalog.tsx'), 'utf8'));
+    return /t\.done/.test(card) && /t\.notDone/.test(card) && /已做/.test(card) && /未做/.test(card);
+  })(), '目录卡片必须真的渲染"已做/未做"两份清单（数据在目录里却没上屏 = 与缺陷②同一类：接口给了、界面不显示）');
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8'));
   ok('astro/work-page-reads-catalog', /WESTERN_TOOL_BY_SLUG/.test(comp) && /ENTRY\.done|ENTRY\.notDone|\.done \?\?|\.notDone \?\?/.test(comp),
     '工作页的已做/未做也从目录读，不在组件里再抄一份清单（一份抄本就会与目录漂移）');
@@ -154,11 +225,25 @@ const ref = refText ? JSON.parse(refText) : null;
     `astro-natal 的路由关键词只能是我做得到的那几样（实得 ${askWords.join('、')}）：越界 ${over.join('、') || '无'}`);
   ok('astro/work-page-says-not-chart', /不叫星盘/.test(comp),
     '「不叫星盘」这句话要在盘面上（裁定③的理由要能被读者看到，不是只写在裁定里）');
+  // 窗口这件事必须让读者看到：夹具里那句"2100 之后不打包票"只护得住核过它的人，
+  // 屏上没这一句，页面上任何一年看起来都一样可信。数字读 ASTRO_CROSS_CHECK，不另抄一份。
+  ok('astro/page-states-cross-check-window', /ASTRO_CROSS_CHECK/.test(comp)
+    && /对拍|逐点核过|逐星核过/.test(comp) && /不打包票/.test(comp),
+    '工作页必须写明"与权威星历核过、窗口是多少、窗口外不打包票"，且那几个数读的是引擎里那一个常量');
   ok('astro/work-page-client-only', /^'use client';/.test(stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8')).replace(/^\uFEFF/, ''))
     && !/fetch\(/.test(comp) && !/\/api\//.test(comp),
     '计算必须在这台设备：组件是 client、不 fetch、不打 /api（生辰不出设备的裁定要靠这三条同时成立才可信）');
   ok('astro/tap-targets-in-source', (comp.match(/minHeight: 44/g) || []).length >= 4,
     `日期、钟面、时区、按钮四个控件都要 44px 命中区（本批新增控件不许天生矮）：实得 ${(comp.match(/minHeight: 44/g) || []).length} 处`);
+  // 批F③：E2 第一版把 2000-01-01 12:00 当预填样例，形状是"一张已经填好时间的表单"——
+  // 用户一个键都没碰就按下按钮，得到的是一张看起来属于他的盘，而那个时刻是我们替他挑的。
+  // 这一条钉三件事：两个初值都是空串、没填完按钮是灰的、源码里不残留那个样例日期。
+  ok('astro/no-prefilled-birth-moment',
+    (comp.match(/= useState\(''\)/g) || []).length >= 2
+    && /(?<!aria-)disabled=\{!可算\}/.test(comp) && /if \(!可算\) return/.test(comp)
+    && !/2000-01-01/.test(comp),
+    `出生时刻不许预填：日期与钟面初值都要是空串、没填完时按钮 disabled 且 run() 早退、源码里不含样例日期`
+    + `（空串 ${/useState\(''\)/.test(comp) ? '有' : '没有'} / disabled 门闩 ${/(?<!aria-)disabled=\{!可算\}/.test(comp) ? '有' : '没有'} / 样例残留 ${/2000-01-01/.test(comp) ? '在' : '不在'}）`);
 }
 
 // ── 4. 其余西方项仍然未开放，且写明缺什么 ──
@@ -261,7 +346,7 @@ const ref = refText ? JSON.parse(refText) : null;
 
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
-const EXPECT = 47;
+const EXPECT = 57;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

@@ -19,6 +19,14 @@ export const ASTRO_BASIS = 'astro-planets-v1' as const;
 export const ASTRO_DONE = ['太阳、月亮与水金火木土天海冥八颗行星的地心黄道经度（落座与度数）', '太阳星座、月亮星座', '黄纬（一并给出，便于自查）'] as const;
 export const ASTRO_NOT_DONE = ['上升点与任何宫位（需要宫制与分宫法，本站未裁定）', '行星之间的相位', '凯龙星等小行星', '南北交点（含真假交点之辨）', '恒星黄道的读法（要先定岁差换算取哪一张表）'] as const;
 
+/** 与 JPL Horizons 对拍的口径：窗口内（公历 1850—2100）黄经与黄纬都按 0.02° 硬判。
+ *  这三个数只有一个出处：页面上那句"对拍窗口"读它，tools/astro-acceptance 的夹具与
+ *  判据也读它（fixture 里的 toleranceDeg/window 必须与此逐字相等，astro/cross-check-single-source 钉）。
+ *  窗口外不是"没测"：2160 那批实测月亮偏 0.042°，夹具单独记着，本站对那一段不打包票。 */
+export const ASTRO_CROSS_CHECK = {
+  authority: 'NASA JPL Horizons（DE441）', from: 1850, to: 2100, toleranceDeg: 0.02,
+} as const;
+
 export type PlanetKey = 'sun' | 'moon' | 'mercury' | 'venus' | 'mars' | 'jupiter' | 'saturn' | 'uranus' | 'neptune' | 'pluto';
 
 /** 展示名与引擎的 Body 枚举一一对应；这里不写第二种拉丁名，页面只出中文。 */
