@@ -14,6 +14,9 @@ import { QISHU_BASIS } from '../../frontend/lib/meihua/engine';
 import { COIN_COMMIT_SCHEMA } from '../../frontend/lib/receipt/receipt';
 import { FENGSHUI_BASIS } from '../../frontend/lib/fengshui/analysis';
 import { HEPAN_BASIS } from '../../frontend/lib/hepan/types';
+// E2：西方第一个引擎导出的两个戳。目录里写的必须是这两个值之一，出处在这一行 import 里。
+import { ASTRO_BASIS } from '../../frontend/lib/astro/planets';
+import { MOMENT_BASIS } from '../../frontend/lib/astro/moment';
 import { CATALOG_STAMPS, CLOSED_TOOLS, HOME_FEATURED_SLUGS, INTENT_ENTRIES, INTENTS, LAUNCHER_SLUGS, LIUYAO_BASIS_TEXT, LIVE_HREFS, TOOLS_INDEX, TOOL_BY_SLUG, homeCard } from '../../frontend/lib/tools/catalog';
 import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS } from '../../frontend/lib/tools/western-catalog';
 import { statusCounts, statusTally } from '../../frontend/lib/tools/status';
@@ -432,13 +435,16 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('west/slug-no-collision', new Set(wTools.map(t => t.slug)).size === wTools.length && collide.length === 0
     && wTools.every(t => /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/.test(t.slug)),
     `两套目录共用 slug 空间做路由键，撞名会让 TOOL_BY_SLUG 查错表：撞名 ${collide.join('、') || '无'}`);
-  // 版本戳形状：东方那套靠"目录里的戳 == 引擎导出的戳"钉住。西方现在一个引擎都没有，
-  // 所以这里钉的是"不许先写一个看起来像版本戳的东西"——写了就必须在某处真的导出它。
+  // 版本戳形状：东方那套靠"目录里的戳 == 引擎导出的戳"钉住。西方批D 时一个引擎都没有，
+  // 所以那条钉的是"不许先写一个看起来像版本戳的东西"。E2（2026-10-23 裁定①）之后西方有引擎了，
+  // 这条改成与东方同一条纪律的形态：目录里出现的每一个戳形状，都必须等于 lib/astro 导出的那一个。
+  // 形状用 (?:-[a-z]+)+ —— 少这一层的话 astro-moment-iana-v1 会被截成 moment-iana-v1，
+  // 那是一条永远对不上的假戳，而假戳红起来看起来像产品坏了。
   const wStamps = [...new Set((wTools.flatMap(t => [t.name, t.basis, t.note ?? '']).join(' ')
-    .match(/[a-z]+-[a-z]+-v\d+/g) || []))];
-  ok('west/no-stamp-without-engine', wStamps.length === 0,
-    `西方目录里出现了引擎并不存在的版本戳形状（${wStamps.join('、') || '无'}）：口径没裁定就不该有版本号，`
-    + '有了就得同时有导出它的引擎与 dir/stamps-equal-engine 那一类对拍');
+    .match(/[a-z]+(?:-[a-z]+)+-v\d+/g) || []))];
+  const ENGINE_STAMPS = [ASTRO_BASIS, MOMENT_BASIS];
+  ok('west/no-stamp-without-engine', wStamps.every(s => ENGINE_STAMPS.includes(s as typeof ASTRO_BASIS)),
+    `西方目录里的版本戳必须是引擎真的导出的那一个（写了就得同时有出处与对拍）：越界 ${wStamps.filter(s => !ENGINE_STAMPS.includes(s as typeof ASTRO_BASIS)).join('、') || '无'}`);
   say(`MEASURED 西方目录：${wTools.length} 项，已开放 ${WESTERN_LIVE_HREFS.length} 项，未开放 ${WESTERN_CLOSED_TOOLS.length} 项`
     + `（${WESTERN_CLOSED_TOOLS.join('、')}）—— 门廊卡片上那个数就是从这里现算的`);
 

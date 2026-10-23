@@ -12,6 +12,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 // 引用判据要连字面量一起剥（tools/_lib/codesrc.ts）；其余文本判据用本档的 strip() 剥注释。
 import { stripLiterals } from '../_lib/codesrc';
+import { unvettedDeps } from '../_lib/vettedDeps';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import { getZhiCangGanFull } from '../../frontend/app/lib/core/yiqi-core/bazi';
 import { getShiShen, DIZHI } from '../../frontend/app/lib/core/bazi-enrich/tables';
@@ -304,10 +305,9 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 24 }));
   const keysOf = (o: { dependencies?: object; devDependencies?: object }) =>
     Object.keys({ ...o.dependencies, ...o.devDependencies }).sort();
-  // 2026-10-20：three/@types/three 经批准引入（户型 WebGL 舞台），是本批唯一白名单；
-  // 其余任何新依赖仍判红。
-  const SANCTIONED_DEPS = new Set(['three', '@types/three']);
-  const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k) && !SANCTIONED_DEPS.has(k));
+  // 白名单只有一个出处（tools/_lib/vettedDeps.ts）：以前 kline 与 scenario 各写一份
+  // ['three','@types/three']，E2 再加第三个就变成三份，迟早有一份漏改。
+  const added = unvettedDeps(keysOf(pkg), keysOf(basePkg));
   ok('dep/no-new-package', added.length === 0, `零新依赖：实得新增 ${added.join('、') || '无'}`);
   // 批范围断言只能读"这个分支提交了什么"，不能读工作区。
   // 教训（2026-10-19 的 #89）：原来这里读 `git diff origin/main` 与 `git ls-files --others`，
@@ -656,6 +656,16 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     { where: 'random-acceptance/acceptance.ts|inComments = liveFiles.filter', reason: '故意读原始文本：'
       + '这一处量的就是"只在注释里提到 Math.random"（那是在解释为什么改，不是在用），剥了注释等于把被测的东西抹掉；'
       + '同一行判断"是否真的在用"走的是 codeOf(f)。' },
+    // E2（本命行星位置）四处读的是**数据**而不是产品源码，剥注释只会把要对照的原文弄坏。
+    // 逐条登记而不是给整个档开洞：同一档里读 frontend/**.tsx 的每一处仍然必须剥（套件里就是这么写的）。
+    { where: 'astro-acceptance/acceptance.ts|REF_FILE', reason: '读 tools/astro-acceptance/cases/*.json 对拍夹具，'
+      + '不是源码文本；它自己由 make-reference.ts 生成，没有注释这一层。' },
+    { where: "astro-acceptance/acceptance.ts|'horizons', f)", reason: '读的是 JPL Horizons 原始输出 body-*.txt 语料'
+      + '（本条要验的就是那份表头自己写着 Center=Earth(399) / DE441 / ObsEcLon 三件事），剥"注释"等于把权威证据删掉。' },
+    { where: "astro-acceptance/make-reference.ts|(file, 'utf8')", reason: '同上：parseRaw 读 horizons/*.txt，'
+      + '认列靠 $$SOE..$$EOE 与表尾 Column meaning 那几行原文。' },
+    { where: "astro-acceptance/make-reference.ts|(OUT, 'utf8')", reason: '读的是自家刚生成的 .json 夹具（--check 比逐字一致），'
+      + '不是拿源码文本做判定。' },
   ];
   // 剥注释的调用要"括到这一读为止"才算数：本行早先出现过 strip(...) 但已经闭合，
   // 说明包的是别的东西，这一读仍然是裸读（判据只看"提到过"就等于没有判据）。

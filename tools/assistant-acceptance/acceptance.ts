@@ -76,11 +76,14 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
       why: 'bazi 的"出生"与 xiu-benming 的"哪一宿"各 1 命中，并列 → 必须追问，不许替用户挑一个' },
     { mode: 'oriental', q: '2026年10月1日适合搬家吗', slug: 'huangli', clarify: false,
       why: '适合/搬家 命中 huangli；日期给了，所以不再追问' },
-    { mode: 'oriental', q: '我的月亮落在哪个星座', slug: null, clarify: true,
-      why: '东方表里 0 命中、西方表命中 astro-natal → 判为跨体系，只问一句"要换过去吗"，不给入口' },
+    { mode: 'oriental', q: '我的月亮星座是什么', slug: null, clarify: true,
+      why: '东方表里 0 命中、西方表命中 astro-natal（E2 起它已开放也一样）→ 判为跨体系，只问一句"要换过去吗"，不给入口' },
     { mode: 'oriental', q: '随便说点什么吧', slug: null, clarify: true, why: '两边都对不上 → 追问并指向目录' },
-    { mode: 'western', q: '我的上升和月亮星座是什么', slug: null, clarify: true,
-      why: '西方表命中 astro-natal，但它状态未开放 → reconcile 之后必须没有入口' },
+    { mode: 'western', q: '我的上升是什么', slug: null, clarify: true,
+      why: 'E2 裁定后 astro-natal 只做落座与度数，"上升"不再是它的关键词 —— 问事框不许拿没做的那一样当门牌，'
+        + '这句话必须走"没对上已开放的工具"并指向目录（目录里写着未做上升）' },
+    { mode: 'western', q: '我的月亮星座和太阳星座是什么', slug: 'astro-natal', clarify: true,
+      why: '月亮星座/太阳星座 命中 astro-natal，E2 起它「部分可用」且带 /astro 入口 → reconcile 后 available；问句里没日期没时辰没地点，仍要追问' },
     { mode: 'western', q: '帮我抽个塔罗牌阵', slug: null, clarify: true, why: 'tarot-draw 未开放 → 同上' },
     { mode: 'western', q: '今天黄历宜忌', slug: null, clarify: true, why: '东方工具在西方页不该被路由过去（跨体系要问，不要自动换）' },
   ];
@@ -126,8 +129,9 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
     '目录里存在但未开放的 slug 也不许给入口（xingming「姓名合盘（五格剖象）」在表里，但今天没有门）');
   // 上面那条只钉"不给入口"。harness 的 western-ask 那一态抓到过更细的一种假：
   // 入口是没了，可回答里还留着"进入「西洋占星」还要补：日期、时辰、地点" —— 半开的门。
+  // E2 之后换 tarot-draw 当这一条的实验对象（astro-natal 已开放，不再是"未开放"那一支的样本）。
   const halfOpen = reconcile(
-    routeLocal('western', '我的上升和月亮星座是什么', CATALOGS.western, OTHER.western), 'western', CATALOGS.western);
+    routeLocal('western', '帮我抽个塔罗牌阵', CATALOGS.western, OTHER.western), 'western', CATALOGS.western);
   ok('gate/no-half-open-door', halfOpen.toolSlug === null && halfOpen.missingFields.length === 0
     && !(halfOpen.clarification || '').includes('还要补') && (halfOpen.clarification || '').includes('还没开放'),
     `未开放工具被抹掉时，"还要补什么"必须一起抹掉：${JSON.stringify(halfOpen.clarification)}`);
