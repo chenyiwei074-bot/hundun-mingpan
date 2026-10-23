@@ -2192,13 +2192,23 @@ function check(tag, v) {
       // 判据盯"预留格外面的东西有没有被推走"+ "外框自己动不动"，不再盯总分数：
       // 面板是外层定高、内部滚动的容器，新回答把旧回答顶出可视区会被 Chrome 记一次位移，
       // 但那没有推动页面（d1-oriental-chosen 实测 +0.029 全部来源都是面板里那张卡）。
-      // "动了就红"这条没放宽 —— 只是把"动"定义成页面级的动，见 README 通用纪律 13 条。
+      // 运维 2026-10-22 把边界写成五条，① 是"豁免的两个前置条件"：
+      // **只有** 外框 rect 前后逐字相等 且 scrollY 不变，面板滚动内容严格后代的位移才不计；
+      // 两个条件任一不成立就按整份 CLS 记账（所以"面板随内容变高"那种负例必红 ④）。
+      // 面板以外的来源一律全额记账 ②；这套只认 .qa-pane 这一块，不推广成通用规则 ③。
       const pf = v.perf || {};
-      const out = pf.clsOut !== undefined ? pf.clsOut : after;
-      const boxSame = !pf.paneBoxAtLoad || !pf.paneBox || pf.paneBoxAtLoad === pf.paneBox;
-      if (out > 0) bad(`交互后把预留格**外面**的东西推走了 +${out}（这一态总 CLS ${after}）—— 面板外层是定高的，外面动就是预留没生效`);
+      const rectSame = !pf.paneBoxAtLoad || !pf.paneBox || pf.paneBoxAtLoad === pf.paneBox;
+      const scrollSame = !pf.preScroll || !pf.postScroll || pf.preScroll.y === pf.postScroll.y;
+      const exemptOK = rectSame && scrollSame;
+      const out = exemptOK && pf.clsOut !== undefined ? pf.clsOut : after;
+      const internal = Math.round((after - (pf.clsOut === undefined ? after : pf.clsOut)) * 1000) / 1000;
+      const boxSame = rectSame;
+      if (out > 0) bad(exemptOK
+        ? `交互后把预留格**外面**的东西推走了 +${out}（这一态总 CLS ${after}）—— 面板外层是定高的，外面动就是预留没生效`
+        : `交互后 CLS +${after} —— 前置条件不成立所以不豁免：外框${rectSame ? '没变' : ` ${pf.paneBoxAtLoad}→${pf.paneBox}`}、`
+          + `scrollY${scrollSame ? '没变' : ` ${pf.preScroll && pf.preScroll.y}→${pf.postScroll.y}`}`);
       else if (!boxSame) bad(`预留格外框从 ${pf.paneBoxAtLoad} 变成 ${pf.paneBox} —— 外框动了就不是"内部滚动"`);
-      else console.log(`   预留格 外框不动（${pf.paneBox || '无面板'}）· 面板内部重排 ${Math.round((after - out) * 1000) / 1000} 不计页面位移`);
+      else console.log(`   预留格 外框不动（${pf.paneBox || '无面板'}）· scrollY 不动 · 面板内部重排 ${internal} 不计页面位移`);
     }
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
