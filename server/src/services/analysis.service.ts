@@ -19,6 +19,26 @@ function getPrompt(depth?: string): string {
   return fs.readFileSync(path.join(__dirname, '..', 'prompts', file), 'utf-8');
 }
 
+
+/** 六节完整性：短可以，漏一面不行（用户 2026-10-23 口径） */
+const EXPECT_ASPECTS = ['天赋', '财', '感情', '事业', '健康', '未来'];
+function readingSections(result: any): Array<{ title: string; body: string }> {
+  const raw = Array.isArray(result?.sections) ? result.sections : [];
+  return raw.map((s: any) => ({ title: String(s?.title || ''), body: String(s?.body || s?.text || '') }));
+}
+function incompleteAspects(result: any): string[] {
+  const secs = readingSections(result);
+  if (!secs.length) return ['没有 sections（不是六段结构）'];
+  const miss: string[] = [];
+  if (secs.length < EXPECT_ASPECTS.length) miss.push(`只有 ${secs.length} 节`);
+  const text = secs.map(s => s.title + s.body).join('\n');
+  const absent = EXPECT_ASPECTS.filter(k => !text.includes(k));
+  if (absent.length) miss.push('缺方面：' + absent.join('、'));
+  const short = secs.filter(s => s.body.length < 50);
+  if (short.length) miss.push(`${short.length} 节正文过短`);
+  return miss;
+}
+
 function buildChartSummary(chart: ChartResult): Record<string, unknown> {
   const bz = chart.bazi as any;
   const zw = chart.ziwei as any;
@@ -107,7 +127,9 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
   if (depth === 'detail') {
     styleInstruction += '\n【深度要求：详批】请逐柱逐宫详细分析，每个论断都要有古籍依据。输出3000字以上。';
   } else {
-    styleInstruction += '\n【深度要求：简要】请提炼核心要点，每个方面用一两句话概括。输出控制在1000字以内。';
+    // 2026-10-23 用户口径：可以短，但六个方面不能漏
+    styleInstruction += '\n【深度要求：速读版】总字数 600–1600 字即可，宁可短；但六节必须都在，每节至少 3 句，'
+      + '某一面信息不足就明写「这一方面信息不足，先不乱断」，不许省略该节。';
   }
 
   const provider = await pickProvider();
@@ -115,7 +137,7 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
     chartData: chartSummary,
     type: 'comprehensive' as const,
     name,
-    promptOverride: prompt + '\n\n请基于以下命盘数据生成分析 JSON：',
+    promptOverride: prompt + styleInstruction + '\n\n请基于以下命盘数据生成分析 JSON：',
     // C 方案：brief 收紧输出上限（4k），detail 才给 16k
     maxTokens: isDetail ? 16384 : 4096,
   };
@@ -134,5 +156,26 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
   const elapsed = Date.now() - startTime;
   console.log('DeepSeek analysis completed in ' + elapsed + 'ms, tokens: ' + (response.tokensUsed || '?'));
 
-  return response.result;
+  // 2026-10-23：速读版必须六方面齐全；不齐就带着缺项重试一次（只重试一次，避免拖长等待）。
+  if (isDetail) return response.result;
+  const missing = incompleteAspects(response.result);
+  if (!missing.length) return response.result;
+  console.warn('[AI] 解读不完整，重试一次：' + missing.join('；'));
+  try {
+    const retry = await provider.generateAnalysis({
+      ...req,
+      promptOverride: req.promptOverride
+        + '\n\n上一版不完整：' + missing.join('；')
+        + '。请重新输出完整 JSON：六节都必须有，每节至少 3 句；某方面信息不足也要保留该节并写明。',
+    });
+    const retryMissing = incompleteAspects(retry.result);
+    if (!retryMissing.length) return retry.result;
+    console.warn('[AI] 重试后仍不完整：' + retryMissing.join('；'));
+    const better = readingSections(retry.result).length >= readingSections(response.result).length
+      ? retry.result : response.result;
+    return better;
+  } catch (e) {
+    console.warn('[AI] 重试失败，返回第一版：' + (e instanceof Error ? e.message : e));
+    return response.result;
+  }
 }
