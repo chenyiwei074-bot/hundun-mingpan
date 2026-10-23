@@ -37,8 +37,11 @@ export interface AskTurn {
   /** 为什么这一轮没用到服务端。null = 真的用的是服务端。上屏用（缺陷②：拿到了不显示，
    *  "资料不足先问"这条主流程在界面上就是断的）。 */
   degraded: string | null;
-  /** 用户在并列里自己挑了一个 —— 这一条不是系统猜的，标注要跟着变。 */
-  chosen?: boolean;
+  /** 这一轮"该去哪个工具"是谁定的。三种来源三句话，不许混用：
+   *   typed    —— 系统按用户那句话匹配出来的
+   *   choice   —— 两个同分时用户在并列候选里自己挑的
+   *   example  —— 点的是目录里某一项自己的例子，目标工具是登记过的，不用再猜 */
+  via: 'typed' | 'choice' | 'example';
 }
 
 export const isMode = (v: unknown): v is Mode => v === 'oriental' || v === 'western';

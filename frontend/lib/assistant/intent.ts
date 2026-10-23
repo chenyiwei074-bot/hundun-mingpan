@@ -7,6 +7,7 @@
 //     表里也不许有目录中不存在的 slug），所以这张表不会悄悄与目录漂移。
 
 import type { ToolEntry } from '@/lib/tools/catalog';
+import { reconcile } from './types';
 import type { AssistantRouteResult, Mode } from './types';
 
 export type NeedField = 'date' | 'time' | 'gender' | 'place' | 'question';
@@ -73,6 +74,24 @@ const FIELD_LABEL: Record<NeedField, string> = {
 export function needsFor(slug: string, text: string): string[] {
   const t = norm(text);
   return (ROUTER_SPECS[slug]?.needs ?? []).filter(f => !DETECT[f](t)).map(f => FIELD_LABEL[f]);
+}
+
+/**
+ * 目标工具已由目录点名时走这一条（批F④）：并列候选里用户挑了一个、或点的是某一项
+ * 自己登记的那句「适用问题」。这一条不走关键词匹配 —— 例子那句话常常不含本项的关键词，
+ * 让它去匹配就会把"目录自己推荐的例子"判成"没对上"（批B 记在 report-only 清单里的那条）。
+ *
+ * 换的只是"谁定的目标"，判据一条没换：仍然过 types.ts 的 reconcile 目录白名单
+ * （未开放 → 抹掉 slug、清空 missingFields、给一句写明缺什么的 closed），仍然用 needsFor
+ * 算"进去还要补什么"。组件与本套件的样例盘调的都是这一个实现。
+ */
+export function routeByCatalogSlug(mode: Mode, slug: string, question: string,
+  catalog: ToolEntry[], confidence = 1): AssistantRouteResult {
+  const missing = needsFor(slug, question);
+  return reconcile({
+    mode, toolSlug: slug, confidence, needsClarification: missing.length > 0,
+    clarification: null, missingFields: missing, available: true,
+  }, mode, catalog);
 }
 
 export function routeLocal(mode: Mode, text: string, catalog: ToolEntry[], otherCatalog: ToolEntry[]): AssistantRouteResult {
