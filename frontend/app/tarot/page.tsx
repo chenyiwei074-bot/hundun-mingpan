@@ -350,11 +350,7 @@ export default function TarotPage() {
       <section className="tarot-reading" aria-live="polite" aria-label="牌位说明">
         <p className="qn-eyebrow">{drawState === 'reading' ? '牌位查看' : '解读状态'}</p>
         <h2 className="qn-title">{drawState === 'idle' ? '牌位已预留' : '牌义待接入'}</h2>
-        <p className="qn-meta">
-          {drawState === 'idle'
-            ? '三张牌揭晓后，这里会按过去、现在与未来列出牌面与正逆位。牌义待接入。'
-            : '当前只提供三张牌的名称、位置与正逆位。牌义资料尚未接入，因此本站不会在这里生成含义或综合结论。'}
-        </p>
+        <p className="qn-meta">这里只展示牌名、牌位与正逆位；牌义资料尚未接入，因此不会生成含义或综合结论。</p>
         <ol className="tarot-reading__list">
           {THREE_CARD_POSITIONS.map((position, index) => {
             const drawn = drawnCards[index];
