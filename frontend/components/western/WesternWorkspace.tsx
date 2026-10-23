@@ -19,7 +19,7 @@ export default function WesternWorkspace() {
           {tally.live === 0
             ? ' 现在一项都进不去：每一项的算法口径都还没有可引的出处与验收样例，'
               + '与其先做个能点的空壳，不如把缺什么写在门上。'
-            : ` 有入口的 ${tally.live} 项在下面的卡里；「部分可用」的那一项，缺的样子里未做一栏逐条写着。`}
+            : ` 有入口的 ${tally.live} 项在下面的卡里；「部分可用」的每一项，缺的样子都写在该项的「未做」里。`}
         </p>
       </section>
       <ToolCatalog groups={WESTERN_INTENTS} />
