@@ -252,14 +252,28 @@ const ref = refText ? JSON.parse(refText) : null;
 // ── 4. 其余西方项仍然未开放，且写明缺什么 ──
 {
   const others = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.slug !== 'astro-natal');
-  ok('astro/others-still-closed', others.every(t => t.status === '未开放' && !t.href && (t.note || '').length >= 8 && t.basis.includes('缺')),
-    `第一项开放不代表整页开放：其余 ${others.length} 项必须仍是未开放、无入口、basis 里写"缺"——`
-    + `违规 ${others.filter(t => t.status !== '未开放' || t.href || !t.basis.includes('缺')).map(t => t.slug).join('、') || '无'}`);
+    // 2026-10-23：塔罗升为「部分可用」的预览项（无引擎、不解读）。这一条不再要求"其余全关"，
+    // 但咬得更细：其余项要么仍未开放（写清缺什么），要么是预览项（有入口但必须写明未接入什么、
+    // 且不许挂引擎戳）。"第一项开放"绝不等于"整页开放"。
+    const otherViolations = others.filter(t => {
+      if (t.status === '未开放') return !!t.href || (t.note || '').length < 8 || !t.basis.includes('缺');
+      if (t.status === '部分可用') {
+        return !t.href || (t.done?.length ?? 0) === 0 || (t.notDone?.length ?? 0) === 0
+          || /astro-planets-v1|astro-moment-iana-v1/.test(t.basis || '')
+          || !/未接入|缺/.test((t.basis || '') + (t.note || ''));
+      }
+      return true;
+    });
+    ok('astro/others-still-closed', otherViolations.length === 0,
+      `本命行星位置之外，其余 ${others.length} 项要么仍未开放（写清缺什么），要么是写明未接入内容的预览项（不许挂引擎戳）——`
+      + `违规 ${otherViolations.map(t => t.slug).join('、') || '无'}`);
   const syn = WESTERN_TOOL_BY_SLUG['astro-synastry'];
   ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /缺/.test(syn.basis),
     `合盘那句"缺什么"要跟着本命盘这一批更新（本命盘已能算落座，合盘缺的是相位那一层）：${syn.basis.slice(0, 40)}…`);
-  ok('astro/open-one-does-not-flip-others', WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放').length === 1,
-    `本批只开放一项（实得 ${WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放').length} 项）：多一项就要多一套样例、多一个戳、多一份对拍`);
+  const engineOpen = WESTERN_INTENTS.flatMap(g => g.tools)
+      .filter(t => t.status !== '未开放' && (t.basis || '').includes('astro-planets-v1'));
+    ok('astro/open-one-does-not-flip-others', engineOpen.length === 1,
+      `引擎口径项仍只一项（实得 ${engineOpen.length} 项：${engineOpen.map(t => t.slug).join('、') || '无'}）——多一项引擎就要多一套样例、多一个戳、多一份对拍`);
 }
 
 // ── 5. 降级：算不出来要说明白，不许猜 ──

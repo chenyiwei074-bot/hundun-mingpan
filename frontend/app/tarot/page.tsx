@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { drawThree, TAROT_SUITS, THREE_CARD_POSITIONS } from '@/lib/tarot/deck';
 import type { TarotCard, TarotDraw, TarotPosition } from '@/lib/tarot/deck';
@@ -215,7 +216,8 @@ export default function TarotPage() {
   return (
     <main className="qn-shell qn-shell--wide tarot-page" data-mode="western" data-tarot-state={drawState}>
       <header className="tarot-header qn-rise">
-        <p className="qn-eyebrow">西方玄学 · 塔罗</p>
+        <Link href="/western" className="domain-back">← 返回西方目录</Link>
+          <p className="qn-eyebrow">西方玄学 · 塔罗</p>
         <h1 className="qn-hero">三张牌阵</h1>
         <p className="qn-meta">把过去、现在与未来放在同一条时间线上，先完成抽牌，再查看牌位。</p>
         <p className="tarot-scope-note">本站简化玩法 · 无古籍出处 · 仅正位 · 逆位未做</p>
@@ -253,7 +255,7 @@ export default function TarotPage() {
               </span>
             ))}
           </span>
-          <span className="tarot-deck__caption">{drawState === 'idle' ? '点击洗牌' : drawState === 'shuffled' ? '点击抽出三张' : drawState === 'drawing' ? '牌面揭晓中' : '牌堆已完成'}</span>
+          <span className="tarot-deck__caption">{drawState === 'idle' ? '点击洗牌' : drawState === 'shuffled' ? '点击抽出三张' : drawState === 'drawing' ? '牌面揭晓中' : '牌堆已就绪'}</span>
         </button>
 
         {flight && (
@@ -341,7 +343,12 @@ export default function TarotPage() {
         )}
       </section>
 
-      <p className="sr-only" aria-live="polite">{announcement}</p>
+      <p className="qn-linkrow" style={{ marginTop: 18 }}>
+          <Link className="qn-link" href="/western">返回西方目录</Link>
+          <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
+        </p>
+
+        <p className="sr-only" aria-live="polite">{announcement}</p>
       <p className="tarot-footnote">此页面为本站简化抽牌玩法，暂无古籍出处。仅使用正位；逆位系统与牌义资料尚未接入。</p>
     </main>
   );
