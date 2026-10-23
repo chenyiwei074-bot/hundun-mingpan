@@ -77,7 +77,13 @@ export default function LiuyaoResultPage() {
   // ---- loading state ----
   if (loading) {
     return (
-      <main className="qn-shell" style={{ textAlign: 'center' }}>
+      // 这一帧必须占满一整屏。原来的骨架只有一个 <main> 里的一行字，页脚因此画在
+      // 视口内（实测 1280×900 下 top=687）；卦象在同一 tick 之后插进来把页脚顶出屏幕，
+      // Chrome 就记一次位移动 —— 四个 fixture 各报一条加载期 CLS（0.171 / 0.237 / 0.214 / 0.176），
+      // 归因输出写得很死：CLS-SRC 的来源元素就是 footer.qn-footer，dy 与"页脚被推走"一致。
+      // 所以修法不是放宽阈值，而是让页脚在第一帧就不在视口里：它从未被画在屏上，
+      // 后面再怎么移动都不该有记账资格。
+      <main className="qn-shell" style={{ textAlign: 'center', minHeight: '100vh' }}>
         <p className="qn-title" style={{ color: 'var(--color-text-secondary)' }}>起卦中...</p>
       </main>
     );
