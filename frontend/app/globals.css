@@ -1127,3 +1127,127 @@ body:has(main[data-mode="western"]) .qn-footer { border-top: 0.5px solid var(--c
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- 混合 3D 视觉层：把立体感放在体系入口、主视觉与卡片表面，数据仍保持平面易读 ---- */
+.qn-nav__brand { gap: 8px; }
+.qn-nav__brand::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  border: 1px solid color-mix(in srgb, var(--color-accent-gold-text) 70%, transparent);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, #fff6d9 0 6%, transparent 8%),
+    radial-gradient(circle at 34% 28%, var(--color-accent-gold-light), var(--color-accent-gold) 52%, var(--color-accent-gold-dark) 100%);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.56), 0 2px 5px rgba(34,25,15,.22);
+}
+body:has(main[data-mode="western"]) .qn-nav__brand::before {
+  border-color: var(--color-western-gold);
+  background:
+    radial-gradient(circle at 34% 28%, var(--color-western-text) 0 6%, transparent 8%),
+    radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--color-western-text) 72%, transparent), var(--color-western-gold) 52%, color-mix(in srgb, var(--color-western-muted) 42%, var(--color-western-bg)) 100%);
+}
+
+.qn-card {
+  box-shadow: 0 2px 16px rgba(18, 14, 8, .045), inset 0 1px 0 rgba(255,255,255,.72);
+  transition: box-shadow .18s ease-out, transform .18s ease-out, border-color .18s ease-out;
+}
+.qn-btn--solid { box-shadow: 0 3px 0 color-mix(in srgb, var(--color-accent-gold-dark) 58%, transparent), 0 8px 18px rgba(24, 18, 10, .10); }
+.qn-btn--solid:active { box-shadow: 0 1px 0 color-mix(in srgb, var(--color-accent-gold-dark) 58%, transparent), 0 3px 8px rgba(24, 18, 10, .10); }
+.qn-input, .qn-select, .qn-textarea {
+  box-shadow: inset 0 1px 2px rgba(28, 22, 12, .04);
+}
+.qn-input:focus, .qn-select:focus, .qn-textarea:focus { box-shadow: 0 0 0 3px rgba(178,149,93,.12), inset 0 1px 2px rgba(28,22,12,.03); }
+
+.gate-grid { perspective: 1400px; }
+.domain-card { transform-style: preserve-3d; }
+.domain-card__art {
+  width: min(280px, 29vw);
+  top: 10px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0 68%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0 68%, transparent 100%);
+  transform-style: preserve-3d;
+  transition: transform .18s ease-out;
+}
+.domain-card__art svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.domain-card[data-mode="oriental"] .domain-card__art svg {
+  transform: perspective(900px) rotateX(8deg) rotateY(-10deg);
+  filter: drop-shadow(0 16px 18px rgba(65,48,24,.19));
+}
+.domain-card[data-mode="western"] .domain-card__art svg {
+  transform: perspective(900px) rotateX(8deg) rotateY(10deg);
+  filter: drop-shadow(0 18px 18px var(--color-western-shadow));
+}
+.domain-card:hover .domain-card__art { transform: translate3d(0,-4px,16px); }
+
+/* 东方工作页沿用原有罗盘内容，只把盘面从正视线稿转成略俯视的浮雕器具。 */
+.hp-shell[data-mode="oriental"] > .hero .hero-art { perspective: 1000px; }
+.hp-shell[data-mode="oriental"] > .hero .hero-art .pan {
+  transform: perspective(900px) rotateX(12deg) rotateY(-8deg);
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 18px 18px rgba(53,39,20,.20));
+}
+
+/* 西方工具页以星盘作背景主视觉，使用纯 CSS 绘制，不压住标题或交互控件。 */
+.qn-shell[data-mode="western"] > header:first-child {
+  position: relative;
+  isolation: isolate;
+  min-height: 188px;
+}
+.qn-shell[data-mode="western"] > header:first-child::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  width: 212px;
+  height: 212px;
+  right: -78px;
+  top: -32px;
+  border-radius: 50%;
+  opacity: .34;
+  background:
+    radial-gradient(circle, transparent 0 29%, rgba(217,184,119,.72) 29.3% 29.7%, transparent 30% 40%, rgba(217,184,119,.44) 40.3% 40.7%, transparent 41% 56%, rgba(223,211,242,.48) 56.3% 56.7%, transparent 57%),
+    repeating-conic-gradient(from 4deg, transparent 0 14deg, rgba(217,184,119,.5) 14.5deg 15deg, transparent 15.5deg 30deg),
+    radial-gradient(circle at 36% 30%, rgba(202,183,231,.28), transparent 68%);
+  box-shadow: inset 0 0 22px rgba(217,184,119,.16), 0 18px 38px rgba(8,3,20,.22);
+  transform: perspective(650px) rotateX(16deg) rotateY(-17deg) rotateZ(-12deg);
+}
+.qn-shell[data-mode="western"] > header:first-child > * { position: relative; z-index: 1; }
+
+@media (hover: hover) {
+  .qn-card:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--color-accent-gold-text) 18%, transparent);
+    box-shadow: 0 8px 24px rgba(18,14,8,.075), inset 0 1px 0 rgba(255,255,255,.78);
+  }
+  [data-mode="western"] .qn-card:hover {
+    border-color: color-mix(in srgb, var(--color-western-gold) 28%, var(--color-western-line));
+    box-shadow: 0 12px 30px var(--color-western-shadow), inset 0 1px 0 color-mix(in srgb, var(--color-western-text) 3.5%, transparent);
+  }
+}
+
+@media (max-width: 639px) {
+  .domain-card__art { width: min(210px, 58vw); right: -4px; top: -12px; }
+  .qn-shell[data-mode="western"] > header:first-child { min-height: 172px; }
+  .qn-shell[data-mode="western"] > header:first-child::after {
+    width: 168px;
+    height: 168px;
+    right: -58px;
+    top: -18px;
+    opacity: .23;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .domain-card__art, .domain-card[data-mode="oriental"] .domain-card__art svg,
+  .domain-card[data-mode="western"] .domain-card__art svg,
+  .hp-shell[data-mode="oriental"] > .hero .hero-art .pan,
+  .qn-card:hover { transform: none !important; }
+  .qn-card, .domain-card__art { transition: none !important; }
+}
