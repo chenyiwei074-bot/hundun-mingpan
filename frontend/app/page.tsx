@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
 import type { IntentGroup } from '@/lib/tools/catalog';
-import { statusCounts, statusTally } from '@/lib/tools/status';
+import { isLiveEntry, statusCounts, statusTally } from '@/lib/tools/status';
 
 // 装饰只做"这一侧是谁"的形状，不参与阅读：全部 aria-hidden、pointer-events:none，
 // 描边走低透明度，绝不用来承托文字（文字底下变浅变深都会改对比度）。
@@ -51,7 +51,6 @@ function EclArt() {
 interface Entry {
   href: string;
   mode: 'oriental' | 'western';
-  eyebrow: string;
   name: string;
   lead: string;
   cta: string;
@@ -62,7 +61,6 @@ interface Entry {
 const ENTRIES: Entry[] = [
   {
     href: '/oriental', mode: 'oriental',
-    eyebrow: '八字 · 六爻 · 风水',
     name: '东方玄学',
     lead: '从八字、六爻到风水，在传统体系中寻找问题的脉络。',
     cta: '进入东方世界 →',
@@ -71,14 +69,24 @@ const ENTRIES: Entry[] = [
   },
   {
     href: '/western', mode: 'western',
-    eyebrow: '占星 · 塔罗 · 数字象征',
     name: '西方玄学',
-    lead: '从占星、塔罗到数字象征，探索不同的自我理解方式。',
+    lead: '每一项都按自己的历表与算法口径独立成立，不借东方的表；未开放的那几项只写缺什么，不给入口。',
     cta: '进入西方世界 →',
     groups: WESTERN_INTENTS,
     art: <EclArt />,
   },
 ];
+
+// 眉标不再手写条目名。以前西方那张卡写的是「占星 · 塔罗 · 数字象征」，
+// 而塔罗与数字象征都还没开放 —— 眉标读起来像三样都能用，这就是"没做的东西出现在会做的列表里"。
+// 现在这一行由目录现算：只列真能进的项，超过三项收进「等 N 项」。
+const eyebrowLine = (groups: typeof INTENTS): string => {
+  const open = groups.flatMap(g => g.tools).filter(isLiveEntry).map(t => t.name);
+  if (!open.length) return '本套目录暂无开放项';
+  // 分隔符用「、」不用「 · 」：条目名自己就带「 · 」（「二十八宿 · 本命宿」「西洋占星 · 合盘」），
+  // 用「 · 」当列表分隔会把三个名字读成四个 —— 分隔符不能出现在被分隔的数据里。
+  return open.length > 3 ? `${open.slice(0, 3).join('、')} 等 ${open.length} 项` : open.join('、');
+};
 
 export default function GatePage() {
   return (
@@ -102,7 +110,7 @@ export default function GatePage() {
               <span className="domain-card__veil" aria-hidden="true" />
               <span className="domain-card__art" aria-hidden="true">{e.art}</span>
               <div className="domain-card__copy">
-                <p className="qn-eyebrow">{e.eyebrow}</p>
+                <p className="qn-eyebrow">{eyebrowLine(e.groups)}</p>
                 <h2 className="domain-card__title">{e.name}</h2>
                 <p className="qn-body">{e.lead}</p>
                 <p className="domain-card__cta">{e.cta}</p>
@@ -116,7 +124,7 @@ export default function GatePage() {
       <section className="qn-legal gate-legal">
         <p className="qn-note" style={{ margin: 0 }}>
           栏底那三个数（可用 / 部分可用 / 未开放，相加等于总项数）由两套目录现算，本站不在门廊维护第二份工具清单。
-          每一项的可用状态、计算口径与需要哪些输入，进到工作页后从页脚「工具状态与取数口径」看。
+          每一项的可用状态、计算口径与需要哪些输入，进到「全部工具与取数口径」那一页看。
         </p>
       </section>
     </main>
