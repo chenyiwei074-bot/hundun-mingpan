@@ -8,6 +8,8 @@ import { useMemo, useState } from 'react';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, PLANETS, SIGNS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
 import { toUtc, availableZones, MOMENT_BASIS, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { WESTERN_TOOL_BY_SLUG } from '@/lib/tools/western-catalog';
+import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS } from '@/lib/astro/classics';
+import BasisQuote from '@/components/western/BasisQuote';
 import Callout from '@/components/ui/Callout';
 
 const ZONES = availableZones();
@@ -69,6 +71,7 @@ export default function NatalPlanets() {
           黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；过了 {ASTRO_CROSS_CHECK.to} 本站不打包票 ——
           远未来那一批历元上月亮已经偏出这条线，逐颗星的实测偏差与出处都记在仓库里的对拍夹具中，不在这儿复述。
         </p>
+        <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
       </section>
 
       <section className="qn-card" style={{ marginTop: 14 }}>
@@ -168,6 +171,9 @@ export default function NatalPlanets() {
           因此这里给的是「本命行星位置」，不叫星盘 —— 没有宫位与相位的盘，叫盘会让人以为缺的那几样也算了。
           黄纬按同一口径一并给出（{SIGNS.length} 个 30° 区间就是上面那张表的落座边界）。
         </p>
+        {/* 相位这项**还没做**，这块不是功能展示，是把将来那张贴出来之前先把两件事钉住：
+            角度定义有公版古籍出处，容许度数值没有。挂在未做清单之后就是这个意思。 */}
+        <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 相位（这一项还没做，先钉口径）" />
       </section>
     </>
   );

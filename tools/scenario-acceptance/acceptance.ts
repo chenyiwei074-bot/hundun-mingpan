@@ -31,12 +31,25 @@ const ok = (id: string, cond: boolean, detail: string) => {
   say(`${cond ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
 };
 
-// ── 底本语料：docs/classics 里所有 markdown 拼起来，引文比对只认它 ──
+// ── 底本语料：docs/classics **含其子目录**里所有 markdown 拼起来，引文比对只认它 ──
+// 批H 起西方底本放在 docs/classics/western/。原来这里用非递归的 readdirSync，多一层目录就会
+// 安静地少读一整个域 —— 表现是"引文未命中"，红得很有说服力，而坏的是量具。
+// README.md 是规则说明、不是底本，从语料里排掉（它里面确实抄着几句原文当例子）。
 const CLASSICS_DIR = join(ROOT, 'docs', 'classics');
-const classicsFiles = existsSync(CLASSICS_DIR) ? readdirSync(CLASSICS_DIR).filter(f => f.endsWith('.md')) : [];
-const corpus = classicsFiles.map(f => readFileSync(join(CLASSICS_DIR, f), 'utf8')).join('\n');
-ok('classics/present', classicsFiles.length >= 3 && corpus.length > 3000,
-  `docs/classics 至少三份且正文够长（比对底本不能是空壳）：实得 ${classicsFiles.length} 份 / ${corpus.length} 字（${classicsFiles.join('、')}）`);
+/** 期望的**底本**份数：东方三份 .md + 批H-W 西方两份规范化 .txt。加一篇就把这个数一起改。 */
+const EXPECT_BASES = 5;
+function walkBases(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap(d => {
+    const p = join(dir, d.name);
+    if (d.isDirectory()) return walkBases(p);
+    return (d.name.endsWith('.md') || d.name.endsWith('.txt')) && d.name !== 'README.md' ? [p] : [];
+  });
+}
+const classicsFiles = walkBases(CLASSICS_DIR);
+const corpus = classicsFiles.map(f => readFileSync(f, 'utf8')).join('\n');
+ok('classics/present', classicsFiles.length === EXPECT_BASES && corpus.length > 3000,
+  `docs/classics（含子目录）必须恰好 ${EXPECT_BASES} 份底本且正文够长（比对底本不能是空壳）：实得 ${classicsFiles.length} 份 / ${corpus.length} 字（${classicsFiles.map(f => f.slice(CLASSICS_DIR.length + 1)).join('、')}）`);
 
 // ── 两张真盘：男、女各一张。矩阵里唯一按性别分叉的是婚姻与恋爱行，必须两路都跑到 ──
 const birth = (gender: 'male' | 'female') => (createChart({

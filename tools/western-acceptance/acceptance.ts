@@ -20,6 +20,7 @@ import { WESTERN_CLOSED_TOOLS, WESTERN_INTENTS, WESTERN_LIVE_HREFS, WESTERN_TOOL
 // 所以这两个值从出处那边读进来，不在测试里重抄一遍（重抄就是第二个真相）。
 import { ASTRO_BASIS } from '../../frontend/lib/astro/planets';
 import { MOMENT_BASIS } from '../../frontend/lib/astro/moment';
+import { readDataText, readWesternBases, sha256 } from '../_lib/classics';
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -27,6 +28,9 @@ const arg = (name: string) => {
 };
 const OUT = arg('out') || '.western.txt';
 const ROOT = join(__dirname, '../..');
+/** 底本份数锁：加一本书要把这里和生成器里的登记表一起改。 */
+const EXPECT_WEST_BASES = 2;
+const 短名 = (f: { 文件: string }) => f.文件;
 const lines: string[] = [];
 let pass = 0; let fail = 0;
 const say = (s: string) => lines.push(s);
@@ -125,6 +129,31 @@ const ok = (id: string, cond: boolean, detail: string) => {
     && !/eyebrow:\s*'/.test(landing) && /join\('、'\)/.test(landing) && !/join\(' · '\)/.test(landing),
     `门廊眉标必须由目录现算、并用「、」分隔：名字里带「 · 」的已有 ${withDot.length} 项`
     + `（${withDot.join('、') || '无'}），用「 · 」当分隔符就会把名字切错`);
+}
+
+// ── 5. 西方底本层（批H-W）：载体窄路、元数据齐、段哈希自洽 ──
+{
+  const files = readWesternBases(ROOT);
+  const HEAD = ['载体', '版本与译者', '抓取日期', '原始文件 sha256', '规范化整档 sha256', '规范化脚本'];
+  const missHead = files.flatMap(f => HEAD.filter(k => !f.头[k]).map(k => `${短名(f)} 缺「${k}」`));
+  const missPass = files.flatMap(f => f.passages.filter(p => !p.该版位置 || !p.偏移 || !/^[0-9a-f]{64}$/.test(p.段sha256))
+    .map(p => `${p.id} 的 该版位置/偏移/段sha256 不全`));
+  ok('west/bases-registered', files.length === EXPECT_WEST_BASES
+    && files.every(f => f.passages.length >= 2) && missHead.length === 0 && missPass.length === 0,
+    `底本必须恰好 ${EXPECT_WEST_BASES} 份在册、每份至少两段、头部元数据齐（${HEAD.join('/')}）且每段带 该版位置/偏移/段sha256：`
+    + `实得 ${files.length} 份（${files.map(f => 短名(f)).join('、') || '无'}）；缺项 ${[...missHead, ...missPass].join('；') || '无'}`);
+
+  // 离线唯一能查的"这层没被手改过"：把段内容重新哈希，与文件里记的那条比。
+  // 手改一个字母就红，且红的是底本本身而不是"引文找不到"。
+  const badSha = files.flatMap(f => f.passages.filter(p => sha256(p.text) !== p.段sha256)
+    .map(p => `${短名(f)}/${p.id}`));
+  ok('west/base-hashes-immutable', files.length > 0 && badSha.length === 0,
+    `每段记录的 sha256 必须与段内容自洽（改了底本就要重跑生成器并升 pgnorm 版本，不能手改）：不合 ${badSha.join('、') || '无'}`);
+
+  // 窄路：底本只能来自 Project Gutenberg。写进机检，防止下一次有人把 IA 的 OCR 粘进来。
+  const offPath = files.filter(f => !/# 载体: Project Gutenberg #\d+ · https:\/\/www\.gutenberg\.org\//.test(readDataText(f.abs)));
+  ok('west/bases-are-gutenberg-only', offPath.length === 0,
+    `载体窄路（业主 2026-10-23 裁定）：底本只能来自 PG 键入本，archive.org 的 OCR 只作定位 —— 非 PG 载体 ${(offPath.map(短名).join('、')) || '无'}`);
 }
 
 const summary = `western acceptance: tools=${WESTERN_TOOLS.length} open=${WESTERN_LIVE_HREFS.length} pass=${pass} fail=${fail}`;

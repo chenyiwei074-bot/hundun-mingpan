@@ -16,6 +16,9 @@ import { stripComments } from '../_lib/codesrc';
 import { VETTED_PINNED } from '../_lib/vettedDeps';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
 import { toUtc, MOMENT_BASIS, availableZones } from '../../frontend/lib/astro/moment';
+import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS, type BasisTriple } from '../../frontend/lib/astro/classics';
+import { readWesternBases } from '../_lib/classics';
+import { PG_NOTE_ANCHOR, canon } from '../_lib/pgnorm';
 import { WESTERN_INTENTS, WESTERN_TOOL_BY_SLUG } from '../../frontend/lib/tools/western-catalog';
 import { ROUTER_SPECS } from '../../frontend/lib/assistant/intent';
 import { build } from './make-reference';
@@ -344,9 +347,67 @@ const ref = refText ? JSON.parse(refText) : null;
     `裁定里批准的是 MIT 那一个（AGPL 与 1★ 仓库两条红线仍在）：实得 license=${JSON.stringify(license)}`);
 }
 
+// ── 8. 「依据」三层与西方底本（批H-W。业主两条裁定：窄路只认 PG 键入本 / 近代必须标）──
+{
+  const bases = [TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS];
+  const files = readWesternBases(ROOT);
+  const byPath = new Map(files.map(f => [f.文件, f]));
+  const find = (b: BasisTriple) => { const f = byPath.get(b.底本); return f ? { f, p: f.passages.find(x => x.id === b.底本段) } : { f: undefined, p: undefined }; };
+
+  // 每条口径都得指得到一个真实存在、且真有那一段的底本 —— 悬空引文比不引更坏：它承诺了复核却没处可核。
+  const dangling = bases.map(b => { const { f, p } = find(b); return (!f || !p) ? `${b.底本段}@${b.底本}` : null; }).filter(Boolean);
+  ok('astro/basis-files-registered', files.length === 2 && dangling.length === 0,
+    `两份底本在册且每条依据都能落到具体段：实得 ${files.length} 份（${files.map(f => f.文件).join('、') || '无'}）；悬空 ${dangling.join('、') || '无'}`);
+
+  // 逐字性：规范化之后判连续子串（两侧同一个 canon —— 折叠方式不同会伪装成"引文不一致"）
+  const badQuote = bases.filter(b => { const { p } = find(b); return !(p && canon(p.text).includes(canon(b.原文))); });
+  ok('astro/basis-quote-is-substring-of-classics', badQuote.length === 0,
+    `页面每条引文必须是所登记 PASSAGE 的连续子串，差一字即红：未命中 ${badQuote.map(b => b.底本段).join('、') || '无'}（共 ${bases.length} 条）`);
+
+  // PG 注号是注者锚点，不是古籍正文。带进引文就等于把注者语当原文卖（orb 那条教训）
+  const withAnchor = bases.filter(b => PG_NOTE_ANCHOR.test(b.原文));
+  ok('astro/basis-quote-carries-no-note-anchor', withAnchor.length === 0 && bases.every(b => !/\[\d{1,3}\]/.test(b.原文)),
+    `引文里不许出现 [44] 这类 PG 注号：命中 ${withAnchor.map(b => b.底本段).join('、') || '无'}`);
+
+  // 元数据齐不齐、段哈希自不自洽是**底本层**的事，判据在 western-acceptance
+  // （west/bases-registered、west/base-hashes-immutable）。这里不重复实现一遍 ——
+  // 同一件事两套断言迟早一套先坏，坏的那套还会给出看起来合理的红。
+
+  // 三层缺一层就不算有出处；白话要自证非他人译本；出处行要能让人回到段
+  const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'BasisQuote.tsx'), 'utf8'));
+  const missLayer = ['原文', '白话', '口径'].filter(k => !comp.includes(k));
+  ok('astro/basis-three-layers', missLayer.length === 0 && /basis\.原文/.test(comp) && /basis\.白话/.test(comp)
+    && /basis\.口径/.test(comp) && /basis\.底本段/.test(comp) && /非原文、非他人译本/.test(comp),
+    `「依据」块三层必须齐且各自吃到数据（原文／本站白话／口径标注），还要带得回段的编号，白话自证非他人译本：缺 ${missLayer.join('、') || '无'}`);
+
+  // 近代词条只许待在近代层，且一处都不许混进任何原文字段。
+  // 上一版这里写的是"四个词条必须全部被覆盖"，那是条**假要求**：Life Path 属于数字命理，
+  // 那一页还不存在，逼着 /astro 去替它声明分层，等于让页面说一件它没做的事。
+  // 改成两条真不变量：① 这页写出来的近代词条必须在近代层；② 任何一个近代词条都不许出现在
+  // 原文层或古籍层 —— Life Path 今天不出场所以①不涉它，但它哪天被写进古籍层，②立刻红。
+  const MODERN = ['orb', 'Placidus', 'synastry', 'Life Path'];
+  const CITED_HERE = ['orb', 'Placidus', 'synastry'];
+  const tiersWith = (w: string) => bases.flatMap(b => b.口径.filter(t => t.说法.toLowerCase().includes(w.toLowerCase())));
+  const misplaced = MODERN.flatMap(w => tiersWith(w).filter(t => t.属于 !== '无古籍出处 · 近代约定')
+    .map(t => `${w} 被放进「${t.属于}」`));
+  const missing = CITED_HERE.filter(w => !tiersWith(w).some(t => t.属于 === '无古籍出处 · 近代约定'));
+  const leaked = MODERN.filter(w => bases.some(b => b.原文.toLowerCase().includes(w.toLowerCase())));
+  ok('astro/basis-modern-tier-labeled', misplaced.length === 0 && missing.length === 0 && leaked.length === 0
+    && bases.every(b => b.口径.some(t => t.属于 === '古籍原文')),
+    `近代词条不许出现在原文层或古籍层：错位 ${misplaced.join('；') || '无'}；本页该标而没标 ${missing.join('、') || '无'}；`
+    + `混进引文 ${leaked.join('、') || '无'}；每条依据都带古籍原文层 = ${bases.every(b => b.口径.some(t => t.属于 === '古籍原文'))}`);
+
+  // 拉丁原文只挂在 /astro，不许被抄进目录卡面（那边另有 E1 的拉丁词判据，这条是为了第一时间点名）
+  const catalogFields = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || ''].join(' ');
+  ok('astro/basis-quote-stays-off-catalog', !/Tetrabiblos|Gutenberg|De Laurence/.test(catalogFields) && !catalogFields.includes('tropical'),
+    '逐字原文与原书名只许出现在 /astro 的依据块里；进目录卡面就是把拉丁词搬进中文页');
+}
+
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
-const EXPECT = 57;
+// 批H-W 的 §8 有 8 条（两份底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
+// 近代词条分层／引文不进目录），57 → 65。上一轮这条锁抓到我把 6 数成 5，这轮它继续有效。
+const EXPECT = 63;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

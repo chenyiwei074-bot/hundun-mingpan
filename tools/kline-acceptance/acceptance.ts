@@ -641,7 +641,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   //  b) 同一行尾内联 .replace(/\/\*…（census/globals.css 那种，剥注释写在读之后）；
   //  c) 读进一个变量，随后三行内对该变量剥一次（本仓最常见的 `const raw = read…; const code = strip(raw);`）。
   // 再加两条不适用：读 .json/.png/.md 这类无注释工件的行，以及 JSON.parse 包着的结构化数据。
-  const READ_SITES_BESIDE_TEXT = /\.(json|png|jpg|svg|md|txt)['"]?\s*[,)]|JSON\.parse\s*\(/;
+  const READ_SITES_BESIDE_TEXT = /\.(json|png|jpg|svg|md|txt)['"]?\s*[,)]|JSON\.parse\s*\(|\breadData(?:Text|Bytes)\s*\(/;
   // 认不了的形态要写清为什么放行，并且条目对应的读点不见了就判红 —— 与引擎打印那张 allowlist 同一做法。
   const STRIP_ALLOWLIST: { where: string; reason: string }[] = [
     { where: 'receipt-acceptance/acceptance.ts|join(__dirname, \'../..\', p)', reason: '这是本档的读文件小函数 readSrc() 本体，'
@@ -713,14 +713,20 @@ function numericPaths(v: unknown, prefix = ''): string[] {
     ['注释行提到被测量', `  // 说明里提到 ${CALL_TOKEN}( 这不算`, [], 'skip'],
     ['JSON.parse 包着（结构化数据，不是源码文本）', `  const c = JSON.parse(${CALL_TOKEN}(cases, 'utf8'));`, [], 'skip'],
     ['读 .png 这类无注释工件（路径写成字面量）', `  const img = ${CALL_TOKEN}('logo.png', 'utf8');`, [], 'skip'],
+    ['走数据读专用件（底本/PG 原文这类无注释数据）', '  const raw = readDataText(p);', [], 'skip'],
   ];
+  /** 牙齿案例数锁：加一种形状要把这个数一起改（"忘了加牙齿"与"忘了包 strip"是同一类事故）。 */
+  const EXPECT_TEETH = 11;
   const teethBad: string[] = [];
   for (const [name, line, next, want] of TEETH) {
     const got = verdict(line, next);
     if (got !== want) teethBad.push(`${name}：期望 ${want}，实得 ${got}`);
   }
-  ok('gate/strip-rule-teeth', teethBad.length === 0,
-    '包一层 strip*/codeOf、经 require 但外层仍包着、同一行内联 .replace(/\\/\\*、读进变量后三行内剥 —— 四种都判"已剥"；'
+  ok('gate/strip-rule-teeth', teethBad.length === 0 && TEETH.length === EXPECT_TEETH,
+    `牙齿形状必须恰好 ${EXPECT_TEETH} 种（实得 ${TEETH.length}）且全部判对。`
+    + 'readDataText/readDataBytes 是"数据读"这一类（底本 .txt、原始 PG 档）：认类别不认文件名，'
+      + '定义处与调用处都靠这个名字标出来；拿它去读源码文本再做判定就是当场撒谎。'
+    + '包一层 strip*/codeOf、经 require 但外层仍包着、同一行内联 .replace(/\\/\\*、读进变量后三行内剥 —— 四种都判"已剥"；'
     + '裸读、以及"本行早先有一个已经闭合的 strip(...) 但包的不是这一读"都判裸；注释行与 .json/.png/JSON.parse 不算在读源码。'
     + '判据形状变了会点名是哪一种形状对不上（全过才算绿），先确认形状再改判据，不要改期望。'
     + '豁免只认看得见的扩展名 —— 路径藏在变量里时不算，那种进 STRIP_ALLOWLIST 写原因（条目对应的读点不见了会判红）。'

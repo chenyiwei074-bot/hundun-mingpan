@@ -1,0 +1,23 @@
+# 西方底本（规范化后的 PG 文本）—— 只由脚本生成，手改即视为坏
+# 规范化脚本: tools/western-acceptance/make-classics.ts · 规则 tools/_lib/pgnorm.ts · 版本 pgnorm-v1
+# 载体: Project Gutenberg #70850 · https://www.gutenberg.org/cache/epub/70850/pg70850.txt
+# 版本与译者: J. M. Ashmand 英译 · 原出版 W. Foulsham & Co. Ltd, 1900（英国）· PG 发布 2023-05-24 · PGDP 校勘键入
+# 抓取日期: 2026-10-23
+# 原始文件 sha256: 9acc3da34642eb0a54d8b14224bfa52017aec6bb7f8c0558f50e8492ed226fc1
+# 规范化整档 sha256: d41bb7952ecbf2addd17064738f3ae2f75585f04e10494a5e272c29aba735c89
+# 偏移口径: 规范化整档（PG 头尾已剥、段落摊平、空白归一）的字符序号，含首不含尾
+# 注: 段内可能保留原排版的断词连字符；引文必须是原句连续片段，跨断词的引用会判红
+# PASSAGE i-xiv-tropical-signs
+# 该版位置: Book I, CHAPTER XIV「TROPICAL, EQUINOCTIAL, FIXED, AND BICORPOREAL SIGNS」（该版目录页 23 ≈ 今本 I.14 一带，编号按本版本记）
+# 规范化整档字符偏移: 110307…110623
+# 规范化段 sha256: e5ac96304a0fe2218c9da3720f45c1f7f5748a3925fdcb26f4f5ff49a5fd58c5
+Among the twelve signs, some are termed tropical, others equinoctial, others fixed, and others bicorporeal.
+
+The tropical signs are two: viz. the first thirty degrees after the summer solstice, which compose the sign of Cancer; and the first thirty degrees after the winter solstice, composing the sign of Capricorn.
+
+# PASSAGE i-xvi-mutual-configurations
+# 该版位置: Book I, CHAPTER XVI「MUTUAL CONFIGURATIONS OF THE SIGNS」（该版目录页 24 ≈ 今本 I.13）
+# 规范化整档字符偏移: 114732…115377
+# 规范化段 sha256: 76ff4793f0a7fd2be1cbc319ac3fea2a265272d2ac1361a250c9677a5a0c096b
+This mutual configuration attaches to all parts diametrically distant from each other, containing between them two right angles, or six signs, or a hundred and eighty degrees: it also exists in all parts at the triangular distance from each other, containing between them one right angle and a third, or four signs, or a hundred and twenty degrees; also, in all parts at the quadrate distance from each other, containing between them exactly one right angle, or three signs, or ninety degrees; and, also, in all parts at the hexagonal distance from each other, containing between them two-thirds of a right angle, or two signs, or sixty degrees.
+

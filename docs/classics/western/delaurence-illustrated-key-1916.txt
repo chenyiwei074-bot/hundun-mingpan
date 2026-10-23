@@ -1,0 +1,21 @@
+# 西方底本（规范化后的 PG 文本）—— 只由脚本生成，手改即视为坏
+# 规范化脚本: tools/western-acceptance/make-classics.ts · 规则 tools/_lib/pgnorm.ts · 版本 pgnorm-v1
+# 载体: Project Gutenberg #43548 · https://www.gutenberg.org/cache/epub/43548/pg43548.txt
+# 版本与译者: L. W. De Laurence《The Illustrated Key to the Tarot: The Veil of Divination》1916 · PG 发布 2013-08-18 · PGDP 校勘键入
+# 抓取日期: 2026-10-23
+# 原始文件 sha256: ad27d08bf984a5e582c9f089ef193864f824f2fd58cb1412ddeffa21bab8a2d8
+# 规范化整档 sha256: bf527be0e2d0b6d37a261e790a0f091ddd3f660361069153e23f7db22a8f2a62
+# 偏移口径: 规范化整档（PG 头尾已剥、段落摊平、空白归一）的字符序号，含首不含尾
+# 注: 段内可能保留原排版的断词连字符；引文必须是原句连续片段，跨断词的引用会判红
+# PASSAGE celtic-method-opening
+# 该版位置: § 7「An Ancient Celtic Method Of Divination」起始操作句（该书 §7 目录见前matter；"Ancient/Celtic"是作者的自称，本站不背书）
+# 规范化整档字符偏移: 171180…171347
+# 规范化段 sha256: b7d674892b1943c1c53555c7aa81d5ed9e4d581f0fad98ab270c4a4371915db6
+Having selected the Significator, place it on the table, face upwards. Then shuffle and cut the rest of the pack three times, keeping the faces of the cards downwards.
+
+# PASSAGE celtic-method-ten-cards
+# 该版位置: § 7 末段（点名"头十张"那一步）
+# 规范化整档字符偏移: 174695…174790
+# 规范化段 sha256: 258c8275048863c6ef2df988c7692b531602fb9106755d7626c4d9ccadea4ac2
+The pack must be again shuffled and cut three times and the first ten cards laid out as before.
+
