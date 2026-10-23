@@ -11,6 +11,7 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 // 2026-10-21 裁定：任何拿产品源码文本做判定的闸门先剥注释（共享件 tools/_lib/codesrc.ts）。
 import { stripComments } from '../_lib/codesrc';
+import { unvettedDeps, unpinned } from '../_lib/vettedDeps';
 import { createChart } from '../../frontend/app/lib/core/yiqi-core';
 import type { BaziChart } from '../../frontend/app/lib/core/yiqi-core/types';
 import { buildScenarios, PALACE_SOURCE, PALACE_MAP, SCENARIO_BASIS, CONVENTION_NOTE } from '../../frontend/lib/bazi/scenarios';
@@ -236,12 +237,17 @@ function siZhuOk(s: Record<string, { gan: string; zhi: string } | undefined>) {
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 24 }));
   const keysOf = (o: { dependencies?: object; devDependencies?: object }) =>
     Object.keys({ ...o.dependencies, ...o.devDependencies }).sort();
-  // 2026-10-20：three/@types/three 经批准引入（户型 WebGL 舞台），是本批唯一白名单；
-  // 其余任何新依赖仍判红。
-  const SANCTIONED_DEPS = new Set(['three', '@types/three']);
-  const added = keysOf(pkg).filter(k => !keysOf(basePkg).includes(k) && !SANCTIONED_DEPS.has(k));
+  // 2026-10-20：three/@types/three 经批准引入（户型 WebGL 舞台）。
+  // 2026-10-23 裁定①（E2）：批准 astronomy-engine 的最小面，进**钉版本**那一类 ——
+  // 名字放行之外还要当场验精确版本，因为西方那条对拍的可复现性挂在这行版本号上
+  // （飘一个补丁版就可能飘过 0.02° 的公差）。两份名单都在 tools/_lib/vettedDeps.ts，
+  // 不在这里各写一遍（三处各抄一份迟早有一份漏改）。
+  const added = unvettedDeps(keysOf(pkg), keysOf(basePkg));
   ok('dep/no-new-package', added.length === 0,
     `本批零新依赖：与 origin/main 的 package.json 键集逐字比，新增项必须为 0（比关键词靠谱 —— lunar-typescript 本来就在）：实得新增 ${added.join('、') || '无'}`);
+  const pinnedWrong = unpinned(pkg.dependencies);
+  ok('dep/vetted-deps-stay-pinned', pinnedWrong.length === 0,
+    `裁定过的依赖必须按精确版本钉着（不许 ^ ~ 或改版）：不符 ${pinnedWrong.join('、') || '无'}`);
   const routes = existsSync(join(ROOT, 'frontend', 'app', 'scenarios')) || existsSync(join(ROOT, 'frontend', 'app', 'bazi'));
   ok('route/no-new-page', !routes, '不新增路由：矩阵是结果页里的一节，不是新页面');
   const mounted = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8'));

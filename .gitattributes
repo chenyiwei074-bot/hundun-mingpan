@@ -1,0 +1,7 @@
+# E2 对拍数据：逐字节不许换行符转换。
+# 这两档不是给人读的源码，是"重算必须复现同一份"的对照数据：夹具由 make-reference.ts 用
+# writeFileSync 写成 LF，而 core.autocrlf=true 会在 checkout 时把 *.json / *.txt 改成 CRLF ——
+# 于是 astro/reference-reproducible 在 Windows 上必红（一次 rebase 就撞上），
+# 而红的理由是行尾，不是口径。数据文件按 -text 存原样，任何平台 checkout 都逐字一致。
+tools/astro-acceptance/cases/*.json -text
+tools/astro-acceptance/horizons/*.txt -text
