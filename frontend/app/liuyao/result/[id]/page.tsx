@@ -10,6 +10,7 @@ import type { LiuyaoResult } from '@/types/liuyao';
 import Link from 'next/link';
 import ReceiptPanel from './ReceiptPanel';
 import { saveReport } from '@/lib/report/saveReport';
+import { RichText } from '@/lib/ui/richText';
 
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
 
@@ -288,15 +289,7 @@ export default function LiuyaoResultPage() {
             </button>
           </div>
           <div className="qn-body">
-            {reportContent.split('\n').map((line, i) => {
-              if (line.startsWith('# ')) return <h1 key={i} className="qn-title" style={{ margin: '0 0 14px' }}>{line.slice(2)}</h1>;
-              if (line.startsWith('## ')) return <h2 key={i} className="qn-body" style={{ fontWeight: 600, color: 'var(--color-accent-gold-text)', margin: '18px 0 8px', paddingBottom: 6, borderBottom: 'var(--qn-hairline)' }}>{line.slice(3)}</h2>;
-              if (line.startsWith('### ')) return <h3 key={i} className="qn-body" style={{ fontWeight: 600, margin: '12px 0 4px' }}>{line.slice(4)}</h3>;
-              if (line.startsWith('> ')) return <blockquote key={i} className="qn-meta" style={{ margin: '6px 0', padding: '8px 14px', borderLeft: `3px solid var(--color-accent-gold)`, background: 'rgba(178,149,93,0.04)', borderRadius: '0 8px 8px 0' }}>{line.slice(2)}</blockquote>;
-              if (line.startsWith('- ')) return <li key={i} style={{ margin: '2px 0 2px 16px' }}>{line.slice(2)}</li>;
-              if (line.trim() === '') return <br key={i} />;
-              return <p key={i} style={{ margin: '4px 0' }}>{line}</p>;
-            })}
+            <RichText text={reportContent} />
           </div>
           <div style={{ marginTop: 20, textAlign: 'center' }}>
             <button type="button" onClick={generateReport} className="qn-btn qn-btn--quiet">重新生成</button>

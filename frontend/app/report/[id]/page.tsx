@@ -7,50 +7,11 @@ import { REPORT_TYPE_LABELS, REPORT_STATUS_LABELS, REPORT_STATUS_COLORS } from '
 import { checkReportAccess } from '@/lib/report/access';
 import type { ReportRecord } from '@/lib/report/types';
 import { getVisitorId } from '@/lib/auth/visitor';
+import { RichText } from '@/lib/ui/richText';
 
 /** 返回链接要撑到 44px 命中区，否则手机上只有 17px 高 */
 const BACK: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 44 };
 
-/** 把报告正文按行渲染：连续的 `- ` 归到一个 ul 里，空行只作为块间距 */function renderReport(text: string) {
-  const out: React.ReactNode[] = [];
-  let items: string[] = [];
-  const flush = () => {
-    if (!items.length) return;
-    out.push(
-      <ul key={`ul-${out.length}`} style={{ margin: '0 0 12px', padding: 0, listStyle: 'none' }}>
-        {items.map((t, i) => (
-          <li key={i} className="qn-body" style={{ display: 'flex', gap: 10, marginBottom: 6 }}>
-            <span aria-hidden="true" style={{ flex: '0 0 auto', color: 'var(--color-accent-gold-text)' }}>·</span>
-            <span style={{ flex: '1 1 auto' }}>{t}</span>
-          </li>
-        ))}
-      </ul>
-    );
-    items = [];
-  };
-
-  text.split('\n').forEach((line, i) => {
-    if (line.startsWith('# ')) {
-      flush();
-      out.push(<h2 key={i} className="qn-title" style={{ margin: '26px 0 10px', textWrap: 'balance' }}>{line.slice(2)}</h2>);
-    } else if (line.startsWith('## ')) {
-      flush();
-      out.push(<h3 key={i} className="qn-body" style={{ margin: '22px 0 8px', fontWeight: 600, color: 'var(--color-accent-gold-text)', letterSpacing: '0.04em' }}>{line.slice(3)}</h3>);
-    } else if (line.startsWith('> ')) {
-      flush();
-      out.push(<blockquote key={i} className="qn-body" style={{ margin: '10px 0', padding: '10px 14px', borderLeft: '2px solid var(--color-accent-gold)', background: 'rgba(178,149,93,0.04)', borderRadius: '0 8px 8px 0' }}>{line.slice(2)}</blockquote>);
-    } else if (line.startsWith('- ')) {
-      items.push(line.slice(2));
-    } else if (line.trim() === '') {
-      flush();
-    } else {
-      flush();
-      out.push(<p key={i} className="qn-body" style={{ marginBottom: 8 }}>{line}</p>);
-    }
-  });
-  flush();
-  return out;
-}
 
 export default function ReportDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -110,7 +71,7 @@ export default function ReportDetailPage() {
 
 
       <article className="qn-card">
-        {displayText ? renderReport(displayText) : (
+        {displayText ? <RichText text={displayText} /> : (
           <p className="qn-meta" style={{ textAlign: 'center', padding: '28px 0' }}>暂无报告内容</p>
         )}
       </article>
