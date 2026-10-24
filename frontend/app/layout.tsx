@@ -2,6 +2,7 @@
 import './globals.css';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
+import MotionEnhancer from '@/components/MotionEnhancer';
 
 export const metadata: Metadata = {
   title: '混沌命盘 - AI融合八字×紫微斗数',
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="zh-CN">
       <body className="min-h-screen">
         <Nav />
+        <MotionEnhancer />
         {children}
         <Footer />
       </body>

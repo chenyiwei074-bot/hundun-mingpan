@@ -6,6 +6,7 @@ import { drawThree, THREE_CARD_POSITIONS } from '@/lib/tarot/deck';
 import type { TarotCard, TarotDraw, TarotOrientation, TarotPosition } from '@/lib/tarot/deck';
 import { TarotIllustration } from '@/components/tarot/TarotIllustration';
 import { TAROT_MEANINGS } from '@/lib/tarot/meanings';
+import { getDeckTilt } from '@/lib/tarot/interaction';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
 
@@ -40,11 +41,14 @@ function CardFront({ card, orientation }: { card: TarotCard; orientation: TarotO
 }
 
 function TarotSlot({
-  position, drawn, visible, stageElementRef,
+  position, drawn, visible, selected, index, onSelect, stageElementRef,
 }: {
   position: TarotPosition;
   drawn?: TarotDraw;
   visible: boolean;
+  selected: boolean;
+  index: number;
+  onSelect: () => void;
   stageElementRef?: (node: HTMLDivElement | null) => void;
 }) {
   return (
@@ -52,12 +56,34 @@ function TarotSlot({
       <h2 className="tarot-slot__position">{position}</h2>
       <div className="tarot-slot__stage" ref={stageElementRef}>
         {visible && drawn ? (
-            <div className={`tarot-card is-revealed${drawn.orientation === '逆位' ? ' tarot-card--reversed' : ''}`} data-card-id={drawn.card.id} data-orientation={drawn.orientation} aria-label={`${drawn.card.nameZh}${drawn.orientation}`}>
+          <button
+            type="button"
+            className={`tarot-card-trigger${selected ? ' is-selected' : ''}`}
+            style={{ '--tarot-card-index': index } as CSSProperties}
+            onClick={onSelect}
+            onPointerMove={event => {
+              if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+              const rect = event.currentTarget.getBoundingClientRect();
+              const tilt = getDeckTilt(((event.clientX - rect.left) / rect.width) * 2 - 1, ((event.clientY - rect.top) / rect.height) * 2 - 1);
+              const cardElement = event.currentTarget.querySelector<HTMLElement>('.tarot-card');
+              cardElement?.style.setProperty('--card-tilt-x', `${tilt.x}deg`);
+              cardElement?.style.setProperty('--card-tilt-y', `${tilt.y}deg`);
+            }}
+            onPointerLeave={event => {
+              const cardElement = event.currentTarget.querySelector<HTMLElement>('.tarot-card');
+              cardElement?.style.setProperty('--card-tilt-x', '0deg');
+              cardElement?.style.setProperty('--card-tilt-y', '0deg');
+            }}
+            aria-label={`${position}：${drawn.card.nameZh}，${drawn.orientation}，点击查看牌义`}
+            aria-pressed={selected}
+          >
+            <div className={`tarot-card is-revealed${drawn.orientation === '逆位' ? ' tarot-card--reversed' : ''}`} data-card-id={drawn.card.id} data-orientation={drawn.orientation}>
             <div className="tarot-card__inner">
               <CardBack />
-                <CardFront card={drawn.card} orientation={drawn.orientation} />
+              <CardFront card={drawn.card} orientation={drawn.orientation} />
             </div>
-          </div>
+            </div>
+          </button>
         ) : (
           <div className="tarot-empty" aria-hidden="true">
             <span className="tarot-empty__mark">＋</span>
@@ -85,6 +111,7 @@ export default function TarotPage() {
   const [question, setQuestion] = useState('');
   const [drawQuestion, setDrawQuestion] = useState('');
   const [drawnCards, setDrawnCards] = useState<TarotDraw[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [visibleCount, setVisibleCount] = useState(0);
   const [flight, setFlight] = useState<{
     card: TarotCard;
@@ -120,6 +147,7 @@ export default function TarotPage() {
       setSeedHex(seed);
       setSeedHash(toHex(new Uint8Array(digest)));
       setDrawnCards([]);
+      setSelectedIndex(null);
       setVisibleCount(0);
       setFlight(null);
       setDrawState('shuffled');
@@ -145,6 +173,7 @@ export default function TarotPage() {
       return;
     }
     setDrawnCards(result);
+    setSelectedIndex(null);
     setVisibleCount(0);
     setDrawState('drawing');
     setNotice('正在依次揭晓过去、现在与未来牌位。');
@@ -201,6 +230,7 @@ export default function TarotPage() {
     setQuestion('');
     setDrawQuestion('');
     setDrawnCards([]);
+    setSelectedIndex(null);
     setVisibleCount(0);
     setFlight(null);
     setNotice('洗牌后先公布承诺摘要；三张牌只在本机抽取。');
@@ -226,6 +256,8 @@ export default function TarotPage() {
   }[drawState];
   const canAct = drawState !== 'drawing';
   const showReset = drawState !== 'idle' && drawState !== 'drawing';
+  const selectedDraw = selectedIndex === null ? null : drawnCards[selectedIndex];
+  const selectedMeaning = selectedDraw ? TAROT_MEANINGS[selectedDraw.card.id] : undefined;
 
   return (
     <main className="qn-shell qn-shell--wide tarot-page" data-mode="western" data-tarot-state={drawState}>
@@ -268,6 +300,19 @@ export default function TarotPage() {
           ref={deckRef}
           type="button"
           className={`tarot-deck-button${drawState === 'shuffled' ? ' is-shuffled' : ''}`}
+          onPointerMove={event => {
+            if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            const tilt = getDeckTilt(((event.clientX - rect.left) / rect.width) * 2 - 1, ((event.clientY - rect.top) / rect.height) * 2 - 1);
+            const deck = event.currentTarget.querySelector<HTMLElement>('.tarot-deck');
+            deck?.style.setProperty('--deck-tilt-x', `${tilt.x}deg`);
+            deck?.style.setProperty('--deck-tilt-y', `${tilt.y}deg`);
+          }}
+          onPointerLeave={event => {
+            const deck = event.currentTarget.querySelector<HTMLElement>('.tarot-deck');
+            deck?.style.setProperty('--deck-tilt-x', '0deg');
+            deck?.style.setProperty('--deck-tilt-y', '0deg');
+          }}
           onClick={primaryAction}
           disabled={!canAct || drawState === 'revealed' || drawState === 'reading' || (drawState === 'shuffled' && !question.trim())}
           aria-label={drawState === 'idle' ? '洗牌并公布承诺摘要' : '从牌堆抽出三张牌'}
@@ -316,10 +361,25 @@ export default function TarotPage() {
               position={position}
               drawn={drawnCards[index]}
               visible={index < visibleCount}
+              selected={selectedIndex === index}
+              index={index}
+              onSelect={() => setSelectedIndex(current => current === index ? null : index)}
               stageElementRef={(node: HTMLDivElement | null) => { slotRefs.current[index] = node; }}
             />
           ))}
         </div>
+
+        {selectedDraw && (
+          <section className="tarot-insight" key={`${selectedDraw.card.id}-${selectedDraw.orientation}`} aria-labelledby="tarot-insight-title">
+            <div>
+              <p className="tarot-insight__eyebrow">{selectedDraw.position}牌 · {selectedDraw.orientation}</p>
+              <h3 id="tarot-insight-title">{selectedDraw.card.nameZh} <span data-proper-name>{selectedDraw.card.nameEn}</span></h3>
+              <p>{selectedMeaning?.[selectedDraw.orientation === '正位' ? 'upright' : 'reversed'] ?? '此牌义暂缺，后续补充来源校核。'}</p>
+              <small>历史牌义参照：{selectedMeaning?.source ?? '待校核'}。点击其他牌可切换查看。</small>
+            </div>
+            <button type="button" className="tarot-insight__close" onClick={() => setSelectedIndex(null)} aria-label="收起牌义">收起</button>
+          </section>
+        )}
 
         <div className="tarot-action-row">
           <button type="button" className="qn-btn qn-btn--solid tarot-action" onClick={primaryAction} disabled={!canAct || (drawState === 'shuffled' && !question.trim())}>
@@ -367,10 +427,10 @@ export default function TarotPage() {
             {drawQuestion && <blockquote className="tarot-reading__question">「{drawQuestion}」</blockquote>}
             <p className="qn-meta">下列含义是依据 Waite 1910 年文本所作的中文译述，仅代表这一历史底本；不同传统与组合语境会有差异。</p>
             <ol className="tarot-record-list">
-              {drawnCards.map(({ card, position, orientation }) => {
+              {drawnCards.map(({ card, position, orientation }, index) => {
                 const meaning = TAROT_MEANINGS[card.id];
                 return (
-                <li key={position}>
+                <li key={position} style={{ '--tarot-record-index': index } as CSSProperties}>
                   <span className="tarot-record-list__position">{position}</span>
                   <strong>{card.nameZh}</strong>
                   <span className="tarot-record-list__facts">{card.arcana === 'major' ? `大阿卡那 · ${card.numeral} 号` : `小阿卡那 · ${card.rank} · ${card.suit}`}</span>
