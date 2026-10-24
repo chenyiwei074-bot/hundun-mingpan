@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { stripComments } from '../_lib/codesrc';
 import { VETTED_PINNED } from '../_lib/vettedDeps';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
+import { computeAngles, ANGLE_CROSS_CHECK } from '../../frontend/lib/astro/angles';
 import { toUtc, MOMENT_BASIS, availableZones } from '../../frontend/lib/astro/moment';
 import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS, type BasisTriple } from '../../frontend/lib/astro/classics';
 import { readWesternBases } from '../_lib/classics';
@@ -46,6 +47,29 @@ const REF_FILE = join(HERE, 'cases', 'astro-ephemeris-reference.json');
 const eolFree = (s: string) => s.replace(/\r\n/g, '\n');
 const refText = existsSync(REF_FILE) ? readFileSync(REF_FILE, 'utf8') : '';
 const ref = refText ? JSON.parse(refText) : null;
+
+// ── 0. 上升/整宫对拍夹具：20 组，公差不许超过 0.05° ──
+{
+  const file = join(HERE, 'fixtures', 'ascendant-whole-sign-v1.json');
+  ok('angles/fixture-present', existsSync(file), `上升/整宫夹具必须存在：${file}`);
+  if (existsSync(file)) {
+    const fix = JSON.parse(readFileSync(file, 'utf8')) as {
+      toleranceDeg: number; cases: Array<{ id: string; utcISO: string; lat: number; lon: number; ascendantDeg: number; wholeSignCuspsDeg: number[] }>;
+    };
+    ok('angles/fixture-count', fix.cases.length === 20 && fix.toleranceDeg === ANGLE_CROSS_CHECK.toleranceDeg,
+      `20 组、公差 ${ANGLE_CROSS_CHECK.toleranceDeg}°：cases=${fix.cases.length} tolerance=${fix.toleranceDeg}`);
+    let max = 0; let bad = '';
+    const diff = (a: number, b: number) => { const d = Math.abs(((a - b) % 360 + 360) % 360); return d > 180 ? 360 - d : d; };
+    for (const c of fix.cases) {
+      const r = computeAngles(Date.parse(c.utcISO), c.lat, c.lon);
+      if (!r.ok) { bad = `${c.id}: ${r.reason}`; break; }
+      const d = Math.max(diff(r.ascendant.lon, c.ascendantDeg), ...r.wholeSignCusps.map((x, i) => diff(x.lon, c.wholeSignCuspsDeg[i])));
+      if (d > max) { max = d; if (d > 0.05) bad = `${c.id}: ${d.toFixed(6)}°`; }
+    }
+    ok('angles/fixture-match', !bad && max <= 0.05,
+      bad ? `对拍超差 ${bad}` : `20 组上升/整宫全部在 0.05°内，实测最大差 ${max.toFixed(6)}°`);
+  }
+}
 
 // ── 1. 对拍夹具：先在，再能重算，再看公差 ──
 {
@@ -193,9 +217,11 @@ const ref = refText ? JSON.parse(refText) : null;
   ok('astro/notdone-list-equals-engine', JSON.stringify(ENTRY.notDone) === JSON.stringify([...ASTRO_NOT_DONE]),
     `「未做」那份必须与 ASTRO_NOT_DONE 逐字同序（缺的样子里少写一条，读者就以为那条做了）`);
   const notDone = (ENTRY.notDone || []).join(' ');
-  ok('astro/missing-calls-out-what-is-missing', /宫位/.test(notDone) && /上升/.test(notDone) && /相位/.test(notDone)
-    && /凯龙/.test(notDone) && /交点/.test(notDone) && /恒星黄道/.test(notDone),
-    `宫位/上升/相位/凯龙/交点/恒星黄道这六样都要在"未做"里点名（裁定：继续未开放且写明缺什么）：${notDone.slice(0, 60)}…`);
+  ok('astro/missing-calls-out-what-is-missing', /相位/.test(notDone)
+    && /凯龙/.test(notDone) && /交点/.test(notDone) && /恒星黄道/.test(notDone) && /宫制/.test(notDone),
+    `相位/凯龙/交点/恒星黄道/其他宫制都要在"未做"里点名（上升点与整宫制已做，不再混进未做）：${notDone.slice(0, 80)}…`);
+  ok('astro/angles-done', (ENTRY.done || []).some(s => /上升点/.test(s) && /整宫制/.test(s)),
+    `「已做」里必须出现上升点与整宫制：${JSON.stringify(ENTRY.done)}`);
   // 目录给用户看的说明应使用中文，不把工程版本标识或实现库名称当作产品文案。
   const screenFields = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || '',
     ...(ENTRY.done || []), ...(ENTRY.notDone || [])].join(' ');
@@ -205,7 +231,7 @@ const ref = refText ? JSON.parse(refText) : null;
     `目录卡面的介绍用中文表达，不显示工程版本号、实现库或许可信息：英文 ${latin.join('、') || '无'}；内部标识 ${internal ? '仍有' : '无'}`);
   // 反向：已经不算的东西不许出现在"会算"的那一侧，也不许在问题与读法里许诺。
   const promises = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.reading, ENTRY.teaser || '', ...(ENTRY.done || [])].join(' ');
-  const banned = ['宫位', '落宫', '哪一宫', '相位', '上升', '凯龙', '交点', '性格'].filter(w => promises.includes(w));
+  const banned = ['相位', '凯龙', '交点', '性格'].filter(w => promises.includes(w));
   ok('astro/no-undelivered-promise', banned.length === 0,
     `"做了什么"的每一行都不许出现没做的那几样（写了读者就会去找）：命中 ${banned.join('、') || '无'}`);
   ok('astro/partial-renders-both-lists', (() => {
@@ -423,8 +449,8 @@ const ref = refText ? JSON.parse(refText) : null;
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
 // 批H-W 的 §8 有 8 条（两份底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
-// 近代词条分层／引文不进目录），57 → 65。上一轮这条锁抓到我把 6 数成 5，这轮它继续有效。
-const EXPECT = 63;
+// 近代词条分层／引文不进目录），57 → 67（2026-10-24 新增上升/整宫 4 条夹具判据）。上一轮这条锁抓到我把 6 数成 5，这轮它继续有效。
+const EXPECT = 67;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

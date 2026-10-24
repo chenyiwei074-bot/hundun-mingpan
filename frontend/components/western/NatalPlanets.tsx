@@ -6,6 +6,7 @@
 // 这也是这一项能做而"AI 报告"那类不能做的原因 —— 没有原文要保护。
 import { useMemo, useState } from 'react';
 import { computePlanets, ASTRO_CROSS_CHECK, PLANETS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
+import { computeAngles, angleText, ANGLE_CROSS_CHECK, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
 import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { provinces } from '@/app/lib/region-data';
 import { REGION_TZ } from '@/app/lib/true-solar/city-geo';
@@ -42,13 +43,14 @@ const deviceZone = () => {
 type Input = {
   year: number; month: number; day: number; hour: number; minute: number; timeZone: string;
   placeLabel: string; placePrecision: GeoLookup['src'] | null;
+  lat: number | null; lon: number | null;
 };
 
 // 带标签的联合：'planets' in x 那种结构化收窄在这一层会被 TS 推成"可能 undefined"，
 // 于是每个读数都要 !. —— 用 kind 判别，收窄是确定的，屏上少一堆断言。
 type Outcome =
   | { kind: 'fail'; why: MomentFail | PlanetsFailed }
-  | { kind: 'ok'; moment: MomentOk; planets: PlanetsResult; input: Input };
+  | { kind: 'ok'; moment: MomentOk; planets: PlanetsResult; angles: AnglesResult | AnglesFailed | null; input: Input };
 
 export default function NatalPlanets() {
   const [zone, setZone] = useState(deviceZone());
@@ -67,7 +69,8 @@ export default function NatalPlanets() {
     const m = toUtc(已算);
     if (!m.ok) return { kind: 'fail', why: m };
     const p = computePlanets(m.utcMs);
-    return p.ok ? { kind: 'ok', moment: m, planets: p, input: 已算 } : { kind: 'fail', why: p };
+    const angles = 已算.lat != null && 已算.lon != null ? computeAngles(m.utcMs, 已算.lat, 已算.lon) : null;
+    return p.ok ? { kind: 'ok', moment: m, planets: p, angles, input: 已算 } : { kind: 'fail', why: p };
   }, [已算]);
 
   // 没填完就不给算：宁可按钮是灰的，也不给一张"时间是我们替你挑的"盘。
@@ -80,6 +83,7 @@ export default function NatalPlanets() {
     set已算({
       year: y, month: mo, day: d, hour: h, minute: mi, timeZone: zone,
       placeLabel, placePrecision: placeGeo?.src ?? null,
+      lat: placeGeo?.lat ?? null, lon: placeGeo?.lng ?? null,
     });
   };
 
@@ -210,6 +214,53 @@ export default function NatalPlanets() {
               </tbody>
             </table>
           </section>
+
+          <section className="qn-card" style={{ marginTop: 14 }} data-astro-angles={got.angles?.ok ? 'ok' : 'unavailable'}>
+            <p className="qn-cap" style={{ margin: 0 }}>上升点与整宫制</p>
+            {got.angles?.ok ? (
+              <>
+                <p className="qn-title" style={{ margin: '6px 0 0' }} data-astro-ascendant>
+                  上升点 {angleText(got.angles.ascendant)}
+                </p>
+                <p className="qn-meta" style={{ margin: '4px 0 0' }}>
+                  天顶 {angleText(got.angles.midheaven)} · 口径 {got.angles.basis}
+                </p>
+                <div style={{ overflowX: 'auto', marginTop: 8 }} data-vh-scroll="angles-table">
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)' }}>
+                    <thead>
+                      <tr>
+                        {['宫位', '宫头星座', '宫头黄经'].map(h => (
+                          <th key={h} scope="col" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {got.angles.wholeSignCusps.map(c => (
+                        <tr key={c.house}>
+                          <th scope="row" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500 }}>{c.house} 宫</th>
+                          <td style={{ padding: '6px 8px' }}>{c.星座} 0°</td>
+                          <td style={{ padding: '6px 8px' }}>{c.lon.toFixed(3)}°</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="qn-note" style={{ margin: '10px 0 0' }}>
+                  只做上升点与整宫制宫位；行星相位、其他非整宫制宫位、凯龙星、南北交点、恒星黄道仍未纳入本页。
+                </p>
+                <p className="qn-note" style={{ margin: '6px 0 0' }}>
+                  上升点与整宫制已和 {ANGLE_CROSS_CHECK.cases} 组独立对拍数据核对，公差 {ANGLE_CROSS_CHECK.toleranceDeg}°；
+                  参考实现：{ANGLE_CROSS_CHECK.authority}。
+                </p>
+              </>
+            ) : (
+              <p className="qn-meta" style={{ margin: '6px 0 0' }}>
+                {got.angles
+                  ? `上升点暂时算不出：${got.angles.detail}`
+                  : '这次没有出生地经纬度，无法计算上升点与宫位；行星位置仍有效。请选择省份/城市后重算。'}
+              </p>
+            )}
+          </section>
         </>
       )}
 
@@ -222,7 +273,7 @@ export default function NatalPlanets() {
       <section className="qn-card" style={{ marginTop: 14 }}>
         <p className="qn-cap" style={{ margin: 0 }}>当前结果范围</p>
         <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          当前展示十颗行星的星座位置、星座内角度、黄经与黄纬。出生地用于匹配时区；宫位、上升点与行星相位尚未纳入本页计算。
+          当前展示十颗行星的星座位置、星座内角度、黄经与黄纬，以及上升点与整宫制宫位。行星相位、其他非整宫制宫位、凯龙星、南北交点、恒星黄道尚未纳入本页计算。
         </p>
       </section>
       {!结果 && (
