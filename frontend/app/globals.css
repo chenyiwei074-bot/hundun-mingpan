@@ -1188,10 +1188,10 @@ body:has(main[data-mode="western"]) .qn-footer { border-top: 0.5px solid var(--c
 .hp .fp-feature { border: 1px solid color-mix(in srgb, var(--color-accent-gold-text) 18%, var(--color-hairline)); box-shadow: 0 12px 28px rgba(48, 36, 19, .07), inset 0 1px 0 rgba(255,255,255,.76); }
 .hp .band-paper { background: linear-gradient(180deg, #f2ecdf 0%, #ede5d4 100%); }
 @media (max-width: 699px) {
-  .hp .hero-copy .h1 { font-size: 42px; }
+  .hp .hero-copy .h1 { font-size: var(--qn-fs-display); }
   .hp .hero-copy .hero-sub { font-size: var(--qn-fs-meta); }
-  .hp .h2 { font-size: 25px; }
-  .hp .core-row .h3 { font-size: 17px; }
+  .hp .h2 { font-size: var(--qn-fs-hero); }
+  .hp .core-row .h3 { font-size: var(--qn-fs-title); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hp .module-glyph, .hp .module-glyph svg { transform: none !important; }
