@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { describeZiweiCaliber } from '@/lib/chart/ziwei-caliber';
 
 // ===== 类型 =====
 interface GongInfo {
@@ -43,9 +44,10 @@ function getGongConfig(gong: GongInfo): string {
 }
 
 // ===== 组件 =====
-export default function ZiweiCard({ ziwei }: Props) {
+export default function ZiweiCard({ ziwei, bazi }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(['命宫']));
   const gongs: GongInfo[] = ziwei?.gongs || [];
+  const caliber = describeZiweiCaliber({ bazi: bazi as any, ziwei: ziwei as any });
 
   const toggle = (name: string) => {
     setExpanded(prev => {
@@ -79,10 +81,12 @@ export default function ZiweiCard({ ziwei }: Props) {
         <p className='qn-meta' style={{ marginTop: 8 }}>查看各宫位的主星、辅星与生年四化配置。</p>
       </header>
 
-      <div className='qn-card' style={{ marginBottom: 24 }}>
-        <p className='qn-meta' style={{ margin: 0 }}>
-          八字与紫微分别依各自体系排盘。出生时间接近时辰或节气交界时，盘面可能出现差异，建议分别核对出生资料与排盘结果。
-        </p>
+      {/* 紫微与八字同页展示，但取数的时辰与年界并不同一套。句子住在数据层，这里只 map。 */}
+      <div className='qn-card' id='ziwei-caliber' data-caliber={caliber.口径}
+        style={{ marginBottom: 24, display: 'grid', gap: 7 }}>
+        {caliber.行.map(line => (
+          <p key={line} className='qn-meta' style={{ margin: 0 }}>{line}</p>
+        ))}
       </div>
 
       {/* 5个重点宫位 */}

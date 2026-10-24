@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
 import type { IntentGroup } from '@/lib/tools/catalog';
-import { isLiveEntry } from '@/lib/tools/status';
+import { isLiveEntry, statusCounts, statusTally } from '@/lib/tools/status';
 
 // 装饰只做"这一侧是谁"的形状，不参与阅读：全部 aria-hidden、pointer-events:none，
 // 描边走低透明度，绝不用来承托文字（文字底下变浅变深都会改对比度）。
@@ -130,17 +130,17 @@ interface Entry {
 const ENTRIES: Entry[] = [
   {
     href: '/oriental', mode: 'oriental',
-    name: '东方术数',
-    lead: '从八字、紫微、六爻与风水，梳理你关心的问题。',
-    cta: '进入东方体系 →',
+    name: '东方玄学',
+    lead: '从八字、六爻到风水，在传统体系中寻找问题的脉络。',
+    cta: '进入东方世界 →',
     groups: INTENTS,
     art: <HexagramArt />,
   },
   {
     href: '/western', mode: 'western',
-    name: '西方神秘学',
-    lead: '从占星、塔罗与象征传统，开启新的观察角度。',
-    cta: '进入西方体系 →',
+    name: '西方玄学',
+    lead: '每一项都按自己的历表与算法口径独立成立，不借东方的表；未开放的那几项只写缺什么，不给入口。',
+    cta: '进入西方世界 →',
     groups: WESTERN_INTENTS,
     art: <EclArt />,
   },
@@ -148,27 +148,32 @@ const ENTRIES: Entry[] = [
 
 // 眉标不再手写条目名。以前西方那张卡写的是「占星 · 塔罗 · 数字象征」，
 // 而塔罗与数字象征都还没开放 —— 眉标读起来像三样都能用，这就是"没做的东西出现在会做的列表里"。
-// 这一行由目录现算：只列少量开放功能，不展示后台状态计数。
+// 现在这一行由目录现算：只列真能进的项，超过三项收进「等 N 项」。
 const eyebrowLine = (groups: typeof INTENTS): string => {
   const open = groups.flatMap(g => g.tools).filter(isLiveEntry).map(t => t.name);
   if (!open.length) return '本套目录暂无开放项';
   // 分隔符用「、」不用「 · 」：条目名自己就带「 · 」（「二十八宿 · 本命宿」「西洋占星 · 合盘」），
   // 用「 · 」当列表分隔会把三个名字读成四个 —— 分隔符不能出现在被分隔的数据里。
-  return `${open.slice(0, 2).join('、')}${open.length > 2 ? '…' : ''}`;
+  return open.length > 3 ? `${open.slice(0, 3).join('、')} 等 ${open.length} 项` : open.join('、');
 };
 
 export default function GatePage() {
   return (
     <main className="gate-shell" data-mode="gate">
       <header className="gate-head qn-rise">
-        <p className="qn-eyebrow">混沌 · 东西方传统智慧</p>
-        <h1 className="qn-hero">探索你的传统智慧</h1>
-        <p className="gate-head__tagline">东方术数与风水 · 西方神秘学</p>
-        <p className="gate-head__note">从你关心的问题开始，选择熟悉的传统视角。</p>
+        <p className="qn-eyebrow">混沌 · 两套体系</p>
+        <h1 className="qn-hero">先选一套体系</h1>
+        {/* 运维 2026-10-21 补的一行：站是干什么的，得在门廊就说清，不靠页面标题去猜。 */}
+        <p className="gate-head__tagline">东方与西方玄学工具箱</p>
+        <p className="gate-head__note">
+          东方与西方各有一套历法口径、取数规则和解读方式，两边不共用算法，也不互相换算。
+          排盘、卦象与方位判定都由对应工具计算，模型只做解释与引导。
+        </p>
       </header>
 
       <div className="gate-grid">
         {ENTRIES.map(e => {
+          const c = statusCounts(e.groups);
           return (
             <Link key={e.href} href={e.href} className="domain-card" data-mode={e.mode}>
               <span className="domain-card__veil" aria-hidden="true" />
@@ -178,6 +183,7 @@ export default function GatePage() {
                 <h2 className="domain-card__title">{e.name}</h2>
                 <p className="qn-body">{e.lead}</p>
                 <p className="domain-card__cta">{e.cta}</p>
+                <p className="domain-card__tally">{statusTally(c)}</p>
               </div>
             </Link>
           );
@@ -186,7 +192,8 @@ export default function GatePage() {
 
       <section className="qn-legal gate-legal">
         <p className="qn-note" style={{ margin: 0 }}>
-          选择体系后，可以在对应页面输入问题，继续你的探索。
+          栏底那三个数（可用 / 部分可用 / 未开放，相加等于总项数）由两套目录现算，本站不在门廊维护第二份工具清单。
+          每一项的可用状态、计算口径与需要哪些输入，进到「全部工具与取数口径」那一页看。
         </p>
       </section>
     </main>

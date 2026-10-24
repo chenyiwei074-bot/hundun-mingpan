@@ -18,14 +18,14 @@ import type { Mode } from '@/lib/assistant/types';
 
 const COPY: Record<Mode, { eyebrow: string; title: string; lead: string }> = {
   oriental: {
-    eyebrow: '东方术数与风水',
-    title: '东方术数',
-    lead: '八字、紫微、六爻、梅花、星宿、黄历与居家风水都在这里。',
+    eyebrow: '东方体系',
+    title: '东方工作页',
+    lead: '八字紫微、六爻、梅花、星宿、黄历与户型相关的一套。',
   },
   western: {
-    eyebrow: '西方神秘学',
-    title: '西方神秘学',
-    lead: '以占星、塔罗、月相与数字命理为主题，逐步整理不同传统的观察方式。',
+    eyebrow: '西方体系',
+    title: '西方工作页',
+    lead: '占星、塔罗、月相与数字命理的一套。每一项都按自己的算法口径独立成立，不借东方的表。',
   },
 };
 
@@ -56,13 +56,14 @@ export default function ModeLanding({ mode, hero, shellClass, children }: {
       {children}
       <section className="qn-legal ml-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
-          本页内容按所选体系呈现。各项功能状态会在对应卡片中说明，结果仅供传统文化研究与个人参考。
+          这一页只列{mode === 'western' ? '西方' : '东方'}体系里的工具；换体系请回到选体系那一页。
+          排盘与抽取由各自的规则引擎执行，模型只做解释与引导。
         </p>
         <p className="qn-linkrow">
           {/* 裁定 ①：/tools 从门廊挪走，挂在两页工作页的页脚。门廊上再留一条聚合入口，
               它就又变成"第三个地方"，两栏选体系这件事也被稀释了。
               批F 起 /tools 真的两套目录都在，链接文字也终于能写「全部」二字。 */}
-          <Link className="qn-link" href="/tools">查看全部工具</Link>
+          <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
           <Link className="qn-link" href="/">返回选择体系</Link>
         </p>
       </section>

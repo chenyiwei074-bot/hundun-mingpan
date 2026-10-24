@@ -192,54 +192,186 @@ function BaziPreview({ ink = false }: { ink?: boolean }) {
   );
 }
 
-const INTENT_GLYPH: Record<string, string> = {
-  '认识自己': 'bazi', '问一件事': 'liuyao', '择时看周期': 'huangli', '看关系': 'hepan',
-};
+function Coin({ o }: { o: number }) {
+  return (
+    <svg viewBox="0 0 40 40">
+      <circle cx="20" cy="20" r="18" fill="none" stroke={gold} strokeWidth={1.2} opacity={o} />
+      <rect x="14" y="14" width="12" height="12" rx="1.5" fill="none" stroke={gold} strokeWidth={1} opacity={o * 0.7} />
+    </svg>
+  );
+}
 
-/** 共用青铜线刻底座，中心符号按各自工具语义绘制。 */
-function ModuleGlyph({ slug, className = '', size = 84 }: { slug: string; className?: string; size?: number }) {
-  const starPoints = Array.from({ length: 28 }, (_, i) => {
-    const a = (i * 360 / 28 - 90) * Math.PI / 180, r = i % 7 === 0 ? 35 : 31;
-    return { x: R6(60 + r * Math.cos(a)), y: R6(60 + r * Math.sin(a)), active: i === 4 };
-  });
-  let symbol: React.ReactNode;
-  switch (slug) {
-    case 'bazi':
-      symbol = <g><path d="M33 34 Q60 20 87 34 M33 87 Q60 100 87 87" className="glyph-line glyph-soft" />{[0, 1, 2, 3].map(i => { const x = 38 + i * 15, top = [40, 34, 45, 37][i], bottom = [81, 86, 78, 83][i]; return <g key={i}><line x1={x} y1={top + 8} x2={x} y2={bottom - 8} className={i === 2 ? 'glyph-line glyph-accent' : 'glyph-line'} /><circle cx={x} cy={top} r={5} className={i === 2 ? 'glyph-fill glyph-accent-fill' : 'glyph-fill'} /><circle cx={x} cy={bottom} r={4} className="glyph-fill glyph-ink-fill" /></g>; })}<path d="M32 60 H88" className="glyph-line glyph-soft" /></g>;
-      break;
-    case 'liuyao': {
-      const lines = [true, false, true, true, false, true];
-      symbol = <g>{lines.map((solid, i) => { const y = 27 + i * 11, active = i === 3; return <g key={i}>{solid ? <line x1="34" y1={y} x2="86" y2={y} className={active ? 'glyph-line glyph-heavy glyph-accent' : 'glyph-line'} /> : <><line x1="34" y1={y} x2="55" y2={y} className="glyph-line" /><line x1="65" y1={y} x2="86" y2={y} className="glyph-line" /></>}{active && <circle cx="92" cy={y} r="3.2" className="glyph-fill glyph-accent-fill" />}</g>; })}{[44, 60, 76].map(x => <circle key={x} cx={x} cy="96" r="3.3" className="glyph-fill glyph-coin" />)}</g>;
-      break;
+function LiuYaoPreview() {
+  const lines = [true, false, true, false, true, true];
+  return (
+    <div className="pv pv-liuyao">
+      <svg viewBox="0 0 200 90" className="ly-lines">
+        {lines.map((solid, i) => {
+          const y = 8 + i * 13;
+          if (solid) {
+            return <line key={i} x1={4} y1={y} x2={196} y2={y} stroke={gold} strokeWidth={1.4} opacity={0.5} />;
+          }
+          return (<g key={i}><line x1={4} y1={y} x2={92} y2={y} stroke={gold} strokeWidth={1.4} opacity={0.5} /><line x1={108} y1={y} x2={196} y2={y} stroke={gold} strokeWidth={1.4} opacity={0.5} /></g>);
+        })}
+      </svg>
+      <div className="ly-coins">
+        <span><Coin o={0.55} /></span>
+        <span><Coin o={0.8} /></span>
+        <span><Coin o={0.55} /></span>
+      </div>
+    </div>
+  );
+}
+
+/* 梅花示意：画的是观梅占（辰年十二月十七日申时）得泽火革，初爻动 —— 
+   这一卦同时是 engine 的验收金标准，示意图和算法对得上。动爻用深金加粗。 */
+function MeiHuaPreview() {
+  const lines = [1, 0, 1, 1, 1, 0];
+  const dong = 1;
+  return (
+    <div className="pv">
+      <svg viewBox="0 0 200 90">
+        {lines.map((v, i) => {
+          const y = 8 + (5 - i) * 13;
+          const on = i + 1 === dong;
+          const stroke = on ? goldDeep : gold;
+          const w = on ? 2.4 : 1.4;
+          const op = on ? 0.95 : 0.5;
+          if (v === 1) {
+            return <line key={i} x1={4} y1={y} x2={196} y2={y} stroke={stroke} strokeWidth={w} opacity={op} />;
+          }
+          return (<g key={i}>
+            <line x1={4} y1={y} x2={92} y2={y} stroke={stroke} strokeWidth={w} opacity={op} />
+            <line x1={108} y1={y} x2={196} y2={y} stroke={stroke} strokeWidth={w} opacity={op} />
+          </g>);
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/* 二十八宿直日表示意：四象各 7 宿铺成 4×7，金框即当日值宿。
+   宿名走 SVG 文字，不进正文阶梯（与其余 preview 同一处理）。 */
+function XiuPreview() {
+  const zi = ['角', '亢', '氐', '房', '心', '尾', '箕', '斗', '牛', '女', '虚', '危', '室', '壁',
+    '奎', '娄', '胃', '昴', '毕', '觜', '参', '井', '鬼', '柳', '星', '张', '翼', '轸'];
+  const active = 4;
+  const cw = 24, ch = 22, gx = 2, gy = 3;
+  return (
+    <div className="pv">
+      <svg viewBox="0 0 182 97">
+        {zi.map((c, i) => {
+          const x = (i % 7) * (cw + gx);
+          const y = Math.floor(i / 7) * (ch + gy);
+          const on = i === active;
+          return (
+            <g key={c}>
+              <rect x={x} y={y} width={cw} height={ch} rx={3}
+                fill={on ? 'rgba(178,149,93,0.18)' : 'none'}
+                stroke={on ? goldDeep : gold} strokeWidth={on ? 1.4 : 0.6} opacity={on ? 0.95 : 0.3} />
+              <text x={x + cw / 2} y={y + ch / 2 + 4} textAnchor="middle" fontSize="11"
+                fontFamily="serif" fill={on ? goldDeep : inkH} opacity={on ? 1 : 0.5}>{c}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/* 合盘示意：五行点直接引冻结 token（当 fill 用，属于"圆点编码"，不作文字色）。
+   原来这两圈用 #5b9a5a/#c8a43e/#5b8db8 自造了一套五行色，和产品里的编码对不上；
+   9px 的木火土金水标签在缩略尺寸下也读不出来，去掉。 */
+function HePanPreview() {
+  const cx1 = 100, cx2 = 180, cy = 96, R = 72;
+  const wx = ["var(--color-wx-mu)", "var(--color-wx-huo)", "var(--color-wx-tu)", "var(--color-wx-jin)", "var(--color-wx-shui)"];
+  const leftAngles = [0, 72, 144, 216, 288];
+  const rightAngles = [36, 108, 180, 252, 324];
+  return (
+    <div className="pv">
+      <svg viewBox="22 18 256 156">
+        <circle cx={cx1} cy={cy} r={R} fill="none" stroke={gold} strokeWidth={1.2} opacity={0.45} />
+        <circle cx={cx1} cy={cy} r={R - 12} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.26} />
+        {Array.from({ length: 24 }, (_, i) => {
+          const a = (i * 15 * Math.PI) / 180;
+          return <line key={"lt" + i} x1={R6(cx1 + (R - 3) * Math.cos(a))} y1={R6(cy + (R - 3) * Math.sin(a))}
+            x2={R6(cx1 + (R + 2) * Math.cos(a))} y2={R6(cy + (R + 2) * Math.sin(a))}
+            stroke={gold} strokeWidth={0.4} opacity={0.28} />;
+        })}
+        <circle cx={cx1} cy={cy - 14} r={3.5} fill={gold} opacity={0.7} />
+        <circle cx={cx2} cy={cy} r={R} fill="none" stroke={inkH} strokeWidth={1.2} opacity={0.22} />
+        <circle cx={cx2} cy={cy} r={R - 12} fill="none" stroke={inkH} strokeWidth={0.6} opacity={0.14} />
+        {Array.from({ length: 24 }, (_, i) => {
+          const a = (i * 15 * Math.PI) / 180;
+          return <line key={"rt" + i} x1={R6(cx2 + (R - 3) * Math.cos(a))} y1={R6(cy + (R - 3) * Math.sin(a))}
+            x2={R6(cx2 + (R + 2) * Math.cos(a))} y2={R6(cy + (R + 2) * Math.sin(a))}
+            stroke={inkH} strokeWidth={0.4} opacity={0.14} />;
+        })}
+        <circle cx={cx2} cy={cy - 14} r={3.5} fill={inkH} opacity={0.35} />
+        {leftAngles.map((a, i) => {
+          const rad = (a * Math.PI) / 180;
+          return <circle key={"lw" + i} cx={R6(cx1 + 50 * Math.cos(rad))} cy={R6(cy + 50 * Math.sin(rad))}
+            r={5} style={{ fill: wx[i] }} opacity={0.9} />;
+        })}
+        {rightAngles.map((a, i) => {
+          const rad = (a * Math.PI) / 180;
+          return <circle key={"rw" + i} cx={R6(cx2 + 50 * Math.cos(rad))} cy={R6(cy + 50 * Math.sin(rad))}
+            r={5} style={{ fill: wx[i] }} opacity={0.9} />;
+        })}
+        {[[0, 3], [1, 1], [2, 4], [3, 0], [4, 2]].map(([li, ri], i) => {
+          const la = (leftAngles[li] * Math.PI) / 180;
+          const ra = (rightAngles[ri] * Math.PI) / 180;
+          return (
+            <line key={"arc" + i}
+              x1={R6(cx1 + 50 * Math.cos(la))} y1={R6(cy + 50 * Math.sin(la))}
+              x2={R6(cx2 + 50 * Math.cos(ra))} y2={R6(cy + 50 * Math.sin(ra))}
+              stroke={gold} strokeWidth={0.5} opacity={0.3} />
+          );
+        })}
+        <circle cx={(cx1 + cx2) / 2} cy={cy} r={7} fill={gold} opacity={0.5} />
+        <text x={(cx1 + cx2) / 2} y={cy} textAnchor="middle" dominantBaseline="central"
+          fontSize={11} fill={goldDeep} fontFamily="serif" fontWeight="bold">合</text>
+      </svg>
+    </div>
+  );
+}
+
+function ZeRiPreview() {
+  const cx = 125, cy = 105, dR = 65;
+  const diamond = (r: number) => {
+    const pts: Array<{ x: number, y: number }> = [];
+    for (let i = 0; i < 4; i++) {
+      const a = (i * 90 - 90) * Math.PI / 180;
+      pts.push({ x: R6(cx + r * Math.cos(a)), y: R6(cy + r * Math.sin(a)) });
     }
-    case 'meihua':
-      symbol = <g><path d="M60 84 C55 73 68 63 60 49 C56 42 55 35 59 29 M60 67 Q47 57 41 58 M61 55 Q74 46 79 43 M58 77 Q49 74 44 77" className="glyph-line glyph-heavy" />{[0, 1, 2, 3, 4].map(i => { const a = (i * 72 - 90) * Math.PI / 180, x = R6(60 + 10 * Math.cos(a)), y = R6(35 + 10 * Math.sin(a)); return <ellipse key={i} cx={x} cy={y} rx="4.2" ry="6.1" transform={'rotate(' + (i * 72) + ' ' + x + ' ' + y + ')'} className="glyph-fill glyph-accent-fill" />; })}<circle cx="60" cy="35" r="3.2" className="glyph-fill glyph-ink-fill" />{[34, 86].map((x, side) => <g key={x}>{[0, 1, 2].map(i => { const y = 52 + i * 9; return ((i + side) % 2 === 0) ? <line key={i} x1={x - 8} y1={y} x2={x + 8} y2={y} className="glyph-line glyph-soft" /> : <g key={i}><line x1={x - 8} y1={y} x2={x - 2} y2={y} className="glyph-line glyph-soft" /><line x1={x + 2} y1={y} x2={x + 8} y2={y} className="glyph-line glyph-soft" /></g>; })}</g>)}</g>;
-      break;
-    case 'xiu-benming':
-      symbol = <g><circle cx="60" cy="60" r="38" className="glyph-ring glyph-soft" /><circle cx="60" cy="60" r="24" className="glyph-ring glyph-soft" />{starPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={p.active ? 3.5 : 1.7} className={p.active ? 'glyph-fill glyph-accent-fill' : 'glyph-fill glyph-star'} />)}<path d="M60 48 L63.4 56.6 L72 60 L63.4 63.4 L60 72 L56.6 63.4 L48 60 L56.6 56.6 Z" className="glyph-star-core" /></g>;
-      break;
-    case 'xiu-he':
-      symbol = <g><ellipse cx="47" cy="60" rx="24" ry="34" className="glyph-line glyph-soft" /><ellipse cx="73" cy="60" rx="24" ry="34" className="glyph-line glyph-accent" /><path d="M38 74 Q60 43 82 47 M38 47 Q59 77 82 73" className="glyph-line glyph-soft" />{[[37, 48], [47, 32], [56, 64], [43, 81], [69, 38], [80, 55], [74, 78]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r={i === 3 ? 3.2 : 2.2} className={i === 3 ? 'glyph-fill glyph-accent-fill' : 'glyph-fill glyph-star'} />)}<circle cx="60" cy="60" r="4" className="glyph-fill glyph-coin" /></g>;
-      break;
-    case 'hepan':
-      symbol = <g><circle cx="42" cy="60" r="24" className="glyph-ring glyph-soft" /><circle cx="78" cy="60" r="24" className="glyph-ring glyph-accent" />{[[42, 42], [42, 60], [42, 78], [78, 42], [78, 60], [78, 78]].map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3.2" className={i < 3 ? 'glyph-fill glyph-coin' : 'glyph-fill glyph-accent-fill'} />)}<path d="M42 42 L78 60 M42 60 L78 42 M42 78 L78 60 M50 60 H70" className="glyph-line glyph-soft" /></g>;
-      break;
-    case 'huangli':
-      symbol = <g><rect x="32" y="34" width="56" height="53" rx="5" className="glyph-outline" /><path d="M32 47 H88 M44 29 V40 M76 29 V40" className="glyph-line glyph-heavy" /><path d="M43 58 H52 M60 58 H69 M77 58 H80 M43 71 H52 M60 71 H69 M77 71 H80" className="glyph-line glyph-soft" /><circle cx="48" cy="79" r="4" className="glyph-fill glyph-accent-fill" /><path d="M70 76 C77 70 84 78 79 84 C76 87 72 85 70 83 C73 84 76 81 76 78 C76 76 73 75 70 76Z" className="glyph-moon" /></g>;
-      break;
-    case 'fengshui':
-      symbol = <g><rect x="32" y="32" width="56" height="56" rx="2" className="glyph-outline" /><path d="M50.7 32 V88 M69.3 32 V88 M32 50.7 H88 M32 69.3 H88" className="glyph-line glyph-soft" /><circle cx="60" cy="60" r="10" className="glyph-ring glyph-accent" /><path d="M60 43 L65 61 L60 57 L55 61 Z" className="glyph-needle" /><circle cx="60" cy="60" r="2.6" className="glyph-fill glyph-coin" /><path d="M60 21 V28 M60 92 V99 M21 60 H28 M92 60 H99" className="glyph-line glyph-accent" /></g>;
-      break;
-    case 'xingming':
-      symbol = <g><rect x="33" y="30" width="54" height="60" rx="3" className="glyph-outline" /><rect x="40" y="37" width="40" height="46" rx="1" className="glyph-ring glyph-soft" /><path d="M60 38 V82 M41 60 H79" className="glyph-line glyph-soft" /><text x="60" y="65" textAnchor="middle" className="glyph-seal-text">名</text><circle cx="82" cy="86" r="5" className="glyph-fill glyph-accent-fill" /></g>;
-      break;
-    case 'dayun':
-      symbol = <g><path d="M34 82 C44 74 48 68 54 65 C61 61 62 52 70 49 C77 46 81 38 87 34" className="glyph-line glyph-accent glyph-heavy" /><path d="M34 87 H88 M34 87 V34" className="glyph-line glyph-soft" />{[[38, 79], [52, 67], [67, 53], [82, 38]].map(([x, y], i) => <g key={i}><circle cx={x} cy={y} r="5" className="glyph-fill glyph-disc" /><circle cx={x} cy={y} r="2.4" className={i === 3 ? 'glyph-fill glyph-accent-fill' : 'glyph-fill glyph-coin'} /></g>)}<path d="M80 34 L88 33 L86 41" className="glyph-line glyph-accent" /></g>;
-      break;
-    default:
-      symbol = <g><path d="M29 43 Q44 37 60 44 V86 Q44 79 29 85 Z M91 43 Q76 37 60 44 V86 Q76 79 91 85 Z" className="glyph-outline" /><path d="M60 44 V86 M36 52 Q46 49 53 53 M36 61 Q46 58 53 62 M67 53 Q76 49 84 52 M67 62 Q76 58 84 61" className="glyph-line glyph-soft" /><circle cx="60" cy="33" r="5" className="glyph-fill glyph-accent-fill" /></g>;
-  }
-  return <span className={'module-glyph ' + className} style={{ width: size, height: size }} aria-hidden="true"><svg viewBox="0 0 120 120" focusable="false"><circle cx="60" cy="60" r="52" className="glyph-disc" /><circle cx="60" cy="60" r="46" className="glyph-ring" />{symbol}</svg></span>;
+    return pts.map(p => p.x + ',' + p.y).join(' ');
+  };
+  return (
+    <div className="pv">
+      <svg viewBox="34 18 182 174">
+        <polygon points={diamond(dR)} fill="none" stroke={gold} strokeWidth={1.2} opacity={0.45} />
+        {[0, 1, 2, 3].map(i => {
+          const a1 = (i * 90 - 90) * Math.PI / 180, a2 = ((i + 1) * 90 - 90) * Math.PI / 180;
+          const x1 = R6(cx + dR * Math.cos(a1)), y1 = R6(cy + dR * Math.sin(a1));
+          const x2 = R6(cx + dR * Math.cos(a2)), y2 = R6(cy + dR * Math.sin(a2));
+          const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+          const dx = x2 - x1, dy = y2 - y1, len = Math.sqrt(dx * dx + dy * dy);
+          const nx = -dy / len, ny = dx / len;
+          return <line key={"dt" + i} x1={mx + nx * 2} y1={my + ny * 2} x2={mx + nx * 8} y2={my + ny * 8}
+            stroke={gold} strokeWidth={0.6} opacity={0.35} />;
+        })}
+        <polygon points={diamond(dR - 16)} fill="none" stroke={gold} strokeWidth={0.6} opacity={0.3} />
+        <polygon points={diamond(dR - 40)} fill="none" stroke={gold} strokeWidth={0.8} opacity={0.6} />
+        {[0, 1, 2, 3].map(i => {
+          const a = (i * 90 - 90) * Math.PI / 180;
+          return <circle key={"cd" + i} cx={R6(cx + (dR - 16) * Math.cos(a))} cy={R6(cy + (dR - 16) * Math.sin(a))}
+            r={3} fill={gold} opacity={0.5} />;
+        })}
+        <text x={cx} y={cy + 1} textAnchor="middle" dominantBaseline="central" fontSize={20}
+          fill={goldDeep} fontFamily="serif" fontWeight="bold">{'\u5409'}</text>
+      </svg>
+    </div>
+  );
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
@@ -249,16 +381,19 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 /** 首页只留版式：每个 slug 用哪张示意图、启动器刻哪个字、按钮写什么。
  *  工具名、一句话说明、有没有入口，全部来自 lib/tools/catalog —— 首页不再自己抄一份，
  *  两份清单各自漂移（梅花那行原来就跟目录页写法不同）由 tools/directory-acceptance 判红。 */
-type Skin = { go?: string };
+type Skin = { pv?: 'liuyao' | 'meihua' | 'xiu' | 'hepan' | 'zeri'; zi: string; go?: string };
 
 const SKIN: Record<string, Skin> = {
-  'liuyao': { go: '开始问卦' },
-  'meihua': { go: '即物起卦' },
-  'xiu-benming': { go: '查本命宿' },
-  'huangli': { go: '查今日' },
+  'liuyao':      { pv: 'liuyao', zi: '爻', go: '开始问卦' },
+  'meihua':      { pv: 'meihua', zi: '梅', go: '即物起卦' },
+  'xiu-benming': { pv: 'xiu',    zi: '宿', go: '查本命宿' },
+  'xingming':    { pv: 'hepan',  zi: '合' },
+  'huangli':     { pv: 'zeri',   zi: '历', go: '查今日' },
+  'bazi':        { zi: '命' },
+  'tools':       { zi: '箱' },
 };
 
-const rowSkin = (slug: string): Skin => SKIN[slug] ?? {};
+const rowSkin = (slug: string): Skin => SKIN[slug] ?? { zi: '?' };
 
 const ENGINES: (HomeCard & Skin)[] = HOME_FEATURED_SLUGS
   .map(s => { const c = homeCard(s); return c ? { ...c, ...rowSkin(s) } : null; })
@@ -278,6 +413,11 @@ const FP_ENTRY: (ToolEntry & { href: string }) | null =
 // 「即将上线」只预告目录里确实没有的东西。星座命盘这一项已经归到西方目录
 // （lib/tools/western-catalog 里的 astro-natal / astro-synasty，状态未开放），
 // 再在这里挂一遍就是两处各说一套 —— 用户在东方页看到"即将上线"、在西方页看到"未开放"。
+const SOON = [
+  { t: "面相", d: "AI 面相分析 · 五官气色辨吉凶" },
+  { t: "手相", d: "AI 手相解读 · 三大纹路断运势" },
+];
+
 /* 东方工作页的正文。原先它就是 app/page.tsx；#双体系 把 / 收成"选体系"的门廊之后，
    这一整块（首屏主视觉、四类意图、核心引擎、启动器与它自带的 .hp 作用域样式）整体搬到这里，
    由 app/oriental/page.tsx 挂上。内容一个字没删：入口仍然全部来自 lib/tools/catalog，
@@ -344,7 +484,7 @@ export default function OrientalBody() {
                 同一个动作出现两次，第二次就会与第一次漂移。
                 旧 tagline「Ai+传统命理研究平台」退役 —— 它把站说成"AI 算命"，而这里 AI 只解释、不算命。 */}
             <h1 className="h1 fx fx-title">混沌</h1>
-            <p className="hero-sub fx fx-sub">东方术数 · 风水与择时</p>
+            <p className="hero-sub fx fx-sub">东方玄学 · 工具箱</p>
             {/* 首屏四类意图，仍在问事框之前：把意图挪到输入框下面看着更"框优先"，
                 但 375 那一档会算不过来 —— 一个完整输入框（4 行 + 预留答案格 ~500px）
                 加意图两行必然出折线。留在上面，靠压 hero 自己的内边距同时满足两条线：
@@ -353,11 +493,8 @@ export default function OrientalBody() {
             <nav className="intent-nav fx fx-cta" aria-label="按你想问的事查找">
               {INTENT_ENTRIES.map(it => (
                 <Link key={it.intent} href={it.href} className="intent-item">
-                  <ModuleGlyph slug={INTENT_GLYPH[it.intent] || 'tools'} className="intent-glyph" size={32} />
-                  <span className="intent-copy">
-                    <span className="intent-name">{it.intent}</span>
-                    <span className="intent-tool">{it.tool}</span>
-                  </span>
+                  <span className="intent-name">{it.intent}</span>
+                  <span className="intent-tool">{it.tool}</span>
                 </Link>
               ))}
             </nav>
@@ -382,18 +519,23 @@ export default function OrientalBody() {
       {FP_ENTRY && (
       <section className="band band-paper">
         <div className="wrap">
-          <div className="qn-card fp-feature">
-            <ModuleGlyph slug="fengshui" className="fp-feature__glyph" size={82} />
-            <div className="fp-feature__copy">
-              <div className="fp-feature__heading">
-                <h2 className="qn-title" style={{ margin: 0 }}>{FP_ENTRY.name}</h2>
-                <span className="qn-badge"><span className="qn-badge__dot" style={{ background: STATUS_DOT[FP_ENTRY.status] }} />{FP_ENTRY.status}</span>
-              </div>
-              <p className="qn-meta fp-feature__question">{FP_ENTRY.question}</p>
-              <p className="qn-note fp-feature__note">确认朝向与房间、门窗标注后，可以查看空间关系、主要动线与采光提示；每项说明都能对应到图上的标注。</p>
-              <p className="qn-cap fp-feature__privacy">上传户型图为可选；图片用途和保存方式见隐私政策。</p>
-              <Link href={FP_ENTRY.href} className="qn-btn qn-btn--ghost qn-btn--block fp-feature__action">进入 · {FP_ENTRY.name}</Link>
+          <div className="qn-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h2 className="qn-title" style={{ margin: 0 }}>{FP_ENTRY.name}</h2>
+              <span className="qn-badge">
+                <span className="qn-badge__dot" style={{ background: STATUS_DOT[FP_ENTRY.status] }} />
+                {FP_ENTRY.status}
+              </span>
             </div>
+            <p className="qn-meta" style={{ marginTop: 8, marginBlockEnd: 0 }}>{FP_ENTRY.question}</p>
+            <p className="qn-note" style={{ margin: '8px 0 0' }}>
+              五步走：选图或拍图 → 识别出墙与门窗 → 你逐条确认（没确认的一律画虚线）→
+              规则层按九宫推 → 每条判定都指回图上的标号。朝向没确认时日照那一层不出判定。
+            </p>
+            <p className="qn-cap" style={{ margin: '8px 0 0' }}>{FP_ENTRY.note}</p>
+            <Link href={FP_ENTRY.href} className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 12 }}>
+              进入 · {FP_ENTRY.name}
+            </Link>
           </div>
         </div>
       </section>
@@ -409,7 +551,7 @@ export default function OrientalBody() {
           </div>
           <div className="brand-note">
             <p className="body">
-              「混沌」取意于天地未判、万象初生。<br />我们把东方术数与风水中的常用方法，<br />整理成清晰易用的日常工具。
+              「混沌」之名，取自道家宇宙观。<br />天地未分，元气未判。以 AI 之力，解古籍之密，<br />让传统玄学，触手可及。
             </p>
             <svg viewBox="0 0 56 56" className="seal" aria-hidden="true">
               <rect x="2" y="2" width="52" height="52" rx="4" fill="none" stroke={goldDeep} strokeWidth="1.5" />
@@ -422,7 +564,7 @@ export default function OrientalBody() {
       {/* ════════════ CORE ════════════ */}
       <section ref={coreRef} className="band band-white core">
         <div className="wrap">
-          <Eyebrow>东方常用工具</Eyebrow>
+          <Eyebrow>核心引擎</Eyebrow>
 
           <div className="qn-ink ink-flag">
             <div className="ink-grid">
@@ -437,34 +579,52 @@ export default function OrientalBody() {
 
           <div className="core-rows">
             {ENGINES.map(e => (
-              <div key={e.slug} className={e.href ? 'core-row' : 'core-row is-disabled'}>
-                <div className="row-pv"><ModuleGlyph slug={e.slug} className="module-glyph--card" size={76} /></div>
+              <div key={e.slug} className="core-row">
+                <div className="row-pv">
+                  {e.pv === 'liuyao' && <LiuYaoPreview />}
+                  {e.pv === 'meihua' && <MeiHuaPreview />}
+                  {e.pv === 'xiu' && <XiuPreview />}
+                  {e.pv === 'hepan' && <HePanPreview />}
+                  {e.pv === 'zeri' && <ZeRiPreview />}
+                </div>
                 <div className="row-copy">
                   <h3 className="h3">{e.title}</h3>
-                  <p className="body muted">{e.href ? e.teaser : '这项功能仍在整理中，暂未开放。'}</p>
+                  <p className="body muted">{e.teaser}</p>
                   {e.href
                     ? <Link href={e.href} className="text-link">{e.go} <span aria-hidden="true">→</span></Link>
-                    : <span className="tag">暂未开放</span>}
+                    : <span className="tag">未开放</span>}
                 </div>
               </div>
             ))}
           </div>
 
           <p style={{ margin: '18px 0 0' }}>
-            <Link href="/tools" className="text-link">查看全部东方工具 <span aria-hidden="true">→</span></Link>
+            <Link href="/tools" className="text-link">全部工具与取数口径 <span aria-hidden="true">→</span></Link>
           </p>
+
+          <div className="tools">
+            <p className="eyebrow">更多即将上线</p>
+            <div className="tools-grid">
+              {SOON.map(m => (
+                <div key={m.t} className="tool">
+                  <h4 className="tool-t">{m.t}</h4>
+                  <p className="tool-d">{m.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ════════════ CTA ════════════ */}
       <section ref={ctaRef} className="band band-paper cta">
         <div className="wrap cta-block">
-          <h2 className="h2">从一个问题<br />开始探索</h2>
+          <h2 className="h2">随身携带<br />你的混沌</h2>
           <div className="cta-row">
-            <p className="body">选择一项工具，继续探索命盘、卦象、择时与关系。</p>
+            <p className="body">随时随地，排一盘，问一卦。</p>
             <button onClick={() => { window.scrollTo({ top: 0, behavior: prefersReduced() ? 'auto' : 'smooth' }); setTimeout(() => setShowLauncher(true), prefersReduced() ? 0 : 600) }}
               className="btn-primary">
-              选择工具 <span aria-hidden="true">→</span>
+              开始使用 <span aria-hidden="true">→</span>
             </button>
           </div>
         </div>
@@ -481,8 +641,8 @@ export default function OrientalBody() {
             </button>
 
             <div className="sheet-head">
-              <p className="eyebrow center">东方术数与风水</p>
-              <h2 className="h2 sheet-title">选择想了解的方向</h2>
+              <p className="eyebrow center">选择功能</p>
+              <h2 className="h2 sheet-title">探索你的命理</h2>
             </div>
 
             <div className="sheet-body">
@@ -497,10 +657,13 @@ export default function OrientalBody() {
                 {LAUNCHER.map(item => {
                   const body = (
                     <>
-                      <ModuleGlyph slug={item.slug} className="sheet-symbol" size={66} />
+                      <svg viewBox="0 0 72 72" className="sheet-zi">
+                        <rect x="1" y="1" width="70" height="70" rx="8" fill="none" stroke={gold} strokeWidth="1.2" opacity="0.35" />
+                        <text x="36" y="50" textAnchor="middle" fill={goldDeep} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
+                      </svg>
                       <h3 className="h3 sheet-name">{item.title}</h3>
                       {item.href ? <span className="sheet-rule" /> : <span className="tag">未开放</span>}
-                      <p className="body muted sheet-desc">{item.href ? item.teaser : '这项功能仍在整理中，暂未开放。'}</p>
+                      <p className="body muted sheet-desc">{item.teaser}</p>
                       <span className={item.href ? 'sheet-go' : 'sheet-go is-dim'}>
                         {item.href ? '进入' : '未开放'}
                         {item.href && <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>}
@@ -577,21 +740,16 @@ export default function OrientalBody() {
           gap: 8px; margin-top: 10px;
         }
         .hp .intent-item {
-          display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 54px;
-          padding: 8px 10px; border-radius: 12px; text-align: left; text-decoration: none;
-          background: color-mix(in srgb, var(--color-bg-primary) 72%, transparent);
-          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-gold-text) 15%, transparent), 0 3px 9px rgba(34,25,15,.035);
-          transition: transform .22s ease, box-shadow .22s ease, background-color .22s ease;
+          display: grid; gap: 2px; align-content: center; text-align: left;
+          min-height: 44px; padding: 8px 12px; border-radius: 10px; text-decoration: none;
+          box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.09);
         }
-        .hp .intent-item:hover { transform: translateY(-2px); background: var(--color-bg-card); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent-gold-text) 44%, transparent), 0 8px 18px rgba(34,25,15,.07); }
-        .hp .intent-item:focus-visible, .hp .core-row a:focus-visible, .hp .fp-feature a:focus-visible { outline: 2px solid var(--color-accent-gold-text); outline-offset: 3px; }
-        .hp .intent-glyph { width: 32px !important; height: 32px !important; }
-        .hp .intent-copy { display: grid; gap: 2px; min-width: 0; }
-        .hp .intent-name { font-size: var(--qn-fs-meta); font-weight: 600; letter-spacing: .03em; color: var(--color-text-primary); }
-        .hp .intent-tool { font-size: var(--qn-fs-eyebrow); line-height: 1.35; color: var(--color-text-secondary); }
+        .hp .intent-item:hover { box-shadow: inset 0 0 0 1px rgba(178, 149, 93, 0.55); }
+        .hp .intent-name { font-size: var(--qn-fs-body); font-weight: 600; letter-spacing: 0.06em; color: var(--color-text-primary); }
+        .hp .intent-tool { font-size: var(--qn-fs-meta); color: var(--color-text-primary); opacity: 0.78; }
 
         /* ===== 版面 ===== */
-        .hp .band { padding: clamp(3.25rem, 7svh, 5.25rem) 1.5rem; }
+        .hp .band { padding: clamp(4.5rem, 11svh, 8rem) 1.5rem; }
         .hp .band-paper { background: var(--color-bg-primary); }
         .hp .band-white { background: var(--color-bg-card); }
         .hp .brand, .hp .core, .hp .cta { scroll-margin-top: var(--qn-nav-h); }
@@ -599,8 +757,8 @@ export default function OrientalBody() {
 
         /* ===== 字 ===== */
         .hp .eyebrow {
-          font-size: var(--qn-fs-eyebrow); font-weight: 600; letter-spacing: .20em;
-          color: var(--color-accent-gold-text); margin: 0 0 1.35rem; text-align: left;
+          font-size: var(--qn-fs-eyebrow); font-weight: 600; letter-spacing: 0.24em;
+          color: var(--color-accent-gold-text); margin: 0 0 2rem; text-align: left;
         }
         .hp .eyebrow.center { text-align: center; }
         .hp .h1 {
@@ -610,15 +768,15 @@ export default function OrientalBody() {
         }
         .hp .h2 {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: 36px; font-weight: 600; line-height: 1.28;
+          font-size: var(--qn-fs-display); font-weight: 600; line-height: 1.18;
           letter-spacing: 0.02em; margin: 0; color: var(--color-text-primary);
         }
         .hp .h3 {
           font-family: "Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif;
-          font-size: 21px; font-weight: 600; line-height: 1.35;
-          letter-spacing: 0.01em; margin: 0 0 0.45rem; color: var(--color-text-primary);
+          font-size: var(--qn-fs-hero); font-weight: 600; line-height: 1.2;
+          letter-spacing: 0.01em; margin: 0 0 0.5rem; color: var(--color-text-primary);
         }
-        .hp .body { font-size: 14px; line-height: 1.7; margin: 0 0 .8rem; max-width: 34rem; }
+        .hp .body { font-size: var(--qn-fs-body); line-height: 1.8; margin: 0 0 1.25rem; max-width: 34rem; }
         .hp .muted { color: var(--color-text-secondary); }
         .hp .hero-sub { font-size: var(--qn-fs-hero); line-height: 1.2; margin: 0.3rem 0 0; color: var(--color-text-secondary); }
         /* brand-line 不能再叠 font-family: inherit —— inherit 取的是父元素(.brand-say)的
@@ -661,59 +819,30 @@ export default function OrientalBody() {
         .hp .seal { width: 44px; height: 44px; opacity: 0.6; display: block; }
 
         /* ===== 核心引擎 ===== */
-        .hp .ink-flag { padding: clamp(1.25rem, 3vw, 2rem); margin-bottom: clamp(1.25rem, 3svh, 2rem); border-radius: 20px; }
-        .hp .ink-grid { display: grid; grid-template-columns: 1fr; gap: clamp(1rem, 3vw, 2rem); align-items: center; }
-        .hp .ink-art { width: 100%; max-width: 240px; margin: 0 auto; }
-        .hp .ink-copy .h2 { font-size: 28px; }
-        .hp .ink-copy .body { max-width: 42rem; }
+        .hp .ink-flag { padding: clamp(1.75rem, 4vw, 3rem); margin-bottom: clamp(2rem, 5svh, 3.5rem); }
+        .hp .ink-grid { display: grid; grid-template-columns: 1fr; gap: clamp(1.5rem, 4vw, 3rem); align-items: center; }
+        .hp .ink-art { width: 100%; max-width: 320px; margin: 0 auto; }
         .hp .ink-copy .h2, .hp .ink-copy .body { color: #fff; }
         .hp .ink-copy .text-link { color: var(--color-accent-gold-light); }
-        .hp .core-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .hp .core-rows { border-top: var(--qn-hairline); }
         .hp .core-row {
-          display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 14px; align-items: center;
-          min-width: 0; padding: 16px; border: 1px solid color-mix(in srgb, var(--color-accent-gold-text) 14%, var(--color-hairline));
-          border-radius: 18px; background: linear-gradient(145deg, var(--color-bg-card), color-mix(in srgb, var(--color-bg-primary) 64%, var(--color-bg-card)));
-          box-shadow: 0 4px 14px rgba(34,25,15,.04), inset 0 1px 0 rgba(255,255,255,.76);
-          transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
+          display: grid; grid-template-columns: 1fr; gap: 1rem;
+          padding: clamp(1.25rem, 3svh, 2rem) 0; border-bottom: var(--qn-hairline);
         }
-        .hp .core-row:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--color-accent-gold-text) 36%, var(--color-hairline)); box-shadow: 0 12px 26px rgba(34,25,15,.09), inset 0 1px 0 rgba(255,255,255,.86); }
-        .hp .core-row:hover .module-glyph { transform: perspective(700px) rotateX(5deg) rotateY(-8deg) translateY(-1px) scale(1.035); }
-        .hp .intent-item:active { transform: translateY(0) scale(.99); }
-        .hp .core-row.is-disabled { background: color-mix(in srgb, var(--color-bg-primary) 74%, var(--color-bg-card)); box-shadow: none; }
-        .hp .core-row.is-disabled .module-glyph { opacity: .62; }
-        .hp .row-pv { width: 76px; height: 76px; display: grid; place-items: center; }
+        .hp .row-pv { width: 100%; max-width: 120px; }
         .hp .row-copy { min-width: 0; }
-        .hp .row-copy .h3 { margin-bottom: 5px; }
-        .hp .row-copy .body { max-width: none; margin-bottom: 4px; font-size: 14px; line-height: 1.55; }
         .hp .pv, .hp .pv svg { display: block; width: 100%; height: auto; overflow: visible; }
-        .hp .module-glyph { display: block; flex: 0 0 auto; perspective: 700px; transition: transform .28s cubic-bezier(.2,.7,.2,1), opacity .2s ease; }
-        .hp .module-glyph svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 7px 7px rgba(53,39,20,.13)); }
-        .hp .glyph-disc { fill: color-mix(in srgb, var(--color-accent-gold) 8%, var(--color-bg-primary)); stroke: color-mix(in srgb, var(--color-accent-gold) 48%, transparent); stroke-width: 1; }
-        .hp .glyph-ring { fill: none; stroke: color-mix(in srgb, var(--color-accent-gold-text) 58%, transparent); stroke-width: 1; stroke-dasharray: 1.2 3.6; }
-        .hp .glyph-outline { fill: none; stroke: var(--color-accent-gold-text); stroke-width: 1.4; stroke-linejoin: round; }
-        .hp .glyph-line { fill: none; stroke: var(--color-accent-gold-text); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-        .hp .glyph-heavy { stroke-width: 2.2; }
-        .hp .glyph-soft { opacity: .58; }
-        .hp .glyph-accent { stroke: var(--color-accent-gold); opacity: .95; }
-        .hp .glyph-fill { fill: var(--color-accent-gold-text); }
-        .hp .glyph-accent-fill { fill: var(--color-accent-gold); }
-        .hp .glyph-ink-fill { fill: var(--color-text-primary); opacity: .72; }
-        .hp .glyph-coin { fill: color-mix(in srgb, var(--color-accent-gold) 70%, var(--color-accent-gold-text)); stroke: var(--color-bg-primary); stroke-width: 1; }
-        .hp .glyph-star { fill: color-mix(in srgb, var(--color-accent-gold-text) 70%, var(--color-bg-card)); }
-        .hp .glyph-star-core { fill: color-mix(in srgb, var(--color-accent-gold) 38%, transparent); stroke: var(--color-accent-gold-text); stroke-width: .8; }
-        .hp .glyph-moon { fill: var(--color-accent-gold-text); }
-        .hp .glyph-needle { fill: var(--color-accent-gold); stroke: var(--color-accent-gold-text); stroke-width: .7; stroke-linejoin: round; }
-        .hp .glyph-seal-text { fill: var(--color-accent-gold-text); font: 600 18px "Noto Serif SC", "Source Han Serif SC", serif; }
+        .hp .pv-liuyao { display: flex; flex-direction: column; gap: 0.6rem; }
+        .hp .pv-liuyao .ly-lines { position: static; }
+        .hp .pv-liuyao .ly-coins {
+          display: flex; justify-content: center; gap: 8%; width: 46%; margin: 0 auto;
+        }
+        .hp .pv-liuyao .ly-coins > span { flex: 1; display: block; }
 
-        .hp .fp-feature { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: start; gap: 18px; padding: clamp(16px, 3vw, 24px); border-radius: 20px; }
-        .hp .fp-feature__copy { min-width: 0; }
-        .hp .fp-feature__heading { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .hp .fp-feature__question, .hp .fp-feature__note, .hp .fp-feature__privacy { margin: 7px 0 0; }
-        .hp .fp-feature__action { margin-top: 12px; }
-        .hp .tools { margin-top: clamp(2rem, 5svh, 3.25rem); }
+        .hp .tools { margin-top: clamp(2.5rem, 6svh, 4rem); }
         .hp .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
-        .hp .tool { border-top: 1px solid var(--color-hairline); padding-top: .8rem; }
-        .hp .tool-t { font-size: 16px; font-weight: 600; margin: 0 0 .35rem; color: var(--color-text-primary); }
+        .hp .tool { border-top: 1px solid var(--color-hairline); padding-top: 1rem; }
+        .hp .tool-t { font-size: var(--qn-fs-title); font-weight: 600; margin: 0 0 0.35rem; color: var(--color-text-primary); }
         .hp .tool-d { font-size: var(--qn-fs-meta); line-height: 1.7; margin: 0; color: var(--color-text-secondary); }
 
         /* ===== CTA ===== */
@@ -752,7 +881,7 @@ export default function OrientalBody() {
           padding: 0.5rem 1rem; text-decoration: none; cursor: pointer;
         }
         .hp .sheet-item.is-soon { pointer-events: none; }
-        .hp .sheet-symbol { margin-bottom: 1rem; }
+        .hp .sheet-zi { width: 72px; height: 72px; margin-bottom: 1.25rem; }
         .hp .sheet-name { font-size: var(--qn-fs-title); margin-bottom: 1rem; }
         .hp .sheet-rule { display: block; width: 2.5rem; height: 1px; margin: 0 0 1rem; background: rgba(178,149,93,0.24); }
         .hp .sheet-desc { margin-bottom: 1.5rem; max-width: 300px; }
@@ -800,24 +929,12 @@ export default function OrientalBody() {
           .hp .brand-note .body { font-size: var(--qn-fs-meta); }
         }
 
-        @media (max-width: 699px) {
-          .hp .h2 { font-size: 30px; }
-          .hp .h3 { font-size: 19px; }
-          .hp .band { padding: 3rem 1rem; }
-          .hp .core-rows { grid-template-columns: 1fr; gap: 10px; }
-          .hp .core-row { grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding: 13px; border-radius: 15px; }
-          .hp .row-pv { width: 64px; height: 64px; }
-          .hp .fp-feature { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; }
-          .hp .fp-feature__glyph { width: 56px !important; height: 56px !important; }
-          .hp .fp-feature__action { grid-column: 1 / -1; }
-        }
-
         @media (min-width: 680px) {
-          .hp .core-row { gap: 12px; padding: 14px; }
+          .hp .core-row { grid-template-columns: 140px minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3rem); align-items: center; }
+          .hp .row-pv { max-width: 140px; }
         }
 
         @media (min-width: 900px) {
-          .hp .core-rows { grid-template-columns: repeat(3, minmax(0, 1fr)); }
           .hp .hero-inner { grid-template-columns: 1.05fr 0.95fr; gap: clamp(2.5rem, 6vw, 5rem); }
           /* 宽屏把四类意图摊成一行：两行 2×2 时文案列高 234，加内边距正好把 hero 顶到 330，
              超开 1/3 视口那条线（300）。摊开之后文案列 ~182，hero ~246 ——
@@ -826,7 +943,7 @@ export default function OrientalBody() {
           .hp .hero-art { margin: 0; justify-self: end; }
           .hp .hero-copy { text-align: left; }
           .hp .brand-grid { grid-template-columns: 1.1fr 0.9fr; align-items: end; }
-          .hp .ink-grid { grid-template-columns: .7fr 1.3fr; }
+          .hp .ink-grid { grid-template-columns: 0.85fr 1.15fr; }
           .hp .ink-art { margin: 0; }
         }
 
