@@ -335,11 +335,11 @@ const run = async () => {
   // 那里已是剥过的文本，下面只在使用处包，不重复包。
   const verifySrc = codeOf(await readSrc('frontend/app/verify/page.tsx'));
   const cat = codeOf(await readSrc('frontend/lib/tools/catalog.ts'));
-  ok('honesty/commit-visible-before-first-toss', /seedHash \{shortHash\(commit\.seedHash\)\}/.test(codeOf(createPage)) &&
+  ok('honesty/commit-visible-before-first-toss', /data-commitment-hash=\{commit\.seedHash\}/.test(codeOf(createPage)) &&
     codeOf(createPage).indexOf('await sealSeed(') < codeOf(createPage).indexOf("setStep('tossing')"),
-    '起卦页必须显示 seedHash 前 12 位，且 sealSeed 发生在进入掷钱阶段之前（源码顺序即执行顺序，行为侧另有浏览器实测）');
-  ok('honesty/boundary-on-pages', /不证明掷钱这个动作真的发生过/.test(codeOf(createPage)) &&
-    /重来就是新 seed、新承诺/.test(codeOf(panelSrc)) && /不能证明：掷钱这个动作真的在物理世界里发生过/.test(verifySrc),
+    '起卦页必须提供完整校验码，且承诺在进入掷钱阶段前生成（行为侧另有浏览器实测）');
+  ok('honesty/boundary-on-pages', /不能证明现实中确实掷过硬币/.test(codeOf(createPage)) &&
+    /不能证明现实中确实掷过硬币/.test(codeOf(panelSrc)) && /不能证明现实中确实掷过硬币/.test(verifySrc),
     '边界那句话要出现在用户看得见的三个地方（起卦页、结果页回执面板、验真页），不能只活在注释里');
   ok('honesty/catalog-updated', /commit-reveal/.test(cat) && !/另批做/.test(cat) &&
     CATALOG_STAMPS.commit === COIN_COMMIT_SCHEMA,

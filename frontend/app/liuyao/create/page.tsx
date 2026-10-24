@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { buildCoinResult } from '@/lib/liuyao/methods/coin';
 import { calcYao, tossesFromSeed } from '@/lib/liuyao/methods/coinFaces';
 import { newSeedHex } from '@/lib/crypto/random';
-import { sealSeed, shortHash } from '@/lib/receipt/receipt';
+import { sealSeed } from '@/lib/receipt/receipt';
 import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
 import { getGua, getNaJia, getDayGanZhi, getXunKong, GUA_MAP } from '@/lib/liuyao/core';
@@ -146,6 +146,7 @@ export default function LiuyaoCreatePage() {
   // 随机承诺（commit-reveal）：seed 在首掷之前铸好并公布哈希，整卦六轮共用同一份。
   // ref 与 state 各一份是必要的 —— 逐轮取面值发生在 setTimeout 里，闭包读 state 会拿到旧值。
   const [commit, setCommit] = useState<CoinCommitment | null>(null);
+  const [commitCopyStatus, setCommitCopyStatus] = useState('');
   const commitRef = useRef<CoinCommitment | null>(null);
   const tossesRef = useRef<CoinFace[][]>([]);
   // 结果态：六爻已齐、尚未离开本页。resultPath 是「查看结果」要去的那一盘。
@@ -162,6 +163,16 @@ export default function LiuyaoCreatePage() {
   questionRef.current = question;
   const questionTypeRef = useRef(questionType);
   questionTypeRef.current = questionType;
+
+  const copyCommitment = async () => {
+    if (!commit) return;
+    try {
+      await navigator.clipboard.writeText(commit.seedHash);
+      setCommitCopyStatus('校验码已复制');
+    } catch {
+      setCommitCopyStatus('复制失败，请长按校验码选择复制。');
+    }
+  };
 
   const [placeProv, setPlaceProv] = useState('');
   const [placeCity, setPlaceCity] = useState('');
@@ -180,8 +191,9 @@ export default function LiuyaoCreatePage() {
   },[question, questionType]);
 
   const doNumGua = useCallback(() => {
-    const nums=numInput.trim().split(/[,，\s]+/).map(Number).filter(n=>!isNaN(n)&&n>0);
-    if(nums.length!==2){setError('请输入 2 个正整数，用逗号隔开');return;}
+    const rawNums = numInput.trim().split(/[,，\s]+/);
+    const nums = rawNums.map(Number);
+    if(rawNums.length!==3 || nums.some(n=>!Number.isSafeInteger(n)||n<=0)){setError('请输入 3 个正整数，用逗号隔开');return;}
     setError('');
     const m = resolveQiguaMoment(new Date(), placeRef.current);
     const result = { ...buildNumberResult({ question, questionType, nums, now: m.date }), solar: m.info };
@@ -259,6 +271,7 @@ export default function LiuyaoCreatePage() {
     commitRef.current = sealed;
     tossesRef.current = tossesFromSeed(seedHex);
     setCommit(sealed);
+    setCommitCopyStatus('');
     setStep('tossing');
     setRecords([]);
     setRound(0);
@@ -295,6 +308,7 @@ export default function LiuyaoCreatePage() {
     commitRef.current = sealed;
     tossesRef.current = tossesFromSeed(seedHex);
     setCommit(sealed);
+    setCommitCopyStatus('');
     setRecords([]);
     setRound(0);
     setCoins([]);
@@ -312,6 +326,7 @@ export default function LiuyaoCreatePage() {
     commitRef.current = null;
     tossesRef.current = [];
     setCommit(null);
+    setCommitCopyStatus('');
     setResultPath('');
     setConfirmReroll(false);
     setStep('input');
@@ -379,7 +394,7 @@ export default function LiuyaoCreatePage() {
   const METHODS = [
     {id:'coin',num:'壹',title:'铜钱摇卦',tag:'推荐',desc:'三枚铜钱自动摇六次，最传统的起卦方式。'},
     {id:'time',num:'贰',title:'时间起卦',desc:'以当前年月日时自动成卦，方便快捷。'},
-    {id:'number',num:'叁',title:'报数起卦',desc:'您报 2 个正整数，第一数定上卦、第二数定下卦，动爻取两数之和。'},
+    {id:'number',num:'叁',title:'报数起卦',desc:'您报 3 个正整数，依次定上卦、下卦与动爻。'},
   ] as const;
 
   return (<main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
@@ -453,8 +468,8 @@ export default function LiuyaoCreatePage() {
 
       {method==='number'&&(
         <div className="qn-card" style={{marginTop:12}}>
-          <label className="qn-label" htmlFor="ly-nums">请输入 2 个正整数（逗号分隔）</label>
-          <input id="ly-nums" className="qn-input" value={numInput} placeholder="例如：3, 8"
+          <label className="qn-label" htmlFor="ly-nums">请输入 3 个正整数（逗号分隔）</label>
+          <input id="ly-nums" className="qn-input" value={numInput} placeholder="例如：3, 8, 5"
             onChange={e=>setNumInput(e.target.value)}/>
           {error&&<p className="qn-alert" role="alert" style={{marginTop:12}}>{error}</p>}
         </div>
@@ -509,18 +524,31 @@ export default function LiuyaoCreatePage() {
           措辞按能证明的上限写 —— 它证明的是「这一盘与事先的承诺对得上」，
           不证明掷钱这个动作真的发生过，也不阻止你在揭晓前整盘重来（重来就是新承诺）。 */}
       {commit && (
-        <p className="qn-cap" style={{margin:'12px 0 0',textAlign:'center',letterSpacing:'0.08em'}}>
-          已锁定 {commit.schema} · seedHash {shortHash(commit.seedHash)}… · 六轮面值全部由它派生
-
-        {/* 2026-10-21：那句边界声明原来只活在 JSX 注释里，用户看不到 —— 补成可见文案。
-            能证明的是「这一盘与事先的承诺对得上」，上限写清楚，不越界。 */}
-        {commit && (
-          <p className="qn-note" style={{margin:'8px 0 0',textAlign:'center'}}>
-            它证明的是「这一盘与事先的承诺对得上」；不证明掷钱这个动作真的发生过，
-            也不阻止你在揭晓前整盘重来（重来就是新承诺）。
+        <div style={{margin:'12px auto 0',maxWidth:560,textAlign:'center'}}>
+          <p className="qn-cap" style={{margin:0}}>
+            已为本次摇卦生成随机校验承诺。可在结果揭晓前查看并保存校验码。
           </p>
-        )}
-        </p>
+          <p className="qn-note" style={{margin:'8px 0 0'}}>
+            它可以核对最终卦象是否与承诺一致，但不能证明现实中确实掷过硬币，也不能阻止揭晓前重新起卦。
+          </p>
+          <details style={{marginTop:8,textAlign:'left'}}>
+            <summary className="qn-cap" style={{cursor:'pointer',minHeight:44,display:'flex',alignItems:'center',justifyContent:'center'}}>
+              查看完整校验码
+            </summary>
+            <div style={{display:'grid',gap:8,marginTop:6}}>
+              <code data-commitment-hash={commit.seedHash} style={{display:'block',padding:10,borderRadius:8,
+                overflowWrap:'anywhere',color:'var(--color-accent-gold-on-ink)',background:'rgba(255,255,255,0.06)'}}>
+                {commit.seedHash}
+              </code>
+              <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',justifyContent:'center'}}>
+                <button type="button" className="qn-btn qn-btn--ghost" style={{minHeight:44}} onClick={() => void copyCommitment()}>
+                  复制校验码
+                </button>
+                {commitCopyStatus && <span className="qn-cap" role="status">{commitCopyStatus}</span>}
+              </div>
+            </div>
+          </details>
+        </div>
       )}
 
       <div style={{flex:'1 1 auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:20,padding:'10px 0'}}>

@@ -59,7 +59,7 @@ export default function LiuyaoResultPage() {
         body: JSON.stringify({ result }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || '生成失败');
+      if (!res.ok || typeof data.report !== 'string' || !data.report.trim()) throw new Error('report-unavailable');
       setReportContent(data.report);
       const rawSources = data.sourceIds || data.sources || data.citations || [];
       const sourceIds = Array.isArray(rawSources)
@@ -74,8 +74,8 @@ export default function LiuyaoResultPage() {
         analysisJson: analysisData as any,
         reportText: data.report,
       }).catch(() => {});
-    } catch (e: any) {
-      setReportError(e.message || '生成失败，请重试');
+    } catch {
+      setReportError('本次报告暂未生成，请稍后重试。卦象盘面仍可查看。');
     } finally {
       setReportLoading(false);
     }

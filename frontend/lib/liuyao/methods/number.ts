@@ -5,7 +5,7 @@ import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType } from '@/types/li
 
 /**
  * 报数起卦装成六爻盘。取数只有 `lib/meihua/engine.ts` 的 `qiGuaByNumbers` 一份：
- * 上卦 = 第一个数 mod 8、下卦 = 第二个数 mod 8、动爻 = 两数之和 mod 6，余 0 不作 0 按满数计（乾一 兑二 … 坤八）。
+ * 上卦 = 第一个数 mod 8、下卦 = 第二个数 mod 8、动爻 = 第三个数 mod 6，余 0 不作 0 按满数计（乾一 兑二 … 坤八）。
  *
  * 2026-10-18 裁定与梅花同源。修前本文件把「先天数序号的二进制」当爻象（乾 idx0→000、坤 idx7→111），
  * 卦名却按上下卦查表，于是 64 张盘报名一套、画出来的爻另一套 —— 名与象必须同源，不许名一套象一套。
@@ -16,8 +16,7 @@ import type { LiuyaoResult, YaoRecord, CoinFace, QuestionType } from '@/types/li
  *
  * 老盘不重排（A4）：修前的报数盘留在用户会话里，爻象是错的那一份，本批不回填、不重算，
  * 只由 `qiShu.version` 认出口径，结果页标「本盘按起卦时口径生成」。
- * 报数是两数之和定动爻，所以对同一组上下卦，可达的动爻只有与 (n1+n2) 同奇偶的那三个 ——
- * 六个动爻全覆盖由摇卦那条路径负责。
+ * 第三个数独立定动爻，余数为 0 时按第六爻计；两数兼容路径仍按两数之和定动爻。
  */
 export function buildNumberResult(params: {
   question: string;
@@ -26,7 +25,11 @@ export function buildNumberResult(params: {
   now?: Date;
 }): LiuyaoResult {
   const now = params.now || new Date();
-  const mh = qiGuaByNumbers(params.nums, 'number');
+  // 老的内部夹具与已存在调用仍可能只给两个数，按旧规则补出两数之和；新页面传三个数时由第三数定动爻。
+  const nums = params.nums.length === 2
+    ? [params.nums[0], params.nums[1], params.nums[0] + params.nums[1]]
+    : params.nums;
+  const mh = qiGuaByNumbers(nums, 'report');
   const vals: number[] = mh.ben.lines.map((line, i) =>
     i + 1 === mh.dongYao ? (line ? 9 : 6) : (line ? 7 : 8));
   const recs: YaoRecord[] = [];

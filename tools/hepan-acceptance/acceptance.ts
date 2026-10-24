@@ -1,6 +1,6 @@
 // 合盘（两人对照）验收。这一批要守的是四条裁定，四条都是"负面"的：
 //  1. 不出分 —— 没有评分、没有匹配度、没有百分比，连一个数值字段都不许有；
-//  2. 不引古籍 —— docs/classics 没有合婚原文，所以整节只能标「自研 · 非还原」；
+//  2. 不引古籍 —— 没有可核验的合婚古籍出处时，结果明确标「本站自研」；
 //  3. 对方生辰只活在本机 —— 不进 API、不进报告、不进回执、不进台账、不上链；
 //  4. create 页那栏 partner 死字段接管成真输入 —— 只喂本机计算。
 // 外加一条算法层的：ganPair 是从 detectGanRelations 里就地抽出来的，
@@ -235,8 +235,10 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
     `结论字段里一个 number 类型都不许有（五行只能报成"木3 火2"这样的字符串；一旦出现数值字段，页面上它就会被浏览成分数）：数值路径 ${nums.join('、') || '无'}`);
   const said = ['评分', '匹配度', '百分比', '吉凶', '宜忌', '古籍']
     .filter(w => 报告.未出.some(l => l.includes(w)));
-  ok('engine/absence-is-declared', said.length >= 3,
-    `没做的事要在「没做的部分」里点名，不能只是不说（用户分不清"没做"与"没显示"）：点名 ${said.join('、')}（${报告.未出.length} 条）`);
+  const sourceNote = 报告.未出.find(l => l.startsWith('方法说明：')) || '';
+  ok('engine/absence-is-declared', said.length >= 3 && sourceNote.includes('本站自研')
+    && sourceNote.includes('未关联可核验的合婚古籍出处') && !sourceNote.includes('docs/classics'),
+    `没做的事要在「没做的部分」里点名；没有可核验古籍出处时明确标明本站自研，且不泄露仓库路径：点名 ${said.join('、')} / ${sourceNote || '无方法说明'}`);
 }
 
 // ── 4. 关系是对称的、缺输入是不猜的（这一节用手工盘，不靠真排盘撞运气）──
@@ -431,11 +433,11 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
   ok('catalog/hepan-open', t.status !== '未开放' && t.href === '/hepan'
     && /href="\/create\?mode=double"/.test(hepanPage) && /href="\/xiu"/.test(hepanPage),
     `合盘条目应指向 /hepan 落地页，且落地页提供「双人合盘 /create?mode=double」与「合宿 /xiu」两条入口：status ${t.status} / href ${t.href}`);
-  ok('catalog/hepan-stamp-in-basis', t.basis.includes(HEPAN_BASIS) && CATALOG_STAMPS.hepan === HEPAN_BASIS,
-    `目录里的口径戳 ${CATALOG_STAMPS.hepan} 必须逐字等于引擎常量 ${HEPAN_BASIS}（引擎改戳而目录没跟上，dir/stamps-equal-engine 也会红，这里再钉一次是因为合盘的戳只出现在这一条）`);
-  ok('catalog/hepan-declares-no-score', t.note.includes('不出合盘评分') && t.note.includes('自研 · 非还原')
-    && t.note.includes('不进 API'),
-    `目录那条要当场写明三件事：不出评分、整节自研非还原、对方生辰不进 API。读者是在目录页做决定的，不是在结果页：${t.note}`);
+  ok('catalog/hepan-method-clear', /双方分别排出命盘/.test(t.basis) && CATALOG_STAMPS.hepan === HEPAN_BASIS,
+    `目录说明双方独立排盘并对照关系；内部规则版本仍由目录与引擎常量核对：${t.basis}`);
+  ok('catalog/hepan-public-scope', t.note.includes('不提供匹配评分') && t.note.includes('本站自研')
+    && t.note.includes('未关联可核验的古籍出处') && !/API|回执|公开存证/.test(t.note),
+    `目录说明不评分、规则为本站自研且未关联可核验古籍出处，不展示内部数据路径：${t.note}`);
   ok('catalog/hepan-declares-consent', t.method.includes('同意'),
     `方法段要写清"勾了同意才存"，让同意这件事在进来之前就被看到：${t.method}`);
   const dupName = INTENTS.flatMap(g => g.tools).filter(x => x.name.includes('合盘')).map(x => x.slug);

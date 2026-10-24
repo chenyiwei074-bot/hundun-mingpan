@@ -216,7 +216,7 @@ export function analyzeHepan(input: HepanInput): HepanReport {
   未出.push(
     '合盘评分 / 匹配度百分比：不做（裁定）。',
     '吉凶宜忌、择日、化解法：不做。',
-    '古籍引证：docs/classics 里没有合婚原文，原典之外不发明。',
+    '方法说明：本站自研，目前未关联可核验的合婚古籍出处。',
   );
 
   return { 输入摘要: 摘要, 项目, 未出, 口径戳: HEPAN_BASIS };

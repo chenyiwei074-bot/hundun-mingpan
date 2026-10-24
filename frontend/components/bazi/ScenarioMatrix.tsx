@@ -5,7 +5,7 @@
 // 这一点由 tools/scenario-acceptance 比对，不靠人眼。
 
 import type { BaziChart } from '@/app/lib/core/yiqi-core/types';
-import { PALACE_MAP, SCENARIO_BASIS, buildScenarios } from '@/lib/bazi/scenarios';
+import { PALACE_MAP, buildScenarios } from '@/lib/bazi/scenarios';
 import type { ScenarioRow } from '@/lib/bazi/scenarios';
 
 const KIND_TONE: Record<ScenarioRow['性质'], string> = {
@@ -37,7 +37,7 @@ export default function ScenarioMatrix({ chart }: { chart?: BaziChart }) {
         <h2 className="qn-title" style={{ margin: 0 }}>场景矩阵</h2>
         <span className="qn-badge">
           <span className="qn-badge__dot" style={{ background: 'var(--color-accent-gold)' }} />
-          {SCENARIO_BASIS}
+          按盘面逐项对照
         </span>
       </div>
       <p className="qn-meta" style={{ marginTop: 8 }}>

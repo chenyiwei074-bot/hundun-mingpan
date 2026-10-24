@@ -78,7 +78,7 @@ function 候选提醒(p: RecognizeResult): string {
     部.push('一个门窗都没认出来。这不等于你家没门窗 —— 请手动补上，否则采光、对流、动线三类判定都会写成缺输入。');
   }
   if (p.未挂上数 > 0) {
-    部.push(`有 ${p.未挂上数} 个门窗的中心点落不到任何一道墙上（多半是模型把房间中心当成了洞口），本站没有把它们硬按到某道墙上，请核对后手动补。`);
+    部.push(`有 ${p.未挂上数} 个门窗的中心点落不到任何一道墙上（自动识别可能把房间中心误认为洞口），本站没有把它们硬按到某道墙上，请核对后手动补。`);
   }
   if (p.未命名房间数 > 0) {
     部.push(`有 ${p.未命名房间数} 间房的名字没认出来，用途先记作储物 —— 这会直接影响"厨卫相邻""私密区"那几条判定，请逐间改对。`);
@@ -170,8 +170,8 @@ export default function FloorPlanStudio() {
       // 先删服务端那份：失败也不阻塞本地清空，但要如实提示（7 天内仍会保留）。
       const target = serverImageId;
       void fetch(`/api/fengshui/image/${target}?visitorId=${encodeURIComponent(visitorId)}`, { method: 'DELETE' })
-        .then(res => { if (!res.ok) say('danger', '服务端图片没有删掉（可能已过期）；主存储最迟 7 天内仍会保留。'); })
-        .catch(() => say('danger', '服务端删除请求没发出去；主存储最迟 7 天内仍会保留。'));
+        .then(res => { if (!res.ok) say('danger', '页面已清空，但图片删除未能确认；主存储最长保留 7 天，备份副本最多再保留 7 天。'); })
+        .catch(() => say('danger', '页面已清空，但图片删除未能确认；主存储最长保留 7 天，备份副本最多再保留 7 天。'));
       setServerImageId(null);
     }
     setImage(null); setGeom(emptyGeom()); set已确认(false);
@@ -185,7 +185,7 @@ export default function FloorPlanStudio() {
 
   const recognize = useCallback(async () => {
     if (!image) { say('pending', '先选一张图。'); return; }
-    if (!consent) { say('pending', '要先勾选同意，才能把图送给模型。'); return; }
+    if (!consent) { say('pending', '要先勾选同意，才能使用混沌自研 AI 辅助识别这张图。'); return; }
     if (recognizing) return;   // 双击不重发：一次识别已经花掉上游一分钟预算
     setRecognizing(true); set识别态('在识别'); setNotice(null);
     const fail = (line: string) => {
@@ -198,17 +198,17 @@ export default function FloorPlanStudio() {
       try {
         res = await fetch(req.url, req.init);
       } catch {
-        fail('识别请求没发出去（网络断了，或服务端还没部署到这条路由）。一次都没重试');
+        fail('混沌自研 AI 辅助识别暂时不可用，请稍后重试或手工绘制。');
         return;
       }
       const json = await res.json().catch(() => null);
       if (!res.ok) { fail(failReason(res.status, json)); return; }
       if (json === null) {
-        fail(`服务端回了 ${res.status} 但正文不是 JSON —— 可能是网关挡的（比如请求体超过它的体积上限），不是识别本身失败。`);
+        fail('这次识别结果无法读取，请稍后重试或手工绘制。');
         return;
       }
       const parsed = parseRecognize(json, { spanM: RECOGNIZE_SPAN_M, aspect: image.aspect });
-      if (!parsed.ok) { fail(`识别响应读不出完整几何：${parsed.reason}`); return; }
+      if (!parsed.ok) { fail('这次识别结果不完整，请稍后重试或手工绘制。'); return; }
       setGeom(parsed.geom);
       set已确认(false); set视图('俯视'); set选中(null);
       set识别态('候选待确认');
@@ -303,7 +303,7 @@ export default function FloorPlanStudio() {
             没有这一行的话，用户在按下「选户型图」之前读不到任何告知。 */}
         <p className="fp-steps__privacy">
           上传可选，不上传也能走完全部判定。图不进入报告、回执与公开台账，
-          服务端只按本人标识可取、7 天后自动删，可随时移除。
+          主存储最长保留 7 天，备份副本最多再保留 7 天；可随时移除图片。
         </p>
       </nav>
       <div className="fp-step-block" id="fp-start">
@@ -333,7 +333,7 @@ export default function FloorPlanStudio() {
         {image && (
           <button type="button" className="qn-btn qn-btn--solid" style={{ minHeight: 44 }}
             disabled={recognizing || !consent} onClick={recognize}>
-            {recognizing ? '在识别' : '送给模型提候选'}
+            {recognizing ? '在识别' : '混沌自研 AI 识别'}
           </button>
         )}
         </div>
@@ -343,7 +343,7 @@ export default function FloorPlanStudio() {
           文案是给用户读的，两者读同一个状态变量 —— 不允许只在一处成立。 */}
       <p className="qn-meta" id="fp-recognize-state" data-recognize-state={识别态} style={{ margin: '10px 0 0' }}>
         {识别态 === '未识别' && '识别：还没送过图。'}
-        {识别态 === '在识别' && '识别：已把你的图交给视觉模型（一次请求，不自动重试）。'}
+        {识别态 === '在识别' && '识别：混沌自研 AI 正在提取墙、门、窗候选位置。'}
         {识别态 === '失败' && '识别：失败。原因见下面那行。'}
         {识别态 === '候选待确认' && `识别：${识别汇总}。${已确认 ? '已确认，可以进 3D 与判定。' : '待你逐条确认。'}`}
       </p>
@@ -352,13 +352,14 @@ export default function FloorPlanStudio() {
         <div className="qn-card" style={{ padding: 10 }}>
           {/* 预览图是用户自己的图纸：只在本机 objectURL 里显示，不上传、不进任何记录。 */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image.url} alt="所选手型图本地预览" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 6 }} />
+          <img src={image.url} alt="所选户型图本地预览" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 6 }} />
           <label className="qn-note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginTop: 8, cursor: 'pointer' }}>
             <input id="fp-consent" type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
               checked={consent} onChange={e => setConsent(e.target.checked)} />
-            <span>我同意把这张户型图送给视觉模型提取墙、门、窗的候选位置。
+            <span>我同意将这张户型图用于混沌自研 AI 辅助识别，提取墙、门、窗的候选位置。
               <span className="qn-note" style={{ display: 'block', marginTop: 2 }}>
-                图不进入报告、回执与公开台账；服务端只按本人标识可取，7 天后自动删。识别出来的东西只是候选，
+                图不进入报告、回执与公开台账；主存储最长保留 7 天，备份副本最多再保留 7 天。
+                移除图片会删除主存储副本。识别出来的东西只是候选，
                 要你逐条确认过才算输入。
               </span>
             </span>
@@ -375,7 +376,7 @@ export default function FloorPlanStudio() {
         <div className="qn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
           {(['南', '北', '未确认'] as const).map(k => (
             <button key={k} type="button" id={`fp-facing-${k}`}
-              className={`qn-chip${朝向 === k ? ' qn-chip--on' : ''}`} style={{ minHeight: 44, minWidth: 44 }}
+              className={`qn-chip${朝向 === k ? ' qn-chip--on' : ''}`} style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
               aria-pressed={朝向 === k}
               onClick={() => { set朝向(k); set朝向已答(true); }}>{k === '未确认' ? '朝向未确认' : `朝${k}`}</button>
           ))}
@@ -522,7 +523,7 @@ export default function FloorPlanStudio() {
               {ROOM_KINDS.map(k => (
                 <button key={k} type="button" id={`fp-kind-${k}`}
                   className={`qn-chip${sel?.用途 === k ? ' qn-chip--on' : ''}`}
-                  style={{ minHeight: 44, minWidth: 44 }} disabled={!sel}
+                  style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }} disabled={!sel}
                   onClick={() => { if (选中) setGeom(g => setRoomKind(g, 选中, k)); }}>{k}</button>
               ))}
             </div>
@@ -541,7 +542,7 @@ export default function FloorPlanStudio() {
                 <div key={w.id} className="qn-row" style={{ gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
                   <button type="button" id={`fp-wall-${墙名(w.id).replace(' ', '')}`}
                     className={`qn-chip${选中墙 === w.id ? ' qn-chip--on' : ''}`}
-                    style={{ minHeight: 44, minWidth: 44 }}
+                    style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
                     onClick={() => set选中墙(选中墙 === w.id ? null : w.id)}>{墙名(w.id)}</button>
                   <span className="qn-meta">{段数} 段 · 折线长 {长}m · 挂 {名下} 个门窗</span>
                   <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, marginLeft: 'auto' }}
@@ -565,7 +566,7 @@ export default function FloorPlanStudio() {
           <div className="qn-row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
             {(['俯视', '等轴', '3D'] as const).map(k => (
               <button key={k} type="button" className={`qn-chip${视图 === k ? ' qn-chip--on' : ''}`}
-                style={{ minHeight: 44, minWidth: 44 }} disabled={k === '3D' && !已确认}
+                style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }} disabled={k === '3D' && !已确认}
                 title={k === '3D' && !已确认 ? '几何确认之后才进 3D' : undefined}
                 onClick={() => { if (k !== '3D' || 已确认) set视图(k); }}>{k}</button>
             ))}
@@ -625,7 +626,7 @@ export default function FloorPlanStudio() {
                   title="点一下换成另一种：宽度会按新类型重新夹">
                   {o.类型}
                 </button>
-                <button type="button" className="qn-chip" style={{ minHeight: 48, minWidth: 48, borderRadius: 0 }}
+                <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
                   onClick={() => setGeom(g => setOpeningConfirmed(g, o.id, !o.已确认))}>
                   {o.已确认 ? '已确认' : '未确认'}
                 </button>
@@ -652,7 +653,7 @@ export default function FloorPlanStudio() {
               {CONCERNS.map(c => (
                 <button key={c} type="button" id={`fp-concern-${c}`}
                   className={`qn-chip${关心点.includes(c) ? ' qn-chip--on' : ''}`}
-                  style={{ minHeight: 44, minWidth: 44 }} aria-pressed={关心点.includes(c)}
+                  style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }} aria-pressed={关心点.includes(c)}
                   onClick={() => { set关心点(p => (p.includes(c) ? p.filter(x => x !== c) : [...p, c])); set关心点已答(true); }}>{c}</button>
               ))}
               <button type="button" id="fp-concern-skip" className="qn-chip" style={{ minHeight: 44 }}
@@ -671,7 +672,7 @@ export default function FloorPlanStudio() {
               checked={已确认} onChange={e => set已确认(e.target.checked)} />
             <span>上面每一项几何与门窗都是我自己核对过的，可以让规则层据此判定。
               <span className="qn-note" style={{ display: 'block', marginTop: 2 }}>
-                不勾就只出提示不出判定。识别结果没确认就下结论，等于把模型的猜测当成用户的事实。
+                不勾就只出提示不出判定。识别结果没确认就下结论，等于把自动识别结果当成用户的事实。
               </span>
             </span>
           </label>
@@ -684,7 +685,7 @@ export default function FloorPlanStudio() {
         </>
       )}
       {geom.房间.length === 0 && (
-        <p className="qn-note" style={{ marginTop: 12 }}>还没有几何：先「手工画」或「载入合成样例」，或上传一张图让模型提候选。</p>
+        <p className="qn-note" style={{ marginTop: 12 }}>还没有几何：先「手工画」或「载入合成样例」，也可以上传户型图，让混沌自研 AI 辅助识别。</p>
       )}
     </div>
   );
@@ -698,7 +699,7 @@ function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, �
   const over = 跨度 > MAX_SPAN_M;
   return (
     <section className="qn-card" aria-live="polite">
-      <p className="qn-axis">⑤ 规则层结果 · {report.口径戳}</p>
+      <p className="qn-axis">⑤ 户型观察结果</p>
       <p className="qn-meta" style={{ marginTop: 4 }}>可行走网格 {格数} 格（0.25m 步长），最大跨度 {Math.round(跨度 * 10) / 10}m。</p>
       {/* §8 钉着的一句：朝向没确认，结果段就得自己说"这一层没据朝向判"。
           规则层把它写在「没判定的部分」里，但那一块只有非空时才渲染，
@@ -738,8 +739,8 @@ function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, �
       {/* 边界话术跟着判定走，不能只写在旧表单那一版里：新工作室出同样一份清单，
           少了这句话，用户就有理由把"离采光面远"读成方位吉凶。 */}
       <p className="qn-note" style={{ marginTop: 12 }}>
-        以上全部是几何与动线层面的观察（相邻、对宫、通路、同宫），不是方位吉凶。
-        八宅、玄空那一层本站不做：docs/classics 里没有可引的宅经原文，原典之外不发明。
+        以上是依据你标注的墙体、房间、门窗与朝向作出的几何和动线观察，不代表传统方位吉凶。
+        本页规则由本站自研，目前不作八宅、玄空等传统方位判断。
       </p>
     </section>
   );

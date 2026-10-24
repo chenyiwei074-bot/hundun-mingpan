@@ -71,8 +71,9 @@ const ok = (id: string, cond: boolean, detail: string) => {
     `只开放已有真实部分链路且清楚列出已做/未做的条目；占星与塔罗共 ${open.length} 项：${open.map(t => t.slug).join('、') || '无开放项'}`);
   const astroLive = open.find(t => t.slug === 'astro-natal');
   const tarotLive = open.find(t => t.slug === 'tarot-draw');
-  ok('west/astro-open-item-still-carries-stamp', !!astroLive && astroLive.basis.includes('astro-planets-v1'),
-    `本命行星项继续由天文口径戳识别：${astroLive?.basis.match(/astro-planets-v1/)?.[0] || '缺少戳'}`);
+  ok('west/astro-open-item-states-public-basis', !!astroLive && /地心观察/.test(astroLive.basis)
+    && /回归黄道/.test(astroLive.basis) && !/astro-planets-v1|astro-moment-iana-v1|astronomy-engine|DE441/.test(astroLive.basis),
+    '本命行星项说明采用的观察体系，不显示内部版本号或实现库');
   ok('west/tarot-open-item-stays-honest', !!tarotLive && tarotLive.href === '/tarot'
     && /正位与逆位/.test(tarotLive.method) && /韦特 1910/.test(tarotLive.reading)
     && /跨传统牌义比较/.test(tarotLive.notDone?.join(' ') || ''),

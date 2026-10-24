@@ -303,7 +303,7 @@ const CATALOG_EXPECT = { oriental: catalogExpect(CATALOG_INTENTS.oriental), west
 const QA_PINS = {
   'oriental-ask': {
     q: '帮我排个八字看看命格',
-    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数（可用）', '还要补：日期或生日、出生时辰、出生地点'],
+    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数（可用）', '还要补：日期或生日、出生时辰、出生地点', '混沌自研 AI 助手已为你整理相关工具建议'],
     entry: { text: '进入 · 八字 & 紫微斗数', href: '/create' },
     absent: [],
   },
@@ -311,7 +311,7 @@ const QA_PINS = {
     q: '我的月亮星座和太阳星座是什么',
     // E2 之前这一态钉的是"西方一项都没开放 → 只许说还没开放"。astro-natal 变「部分可用」之后
     // 同一句话的正确落点是有入口，所以这条按裁定改了期望（改测试与改产品同批，见 §20）。
-    mustSay: ['该用的是', '本命行星位置', '还要补：日期或生日、出生时辰、出生地点'],
+    mustSay: ['该用的是', '本命行星位置', '还要补：日期或生日、出生时辰、出生地点', '混沌自研 AI 助手已为你整理相关工具建议'],
     entry: { text: '进入 · 本命行星位置', href: '/astro' },
     absent: ['还没开放'],
   },
@@ -319,12 +319,12 @@ const QA_PINS = {
   // 「哪一宿」各命中一次 → 并列。钉的是"两个 chip 都在、系统一个都没替我选"。
   'oriental-choices': {
     q: '我出生那天值哪一宿',
-    mustSay: ['你要先看哪一个', '八字 & 紫微斗数', '二十八宿 · 本命宿'],
+    mustSay: ['你要先看哪一个', '八字 & 紫微斗数', '二十八宿 · 本命宿', '混沌自研 AI 助手已为你整理相关工具建议'],
     entry: null,
     absent: ['进入 ·'],
     chips: 2,
   },
-  // 挑了一个之后：入口出现，而且来源那一句必须换成"你自己挑的"。
+  // 挑了一个之后：入口出现，而且明确说明这是用户自己选的。
   'oriental-chosen': {
     q: '我出生那天值哪一宿',
     mustSay: ['你已从并列候选中选择此工具', '该用的是'],
@@ -342,12 +342,12 @@ const QA_PINS = {
     // report-only 清单里「点了目录里的例子却说没对上」那条。现在示例带着自己的 slug，
     // 所以这一态点的是**当年会错的那一条**（西洋占星 · 合盘），落点必须是它自己的 closed。
     clickExample: 1,
-    mustSay: ['还没开放', '西洋占星 · 合盘'],
+    mustSay: ['还没开放', '西洋占星 · 合盘', '已按这个工具提供的示例问题整理建议'],
     entry: null,
     absent: ['进入 ·', '没能对上'],
   },
   // 同一支的另一边：示例里那一项是开着的（本命行星位置，部分可用）→ 必须给入口，
-  // 并且来源那一句要说清"是目录里该项自己的例子"，不是模型匹配出来的。
+  // 并且说明该建议来自这个工具提供的示例问题。
   'western-example-open': {
     q: '',
     clickExample: 0,
@@ -380,21 +380,21 @@ function astroProbe(computed) {
   return `(() => {
   const miss = [];
   const flat = (document.body.innerText || '').replace(/\\s+/g, '');
-  // 两态共有的部分：口径戳、"不叫星盘"那句、已做/未做两张清单真的渲染了（计数只验非零，
+  // 两态共有的部分：计算范围、来源章节、"不叫星盘"那句、已做/未做两张清单真的渲染了（计数只验非零，
   // 数字本身由目录与引擎那两侧钉 —— 在这里钉个数就成了第三份真相）。
   // 批H 起再加上「依据」三层块：源码级断言永远证明不了"渲染出来了"，那正是白话层与近代层
   // 最容易被悄悄删掉的地方（原文留着一行说明、白话与口径标注没了，读起来还是"有出处"）。
   // flat 已把所有空白抹掉，所以钉的是无空格形态（'Thetropicalsigns…'）。
-  for (const s of ['astro-planets-v1', 'astro-moment-iana-v1', '不叫星盘', '不打包票',
+  for (const s of ['不叫星盘', '不打包票',
     '依据（原文·白话·口径）', '本站白话', '非原文、非他人译本', '无古籍出处·近代约定',
-    'Thetropicalsignsaretwo', 'mutualconfigurationattaches', 'docs/classics/western/tetrabiblos.txt'])
+    'Thetropicalsignsaretwo', 'mutualconfigurationattaches', 'ProjectGutenberg#70850', 'BookI第十四章', 'BookI第十六章'])
     if (flat.indexOf(s) < 0) miss.push('页面上找不到「' + s + '」');
   const done = /已做（(\\d+)项）/.exec(flat), notDone = /未做（(\\d+)项）/.exec(flat);
   if (!done || !notDone || !+done[1] || !+notDone[1])
     miss.push('已做/未做两张清单没成对出现（只写"部分可用"不写缺什么 = 读者自己猜）：'
       + JSON.stringify([done && done[1], notDone && notDone[1]]));
   const lis = [...document.querySelectorAll('li')].map(x => (x.innerText || '').trim());
-  if (!lis.some(t => t.indexOf('上升点与任何宫位') >= 0)) miss.push('「未做」里没有上升/宫位那一条');
+  if (!lis.some(t => t.indexOf('上升点与宫位') >= 0)) miss.push('「未做」里没有上升/宫位那一条');
   const zone = (document.querySelector('#astro-zone') || {}).value || '';
   const rows = [...document.querySelectorAll('table tbody tr')];
   if (${computed}) {
@@ -432,15 +432,13 @@ function astroProbe(computed) {
 })()`;
 }
 
-/** 交互之后不许有任何位移的那几态：答案面板预留过高度（.qa-pane 两条规则），内容在自己盒子里滚。
- *  判定写成"态名列表"而不是点名某个 CSS 文件 —— 约束的是一类行为（预留过高度的面板），
- *  以后再有预留的面板加进这张表就行。 */
+/** 问事回答态：桌面使用预留高度的内部滚动面板；手机改为自然流展开完整回答。
+ *  两种布局分别检查，防止把手机的完整展开误判成桌面固定面板回归。 */
 const RESERVED_PANES = ['oriental-ask', 'oriental-choices', 'oriental-chosen', 'oriental-ime',
   'western-ask', 'western-example', 'western-example-open'];
 
 /** 点示例那一支的两态共用：按 QA_PINS[状态].clickExample 取第 N 枚示例 chip 点下去。
- *  用脚本 click 而不是 TRUSTED：示例点在预留格（.qa-pane）里插一张卡，版面本来就不该动，
- *  合成点击不算 hadRecentInput —— 也就是说这一支是在"更严"的条件下量的。 */
+ *  桌面预留格不应移动；手机允许回答按自然流展开。 */
 const exampleHook = name => `(async () => {
   const chip = [...document.querySelectorAll('.qa-examples .qn-chip')][${QA_PINS[name].clickExample}];
   if (!chip) return '${name}：第 ${QA_PINS[name].clickExample} 枚示例 chip 不在页面上（.qa-examples .qn-chip = 0 说明示例区空着，等于没测）';
@@ -505,9 +503,9 @@ const TAROT_DRAW_HOOK = `(async () => {
   if (!question) return '没有这次要问的问题输入框';
   Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set.call(question, '我接下来该怎样推进这次合作？');
   question.dispatchEvent(new Event('input', { bubbles: true }));
-  const buttons = [...document.querySelectorAll('button')];
-  const shuffle = buttons.find(x => (x.textContent || '').includes('洗牌并公布承诺摘要'));
-  if (!shuffle) return '没有「洗牌并公布承诺摘要」按钮';
+  const actions = [...document.querySelectorAll('.tarot-action')];
+  const shuffle = actions.find(x => (x.textContent || '').trim() === '洗牌并生成校验码');
+  if (!shuffle) return '没有「洗牌并生成校验码」操作';
   shuffle.click();
   for (let n = 0; n < 40 && main.dataset.tarotState !== 'shuffled'; n++) await wait(50);
   if (main.dataset.tarotState !== 'shuffled') return '洗牌后状态不是 shuffled：' + main.dataset.tarotState;
@@ -770,8 +768,9 @@ const AFTER = {
     for (let n = 0; n < 200; n++) { if (btn(/查看结果/)) break; await wait(250); }
     if (!btn(/查看结果/)) return '摇满六爻后没进入结果态';
     if (!btn(/重新摇一卦/)) return '结果态缺「重新摇一卦」入口';
-    const line = ([...document.querySelectorAll('p')].map(p => p.textContent).find(t => (t || '').includes('已锁定')) || '');
-    if (!/seedHash [0-9a-f]{12}/.test(line)) return '结果态缺承诺行（seedHash 未显示）';
+    const line = [...document.querySelectorAll('p')].map(p => p.textContent).find(t => (t || '').includes('已为本次摇卦生成随机校验承诺')) || '';
+    const code = document.querySelector('[data-commitment-hash]');
+    if (!line || !code || !/^sha256:[0-9a-f]{64}$/.test(code.getAttribute('data-commitment-hash') || '')) return '结果态缺完整的随机校验码';
     const rows = [...document.querySelectorAll('.qn-ink .qn-note')].map(e => (e.textContent || '').trim()).filter(t => t && t !== '—').length;
     if (rows < 6) return '六爻记录只渲染出 ' + rows + ' 行';
     return true; })()`,
@@ -833,7 +832,7 @@ const CHART_PINS = {
     rows: ['自己', '日常', '父母', '兄弟姐妹与朋友', '恋爱', '婚姻', '子女',
       '亲子（我为人子女）', '亲子（我为人父母）', '共事合作', '上下级'],
     conventionRows: 4,          // 11 行里恰好 4 行标「本站约定，非古籍原目」
-    text: ['场景矩阵', 'liuqin-scenario-v1', '两说并存，本站不裁决', '宫分：年柱管父母'],
+    text: ['场景矩阵', '按盘面逐项对照', '两说并存，本站不裁决', '宫分：年柱管父母'],
     // 断语一律不上屏（裁定 9）。这几串只存在于 scenarios.ts 的出处凭据与 docs 底本里。
     absent: ['父母不全', '兄弟不完', '妻妾不完', '子息无传', '子息凶頑', '妻妾不賢'],
     minCangGan: 1,              // 藏干命中必须真上屏（字段名读错时这一路会静默归零）
@@ -1186,14 +1185,15 @@ const klineProbe = p => `(() => {
 
 // 户型规则层那一块是否真的上了屏（注意 \\s：这是普通模板串，写一个反斜杠会被吃掉）。
 const FS_PROBE = `(() => {
-  const sec = [...document.querySelectorAll('section')].find(s => /规则层结果/.test(s.innerText || ''));
-  if (!sec) return { miss: ['勾了确认、点了"算一遍"之后没有出现规则层结果那一块'] };
+  const sec = [...document.querySelectorAll('section')].find(s => /户型观察结果/.test(s.innerText || ''));
+  if (!sec) return { miss: ['勾了确认、点了"算一遍"之后没有出现户型观察结果那一块'] };
   const txt = (sec.innerText || '').replace(/\\s+/g, '');
   const out = [];
-  if (!/fengshui-geometry-v\\d/.test(txt)) out.push('结果块里没有口径戳');
+  if (/fengshui-geometry-v\\d|docs\\/classics/.test(txt)) out.push('结果块露出了内部版本号或仓库路径');
+  if (!/本站自研/.test(txt)) out.push('结果块没有标明本页规则由本站自研');
   if (!/依据：/.test(txt)) out.push('判定没有带「依据：」');
   if (!/说不准的：/.test(txt)) out.push('判定没有带「说不准的：」');
-  if (!/不是方位吉凶/.test(txt)) out.push('没有声明这些不是方位吉凶');
+  if (!/不代表传统方位吉凶/.test(txt)) out.push('没有声明这些不代表传统方位吉凶');
   if (/已开放|进入/.test(txt)) out.push('结果块里出现了入口/推销字样（这一页只出判定）');
   return { miss: out, chars: txt.length };
 })()`;
@@ -1205,8 +1205,8 @@ const FS_PROBE = `(() => {
 const FS_RECOGNIZE_PINS = {
   'fengshui-recognize-fail': {
     state: '失败', line: '识别：失败', calls: 1, plan: false,
-    must: ['混沌自研 AI 辅助识别暂时不可用', '请稍后重试或手工绘制', '这条不装作成功', '还没有几何'],
-    not: ['候选已载入', '墙 2 道'],
+    must: ['混沌自研 AI 辅助识别暂时不可用', '这条不装作成功', '还没有几何'],
+    not: ['候选已载入', '墙 2 道', 'HTTP 503', 'provider_error', '供应商'],
   },
   'fengshui-recognize-candidates': {
     state: '候选待确认', line: '墙 2 道 · 房间 2 间 · 门 1 · 窗 1 · 跨度按 9m', calls: 1, plan: true,
@@ -1369,8 +1369,8 @@ const tarotProbe = kind => `(async () => {
       miss.push('抽牌前后页面总高变化：' + beforeHeight + ' → ' + document.documentElement.scrollHeight);
     const rows = [...main.querySelectorAll('.tarot-integrity__row')];
     const row = label => rows.find(x => (x.textContent || '').includes(label));
-    const hash = row('承诺摘要')?.querySelector('code')?.textContent.trim() || '';
-    const seed = row('随机种子')?.querySelector('code')?.textContent.trim() || '';
+    const hash = row('抽牌校验码')?.querySelector('code')?.textContent.trim() || '';
+    const seed = row('校验用随机值')?.querySelector('code')?.textContent.trim() || '';
     if (!/^[0-9a-f]{64}$/i.test(hash) || !/^[0-9a-f]{64}$/i.test(seed)) miss.push('揭晓后应公开 64 位摘要与种子');
     else {
       const bytes = new Uint8Array(seed.match(/.{2}/g).map(x => Number.parseInt(x, 16)));
@@ -1378,7 +1378,7 @@ const tarotProbe = kind => `(async () => {
       const actual = [...digest].map(x => x.toString(16).padStart(2, '0')).join('');
       if (actual !== hash.toLowerCase()) miss.push('SHA-256 承诺摘要无法由揭晓种子复算');
     }
-    if (!/不发送到服务器/.test(body) || !/不是区块链存证/.test(body)) miss.push('页面未说明本地保存边界与非链上存证');
+    if (!/不会发送到服务器/.test(body) || !/不是区块链存证/.test(body)) miss.push('页面未说明本地保存边界与非链上存证');
   } else if (main.querySelectorAll('.tarot-empty').length !== 3) {
     miss.push('idle 态三个牌位都应为空');
   }
@@ -1709,22 +1709,17 @@ const qaProbe = p => `(() => {
     // 理由各不相同（并列还没选、没开放不给入口），所以措辞按"这一态不该有入口"来说。
     out.push('这一态不该给入口，回答里却出现了：' + JSON.stringify(links));
   }
-  // 来源与降级理由这一对，批B 起改成钉"配对关系"而不是钉某一句：
-  // 桩下 /api/assistant 回 404（必然回落本机 + 必须写明为什么），真后端会真的答一句。
-  // 两种模式各钉一句的话，端点修好那天这套钉值就集体过期 —— 钉不变量才不会。
-  const product = txt.indexOf('混沌自研AI助手已为你整理相关工具建议') >= 0; const srcLocal = false, srcServer = false;
-  const chosen = txt.indexOf('你已从并列候选中选择此工具') >= 0, degraded = false;
-  // 批F④ 起有第四种来源：点的是目录里某一项自己的例子（目标工具是登记过的，没再匹配一遍）。
-  // 仍然钉的是那个不变量 —— 每一轮都必须说出"是谁算的"，四种里恰好一种；
-  // 少一句会红（这一轮没人认领），两句同时出现也会红（读者不知道信哪个）。
+  // 用户只看到统一的产品口径；用户选择和目录示例仍各自说明清楚，内部路由实现不出现在页面。
+  const product = txt.indexOf('混沌自研AI助手已为你整理相关工具建议') >= 0;
+  const chosen = txt.indexOf('你已从并列候选中选择此工具') >= 0;
   const fromExample = txt.indexOf('已按这个工具提供的示例问题整理建议') >= 0;
   const howMany = [product, chosen, fromExample].filter(Boolean).length;
-  if (howMany > 1) out.push('同一轮写了两种来源标注，读者不知道信哪个：'
-    + JSON.stringify({ srcLocal, srcServer, chosen, fromExample }));
-  if (howMany === 0) out.push('这一轮没写是谁算的（来源标注没上屏）');
-  if (srcLocal && !degraded)
-    out.push('写着回落本机却没写为什么 —— degraded 拿到了不上屏就是缺陷②的形状');
-  if (srcServer && degraded) out.push('真走了服务端却还挂着"没用上服务端"的理由');
+  if (howMany !== 1) out.push('这一轮的产品说明应恰好出现一种：'
+    + JSON.stringify({ product, chosen, fromExample }));
+  const internalTerms = ['本机目录匹配', '来自服务端路由', '服务端这一轮没用上', '不写日志、不进台账', '问题原文只留在这个页面上', 'provider_error'];
+  const leaked = internalTerms.filter(x => txt.indexOf(x.replace(/\\s+/g, '')) >= 0);
+  if (leaked.length) out.push('回答暴露了内部路由或过度隐私承诺：' + leaked.join('、'));
+  if (!document.querySelector('.qa a[href="/privacy"]')) out.push('问事区域缺少隐私说明入口');
   // 入口必须"看得见"。预留块是内部滚动的，入口如果落在折线以下，用户读到的是
   // "该用的是 X"却没有下一步 —— 这条是看截图补的（compact 预留 132px 那一版就是这样：
   // 标题与说明都在，按钮在盒子底下要滚才看得到，而宽度/命中区/对比度/CLS 四条全绿）。
@@ -1832,6 +1827,7 @@ const chrome = spawn(CHROME, ['--headless=new', ...(GPU ? [] : ['--disable-gpu']
   `--user-data-dir=${PROFILE}`, 'about:blank'],
   { stdio: 'ignore' });
 chrome.on('error', e => { console.error('cannot start chrome:', e.message, '\nset --chrome=/path/to/chrome'); process.exit(2); });
+chrome.on('exit', (code, signal) => console.error(`[VH CDP] Chrome exited code=${code} signal=${signal}`));
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let page;
@@ -1848,6 +1844,8 @@ const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((res, rej) => { ws.addEventListener('open', res, { once: true }); ws.addEventListener('error', rej, { once: true }); });
 let seq = 0;
 const pending = new Map();
+ws.addEventListener('close', ev => console.error(`[VH CDP] socket closed code=${ev.code} reason=${ev.reason || '(none)'} pending=${[...pending.keys()].join(',') || '(none)'}`));
+ws.addEventListener('error', () => console.error(`[VH CDP] socket error readyState=${ws.readyState} pending=${[...pending.keys()].join(',') || '(none)'}`));
 ws.addEventListener('message', ev => {
   const m = JSON.parse(ev.data);
   if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
@@ -2615,18 +2613,32 @@ function check(tag, v) {
       // 两个条件任一不成立就按整份 CLS 记账（所以"面板随内容变高"那种负例必红 ④）。
       // 面板以外的来源一律全额记账 ②；这套只认 .qa-pane 这一块，不推广成通用规则 ③。
       const pf = v.perf || {};
-      const rectSame = !pf.paneBoxAtLoad || !pf.paneBox || pf.paneBoxAtLoad === pf.paneBox;
-      const scrollSame = !pf.preScroll || !pf.postScroll || pf.preScroll.y === pf.postScroll.y;
-      const exemptOK = rectSame && scrollSame;
-      const out = exemptOK && pf.clsOut !== undefined ? pf.clsOut : after;
-      const internal = Math.round((after - (pf.clsOut === undefined ? after : pf.clsOut)) * 1000) / 1000;
-      const boxSame = rectSame;
-      if (out > 0) bad(exemptOK
-        ? `交互后把预留格**外面**的东西推走了 +${out}（这一态总 CLS ${after}）—— 面板外层是定高的，外面动就是预留没生效`
-        : `交互后 CLS +${after} —— 前置条件不成立所以不豁免：外框${rectSame ? '没变' : ` ${pf.paneBoxAtLoad}→${pf.paneBox}`}、`
-          + `scrollY${scrollSame ? '没变' : ` ${pf.preScroll && pf.preScroll.y}→${pf.postScroll.y}`}`);
-      else if (!boxSame) bad(`预留格外框从 ${pf.paneBoxAtLoad} 变成 ${pf.paneBox} —— 外框动了就不是"内部滚动"`);
-      else console.log(`   预留格 外框不动（${pf.paneBox || '无面板'}）· scrollY 不动 · 面板内部重排 ${internal} 不计页面位移`);
+      if (v.iw <= 600) {
+        const flow = pf.qaFlow;
+        if (!flow) bad('手机问事态没有交出回答流布局读数');
+        else {
+          if (flow.position !== 'static' || flow.overflowY !== 'visible')
+            bad(`手机回答仍被内部滚动容器限制（position=${flow.position}, overflow-y=${flow.overflowY}）`);
+          if (flow.turnCount > 0 && !flow.contentFits)
+            bad(`手机回答卡没有完整落在展开面板内（回答底 ${flow.turnBottom}px / 面板底 ${flow.paneBottom}px）`);
+          if (flow.turnCount > 0 && flow.paneHeight < 200)
+            bad(`手机回答面板没有随内容展开（${flow.paneHeight}px）`);
+          console.log(`   手机回答自然展开 ${flow.paneHeight}px · ${flow.turnCount} 条回答 · 内容完整可见`);
+        }
+      } else {
+        const rectSame = !pf.paneBoxAtLoad || !pf.paneBox || pf.paneBoxAtLoad === pf.paneBox;
+        const scrollSame = !pf.preScroll || !pf.postScroll || pf.preScroll.y === pf.postScroll.y;
+        const exemptOK = rectSame && scrollSame;
+        const out = exemptOK && pf.clsOut !== undefined ? pf.clsOut : after;
+        const internal = Math.round((after - (pf.clsOut === undefined ? after : pf.clsOut)) * 1000) / 1000;
+        const boxSame = rectSame;
+        if (out > 0) bad(exemptOK
+          ? `交互后把预留格**外面**的东西推走了 +${out}（这一态总 CLS ${after}）—— 面板外层是定高的，外面动就是预留没生效`
+          : `交互后 CLS +${after} —— 前置条件不成立所以不豁免：外框${rectSame ? '没变' : ` ${pf.paneBoxAtLoad}→${pf.paneBox}`}、`
+            + `scrollY${scrollSame ? '没变' : ` ${pf.preScroll && pf.preScroll.y}→${pf.postScroll.y}`}`);
+        else if (!boxSame) bad(`预留格外框从 ${pf.paneBoxAtLoad} 变成 ${pf.paneBox} —— 外框动了就不是"内部滚动"`);
+        else console.log(`   桌面预留格 外框不动（${pf.paneBox || '无面板'}）· scrollY 不动 · 面板内部重排 ${internal} 不计页面位移`);
+      }
     }
     if (load >= 0.1) warns.push(`${tag}: 加载期 CLS ${load} ≥ 0.1（既有缺陷，本批不修，等排期）`);
     console.log(`   CLS load=${load} after-interaction=${after}${load >= 0.1 ? ' [加载期超标，已记 warn]' : ''}`);
@@ -2914,11 +2926,11 @@ const TRUSTED = {
   // 识别两态：勾同意与按"送给模型提候选"都会改版面，必须真实事件。顺序有意义 ——
   // 不先勾同意，那个按钮是 disabled，点了等于没点，而 harness 因为打到了元素也不会报错。
   // 这条正好也是 privacy/consent-gates-request 那条闸门的浏览器侧证据。
-  'fengshui-recognize-fail': ['@file', '#fp-consent', '送给模型提候选'],
-  'fengshui-recognize-candidates': ['@file', '#fp-consent', '送给模型提候选'],
+  'fengshui-recognize-fail': ['@file', '#fp-consent', '混沌自研 AI 识别'],
+  'fengshui-recognize-candidates': ['@file', '#fp-consent', '混沌自研 AI 识别'],
   // 契约态：真的把那一枪打到网络层（再由 CDP 拦停）。与上面两态同一串动作，
   // 区别只在观测点从 window.__recReq 换成了浏览器实际发出的请求。
-  'fengshui-recognize-wire': ['@file', '#fp-consent', '送给模型提候选'],
+  'fengshui-recognize-wire': ['@file', '#fp-consent', '混沌自研 AI 识别'],
   // 编辑闭环：顺序有意义。加一间房会顺手选中它，「厨房」那颗 chip 在没有选中房间时是禁用的，
   // 先点它就是空跑一趟（而 harness 因为打到了元素也不会报错 —— 这类假绿最费人）。
   // 「加门」取的是页面上第一道墙那一行，「宽」取的是第一个开口那一行。
@@ -3234,7 +3246,7 @@ async function measure(tag, url) {
           + '·未开放' + (n['未开放'] || 0) + '·共' + total + '项').replace(/\\s+/g, '');
         if (flat.indexOf(want) < 0) miss.push('数不对或缺一行：页面上该有「' + want + '」');
       };
-      tally('东方', expect.oriental.counts); tally('西方', expect.western.counts);
+      tally('东方术数目录', expect.oriental.counts); tally('西方神秘学目录', expect.western.counts);
       return { miss, western: expect.western.names.length, entries: hrefs.length };
     })()`);
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
@@ -3249,7 +3261,7 @@ async function measure(tag, url) {
     if (!miss) fail.push(tag + ': 户型探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 户型规则层输出不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    FS MISMATCH ' + miss.join(' | ')
-      : `    户型规则层上屏 ${got.chars} 字，依据/不确定项/口径戳/边界话术齐备`);
+      : `    户型观察上屏 ${got.chars} 字，依据/不确定项/自研说明/边界话术齐备`);
   }
   if (FS_RECOGNIZE_PINS[base]) {
     if (!STUB) {
@@ -3277,7 +3289,7 @@ const FS_EDIT_PINS = {
 const fsEditProbe = p => `(() => {
   const txt = sel => { const el = document.querySelector(sel); return el ? (el.innerText || '').replace(/\\s+/g, ' ').trim() : null; };
   const walls = txt('#fp-walls'), opens = txt('#fp-openings');
-  const sec = [...document.querySelectorAll('section')].find(s => /规则层结果/.test(s.innerText || ''));
+  const sec = [...document.querySelectorAll('section')].find(s => /户型观察结果/.test(s.innerText || ''));
   const rep = sec ? (sec.innerText || '').replace(/\\s+/g, ' ') : null;
   const chips = t => [...document.querySelectorAll('.qn-chip')].filter(b => (b.textContent || '').trim() === t);
   const d3 = chips('3D')[0];
@@ -3294,9 +3306,9 @@ const fsEditProbe = p => `(() => {
   const kc = [...document.querySelectorAll('.qn-chip')].find(b => (b.textContent || '').trim() === ${JSON.stringify(p.kindOn)});
   if (!kc) out.push('用途 chip「' + ${JSON.stringify(p.kindOn)} + '」不在页面上');
   else if (!kc.className.includes('qn-chip--on')) out.push('点了「' + ${JSON.stringify(p.kindOn)} + '」之后它不是选中态（用途没写回几何）');
-  if (!rep) out.push('规则层结果那一块没出现');
-  ${JSON.stringify(p.report)}.forEach(s => { if (rep && !rep.includes(s)) out.push('规则层输出里找不到「' + s + '」（编辑没喂进判定）'); });
-  ${JSON.stringify(p.notReport || [])}.forEach(s => { if (rep && rep.includes(s)) out.push('规则层输出里还有「' + s + '」—— 手工加的门窗没有参与判定'); });
+  if (!rep) out.push('户型观察结果那一块没出现');
+  ${JSON.stringify(p.report)}.forEach(s => { if (rep && !rep.includes(s)) out.push('户型观察结果里找不到「' + s + '」（编辑没喂进判定）'); });
+  ${JSON.stringify(p.notReport || [])}.forEach(s => { if (rep && rep.includes(s)) out.push('户型观察结果里还有「' + s + '」—— 手工加的门窗没有参与判定'); });
   if (!d3) out.push('「3D」chip 不在页面上');
   else if (d3.disabled !== !${p.d3enabled}) out.push('勾了确认之后「3D」的 disabled=' + d3.disabled + '，应为 ' + !${p.d3enabled});
   return { miss: out, walls, openings: opens ? opens.length : 0, d3: d3 ? !d3.disabled : null };
@@ -3396,7 +3408,7 @@ const fsEditProbe = p => `(() => {
       const fps = Math.round(window.__fp.frames / ((performance.now() - window.__fp.t0) / 1000) * 10) / 10;
       const stage = document.querySelector('[data-fp-stage]');
       const canvas = stage ? stage.querySelector('canvas') : null;
-      const reason = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-note')].map(p => (p.textContent || '').trim())
+      const reason = [...document.querySelectorAll('p.qn-alert, p.qn-callout')].map(p => (p.textContent || '').trim())
         .filter(t => /等轴|帧率|上下文/.test(t));
       const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
         .find(t => /首帧/.test(t)) || null;
@@ -3530,6 +3542,18 @@ const fsEditProbe = p => `(() => {
       const r = p.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)].join(','); })(),
     clsAtLoad: window.__clsAtLoad === undefined ? undefined : Math.round(window.__clsAtLoad * 1000) / 1000,
     paneBoxAtLoad: window.__paneBoxAtLoad || null,
+    qaFlow: (() => { const pane = document.querySelector('.qa-pane');
+      const turns = document.querySelector('.qa-pane .qa-turns');
+      if (!pane || !turns) return null;
+      const p = pane.getBoundingClientRect();
+      const card = turns.querySelector('.qa-turn');
+      const t = card && card.getBoundingClientRect();
+      const style = getComputedStyle(turns);
+      return { position: style.position, overflowY: style.overflowY,
+        paneHeight: Math.round(p.height), paneBottom: Math.round(p.bottom),
+        turnCount: turns.querySelectorAll('.qa-turn').length,
+        turnBottom: t ? Math.round(t.bottom) : null,
+        contentFits: !t || t.bottom <= p.bottom + 1 }; })(),
     preScroll: window.__preScroll || null,
     postScroll: { y: Math.round(window.scrollY), h: document.documentElement.scrollHeight, vh: window.innerHeight } })`);
   results[tag + '__perf'] = perf;
@@ -3607,7 +3631,7 @@ const fsEditProbe = p => `(() => {
     if (!ui || typeof ui.state !== 'string') miss.push('识别状态那一行读不到（#fp-recognize-state）');
     else {
       if (ui.state !== '失败') miss.push('拦停之后应落到「失败」那一格，实为 ' + ui.state);
-      if (!ui.hasNotRetry) miss.push('失败后没有给出下一步（重试或手工绘制）');
+      if (!ui.hasNotRetry) miss.push('页面上没有"不会自动重试"那半句');
       if (!ui.hasHonest) miss.push('页面上没有"这条不装作成功"');
       if (!ui.hasNoGeom) miss.push('没有给出下一步（手工画 / 合成样例）');
     }

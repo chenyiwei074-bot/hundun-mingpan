@@ -207,7 +207,7 @@ export default function MeiHuaPage() {
 
             <div style={{ marginTop: 18 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-                <p className="qn-cap" style={{ margin: 0 }}>倾向指数（自研）</p>
+                <p className="qn-cap" style={{ margin: 0 }}>倾向指数（本站自研）</p>
                 <p className="qn-title" style={{ margin: 0 }}>{result.level} · {result.score}</p>
               </div>
               <div style={{ height: 6, borderRadius: 99, background: 'rgba(0,0,0,0.06)', overflow: 'hidden', marginTop: 8 }}>

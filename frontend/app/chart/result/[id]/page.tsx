@@ -22,6 +22,17 @@ function formatShareExpiry(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function shareErrorText(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : '';
+  const known = [
+    '命盘还未完成，请稍后再生成分享链接。',
+    '无法确认本机身份，请刷新页面后重试。',
+    '没有找到这份命盘，可能已过保存期限。',
+    '分享链接已失效，或当前浏览器不再拥有这份命盘。',
+  ];
+  return known.includes(message) ? message : fallback;
+}
+
 export default function ChartResultPage() {
   const params = useParams();
   const router = useRouter();
@@ -52,13 +63,13 @@ export default function ChartResultPage() {
         if (result?.httpStatus === 409) throw new Error('命盘还未完成，请稍后再生成分享链接。');
         if (result?.httpStatus === 401) throw new Error('无法确认本机身份，请刷新页面后重试。');
         if (result?.httpStatus === 404) throw new Error('没有找到这份命盘，可能已过保存期限。');
-        throw new Error(result?.error || '分享链接生成失败，请稍后重试。');
+        throw new Error('暂时无法生成分享链接，请稍后重试。');
       }
       const url = new URL(`/share/chart/${encodeURIComponent(data.token)}`, window.location.origin).toString();
       setShare({ shareId: data.shareId, url, expiresAt: data.expiresAt });
       setShareNotice('链接已生成。复制后可发送给对方，7 天后自动失效。');
     } catch (e) {
-      setShareError(e instanceof Error ? e.message : '分享链接生成失败，请稍后重试。');
+      setShareError(shareErrorText(e, '暂时无法生成分享链接，请稍后重试。'));
     } finally {
       setShareBusy(false);
     }
@@ -85,12 +96,12 @@ export default function ChartResultPage() {
       if (!result?.success && result?.httpStatus !== 200) {
         if (result?.httpStatus === 401) throw new Error('无法确认本机身份，请刷新页面后重试。');
         if (result?.httpStatus === 404) throw new Error('分享链接已失效，或当前浏览器不再拥有这份命盘。');
-        throw new Error(result?.error || '撤回失败，请稍后重试。');
+        throw new Error('暂时无法撤回分享链接，请稍后重试。');
       }
       setShare(null);
       setShareNotice('分享链接已撤回，持有者现在无法再查看这份命盘。');
     } catch (e) {
-      setShareError(e instanceof Error ? e.message : '撤回失败，请稍后重试。');
+      setShareError(shareErrorText(e, '暂时无法撤回分享链接，请稍后重试。'));
     } finally {
       setShareBusy(false);
     }
@@ -283,7 +294,7 @@ export default function ChartResultPage() {
         {/* AI 解读卡：盘面先出，这一栏按状态机给话。没有百分比、没有「预计 X 秒」——
             免费模型的耗时实测 94–116 秒但随负载浮动，编一个进度条就是撒谎。 */}
         <section className="qn-card">
-          <p className="qn-cap" style={{ marginBottom: 8 }}>AI 解读 · 免费生成</p>
+          <p className="qn-cap" style={{ marginBottom: 8 }}>混沌自研 AI 解读 · 免费</p>
           {aiAnalysis ? (
             <AiReading aiAnalysis={aiAnalysis} />
           ) : (

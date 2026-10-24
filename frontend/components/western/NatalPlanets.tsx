@@ -18,6 +18,18 @@ import Callout from '@/components/ui/Callout';
 const ZONES = availableZones();
 const ENTRY = WESTERN_TOOL_BY_SLUG['astro-natal'];
 const DONE = ENTRY.done ?? [];
+
+function failureText(why: MomentFail | PlanetsFailed): string {
+  switch (why.reason) {
+    case '缺时刻': return '请补全出生日期、时间和地点。';
+    case '无效日期':
+    case '时刻无效': return '出生日期或时间无效，请核对后重试。';
+    case '时区未知': return '暂时无法确定这个地点的时区，请选择更具体的出生地后重试。';
+    case '本地时间不存在': return '这个地点在当天调整夏令时，所填时间不存在；请核对当地出生时间。';
+    case '本地时间有两次': return '这个地点在当天回拨时钟，所填时间对应两个时刻，暂时无法唯一确定；请核对出生记录。';
+    case '引擎不可用': return '行星位置暂时无法计算，请稍后重试。';
+  }
+}
 const NOT_DONE = ENTRY.notDone ?? [];
 const deviceZone = () => {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
@@ -86,8 +98,7 @@ export default function NatalPlanets() {
           </p>
           <p className="qn-meta" style={{ margin: '6px 0 0' }}>
             每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
-            黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；过了 {ASTRO_CROSS_CHECK.to} 本站不打包票 ——
-            远未来那一批历元上月亮已经偏出这条线，逐颗星的实测偏差与出处都记在仓库里的对拍夹具中，不在这儿复述。
+            黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°。超出此范围的结果尚未达到同等核验标准，本站不打包票。
           </p>
         <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
       </section>
@@ -148,7 +159,7 @@ export default function NatalPlanets() {
 
       {why && (
         <div style={{ marginTop: 14 }}>
-          <Callout tier="danger">{why.reason}：{why.detail}</Callout>
+          <Callout tier="danger">{failureText(why)}</Callout>
         </div>
       )}
 

@@ -40,7 +40,7 @@
    "闰月按本数月计入，不另作加减。",
    "不作真太阳时校正：起卦取的是问事当下的钟表时刻。"
   ],
-  "version": "meihua-qishu-v1"
+  "version": "meihua-qishu-v2"
  },
  "benGua": {
   "name": "火雷噬嗑",

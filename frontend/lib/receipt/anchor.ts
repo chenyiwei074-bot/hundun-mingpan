@@ -71,14 +71,19 @@ export type StatusResult =
 /** 提交一份回执的摘要。visitorId 与报告归属同一凭据，不新造 id。 */
 export async function submitReceiptSummary(receipt: Receipt, visitorId: string): Promise<SubmitResult> {
   const id = (visitorId || '').trim();
-  if (!id) return { ok: false, error: '缺少游客 id，无法提交（它同时是这份回执的归属凭据）' };
-  const res = await fetch('/api/receipts?visitorId=' + encodeURIComponent(id), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(receiptSubmissionBody(receipt)),
-  });
+  if (!id) return { ok: false, error: '当前浏览器无法确认回执归属，暂时不能提交。' };
+  let res: Response;
+  try {
+    res = await fetch('/api/receipts?visitorId=' + encodeURIComponent(id), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(receiptSubmissionBody(receipt)),
+    });
+  } catch {
+    return { ok: false, error: '暂时无法连接台账，请稍后重试。' };
+  }
   const j = await res.json().catch(() => null);
-  if (!res.ok || !j?.ok) return { ok: false, error: String(j?.error || `提交失败（HTTP ${res.status}）`) };
+  if (!res.ok || !j?.ok) return { ok: false, error: '暂时无法提交回执摘要，请稍后重试。' };
   return { ok: true, day: String(j.day || ''), already: !!j.already, leaf: String(j.leaf || '') };
 }
 
@@ -91,24 +96,23 @@ export function anchorViewOf(state: unknown): AnchorView {
 /** 查一份摘要在台账里的状态。只按 recordHash。 */
 export async function fetchAnchorStatus(receipt: Receipt): Promise<StatusResult> {
   const hash = bareHex(receipt.recordHash);
-  if (!/^[0-9a-f]{64}$/.test(hash)) return { ok: false, error: '回执编号不是 64 位 hex，无法查询', view: 'unknown' };
+  if (!/^[0-9a-f]{64}$/.test(hash)) return { ok: false, error: '回执信息有误，暂时无法查询。', view: 'unknown' };
   let res: Response;
   try {
     res = await fetch('/api/receipts/' + hash);
   } catch {
-    return { ok: false, error: '状态查询没打通（网络或站点不可达）', view: 'unknown' };
+    return { ok: false, error: '暂时无法连接台账，请稍后重试。', view: 'unknown' };
   }
   const j = await res.json().catch(() => null);
   if (res.status === 404) {
-    return { ok: true, view: 'unsubmitted', reason: String(j?.error || '这份摘要尚未提交') };
+    return { ok: true, view: 'unsubmitted', reason: '这份摘要尚未提交' };
   }
-  if (!res.ok || !j?.ok) return { ok: false, error: String(j?.error || `查询失败（HTTP ${res.status}）`), view: 'unknown' };
+  if (!res.ok || !j?.ok) return { ok: false, error: '暂时无法读取台账状态，请稍后重试。', view: 'unknown' };
   const view = anchorViewOf(j.state);
   return {
     ok: true, view,
     day: j.day ? String(j.day) : undefined,
     leaf: j.leaf ? String(j.leaf) : undefined,
-    reason: j.reason ? String(j.reason) : undefined,
     root: j.root ? String(j.root) : undefined,
     prevRoot: j.prevRoot ? String(j.prevRoot) : undefined,
   };
@@ -116,7 +120,7 @@ export async function fetchAnchorStatus(receipt: Receipt): Promise<StatusResult>
 
 /** 状态行的一句话。日期与 leaf 是事实，其余措辞不超出服务端给的范围。 */
 export function anchorSentence(view: AnchorView, extra?: { day?: string; already?: boolean; reason?: string }): string {
-  const tail = view === 'pending' && extra?.day ? `（已进 ${extra.day} 的 Merkle 台账）`
+  const tail = view === 'pending' && extra?.day ? `（已进入 ${extra.day} 批次）`
     : view === 'unanchored' && extra?.day ? `（${extra.day} 尚未封账）`
     : extra?.reason ? `（${extra.reason}）` : '';
   return ANCHOR_LABEL[view] + tail;

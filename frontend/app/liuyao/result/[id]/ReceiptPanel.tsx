@@ -44,8 +44,8 @@ export default function ReceiptPanel({ result, reportText }: { result: LiuyaoRes
       const p = await buildPlateReceipt(result);
       setPlate(p);
       if (reportText) setReport(await buildReportReceipt(p, reportText));
-    } catch (e) {
-      setError(e instanceof Error ? `未能生成回执：${e.message}` : '未能生成回执');
+    } catch {
+      setError('暂时无法生成回执，请刷新页面后重试。');
     } finally {
       setBusy(false);
     }
@@ -105,14 +105,13 @@ export default function ReceiptPanel({ result, reportText }: { result: LiuyaoRes
         </span>
       </div>
       <p className="qn-meta" style={{ marginTop: 8 }}>
-        给这一盘出一份可离线复验的凭证：盘身与问题分别取 SHA-256 摘要，问题只留带盐摘要，原文不进回执。
-        改动任何一个字，验真就会失败。
+        生成一份可离线核验的回执。系统会为盘面和问题计算校验摘要；回执不保存问题原文，内容被改动后核验会失败。
       </p>
 
       {!plate && (
         <button type="button" className="qn-btn qn-btn--solid qn-btn--block" style={{ marginTop: 14 }}
           onClick={make} disabled={busy}>
-          {busy ? '取摘要中' : '生成本盘回执'}
+          {busy ? '生成中' : '生成本盘回执'}
         </button>
       )}
       {error && <p className="qn-alert" role="alert" style={{ marginTop: 12 }}>{error}</p>}
@@ -160,29 +159,26 @@ export default function ReceiptPanel({ result, reportText }: { result: LiuyaoRes
               )}
             </div>
             <p className="qn-cap" style={{ marginTop: 10 }}>
-              提交出门的只有摘要：回执编号、盘摘要、问题摘要、口径戳与几个日历字段。问题原文、盐、盘身、生辰都不发，
-              查询也只按回执编号，不按报告 id 取原文。台账状态不会写回你下载的那份文件 —— 回执里的 anchor 恒为 null，
-              否则同一份回执会因为查询时点不同而得到不同摘要。
+              提交时会附带浏览器归属标识；台账只记录回执编号、校验摘要和核对所需的时间与规则信息，不会收到问题原文、出生信息或完整盘面。
+              查询按回执编号进行，台账状态单独显示，不会改写你下载的回执。
             </p>
           </div>
           <p className="qn-cap" style={{ marginTop: 12 }}>
             {report
-              ? '解读比卦盘晚生成，所以另封一份并用 parentHash 指回卦盘，不把两个时间点伪造成一条记录。'
+              ? '解读在卦盘之后生成，因此会单独核验，并保留它与原卦盘的对应关系。'
               : '本次未生成解读；先生成解读再下载，会另出一份解读回执。'}
           </p>
           {/* 随机承诺的边界照实写：能证明什么、不能证明什么，都按上限说。 */}
           {rnd ? (
             <p className="qn-cap" style={{ marginTop: 8 }}>
-              随机承诺（{rnd.schema}）：首掷之前先锁定 seed，六个爻值全部由它派生，bit 串 {rnd.bits}
-              （1=花 0=字，六轮各三枚）连同 seed 一起进回执，/verify 双向核对 seedHash 与爻值重放。
-              它证明「这一盘与事先的承诺对得上、事后没被改过」；不证明掷钱这个动作真的发生过，
-              也管不到揭晓之前的整盘重来 —— 重来就是新 seed、新承诺，只有最后揭晓的这一份进回执。
+              本次在第一次掷币前生成了随机校验承诺，核验页可检查最终记录是否与承诺一致。
+              它能发现记录生成后被改动的情况，但不能证明现实中确实掷过硬币，也不能阻止重新起卦。
             </p>
           ) : (
             <p className="qn-cap" style={{ marginTop: 8 }}>
               {plate.core.method === 'coin'
-                ? '这一盘没有随机承诺：起卦时未锁定 seed（承诺功能上线前的盘），爻值与随机源之间无从核对，回执只证明盘身自洽。'
-                : '这一盘没有随机承诺，也不需要：时间与报数起卦是确定性输入，取数过程已在盘面上逐步列出。'}
+                ? '生成这份回执时还没有随机校验功能，因此只能核对盘面内容，不能核验掷币过程。'
+                : '时间与报数起卦依据输入直接计算，不使用随机值，因此不需要随机承诺。'}
             </p>
           )}
         </>

@@ -139,7 +139,7 @@ const ENTRIES: Entry[] = [
   {
     href: '/western', mode: 'western',
     name: '西方神秘学',
-    lead: '每一项都按自己的历表与算法口径独立成立，不借东方的表；未开放的那几项只写缺什么，不给入口。',
+    lead: '沿用西方神秘学自身的知识与方法，不与东方术数混用；未开放的功能会明确标注。',
     cta: '进入西方世界 →',
     groups: WESTERN_INTENTS,
     art: <EclArt />,
@@ -166,8 +166,7 @@ export default function GatePage() {
         {/* 运维 2026-10-21 补的一行：站是干什么的，得在门廊就说清，不靠页面标题去猜。 */}
         <p className="gate-head__tagline">东方术数与风水 · 西方神秘学工具箱</p>
         <p className="gate-head__note">
-          东方与西方各有一套历法口径、取数规则和解读方式，两边不共用算法，也不互相换算。
-          排盘、卦象与方位判定都由对应工具计算，模型只做解释与引导。
+          东方与西方各有自己的知识体系与表达方式，混沌自研 AI 辅助解读与引导。
         </p>
       </header>
 

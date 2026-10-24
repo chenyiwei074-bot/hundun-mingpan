@@ -12,9 +12,9 @@ import { STATUS_DOT, isLiveEntry } from '@/lib/tools/status';
 
 const FIELDS: { key: 'question' | 'method' | 'basis' | 'reading'; label: string }[] = [
   { key: 'question', label: '适用问题' },
-  { key: 'method', label: '方法' },
-  { key: 'basis', label: '计算口径' },
-  { key: 'reading', label: '结果怎么读' },
+  { key: 'method', label: '怎么使用' },
+  { key: 'basis', label: '规则与依据' },
+  { key: 'reading', label: '结果怎么看' },
 ];
 
 export default function ToolCatalog({ groups }: { groups: IntentGroup[] }) {
@@ -35,13 +35,26 @@ export default function ToolCatalog({ groups }: { groups: IntentGroup[] }) {
                   </span>
                 </div>
                 <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                  {FIELDS.map(f => (
+                  {[FIELDS[0]].map(f => (
                     <div key={f.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
                       <span className="qn-axis" style={{ flex: '0 0 76px' }}>{f.label}</span>
                       <span className="qn-meta" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{t[f.key]}</span>
                     </div>
                   ))}
                 </div>
+                <details style={{ marginTop: 10, borderTop: 'var(--qn-hairline)', paddingTop: 4 }}>
+                  <summary className="qn-axis" style={{ minHeight: 44, padding: '10px 0', cursor: 'pointer' }}>
+                    展开使用方法、规则依据与结果说明
+                  </summary>
+                  <div style={{ display: 'grid', gap: 8, paddingBottom: 4 }}>
+                    {FIELDS.slice(1).map(f => (
+                      <div key={f.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
+                        <span className="qn-axis" style={{ flex: '0 0 76px' }}>{f.label}</span>
+                        <span className="qn-meta" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{t[f.key]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
                 {/* 「部分可用」必须把两张清单摊开：只写状态词等于让读者自己猜缺的是哪一样，
                     猜错的人会以为宫位与相位也算了。清单本体在目录里，与引擎导出值逐字比对。 */}
                 {(t.done?.length ?? 0) > 0 && (

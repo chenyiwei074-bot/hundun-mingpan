@@ -23,8 +23,8 @@ export default function ReportDetailPage() {
     const vid = getVisitorId();
       fetch(`/api/reports/${id}?visitorId=${encodeURIComponent(vid)}`)
       .then(r => r.json())
-      .then(d => { if (d.success) setReport(d.data); else setError(d.error || '报告不存在'); })
-      .catch(() => setError('加载失败'))
+      .then(d => { if (d.success) setReport(d.data); else setError('这份报告不存在、已过保存期限或暂时无法访问。'); })
+      .catch(() => setError('暂时无法加载报告，请稍后重试。'))
       .finally(() => setLoading(false));
   }, [id]);
 

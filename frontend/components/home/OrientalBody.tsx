@@ -387,6 +387,7 @@ const SKIN: Record<string, Skin> = {
   'liuyao':      { pv: 'liuyao', zi: '爻', go: '开始问卦' },
   'meihua':      { pv: 'meihua', zi: '梅', go: '即物起卦' },
   'xiu-benming': { pv: 'xiu',    zi: '宿', go: '查本命宿' },
+  'hepan':       { pv: 'hepan',  zi: '合', go: '查看关系结构' },
   'xingming':    { pv: 'hepan',  zi: '合' },
   'huangli':     { pv: 'zeri',   zi: '历', go: '查今日' },
   'bazi':        { zi: '命' },
@@ -414,8 +415,8 @@ const FP_ENTRY: (ToolEntry & { href: string }) | null =
 // （lib/tools/western-catalog 里的 astro-natal / astro-synasty，状态未开放），
 // 再在这里挂一遍就是两处各说一套 —— 用户在东方页看到"即将上线"、在西方页看到"未开放"。
 const SOON = [
-  { t: "面相", d: "AI 面相分析 · 五官气色辨吉凶" },
-  { t: "手相", d: "AI 手相解读 · 三大纹路断运势" },
+  { t: "面相", d: "观察面部特征与传统相法的象征说法" },
+  { t: "手相", d: "认识主要掌纹与传统手相文化" },
 ];
 
 /* 东方工作页的正文。原先它就是 app/page.tsx；#双体系 把 / 收成"选体系"的门廊之后，
@@ -484,7 +485,7 @@ export default function OrientalBody() {
                 同一个动作出现两次，第二次就会与第一次漂移。
                 旧 tagline「Ai+传统命理研究平台」退役 —— 它把站说成"AI 算命"，而这里 AI 只解释、不算命。 */}
             <h1 className="h1 fx fx-title">混沌</h1>
-            <p className="hero-sub fx fx-sub">东方玄学 · 工具箱</p>
+            <p className="hero-sub fx fx-sub">东方术数 · 工具箱</p>
             {/* 首屏四类意图，仍在问事框之前：把意图挪到输入框下面看着更"框优先"，
                 但 375 那一档会算不过来 —— 一个完整输入框（4 行 + 预留答案格 ~500px）
                 加意图两行必然出折线。留在上面，靠压 hero 自己的内边距同时满足两条线：
@@ -551,7 +552,7 @@ export default function OrientalBody() {
           </div>
           <div className="brand-note">
             <p className="body">
-              「混沌」之名，取自道家宇宙观。<br />天地未分，元气未判。以 AI 之力，解古籍之密，<br />让传统玄学，触手可及。
+              「混沌」之名，取自道家宇宙观。<br />天地未分，元气未判。混沌自研 AI 辅助研读传统术数，<br />让传统智慧更易理解。
             </p>
             <svg viewBox="0 0 56 56" className="seal" aria-hidden="true">
               <rect x="2" y="2" width="52" height="52" rx="4" fill="none" stroke={goldDeep} strokeWidth="1.5" />

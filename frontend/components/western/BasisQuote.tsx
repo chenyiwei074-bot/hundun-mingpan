@@ -16,7 +16,7 @@ export default function BasisQuote({ basis, 标题 }: { basis: BasisTriple; 标�
         <span lang="en" style={{ overflowWrap: 'anywhere' }}>{basis.原文}</span>
       </p>
       <p className="qn-note" style={{ margin: 0 }}>
-        底本 {basis.底本} · 段 {basis.底本段} · {basis.位置} · {basis.版本}
+        出处 {basis.版本} · {basis.位置}
       </p>
 
       <p className="qn-meta" style={{ margin: 0 }}>

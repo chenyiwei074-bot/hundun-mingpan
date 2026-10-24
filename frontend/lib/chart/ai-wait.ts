@@ -76,9 +76,9 @@ export function decideAiWait(res: PollResponse, elapsedMs: number): AiWaitDecisi
 export function aiWaitMessage(state: AiWaitState): string {
   switch (state) {
     case 'chart-pending': return '正在排盘';
-    case 'ai-waiting': return '命盘已就绪。AI 解读正在生成，通常要一两分钟，写好会自动出现在这里。';
-    case 'ai-timeout': return 'AI 解读还在生成中，稍后刷新本页或从「我的报告」回看。盘面与命盘内容不受影响。';
-    case 'ai-none': return '本次未生成 AI 解读（模型预算或异常所致），盘面完整，可稍后从「我的报告」重试。';
+    case 'ai-waiting': return '命盘已就绪。混沌自研 AI 正在生成解读，完成后会自动显示在这里。';
+    case 'ai-timeout': return '混沌自研 AI 解读还在生成中，你可以稍后刷新本页或从「我的报告」查看。盘面内容不受影响。';
+    case 'ai-none': return '本次暂未生成混沌自研 AI 解读，盘面已完整展示；稍后可在「我的报告」重试。';
     case 'ai-ready': return '';
     case 'chart-failed': return '排盘未完成，请返回重试。';
   }

@@ -17,8 +17,7 @@ export default function WesternWorkspace() {
         <p className="qn-meta" style={{ margin: 0 }}>
           目录 {statusTally(tally)}。
           {tally.live === 0
-            ? ' 现在一项都进不去：每一项的算法口径都还没有可引的出处与验收样例，'
-              + '与其先做个能点的空壳，不如把缺什么写在门上。'
+            ? ' 当前暂无开放的西方工具，目录卡片会说明每项的开放范围与参考依据。'
             : ` 有入口的 ${tally.live} 项在下面的卡里；「部分可用」的每一项，缺的样子都写在该项的「未做」里。`}
         </p>
       </section>

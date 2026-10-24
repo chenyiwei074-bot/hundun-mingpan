@@ -109,6 +109,7 @@ export default function TarotPage() {
   const [drawState, setDrawState] = useState<DrawState>('idle');
   const [seedHex, setSeedHex] = useState('');
   const [seedHash, setSeedHash] = useState('');
+  const [copyStatus, setCopyStatus] = useState('');
   const [question, setQuestion] = useState('');
   const [drawQuestion, setDrawQuestion] = useState('');
   const [drawnCards, setDrawnCards] = useState<TarotDraw[]>([]);
@@ -127,7 +128,7 @@ export default function TarotPage() {
     targetHeight: number;
     revealed: boolean;
   } | null>(null);
-  const [notice, setNotice] = useState('洗牌后先公布承诺摘要；三张牌只在本机抽取。');
+  const [notice, setNotice] = useState('洗牌后生成抽牌校验码；三张牌只在本机抽取。');
   const [announcement, setAnnouncement] = useState('三张牌位已准备好。');
   const timers = useRef<number[]>([]);
   const stageRef = useRef<HTMLElement>(null);
@@ -135,6 +136,16 @@ export default function TarotPage() {
   const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => () => timers.current.forEach(timer => window.clearTimeout(timer)), []);
+
+  const copyHash = async () => {
+    if (!seedHash) return;
+    try {
+      await navigator.clipboard.writeText(seedHash);
+      setCopyStatus('校验码已复制');
+    } catch {
+      setCopyStatus('复制失败，请长按校验码选择复制。');
+    }
+  };
 
   const shuffle = async () => {
     if (!window.crypto?.getRandomValues || !window.crypto.subtle) {
@@ -147,15 +158,16 @@ export default function TarotPage() {
       const digest = await window.crypto.subtle.digest('SHA-256', bytes);
       setSeedHex(seed);
       setSeedHash(toHex(new Uint8Array(digest)));
+      setCopyStatus('');
       setDrawnCards([]);
       setSelectedIndex(null);
       setVisibleCount(0);
       setFlight(null);
       setDrawState('shuffled');
-      setNotice('承诺摘要已生成。抽牌前保持不变；三张牌揭晓后再公开随机种子。');
-      setAnnouncement('洗牌完成，承诺摘要已公布。现在可以抽出三张牌。');
+      setNotice('抽牌校验码已生成并固定；三张牌揭晓后会公开用于复核的随机值。');
+      setAnnouncement('洗牌完成，抽牌校验码已公布。现在可以抽出三张牌。');
     } catch {
-      setNotice('本次未能生成可复算的抽牌承诺，请重新洗牌。');
+      setNotice('无法生成抽牌校验码，请重新洗牌。');
     }
   };
 
@@ -228,13 +240,14 @@ export default function TarotPage() {
     setDrawState('idle');
     setSeedHex('');
     setSeedHash('');
+    setCopyStatus('');
     setQuestion('');
     setDrawQuestion('');
     setDrawnCards([]);
     setSelectedIndex(null);
     setVisibleCount(0);
     setFlight(null);
-    setNotice('洗牌后先公布承诺摘要；三张牌只在本机抽取。');
+    setNotice('洗牌后生成抽牌校验码；三张牌只在本机抽取。');
     setAnnouncement('已重置。三张牌位已准备好。');
   };
 
@@ -249,7 +262,7 @@ export default function TarotPage() {
   };
 
   const buttonLabel = {
-    idle: '洗牌并公布承诺摘要',
+    idle: '洗牌并生成校验码',
     shuffled: '抽出三张',
     drawing: '正在逐张揭晓',
     revealed: '查看抽牌记录',
@@ -264,7 +277,7 @@ export default function TarotPage() {
     <main className="qn-shell qn-shell--wide tarot-page" data-mode="western" data-tarot-state={drawState}>
       <header className="tarot-header qn-rise">
         <Link href="/western" className="domain-back">← 返回西方目录</Link>
-        <p className="qn-eyebrow">西方玄学 · 塔罗</p>
+        <p className="qn-eyebrow">西方神秘学 · 塔罗</p>
         <h1 className="qn-hero">三张牌阵</h1>
         <p className="qn-meta">把过去、现在与未来放在同一条时间线上，先完成抽牌，再查看牌位。</p>
         <p className="tarot-scope-note">韦特—史密斯体系原创绘制 · 正位与逆位 · 参考 Waite 1910 牌义译述（近代文献 · 非古籍；底本待校核）</p>
@@ -317,7 +330,7 @@ export default function TarotPage() {
           }}
           onClick={primaryAction}
           disabled={!canAct || drawState === 'revealed' || drawState === 'reading' || (drawState === 'shuffled' && !question.trim())}
-          aria-label={drawState === 'idle' ? '洗牌并公布承诺摘要' : '从牌堆抽出三张牌'}
+          aria-label={drawState === 'idle' ? '洗牌并生成校验码' : '从牌堆抽出三张牌'}
         >
           <span className="tarot-deck" aria-hidden="true">
             {Array.from({ length: 7 }, (_, index) => (
@@ -405,20 +418,34 @@ export default function TarotPage() {
       <section className="tarot-integrity" aria-labelledby="tarot-integrity-title">
         <div className="tarot-integrity__heading">
           <div>
-            <p className="qn-eyebrow">本地抽牌记录</p>
-            <h2 className="qn-title" id="tarot-integrity-title">可复算的随机承诺</h2>
+            <p className="qn-eyebrow">本机抽牌记录</p>
+            <h2 className="qn-title" id="tarot-integrity-title">抽牌校验记录</h2>
           </div>
-          <span className="tarot-integrity__state">{drawState === 'idle' ? '待生成' : drawState === 'shuffled' || drawState === 'drawing' ? '已承诺' : '已揭晓'}</span>
+          <span className="tarot-integrity__state">{drawState === 'idle' ? '待生成' : drawState === 'shuffled' || drawState === 'drawing' ? '已锁定' : '已揭晓'}</span>
         </div>
         <div className="tarot-integrity__row">
-          <span>承诺摘要（<span data-proper-name>SHA-256</span>）</span>
-          <code>{seedHash || '洗牌时生成，抽牌前固定'}</code>
+          <span>抽牌校验码</span>
+          <code data-tarot-commit-hash>{seedHash || '洗牌后生成，抽牌前固定'}</code>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minHeight: 44, marginTop: 8 }}>
+          <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }} disabled={!seedHash} onClick={() => void copyHash()}>
+            复制抽牌校验码
+          </button>
+          {copyStatus && <span className="qn-meta" role="status">{copyStatus}</span>}
         </div>
         <div className="tarot-integrity__row">
-          <span>随机种子</span>
+          <span>校验用随机值</span>
           <code>{drawState === 'revealed' || drawState === 'reading' ? seedHex : '三张牌揭晓后公开'}</code>
         </div>
-        <p className="tarot-integrity__note">摘要与种子仅保存在当前页面状态中，不发送到服务器；这不是区块链存证，也不代表外部审计。</p>
+        <p className="tarot-integrity__note">
+          校验码在抽牌前固定，揭晓后公开随机值，供事后复算牌序。记录只保存在当前页面，不会发送到服务器，也不是区块链存证。
+        </p>
+        <details style={{ marginTop: 8 }}>
+          <summary className="qn-meta" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>校验方式说明</summary>
+          <p className="qn-meta" style={{ marginTop: 6 }}>
+            抽牌前根据随机值生成校验码；结果揭晓后，可按相同规则重新生成牌序并对照本次记录。当前没有提交公开台账，因此不能证明校验码曾被外部记录。
+          </p>
+        </details>
       </section>
 
       <section className="tarot-reading" aria-live="polite" aria-label="牌位说明">

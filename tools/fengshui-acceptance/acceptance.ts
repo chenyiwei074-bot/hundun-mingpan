@@ -149,10 +149,11 @@ const base: FloorInput = {
   const form = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'fengshui', 'FloorPlanForm.tsx'), 'utf8'));
   // 改测试（2026-10-20 户型大改）：这一条原来钉的是"页面上写着不上传户型图"。
   // 现在能上传了，那句文案若留着就是假话；原来那条断言的**意图**（不做的事要写明）不变，
-  // 换成钉新边界：同意之前图不出本机、7 天自动删、传统方位那一层仍然不做。
-  ok('copy/declares-boundaries', /勾选同意之前/.test(page) && /7 天后自动删/.test(page)
-    && !/不上传户型图/.test(page) && form.includes('原典之外不发明'),
-    '页面要写明三件事：同意前图不出本机、服务端 7 天自动删、方位吉凶那一层不做（旧那句"不上传户型图"必须已经不在了）');
+  // 换成钉新边界：同意前只本机预览、处理前需同意、保留和备份期限清楚、传统方位那一层仍然不做。
+  ok('copy/declares-boundaries', /勾选同意后/.test(page) && /主存储最长保留 7 天/.test(page)
+    && /备份副本最多再保留 7 天/.test(page)
+    && !/不上传户型图/.test(page) && form.includes('本站自研'),
+    '页面要写明上传需同意、主存储与备份保留期限、规则为本站自研且不作传统方位吉凶判断');
   ok('comp/no-upload-no-network', !/type=["']file["']|FileReader|fetch\(|XMLHttpRequest|localStorage|sessionStorage/.test(form),
     '这一版没有上传控件、没有网络调用、没有本地存储：标注只活在页面内存里');
 }
@@ -408,25 +409,26 @@ const base: FloorInput = {
     === /const VISITOR_RE = (\/[^;]+;)/.exec(stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'fengshui', 'recognize.ts'), 'utf8')))?.[1],
     '访客 id 的形态判据与服务端逐字同一条：两处各写一遍的话，改一处就会出现"本地放行、服务端拒"这种查半天的错配');
   const badVisitor = buildRecognizeRequest('short', tinyPng, 'png');
+  const noVisitor = buildRecognizeRequest('', tinyPng, 'png');
   const badBig = buildRecognizeRequest('v_abcdefghij012345', new Uint8Array(MAX_BYTES + 1), 'png');
   ok('rc/refused-before-sending', !badVisitor.ok && badVisitor.code === 'bad_visitor'
-    && !badBig.ok && badBig.code === 'too_large',
+    && !noVisitor.ok && noVisitor.reason === '暂时无法确认当前访问状态，请刷新页面后重试。'
+    && !badBig.ok && badBig.code === 'too_large'
+    && badBig.reason === '图片超出 5 MB 限制，请选择更小的文件。',
     `过短的 id 与超过 5MB 的字节都在本地就判掉（${!badVisitor.ok ? badVisitor.code : '放行了'} / ${!badBig.ok ? badBig.code : '放行了'}）—— 前者连请求都不该发`);
 
-  // D. 状态码分类与失败话术：5xx 说"服务不可用 + 不自动重试"，4xx 说"被拒 + 服务端 code"。
+  // D. 状态分类留在程序内部；界面只给用户可执行的说明，不透出状态码与供应商信息。
   ok('rc/status-buckets', classifyStatus(200) === 'ok' && classifyStatus(422) === 'client'
     && classifyStatus(413) === 'client' && classifyStatus(500) === 'upstream' && classifyStatus(504) === 'upstream',
     '5xx 一律 upstream（含 504 超时），422 归 client：它是"模型认为这不是户型图"，重试没有意义');
-  // 2026-10-24 口径更新：失败话术面向用户，不展示 HTTP 状态、内部 code、供应商或原始报错；
-  // 但必须给出明确下一步（重试 / 手工绘制），不能只剩"失败了"。
   const reason503 = failReason(503, { ok: false, code: 'provider_error', message: '所有视觉供应商都失败了：glm-4v:timeout', attempts: [] });
-  ok('rc/fail-reason-user-facing', !/503|provider_error|glm-4v|供应商|timeout/i.test(reason503)
-    && /暂时不可用|暂时没有完成/.test(reason503) && /重试|手工绘制/.test(reason503),
-    `失败话术不泄露内部状态/code/供应商，并给出下一步：${reason503}`);
+  ok('rc/fail-reason-public-safe', reason503 === '混沌自研 AI 辅助识别暂时不可用，请稍后重试或手工绘制。'
+    && !/503|provider_error|供应商|glm-4v|attempts/.test(reason503),
+    `失败话术按公开口径给出下一步，不带状态码、供应商、内部错误码或原始响应：${reason503}`);
   const reason415 = failReason(415, { ok: false });
-  ok('rc/unknown-code-gives-next-step', !/415|识别被拒|code/i.test(reason415)
-    && /图片|格式|重试/.test(reason415),
-    `没有 code/message 时仍给用户可执行的下一步：${reason415}`);
+  ok('rc/unknown-code-still-speaks', reason415 === '无法读取这张图片，请检查图片格式后重试。'
+    && !/415|服务端|HTTP/.test(reason415),
+    `没有更具体的信息时给出可执行的图片检查建议，不透出内部状态：${reason415}`);
 
   // E. 响应体形状：外层包不包 plan 都得吃下 —— 服务端成功分支是 { ok, imageId, plan: {...} }。
   const successCase = JSON.parse(readFileSync(join(__dirname, 'cases', 'recognize-success.json'), 'utf8'));
@@ -551,8 +553,9 @@ const base: FloorInput = {
     '「3D」这个 chip 在没勾确认时是禁用的 —— 三态里"确认后才进 3D"必须有行为，不能只写在注释里');
   ok('rc/zero-opening-says-refill', /请手动补/.test(studio) && /不等于你家没门窗/.test(studio),
     '门+窗为 0 时那句话说的是"这不等于你家没门窗，请手动补"，而不是让判定层按"没有门窗"往下推');
-  ok('rc/no-retry-loop', !/\bretry|retries|for \([^)]*attempt/i.test(studio) && /不自动重试/.test(studio),
-    '页面里没有重试循环（0 处 retry/attempt 循环），话术里明写不自动重试：一次识别上游已经花掉 110s 预算');
+  ok('rc/no-retry-loop', !/\bretry|retries|for \([^)]*attempt/i.test(studio)
+    && /请稍后重试/.test(studio) && !/服务端还没部署|HTTP \$\{|服务端回了|网关挡的/.test(studio),
+    '一次失败不会自动循环重发；提示用户稍后重试，错误信息不暴露部署与网关细节');
   ok('rc/pure-layer-outside-page', !/function parseRecognize|function toBase64/.test(studio),
     '适配层住在 lib/fengshui/recognize.ts，页面只做状态与话术：这套判据才能在 node 里直接跑');
 
@@ -820,7 +823,8 @@ const base: FloorInput = {
     && !/function stepStates/.test(studio),
     '步条的状态算在 lib/fengshui/steps.ts、组件只渲染：状态若只是 JSX 里一个三元，套件喂不进去');
   ok('steps/privacy-restated-on-rail', /fp-steps__privacy/.test(studio) && /不进入报告、回执与公开台账/.test(studio)
-    && /可随时移除/.test(studio),
+    && /主存储最长保留 7 天/.test(studio) && /备份副本最多再保留 7 天/.test(studio)
+    && /可随时移除图片/.test(studio),
     '§8 要求隐私那一句在步条上复现一次（勾选框要等有图才渲染，按下「选户型图」之前必须读得到）');
 }
 

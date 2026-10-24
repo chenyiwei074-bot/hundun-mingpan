@@ -460,7 +460,7 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   padding: 28px 24px 32px;
   text-align: center;
 }
-/* 分享内容异步到达前，保留页脚占位但暂时隐藏；长报告替换加载卡时不会把可见页脚推走。 */
+/* 分享内容异步到达前，保留页脚占位但不显示；这样长报告替换加载卡时不会把可见页脚推走。 */
 body:has(main[data-share-loading="true"]) > footer.qn-footer { visibility: hidden; }
 .qn-footer__inner {
   display: flex;
@@ -989,6 +989,12 @@ body:has(main[data-share-loading="true"]) > footer.qn-footer { visibility: hidde
 .qa-pane .qa-turns {
   position: absolute; inset: 0; overflow-y: auto;
   display: grid; align-content: start;
+}
+@media (max-width: 600px) {
+  /* 手机上让问事回答随内容展开，避免固定高度把完整建议藏进内部滚动区。 */
+  .qa-pane { height: auto; }
+  .qa-pane .qa-turns { position: static; overflow: visible; }
+  .qa-empty { height: auto; min-height: 120px; }
 }
 .qa-empty { height: 100%; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 18px; border: 1px solid color-mix(in srgb, var(--color-accent-gold) 16%, transparent); border-radius: 14px; background: radial-gradient(circle at 18% 50%, color-mix(in srgb, var(--color-accent-gold) 9%, transparent), transparent 43%), linear-gradient(135deg, color-mix(in srgb, var(--color-bg-card) 80%, transparent), transparent); text-align: left; }
 .qa-empty__seal { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 44px; border: 1px solid color-mix(in srgb, var(--color-accent-gold) 48%, transparent); border-radius: 50%; color: var(--color-accent-gold-text); font: 600 var(--qn-fs-body)/1 "Noto Serif SC", "Source Han Serif SC", serif; box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--color-accent-gold) 7%, transparent), 0 5px 14px rgba(34,25,15,.07); }

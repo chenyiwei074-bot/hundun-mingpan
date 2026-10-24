@@ -96,7 +96,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     !(t.question.length >= 8 && t.method.length >= 4 && t.basis.length >= 2 && t.reading.length >= 2)).map(t => t.name);
   const missingNote = ALL_TOOLS.filter(t => t.status === '未开放' && !t.note).map(t => t.name);
   ok('dir/four-fields-nonempty', thin.length === 0,
-    `每条都要有「适用问题 / 方法 / 计算口径 / 结果怎么读」四段实义文字：空壳 ${thin.join('、') || '0 条'}`);
+    `每条都要有「适用问题 / 怎么使用 / 规则与依据 / 结果怎么看」四段实义文字：空壳 ${thin.join('、') || '0 条'}`);
   ok('dir/closed-explains-why', missingNote.length === 0,
     `未开放条目必须写明为什么没做（否则读者无法区分「没做」与「忘了写」）：缺说明 ${missingNote.join('、') || '0 个'}`);
 }
@@ -289,7 +289,6 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   //  · 真的漏了：fp-steps__name（批C 我自己写的）已经补了规则，不在清单里。
   const HOOK_ONLY: Array<{ cls: string; why: string }> = [
     { cls: 'qa-turn', why: 'census 的问答卡选择器（12 处），样式走 .qn-card' },
-    { cls: 'qa-degraded', why: '降级理由那一行的语义标记，样式同 .qn-note' },
     { cls: 'qn-kline', why: 'census 的 K 线探针选择器，格子样式全是内联（SVG 属性）' },
     { cls: 'qn-kline--empty', why: '空态标记，同上' },
     { cls: 'qn-kline-grid', why: '网格层标记，SVG 里没有 CSS 类样式' },
@@ -491,7 +490,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     const mimes = (uploadLib.match(/ACCEPT_MIME\s*=\s*\[([^\]]*)\]/) || ['', ''])[1];
     const maxMb = Number((uploadLib.match(/MAX_BYTES\s*=\s*([0-9]+)\s*\*\s*1024\s*\*\s*1024/) || ['', '0'])[1]);
     const claimed = ['jpg', 'png', 'webp'].filter(k => fsNote.includes(k));
-    const claimedMb = Number((fsNote.match(/≤\s*([0-9]+)MB/) || ['', '0'])[1]);
+    const claimedMb = Number((fsNote.match(/(?:≤|不超过)\s*([0-9]+)\s*MB/) || ['', '0'])[1]);
     ok('dir/fengshui-note-claims-are-true', claimed.length === 3 && /jpeg/.test(mimes) && /png/.test(mimes) && /webp/.test(mimes)
       && claimedMb > 0 && claimedMb === maxMb,
       `note 里承诺的格式与体积上限必须等于 upload.ts 的实际闸门（声明 ${claimed.join('/')} ≤${claimedMb}MB，闸门 ${maxMb}MB、MIME ${mimes.replace(/\s+/g, '')}）`);

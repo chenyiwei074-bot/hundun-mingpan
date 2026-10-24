@@ -166,19 +166,18 @@ const ref = refText ? JSON.parse(refText) : null;
     `批F⑤ 那两类新样本的原始输出要随仓库走：缺一份就是那一类历元只剩夹具里的数，别人没法重看`);
 }
 
-// ── 2. 口径戳：目录写的是字面量，引擎导出的是出处 ──
+// ── 2. 口径戳：引擎内部保留标识，产品文案不展示工程代号 ──
 {
   const stampShape = /^[a-z]+(?:-[a-z]+)+-v\d+$/;
   ok('astro/stamp-shape', stampShape.test(ASTRO_BASIS) && stampShape.test(MOMENT_BASIS) && ASTRO_BASIS !== MOMENT_BASIS,
     `两个戳都要是 xxx-yyy-vN 形状且互不相同（时刻换算与历表是两条口径，合成一个戳就分不出是谁变了）：`
     + `${ASTRO_BASIS} / ${MOMENT_BASIS}`);
-  const basis = ENTRY.basis + ' ' + (ENTRY.note || '');
-  ok('astro/catalog-stamps-equal-engine', basis.includes(ASTRO_BASIS) && basis.includes(MOMENT_BASIS),
-    `目录卡面上的口径戳必须与引擎导出的值逐字相等（引擎改戳而目录没跟上，红的是目录）：`
-    + `目录含 ${ASTRO_BASIS}=${basis.includes(ASTRO_BASIS)}、${MOMENT_BASIS}=${basis.includes(MOMENT_BASIS)}`);
+  const basis = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || ''].join(' ');
+  ok('astro/catalog-hides-engine-stamps', !basis.includes(ASTRO_BASIS) && !basis.includes(MOMENT_BASIS),
+    '对外介绍只说明计算体系与适用范围，不显示内部版本代号');
   const page = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'astro', 'page.tsx'), 'utf8'));
-  ok('astro/page-shows-stamps', /ASTRO_BASIS/.test(page) && /MOMENT_BASIS/.test(page) && /口径/.test(page),
-    '口径戳要真的上屏（截图里能认出是哪一版算的），只在源码里导出不算');
+  ok('astro/page-hides-engine-stamps', !/ASTRO_BASIS|MOMENT_BASIS|astro-planets-v1|astro-moment-iana-v1/.test(page),
+    '产品页面不展示内部版本标识');
 }
 
 // ── 3. 状态诚实：部分可用 + 已做/未做逐项 + 不叫星盘 ──
@@ -197,14 +196,13 @@ const ref = refText ? JSON.parse(refText) : null;
   ok('astro/missing-calls-out-what-is-missing', /宫位/.test(notDone) && /上升/.test(notDone) && /相位/.test(notDone)
     && /凯龙/.test(notDone) && /交点/.test(notDone) && /恒星黄道/.test(notDone),
     `宫位/上升/相位/凯龙/交点/恒星黄道这六样都要在"未做"里点名（裁定：继续未开放且写明缺什么）：${notDone.slice(0, 60)}…`);
-  // 屏上的词要是中文，只有"版本戳的字面量"这一类例外（戳是数据标识，不是没翻译的文案）。
-  // 与 harness 的拉丁词判据同一条纪律，两侧都钉才咬得住：这一侧读目录数据，那一侧读渲染出来的屏。
+  // 目录给用户看的说明应使用中文，不把工程版本标识或实现库名称当作产品文案。
   const screenFields = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || '',
     ...(ENTRY.done || []), ...(ENTRY.notDone || [])].join(' ');
-  const stampWords = new Set(([ASTRO_BASIS, MOMENT_BASIS].join('-').match(/[a-z]{4,}/g) || []));
-  const latin = [...new Set(screenFields.match(/[a-z]{4,}/gi) || [])].filter(w => !stampWords.has(w.toLowerCase()));
-  ok('astro/screen-words-are-chinese', latin.length === 0,
-    `目录卡面上除了口径戳里的词，不许留着别的英文词（裁定 E1 的拉丁词清理）：命中 ${latin.join('、') || '无'}；放行 ${[...stampWords].join('、')}`);
+  const latin = [...new Set(screenFields.match(/[a-z]{4,}/gi) || [])];
+  const internal = /astro-planets-v1|astro-moment-iana-v1|astronomy-engine|DE441|\bMIT\b/i.test(screenFields);
+  ok('astro/screen-words-are-chinese', latin.length === 0 && !internal,
+    `目录卡面的介绍用中文表达，不显示工程版本号、实现库或许可信息：英文 ${latin.join('、') || '无'}；内部标识 ${internal ? '仍有' : '无'}`);
   // 反向：已经不算的东西不许出现在"会算"的那一侧，也不许在问题与读法里许诺。
   const promises = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.reading, ENTRY.teaser || '', ...(ENTRY.done || [])].join(' ');
   const banned = ['宫位', '落宫', '哪一宫', '相位', '上升', '凯龙', '交点', '性格'].filter(w => promises.includes(w));
@@ -270,10 +268,9 @@ const ref = refText ? JSON.parse(refText) : null;
   const syn = WESTERN_TOOL_BY_SLUG['astro-synastry'];
   ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /缺/.test(syn.basis),
     `合盘那句"缺什么"要跟着本命盘这一批更新（本命盘已能算落座，合盘缺的是相位那一层）：${syn.basis.slice(0, 40)}…`);
-  const engineOpen = WESTERN_INTENTS.flatMap(g => g.tools)
-      .filter(t => t.status !== '未开放' && (t.basis || '').includes('astro-planets-v1'));
-    ok('astro/open-one-does-not-flip-others', engineOpen.length === 1,
-      `引擎口径项仍只一项（实得 ${engineOpen.length} 项：${engineOpen.map(t => t.slug).join('、') || '无'}）——多一项引擎就要多一套样例、多一个戳、多一份对拍`);
+  const liveSlugs = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放').map(t => t.slug).sort();
+  ok('astro/open-one-does-not-flip-others', JSON.stringify(liveSlugs) === JSON.stringify(['astro-natal', 'tarot-draw']),
+    `仅本命行星位置与塔罗抽取开放，其他西方工具维持未开放：实得 ${liveSlugs.join('、') || '无'}`);
 }
 
 // ── 5. 降级：算不出来要说明白，不许猜 ──
@@ -292,8 +289,13 @@ const ref = refText ? JSON.parse(refText) : null;
     && !weirdZone.ok && weirdZone.reason === '时区未知',
     `没选时区与设备不认识的时区是两件事，各自要有原因码：${noZone.reason} / ${weirdZone.reason}`);
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8'));
-  ok('astro/degrade-reason-on-screen', /tier="danger"/.test(comp) && /why\.reason/.test(comp) && /why\.detail/.test(comp),
-    '失败的原因码与那句话说要真的渲染（批D 缺陷②的形状：拿到了不显示，界面上"失败"与"还没算"长得一样）');
+  const friendlyReasons = [
+    '请补全出生日期、时间和地点。', '出生日期或时间无效，请核对后重试。',
+    '暂时无法确定这个地点的时区', '所填时间不存在', '暂时无法唯一确定', '行星位置暂时无法计算',
+  ];
+  ok('astro/degrade-reason-on-screen', /tier="danger"/.test(comp) && /failureText\(why\)/.test(comp)
+    && !/why\.detail/.test(comp) && friendlyReasons.every(s => comp.includes(s)),
+    '每类失败都显示可理解的下一步提示，不把历算引擎原始错误细节直接展示给用户');
   const reasons = ['引擎不可用', '时刻无效', '无效日期', '本地时间不存在', '本地时间有两次', '缺时刻', '时区未知'];
   const src = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'astro', 'planets.ts'), 'utf8'))
     + stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'astro', 'moment.ts'), 'utf8'));
@@ -387,12 +389,13 @@ const ref = refText ? JSON.parse(refText) : null;
   // （west/bases-registered、west/base-hashes-immutable）。这里不重复实现一遍 ——
   // 同一件事两套断言迟早一套先坏，坏的那套还会给出看起来合理的红。
 
-  // 三层缺一层就不算有出处；白话要自证非他人译本；出处行要能让人回到段
+  // 三层缺一层就不算有出处；白话要自证非他人译本；出处行显示版本与章节，不显示仓库文件位置。
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'BasisQuote.tsx'), 'utf8'));
   const missLayer = ['原文', '白话', '口径'].filter(k => !comp.includes(k));
   ok('astro/basis-three-layers', missLayer.length === 0 && /basis\.原文/.test(comp) && /basis\.白话/.test(comp)
-    && /basis\.口径/.test(comp) && /basis\.底本段/.test(comp) && /非原文、非他人译本/.test(comp),
-    `「依据」块三层必须齐且各自吃到数据（原文／本站白话／口径标注），还要带得回段的编号，白话自证非他人译本：缺 ${missLayer.join('、') || '无'}`);
+    && /basis\.口径/.test(comp) && /basis\.版本/.test(comp) && /basis\.位置/.test(comp)
+    && !/basis\.底本段|basis\.底本/.test(comp) && /非原文、非他人译本/.test(comp),
+    `「依据」块保留原文、本站白话、来源版本与章节位置，不把仓库路径和内部段落编号展示给用户：缺 ${missLayer.join('、') || '无'}`);
 
   // 近代词条只许待在近代层，且一处都不许混进任何原文字段。
   // 上一版这里写的是"四个词条必须全部被覆盖"，那是条**假要求**：Life Path 属于数字命理，

@@ -93,12 +93,12 @@ export function bytesToDataUrl(bytes: Uint8Array, kind: ImageKind): string {
 export function buildRecognizeRequest(
   visitorId: string, bytes: Uint8Array, kind: ImageKind,
 ): { ok: true; url: string; init: RequestInit } | RecognizeFail {
-  if (!visitorId) return { ok: false, kind: 'client', code: 'no_visitor', reason: '这台设备还没有访客 id，服务端会按访客不合法拒掉。' };
+  if (!visitorId) return { ok: false, kind: 'client', code: 'no_visitor', reason: '暂时无法确认当前访问状态，请刷新页面后重试。' };
   if (!VISITOR_RE.test(visitorId)) {
-    return { ok: false, kind: 'client', code: 'bad_visitor', reason: `本机访客 id 形态不对（要 8–64 位字母、数字、下划线或短横），这条请求发出去也只会是 400。` };
+    return { ok: false, kind: 'client', code: 'bad_visitor', reason: '当前访问状态异常，请刷新页面后重试。' };
   }
   if (bytes.length > MAX_BYTES) {
-    return { ok: false, kind: 'client', code: 'too_large', reason: `解码后 ${(bytes.length / 1048576).toFixed(1)}MB，服务端上限 5MB。` };
+    return { ok: false, kind: 'client', code: 'too_large', reason: '图片超出 5 MB 限制，请选择更小的文件。' };
   }
   const body = JSON.stringify({ visitorId, imageBase64: bytesToDataUrl(bytes, kind) });
   return {
