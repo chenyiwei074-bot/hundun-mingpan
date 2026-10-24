@@ -26,7 +26,7 @@ export default function ToolsPage() {
   return (
     <main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
       <header className="qn-rise" style={{ textAlign: 'center', marginBottom: 24 }}>
-        <p className="qn-eyebrow" style={{ margin: 0 }}>玄学百宝箱</p>
+        <p className="qn-eyebrow" style={{ margin: 0 }}>东西方工具总览</p>
         <h1 className="qn-hero" style={{ margin: '12px 0 6px' }}>先说要问什么，再看用哪个工具</h1>
         <p className="qn-meta" style={{ letterSpacing: '0.14em' }}>
           {tallies.map(t => `${t.label} ${statusTally(t.c)}`).join(' · ')} · 每项都写明取数口径与版本

@@ -57,7 +57,7 @@ export default function ModeLanding({ mode, hero, shellClass, children }: {
       <section className="qn-legal ml-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
           这一页只列{mode === 'western' ? '西方' : '东方'}体系里的工具；换体系请回到选体系那一页。
-          排盘与抽取由各自的规则引擎执行，模型只做解释与引导。
+          排盘与抽取结果由对应工具提供，混沌自研 AI 辅助解读与引导。
         </p>
         <p className="qn-linkrow">
           {/* 裁定 ①：/tools 从门廊挪走，挂在两页工作页的页脚。门廊上再留一条聚合入口，
