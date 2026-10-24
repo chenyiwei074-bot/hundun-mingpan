@@ -88,3 +88,14 @@
 - 前端 helper：`createTarotReading()`（frontend/app/lib/api.ts），页面接入时必须按 `aiReady` 标注，不得把这段文字当 AI 综合解读。
 
 下一版才接自研 AI 编排；接口形状不变，只把 `mode/aiReady/model` 升级并补 AI 文字。
+
+
+## AI 接入（2026-10-24，已实现）
+
+`POST /api/tarot/reading` 现在会调用站内 AI 编排层（免费模型优先、DeepSeek 回落）：
+
+- 成功：`mode:"ai"`、`aiReady:true`、`model:"hundun-self-developed-ai-v1"`；
+  `cards[].text` 与 `summary` 为 AI 整理，逐牌牌面/方向仍是确定性输入；`sourceIds` 仍为空（未核验来源不伪造）。
+- 失败/超时/输出不合格：返回 `mode:"rules-fallback"`、`aiReady:false`，只给逐牌已登记牌义，
+  并在 notes 明说“AI 未参与”；不会把规则拼装说成 AI。
+- 响应不写供应商名/底层模型名；日志只记内部耗时与错误，不记问题原文。
