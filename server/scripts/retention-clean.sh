@@ -9,3 +9,6 @@ exec env DATA_RETENTION_DAYS="${DATA_RETENTION_DAYS:-7}" \
   node server/node_modules/tsx/dist/cli.mjs \
     --tsconfig=server/tsconfig.json \
     server/src/scripts/retention.ts --apply
+
+# 顺手清 7 天前的手工数据库 dump（/srv/chaos/backup 不在 offsite 的 7 天轮转里）
+find /srv/chaos/backup -maxdepth 1 -type f -name 'hundun_mindpan-*.dump' -mtime +7 -delete 2>/dev/null || true
