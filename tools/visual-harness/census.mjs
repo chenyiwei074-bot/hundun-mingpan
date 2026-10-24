@@ -146,6 +146,8 @@ const STATIC_PAGES = [
   ['home', '/'],
   ['oriental', '/oriental'],
   ['western', '/western'],
+  // 关系中心：桌面与窄屏都检查页面真实渲染和两条可用入口。
+  ['hepan', '/hepan'],
   // 问事框的"答完之后"那一态：同一张页面，AFTER 钩子真的把一句话打进去并提交。
   // 不测这一态，等于只审了一个空输入框 —— 路由对不对、来源标没标、未开放有没有入口，全在提交之后。
   ['oriental-ask', '/oriental'],
@@ -519,6 +521,18 @@ const TAROT_RECORD_HOOK = `(async () => {
 })()`;
 
 const AFTER = {
+  'hepan': `(() => {
+    const main = document.querySelector('main');
+    if (!main) return '关系中心没有主内容区';
+    const title = main.querySelector('h1');
+    if (!title || !/把两个人的结构并排看/.test(title.textContent || ''))
+      return '关系中心主标题缺失或文案漂移';
+    const links = [...main.querySelectorAll('a[href]')];
+    const double = links.some(a => a.getAttribute('href') === '/create?mode=double' && /开始双人合盘/.test(a.textContent || ''));
+    const xiu = links.some(a => a.getAttribute('href') === '/xiu' && /开始二十八宿合宿/.test(a.textContent || ''));
+    if (!double || !xiu) return '两条入口不完整：双人合盘=' + double + '，二十八宿合宿=' + xiu;
+    return true;
+  })()`,
   'tarot-drawn': TAROT_DRAW_HOOK,
   'tarot-record': TAROT_RECORD_HOOK,
   'tarot-reduced-motion': TAROT_DRAW_HOOK,
@@ -2963,7 +2977,7 @@ async function measure(tag, url) {
       true`);
     const ok = await evl(AFTER[base]);
     if (ok !== true) fail.push(tag + ': 该状态没到位（' + (typeof ok === 'string' ? ok : JSON.stringify(ok)) + '）—— 这一屏从未被测量');
-    else { await sleep(800); console.log('    clicked expand control'); }
+    else { await sleep(800); console.log('    state hook passed'); }
   }
   if (TRUSTED[base] && STUB_ONLY.has(base) && !STUB) {
     console.log('    SKIP 交互：这一态的落点靠 --stub 注入（503 / 契约成功体），'
