@@ -212,23 +212,23 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
           <thead>
             <tr className="border-b border-black/5">
               <td className="py-2 px-0 text-center">
-                <span className="text-[10px] text-text-muted tracking-wider">时间</span>
+                <span className="text-[11px] text-text-secondary tracking-wider">时间</span>
               </td>
               {keys.map((key) => {
                 const isDay = key === 'day';
                 return (
                   <td key={key} className={`py-2 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
-                    <p className="text-xs font-serif font-bold text-text-primary">{PILLAR_LABELS[key]}</p>
+                    <p className="text-[13px] font-serif font-bold text-text-primary">{PILLAR_LABELS[key]}</p>
                   </td>
                 );
               })}
               {showExtra && (
                 <>
                   <td className="py-2 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <p className="text-xs font-serif font-bold" style={{color:'#b2955d'}}>大运</p>
+                    <p className="text-[13px] font-serif font-bold" style={{color:'var(--color-accent-gold-text)'}}>大运</p>
                   </td>
                   <td className="py-2 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <p className="text-xs font-serif font-bold" style={{color:'#b2955d'}}>流年</p>
+                    <p className="text-[13px] font-serif font-bold" style={{color:'var(--color-accent-gold-text)'}}>流年</p>
                   </td>
                 </>
               )}
@@ -238,26 +238,24 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 天干 */}
             <tr className="border-b border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">天干</span>
+                <span className="text-[11px] text-text-secondary">天干</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
-                const wx = WUXING_MAP[p.gan] || '';
-                const color = WUXING_COLORS[wx] || '#101010';
                 const isDay = key === 'day';
                 return (
                   <td key={key} className={`py-1.5 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
-                    <span className="font-serif font-bold text-2xl sm:text-3xl" style={{ color }}>{p.gan}</span>
+                    <span className="font-serif font-bold text-[18px] sm:text-[26px] text-text-primary">{p.gan}</span>
                   </td>
                 );
               })}
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <span className="font-serif font-bold text-2xl sm:text-3xl" style={{color: WUXING_COLORS[WUXING_MAP[dayunGan||'']||''] || '#1d1d1f'}}>{dayunGan}</span>
+                    <span className="font-serif font-bold text-[18px] sm:text-[26px] text-text-primary">{dayunGan}</span>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <span className="font-serif font-bold text-2xl sm:text-3xl" style={{color: WUXING_COLORS[WUXING_MAP[liuNianGan||'']||''] || '#1d1d1f'}}>{liuNianGan}</span>
+                    <span className="font-serif font-bold text-[18px] sm:text-[26px] text-text-primary">{liuNianGan}</span>
                   </td>
                 </>
               )}
@@ -266,24 +264,24 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 地支 */}
             <tr className="border-b border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">地支</span>
+                <span className="text-[11px] text-text-secondary">地支</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
                 const isDay = key === 'day';
                 return (
                   <td key={key} className={`py-1.5 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
-                    <span className="font-serif font-bold text-2xl sm:text-3xl" style={{ color: WUXING_COLORS[DIZHI_WUXING[p.zhi]] || "#1d1d1f" }}>{p.zhi}</span>
+                    <span className="font-serif font-bold text-[18px] sm:text-[26px] text-text-primary">{p.zhi}</span>
                   </td>
                 );
               })}
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <span className="font-serif font-bold text-2xl sm:text-3xl" style={{color: WUXING_COLORS[DIZHI_WUXING[dayunZhi||'']||''] || '#1d1d1f'}}>{dayunZhi}</span>
+                    <span className="font-serif font-bold text-[18px] sm:text-[26px] text-text-primary">{dayunZhi}</span>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <span className="font-serif font-bold text-2xl sm:text-3xl" style={{color: WUXING_COLORS[DIZHI_WUXING[liuNianZhi||'']||''] || '#1d1d1f'}}>{liuNianZhi}</span>
+                    <span className="font-serif font-bold text-[18px] sm:text-[26px] text-text-primary">{liuNianZhi}</span>
                   </td>
                 </>
               )}
@@ -293,7 +291,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {showExtra && (
               <tr className="border-b border-black/[0.06] bg-accent-gold/[0.02]">
                 <td className="py-1 px-0 text-center">
-                  <span className="text-[9px] text-accent-gold tracking-wider">关系</span>
+                  <span className="text-[11px] text-accent-gold-text tracking-wider">关系</span>
                 </td>
                 {keys.map((key) => {
                   const p = siZhu[key];
@@ -302,17 +300,20 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                     <td key={key} className="py-1 px-0 text-center">
                       <div className="flex flex-wrap justify-center gap-0.5">
                         {rels.length > 0 ? rels.map((r,i) => (
-                          <span key={i} className="text-[9px] font-bold animate-pulse" style={{color: relColor(r)}}>{r}</span>
-                        )) : <span className="text-[9px] text-text-muted/20">-</span>}
+                          <span key={i} className="inline-flex items-center gap-1 text-[11px] font-bold text-text-primary">
+                            <i aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: relColor(r) }} />
+                            {r}
+                          </span>
+                        )) : <span className="text-[11px] text-text-secondary">-</span>}
                       </div>
                     </td>
                   );
                 })}
                 <td className="py-1 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                  <span className="text-[9px] text-text-muted/20">-</span>
+                  <span className="text-[11px] text-text-secondary">-</span>
                 </td>
                 <td className="py-1 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                  <span className="text-[9px] text-text-muted/20">-</span>
+                  <span className="text-[11px] text-text-secondary">-</span>
                 </td>
               </tr>
             )}
@@ -320,7 +321,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 藏干 */}
             <tr className="border-b border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">藏干</span>
+                <span className="text-[11px] text-text-secondary">藏干</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
@@ -331,15 +332,11 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                     {cgArr.length > 0 ? (
                       <div className="flex flex-wrap justify-center gap-x-1.5 gap-y-0.5">
                         {cgArr.map((cg: any, i: number) => {
-                          const wx = WUXING_MAP[cg.gan] || '';
-                          const color = WUXING_COLORS[wx] || '#666';
-                          return (
-                            <span key={i} className="text-[11px] font-serif" style={{ color }}>{cg.gan}</span>
-                          );
+                          return <span key={i} className="text-[11px] font-serif text-text-primary">{cg.gan}</span>;
                         })}
                       </div>
                     ) : (
-                      <span className="text-[9px] text-text-muted/25">-</span>
+                      <span className="text-[11px] text-text-secondary">-</span>
                     )}
                   </td>
                 );
@@ -347,10 +344,10 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    {(()=>{const cg=DIZHI_CANGGAN[dayunZhi||'']||[];return cg.length>0?<div className="flex flex-wrap justify-center gap-x-1 gap-y-0.5">{cg.map((g,i)=>{const wx=WUXING_MAP[g]||'';return <span key={i} className="text-[11px] font-serif" style={{color:WUXING_COLORS[wx]||'#666'}}>{g}</span>})}</div>:<span className="text-[9px] text-text-muted/25">-</span>})()}
+                    {(()=>{const cg=DIZHI_CANGGAN[dayunZhi||'']||[];return cg.length>0?<div className="flex flex-wrap justify-center gap-x-1 gap-y-0.5">{cg.map((g,i)=><span key={i} className="text-[11px] font-serif text-text-primary">{g}</span>)}</div>:<span className="text-[11px] text-text-secondary">-</span>})()}
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    {(()=>{const cg=DIZHI_CANGGAN[liuNianZhi||'']||[];return cg.length>0?<div className="flex flex-wrap justify-center gap-x-1 gap-y-0.5">{cg.map((g,i)=>{const wx=WUXING_MAP[g]||'';return <span key={i} className="text-[11px] font-serif" style={{color:WUXING_COLORS[wx]||'#666'}}>{g}</span>})}</div>:<span className="text-[9px] text-text-muted/25">-</span>})()}
+                    {(()=>{const cg=DIZHI_CANGGAN[liuNianZhi||'']||[];return cg.length>0?<div className="flex flex-wrap justify-center gap-x-1 gap-y-0.5">{cg.map((g,i)=><span key={i} className="text-[11px] font-serif text-text-primary">{g}</span>)}</div>:<span className="text-[11px] text-text-secondary">-</span>})()}
                   </td>
                 </>
               )}
@@ -359,7 +356,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 空亡 */}
             <tr className="border-b border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">空亡</span>
+                <span className="text-[11px] text-text-secondary">空亡</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
@@ -367,17 +364,17 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                 const kw = getKongWang(p.gan, p.zhi);
                 return (
                   <td key={key} className={`py-1.5 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
-                    <span className="text-[11px] text-text-muted/50 font-serif">{kw}</span>
+                    <span className="text-[11px] text-text-secondary font-serif">{kw}</span>
                   </td>
                 );
               })}
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <span className="text-[11px] text-text-muted/50 font-serif">{getKongWang(dayunGan||'', dayunZhi||'')}</span>
+                    <span className="text-[11px] text-text-secondary font-serif">{getKongWang(dayunGan||'', dayunZhi||'')}</span>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <span className="text-[11px] text-text-muted/50 font-serif">{getKongWang(liuNianGan||'', liuNianZhi||'')}</span>
+                    <span className="text-[11px] text-text-secondary font-serif">{getKongWang(liuNianGan||'', liuNianZhi||'')}</span>
                   </td>
                 </>
               )}
@@ -386,7 +383,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 纳音 */}
             <tr className="border-b border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">纳音</span>
+                <span className="text-[11px] text-text-secondary">纳音</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
@@ -394,17 +391,17 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                 const ny = naYin?.[key] || p.naYin || '';
                 return (
                   <td key={key} className={`py-1.5 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
-                    <span className="text-[10px] text-text-muted/50">{ny}</span>
+                    <span className="text-[11px] text-text-secondary">{ny}</span>
                   </td>
                 );
               })}
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <span className="text-[10px] text-text-muted/50">{nayinOf(dayunGan||'', dayunZhi||'')}</span>
+                    <span className="text-[11px] text-text-secondary">{nayinOf(dayunGan||'', dayunZhi||'')}</span>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <span className="text-[10px] text-text-muted/50">{nayinOf(liuNianGan||'', liuNianZhi||'')}</span>
+                    <span className="text-[11px] text-text-secondary">{nayinOf(liuNianGan||'', liuNianZhi||'')}</span>
                   </td>
                 </>
               )}
@@ -413,7 +410,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 十神 */}
             <tr className="border-t border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">十神</span>
+                <span className="text-[11px] text-text-secondary">十神</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
@@ -421,17 +418,17 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                 const ss = shiShen?.[key] || p.shiShen || '';
                 return (
                   <td key={key} className={`py-1.5 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
-                    <span className="text-[11px] text-text-secondary/70">{ss}</span>
+                    <span className="text-[11px] text-text-secondary">{ss}</span>
                   </td>
                 );
               })}
               {showExtra && (
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
-                    <span className="text-[11px] text-text-secondary/70">{getShiShen(dayMaster, dayunGan||'')}</span>
+                    <span className="text-[11px] text-text-secondary">{getShiShen(dayMaster, dayunGan||'')}</span>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
-                    <span className="text-[11px] text-text-secondary/70">{getShiShen(dayMaster, liuNianGan||'')}</span>
+                    <span className="text-[11px] text-text-secondary">{getShiShen(dayMaster, liuNianGan||'')}</span>
                   </td>
                 </>
               )}
@@ -439,7 +436,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
             {/* 神煞 */}
             <tr className="border-t border-black/[0.03]">
               <td className="py-1.5 px-0 text-center">
-                <span className="text-[10px] text-text-muted/60">神煞</span>
+                <span className="text-[11px] text-text-secondary">神煞</span>
               </td>
               {keys.map((key) => {
                 const p = siZhu[key];
@@ -449,9 +446,9 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                   <td key={key} className={`py-1.5 px-0 text-center ${isDay ? 'bg-accent-gold/[0.03]' : ''}`}>
                     <div className="flex flex-wrap justify-center gap-1">
                       {ss.length > 0 ? ss.map((s, i) => (
-                        <span key={i} className="text-[10px] text-text-muted/50 leading-relaxed">{s}</span>
+                        <span key={i} className="text-[11px] text-text-secondary leading-relaxed">{s}</span>
                       )) : (
-                        <span className="text-[9px] text-text-muted/25">-</span>
+                        <span className="text-[11px] text-text-secondary">-</span>
                       )}
                     </div>
                   </td>
@@ -461,12 +458,12 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                 <>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.02)'}}>
                     <div className="flex flex-wrap justify-center gap-1">
-                      {(()=>{const ss=calcShenSha(dayMaster,siZhu.year.zhi,siZhu.month.zhi,dayunZhi||'',dayunGan||'');return ss.length>0?ss.map((s,i)=><span key={i} className="text-[10px] text-text-muted/50 leading-relaxed">{s}</span>):<span className="text-[9px] text-text-muted/25">-</span>})()}
+                      {(()=>{const ss=calcShenSha(dayMaster,siZhu.year.zhi,siZhu.month.zhi,dayunZhi||'',dayunGan||'');return ss.length>0?ss.map((s,i)=><span key={i} className="text-[11px] text-text-secondary leading-relaxed">{s}</span>):<span className="text-[11px] text-text-secondary">-</span>})()}
                     </div>
                   </td>
                   <td className="py-1.5 px-0 text-center" style={{background:'rgba(178,149,93,0.04)'}}>
                     <div className="flex flex-wrap justify-center gap-1">
-                      {(()=>{const ss=calcShenSha(dayMaster,siZhu.year.zhi,siZhu.month.zhi,liuNianZhi||'',liuNianGan||'');return ss.length>0?ss.map((s,i)=><span key={i} className="text-[10px] text-text-muted/50 leading-relaxed">{s}</span>):<span className="text-[9px] text-text-muted/25">-</span>})()}
+                      {(()=>{const ss=calcShenSha(dayMaster,siZhu.year.zhi,siZhu.month.zhi,liuNianZhi||'',liuNianGan||'');return ss.length>0?ss.map((s,i)=><span key={i} className="text-[11px] text-text-secondary leading-relaxed">{s}</span>):<span className="text-[11px] text-text-secondary">-</span>})()}
                     </div>
                   </td>
                 </>
@@ -478,14 +475,14 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
 
       {/* 五行能量条 */}
       <div className="px-4 py-3 border-t border-black/5 space-y-1.5">
-        <p className="text-[10px] text-text-muted/60 text-center mb-2 tracking-wider">五行能量</p>
+        <p className="text-[11px] text-text-secondary text-center mb-2 tracking-wider">五行能量</p>
         {wuxingStats.map(({ element, count, max }) => {
           const pct = max > 0 ? (count / max) * 100 : 0;
           const color = WUXING_COLORS[element] || '#888';
           const isDayMaster = element === dayMasterWx;
           return (
             <div key={element} className="flex items-center gap-2">
-              <span className={`text-[11px] w-4 text-right font-bold ${isDayMaster ? 'opacity-100' : 'opacity-60'}`} style={{ color }}>
+              <span className="text-[11px] w-4 text-right font-bold text-text-primary">
                 {element}
               </span>
               <div className="flex-1 h-3 bg-black/[0.04] rounded-full overflow-hidden relative">
@@ -499,7 +496,7 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                   }}
                 />
               </div>
-              <span className="text-[10px] w-3 text-right font-bold" style={{ color, opacity: isDayMaster ? 1 : 0.5 }}>{count}</span>
+              <span className="text-[11px] w-3 text-right font-bold text-text-primary">{count}</span>
             </div>
           );
         })}
@@ -508,22 +505,22 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
       {/* 日主 + 起运 */}
       <div className="flex justify-center gap-8 py-3 border-t border-black/5 bg-black/[0.01]">
         <div className="text-center">
-          <span className="text-[10px] text-text-muted">日主</span>
-          <span className="text-lg font-serif font-bold ml-1.5" style={{ color: WUXING_COLORS[dayMasterWx] || '#101010' }}>
+          <span className="text-[11px] text-text-secondary">日主</span>
+          <span className="text-lg font-serif font-bold ml-1.5 text-text-primary">
             {dayMaster}
           </span>
-          <span className="text-[9px] text-text-muted/40 ml-1">({dayMasterWx})</span>
+          <span className="text-[11px] text-text-secondary ml-1">({dayMasterWx})</span>
         </div>
         <div className="text-center">
-          <span className="text-[10px] text-text-muted">起运</span>
-          <span className="text-lg font-bold text-accent-gold ml-1.5">{dayunStart}岁</span>
+          <span className="text-[11px] text-text-secondary">起运</span>
+          <span className="text-lg font-bold text-accent-gold-text ml-1.5">{dayunStart}岁</span>
         </div>
       </div>
 
       
       {/* Apple风格：命理推导卡片 */}
       <div className="px-4 pb-4">
-        <div className="rounded-2xl p-5" style={{ background: '#f5f5f7' }}>
+        <div className="rounded-2xl p-5" style={{ background: 'var(--color-bg-primary)' }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
               <p className="text-[11px] font-semibold tracking-[0.1em] mb-3" style={{ color: '#1d1d1f' }}>十二长生</p>
@@ -533,10 +530,11 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
                   const zs = zhangSheng?.[key] || p.zhangSheng || calcZhangSheng(dayMaster, p.zhi);
                   return (
                     <div key={key} className="flex-1 text-center">
-                      <p className="text-[10px] tracking-wider mb-1" style={{ color: 'rgba(0,0,0,0.3)' }}>
+                      <p className="text-[11px] tracking-wider mb-1" style={{ color: 'var(--color-text-secondary)' }}>
                         {PILLAR_LABELS[key]}
                       </p>
-                      <span className="text-xs font-serif font-bold" style={{ color: zsColor(zs) }}>
+                      <span className="inline-flex items-center gap-1 text-[13px] font-serif font-bold text-text-primary">
+                        <i aria-hidden="true" className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: zsColor(zs) }} />
                         {zs || '-'}
                       </span>
                     </div>
@@ -548,14 +546,14 @@ export default function BaziPillars({ siZhu, dayMaster, dayunStart, cangGan, naY
               <p className="text-[11px] font-semibold tracking-[0.1em] mb-3" style={{ color: '#1d1d1f' }}>胎元 · 命宫</p>
               <div className="flex gap-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] tracking-wider" style={{ color: 'rgba(0,0,0,0.3)' }}>胎元</span>
-                  <span className="text-sm font-serif font-bold" style={{ color: '#1d1d1f' }}>
+                  <span className="text-[11px] tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>胎元</span>
+                  <span className="text-[15px] font-serif font-bold" style={{ color: '#1d1d1f' }}>
                     {calcTaiYuan(siZhu.month.gan, siZhu.month.zhi)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] tracking-wider" style={{ color: 'rgba(0,0,0,0.3)' }}>命宫</span>
-                  <span className="text-sm font-serif font-bold" style={{ color: '#1d1d1f' }}>
+                  <span className="text-[11px] tracking-wider" style={{ color: 'var(--color-text-secondary)' }}>命宫</span>
+                  <span className="text-[15px] font-serif font-bold" style={{ color: '#1d1d1f' }}>
                     {calcMingGong(siZhu.year.gan, siZhu.month.zhi, siZhu.hour.zhi)}
                   </span>
                 </div>

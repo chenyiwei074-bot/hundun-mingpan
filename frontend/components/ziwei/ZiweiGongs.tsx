@@ -1,7 +1,7 @@
 "use client";
 
 import { useInView } from "@/components/bazi/animations";
-import { colors, type as t } from "@/components/bazi/tokens";
+import { colors } from "@/components/bazi/tokens";
 
 interface GongData {
   gong: string; tiangan?: string; dizhi?: string;
@@ -47,29 +47,35 @@ export function ZiweiGongs({ gongs, mingGongIndex=0, shenGongIndex, liuNianAge=0
                 style={{opacity:inView?1:0,transform:inView?"translateY(0)":"translateY(8px)",transitionDelay:`${100+row*100+col*50}ms`}}>
                 {/* 宫名 + 命/身标签 */}
                 <div className="flex items-center gap-1 mb-1.5">
-                  <span className="font-serif font-bold tracking-wider" style={{fontSize:t.caption.size,color:isM?colors.accent:colors.ink}}>
+                  <span className="font-serif font-bold tracking-wider text-[13px] text-text-primary">
                     {GL[g.gong]||g.gong.replace("宫","")}
                   </span>
-                  {isM&&<span className="text-[8px] text-white px-1 rounded-sm font-bold" style={{background:colors.accent}}>命</span>}
-                  {isS&&!isM&&<span className="text-[8px] px-1 rounded-sm" style={{background:"rgba(0,0,0,0.10)",color:"rgba(0,0,0,0.40)"}}>身</span>}
+                  {isM&&<span className="text-[11px] px-1 rounded-sm font-bold text-text-primary bg-accent-gold/15">命</span>}
+                  {isS&&!isM&&<span className="text-[11px] px-1 rounded-sm text-text-primary bg-black/5">身</span>}
                 </div>
                 {/* 干支 */}
-                <p className="font-serif mb-2" style={{fontSize:t.fine.size,color:"rgba(0,0,0,0.25)"}}>{g.tiangan||""}{"\u00A0"}{g.dizhi||""}</p>
+                <p className="font-serif text-[11px] text-text-secondary mb-2">{g.tiangan||""}{"\u00A0"}{g.dizhi||""}</p>
                 {/* 主星 */}
                 {g.mainStars&&g.mainStars.length>0&&(
                   <div className="flex flex-wrap gap-x-1.5 gap-y-0.5 mb-1.5">
-                    {g.mainStars.map((s,i)=>(<span key={i} className="font-serif font-bold leading-tight" style={{fontSize:t.body.size,color:SC[s]||colors.ink}}>{s}</span>))}
+                    {g.mainStars.map((s,i)=>(
+                      <span key={i} className="inline-flex items-center gap-1 font-serif font-bold leading-tight text-[15px] text-text-primary">
+                        {SC[s] && <i aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: SC[s] }} />}
+                        {s}
+                      </span>
+                    ))}
                   </div>
                 )}
                 {/* 辅星 */}
                 {g.auxStars&&g.auxStars.length>0&&(
-                  <p className="leading-tight mt-auto" style={{fontSize:t.micro.size,color:"rgba(0,0,0,0.28)"}}>
+                  <p className="text-[11px] leading-tight text-text-secondary mt-auto">
                     {g.auxStars.slice(0,4).join(" · ")}{g.auxStars.length>4&&" ..."}
                   </p>
                 )}
                 {/* 四化 + 自化 */}
                 {(g.sihua&&g.sihua.length>0)||(g.ziHua&&g.ziHua.length>0)?(
-                  <p className="font-serif leading-tight mt-0.5" style={{fontSize:t.micro.size,color:"rgba(178,149,93,0.60)"}}>
+                  <p className="inline-flex items-start gap-1 font-serif text-[11px] leading-tight text-text-secondary mt-0.5">
+                    <i aria-hidden="true" className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-gold-text" />
                     {[...(g.sihua||[]).map(s=>s.star+s.hua),...(g.ziHua||[]).map(s=>s.star+s.hua)].join(" · ")}
                   </p>
                 ):null}
@@ -78,14 +84,10 @@ export function ZiweiGongs({ gongs, mingGongIndex=0, shenGongIndex, liuNianAge=0
                   const inRange = liuNianAge > 0 && liuNianAge >= g.daXian.startAge && liuNianAge <= g.daXian.endAge;
                   const highlight = inRange || g.daXian.isCurrent;
                   return (
-                    <p className="mt-1" style={{
-                      fontSize: t.micro.size,
-                      color: highlight ? colors.accent : "rgba(0,0,0,0.22)",
-                      fontWeight: highlight ? 600 : 400,
-                    }}>
+                    <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${highlight ? "text-text-primary font-semibold" : "text-text-secondary"}`}>
                       {g.daXian.startAge}-{g.daXian.endAge}岁
-                      {g.daXian.isCurrent && <span className="font-bold ml-0.5" style={{color:colors.accent}}>★</span>}
-                      {inRange && !g.daXian.isCurrent && <span className="ml-0.5" style={{fontSize:"8px"}}>◆</span>}
+                      {g.daXian.isCurrent && <i aria-label="当前大限" className="h-1.5 w-1.5 rounded-full bg-accent-gold-text" />}
+                      {inRange && !g.daXian.isCurrent && <span className="ml-0.5 text-text-secondary">流年</span>}
                     </p>
                   );
                 })()}
@@ -96,12 +98,12 @@ export function ZiweiGongs({ gongs, mingGongIndex=0, shenGongIndex, liuNianAge=0
       </div>
 
       {/* 图例 */}
-      <div className="text-center pb-4">
-        <span style={{fontSize:t.micro.size,color:"rgba(0,0,0,0.18)",letterSpacing:"0.2em"}}>
-          <span className="inline-block w-1.5 h-1.5 rounded-sm mr-1 align-middle" style={{background:"rgba(178,149,93,0.50)"}}/>命宫
+      <div className="flex justify-center gap-4 pb-4 text-[11px] text-text-secondary">
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-1.5 h-1.5 rounded-sm bg-accent-gold" />命宫
         </span>
-        <span style={{fontSize:t.micro.size,color:"rgba(0,0,0,0.18)",letterSpacing:"0.2em"}} className="ml-4">
-          ★ 当前大限
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-gold-text" />当前大限
         </span>
       </div>
     </div>

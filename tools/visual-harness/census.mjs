@@ -73,6 +73,13 @@ const CHART_ROUTES = {
   // "本机的盘 + 本机现排的对方盘"真的能在页面上拼出八条立项。
   'chart-hepan': ['stubchart0001', `${CHART_DIR}/chart-result.json`],
 };
+// 分享成功态只拿命盘结构字段，刻意不复制 birthInfo、姓名或地点到分享 fixture。
+const sharedChartSource = JSON.parse(readFileSync(CHART_ROUTES['chart-result'][1], 'utf8')).chart;
+const SHARE_CHART_FIXTURE = {
+  bazi: Object.fromEntries(['siZhu', 'dayMaster', 'dayunStart', 'cangGan', 'naYin', 'zhangSheng', 'shiShen']
+    .map(key => [key, sharedChartSource.bazi[key]])),
+  ziwei: { gongs: sharedChartSource.ziwei.gongs, shenGongIndex: sharedChartSource.ziwei.shenGongIndex },
+};
 if (arg('chart-fixture')) CHART_ROUTES['chart-result'] = ['stubchart0001', arg('chart-fixture')];
 const CHART_BY_PATH = {};
 for (const [tag, [id, file]] of Object.entries(CHART_ROUTES)) {
@@ -148,6 +155,10 @@ const STATIC_PAGES = [
   ['western', '/western'],
   // 关系中心：桌面与窄屏都检查页面真实渲染和两条可用入口。
   ['hepan', '/hepan'],
+  // 成功态使用合成盘且只在 --stub 下运行，防止把固定测试 token 请求到真实服务。
+  ['share-chart-valid', '/share/chart/visual-harness-valid-token'],
+  // 限时命盘分享：用虚构无效 token 检查统一失效页与隐私边界，不读取真实分享数据。
+  ['share-chart-invalid', '/share/chart/visual-harness-invalid-token'],
   // 问事框的"答完之后"那一态：同一张页面，AFTER 钩子真的把一句话打进去并提交。
   // 不测这一态，等于只审了一个空输入框 —— 路由对不对、来源标没标、未开放有没有入口，全在提交之后。
   ['oriental-ask', '/oriental'],
@@ -532,6 +543,60 @@ const AFTER = {
     const xiu = links.some(a => a.getAttribute('href') === '/xiu' && /开始二十八宿合宿/.test(a.textContent || ''));
     if (!double || !xiu) return '两条入口不完整：双人合盘=' + double + '，二十八宿合宿=' + xiu;
     return true;
+  })()`,
+  'share-chart-valid': `(async () => {
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    for (let n = 0; n < 60; n++) {
+      const main = document.querySelector('main');
+      const title = main?.querySelector('h1');
+      if (title?.textContent?.includes('命盘分享')) {
+        const body = (main.textContent || '').replace(/\\s+/g, ' ');
+        for (const label of ['只读查看', '有效至', '八字四柱', '紫微十二宫', '命盘解读', '这份分享暂未包含文字解读'])
+          if (!body.includes(label)) return '成功态缺少「' + label + '」';
+        if (body.includes('验收样本·男') || body.includes('visual-harness-valid-token'))
+          return '分享页正文泄漏测试姓名或 token';
+        for (const id of ['shared-bazi-title', 'shared-ziwei-title', 'shared-reading-title'])
+          if (!main.querySelector('[aria-labelledby="' + id + '"]')) return '缺少分享区块 ' + id;
+        const requests = window.__net || [];
+        if (!requests.some(x => String(x.m).toUpperCase() === 'GET' && String(x.u).includes('/api/chart/share/visual-harness-valid-token')))
+          return '没有观察到对分享读取接口的只读 GET';
+        const referrer = document.querySelector('meta[name="referrer"]')?.content;
+        if (referrer !== 'no-referrer') return '分享页缺少 no-referrer meta';
+        const robots = document.querySelector('meta[name="robots"]')?.content || '';
+        if (!/noindex/i.test(robots) || !/nofollow/i.test(robots)) return '分享页缺少 noindex/nofollow meta';
+        return true;
+      }
+      await wait(50);
+    }
+    const body = (document.querySelector('main')?.textContent || '').replace(/\\s+/g, ' ').slice(0, 120);
+    return '有效分享页没有进入只读展示状态；当前内容=' + body + '；请求=' + JSON.stringify(window.__net || []);
+  })()`,
+  'share-chart-invalid': `(async () => {
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    for (let n = 0; n < 60; n++) {
+      const main = document.querySelector('main');
+      const title = main?.querySelector('h1');
+      if (title?.textContent?.includes('这份命盘暂时无法查看')) {
+        const body = (main.textContent || '').replace(/\\s+/g, ' ');
+        if (!body.includes('分享链接可能已过期、被撤回，或命盘已经清理'))
+          return '失效说明没有覆盖过期、撤回与清理三种原因';
+        if (!main.querySelector('a[href="/"]')) return '失效页缺少返回首页入口';
+        const requests = window.__net || [];
+        if (!requests.some(x => String(x.m).toUpperCase() === 'GET' && String(x.u).includes('/api/chart/share/visual-harness-invalid-token')))
+          return '没有观察到对分享读取接口的只读 GET';
+        if (body.includes('visual-harness-invalid-token')) return '测试 token 泄漏到了页面正文';
+        if (main.querySelector('[aria-labelledby="shared-bazi-title"], [aria-labelledby="shared-ziwei-title"], [aria-labelledby="shared-reading-title"]'))
+          return '无效分享仍渲染了命盘或解读内容';
+        const referrer = document.querySelector('meta[name="referrer"]')?.content;
+        if (referrer !== 'no-referrer') return '分享页缺少 no-referrer meta';
+        const robots = document.querySelector('meta[name="robots"]')?.content || '';
+        if (!/noindex/i.test(robots) || !/nofollow/i.test(robots)) return '分享页缺少 noindex/nofollow meta';
+        return true;
+      }
+      await wait(50);
+    }
+    const body = (document.querySelector('main')?.textContent || '').replace(/\\s+/g, ' ').slice(0, 120);
+    return '无效分享页没有进入统一失效状态；当前内容=' + body + '；请求=' + JSON.stringify(window.__net || []);
   })()`,
   'tarot-drawn': TAROT_DRAW_HOOK,
   'tarot-record': TAROT_RECORD_HOOK,
@@ -1893,9 +1958,17 @@ const STUB_BOOT = `(() => {
     mk('stub-failed', 'liuyao', '示例生成失败报告', 'FAILED')];
   const FIX = Object.fromEntries(LIST.map(r => [r.id, r]));
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
+  const SHARE_CHART = ${JSON.stringify(SHARE_CHART_FIXTURE)};
   const of = window.fetch;
   window.fetch = async (u, init) => {
     const url = String(u);
+    if (url.includes('/api/chart/share/')) {
+      const token = url.split('/api/chart/share/')[1].split(/[?#]/)[0];
+      if (token === 'visual-harness-valid-token') return J({ success: true, data: {
+        chartData: SHARE_CHART, analysisData: null, aiAnalysis: null, expiresAt: '2026-10-31T00:00:00.000Z',
+      } });
+      return J({ success: false, error: 'visual-harness stub: share unavailable' }, 404);
+    }
     // 户型识别：三态里两个后端落点都在这儿造。计数是这条规则的重点之一 ——
     // "5xx 不自动重试"光看源码断言不算数，真打一次才知道页面有没有自己循环。
     if (url.includes('/api/fengshui/recognize')) {
@@ -2870,6 +2943,7 @@ const TRUSTED = {
 //    网络层根本没有这一枪，拦不到不等于契约不合，只能 SKIP。
 const STUB_ONLY = new Set(['fengshui-recognize-fail', 'fengshui-recognize-candidates']);
 const LIVE_ONLY = new Set(['fengshui-recognize-wire']);
+const STUB_PAGE_ONLY = new Set(['share-chart-valid']);
 
 // 2026-10-21 细化裁定：只读与否**按动作分，不按整页分**；而"挂载到底写不写"必须是网络观测的结果，
 // 不是"我读了代码觉得没写"—— 那正是这类假绿的老路。两本账都在 measure() 里：
@@ -3575,6 +3649,7 @@ const keep = (tag, url) => !ONLY.length || ONLY.some(o => tag.includes(o) || url
 const pages = [];
 for (const [tag, url] of STATIC_PAGES) {
   if (!keep(tag, url)) continue;
+  if (STUB_PAGE_ONLY.has(tag) && !STUB) { console.log(`\nSKIP ${tag}: 需要合成分享盘，只在 --stub 下运行`); continue; }
   // 契约态要的是浏览器真的把那一枪发出去。--stub 下 window.fetch 被桩换掉了，
   // 网络层根本没有这一发，拦不到不等于契约不合 —— 那种红会把人引向不存在的问题。
   if (LIVE_ONLY.has(tag) && STUB) { console.log(`\nSKIP ${tag}: 需要真实网络层，去掉 --stub 再跑（其余态仍可用 --stub）`); continue; }
