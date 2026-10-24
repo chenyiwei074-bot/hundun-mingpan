@@ -175,6 +175,8 @@ const STATIC_PAGES = [
   // 度数取整错一位，只有那一帧才看得见。空态也不是白跑：它钉的是"缺什么的清单已经在屏上"。
   ['astro', '/astro'],
   ['astro-computed', '/astro'],
+  // 已选出生地：真实选省/市，验证上升点与 12 宫头（数值由 astro acceptance 的 20 组夹具核）。
+  ['astro-angles', '/astro'],
   // 塔罗是本轮新增的独立路由。空态、真实抽满三张、移动端、键盘与减少动态效果都各留一态。
   ['tarot-idle', '/tarot'],
   ['tarot-drawn', '/tarot'],
@@ -374,7 +376,7 @@ const ASTRO_PINS = {
 
 /** /astro 两态的探针。钉的是"页面把引擎那十个数原样端上来了 + 缺什么都写在屏上"，
  *  数本身对不对由 tools/astro-acceptance 与 JPL 对拍（两边不互相顶，也不重复钉）。 */
-function astroProbe(computed) {
+function astroProbe(computed, withAngles = false) {
   const utcFlat = ('世界时' + ASTRO_PINS.utc).replace(/\s+/g, '');
   const rows = JSON.stringify(ASTRO_PINS.rows);
   return `(() => {
@@ -412,6 +414,16 @@ function astroProbe(computed) {
     if (flat.indexOf('太阳摩羯座10°22′') < 0) miss.push('抬头那行没有"太阳 摩羯座 10°22′"');
     if (flat.indexOf('月亮天蝎座13°19′') < 0) miss.push('抬头那行没有"月亮 天蝎座 13°19′"');
     if (flat.indexOf('失败') >= 0) miss.push('算成功的一屏上却挂着失败条');
+    if (${withAngles}) {
+      const card = document.querySelector('[data-astro-angles="ok"]');
+      if (!card) miss.push('选了出生地却没出现上升/整宫卡（data-astro-angles=ok）');
+      else {
+        const asc = (document.querySelector('[data-astro-ascendant]')?.innerText || '').replace(/\s+/g, '');
+        if (!/上升点.*座.*°/.test(asc)) miss.push('上升点文字不在屏上：' + asc);
+        const cusps = card.querySelectorAll('table tbody tr');
+        if (cusps.length !== 12) miss.push('整宫制宫头表不是 12 行，实得 ' + cusps.length);
+      }
+    }
   } else {
     if (rows.length) miss.push('没按按钮就已经有表了：' + rows.length + ' 行');
     if (flat.indexOf('还没算') < 0) miss.push('空态没写"还没算"（预留那一格不能是空白）');
@@ -605,6 +617,33 @@ const AFTER = {
   // 受控控件必须走各自元素族的原生 setter + change/input —— 直接赋 .value 不触发 onChange，
   // 页面里的 state 还是空串，按钮仍然是灰的，后面那一枪真实点击打在 disabled 上什么也不会发生
   // （那种"没报错也没结果"的绿最骗人，批C 踩过同款）。
+  'astro-angles': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const setSelect = (sel, val) => {
+      const el = document.querySelector(sel);
+      if (!el) return false;
+      Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(el, val);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      return true;
+    };
+    if (!setSelect('#astro-province', '北京市')) return '省份下拉不在页面上';
+    await wait(120);
+    const city = document.querySelector('#astro-city');
+    const cityVal = city ? [...city.options].map(o => o.value).find(Boolean) : '';
+    if (!city || !cityVal) return '城市下拉没有可选项';
+    setSelect('#astro-city', cityVal);
+    await wait(120);
+    setSelect('#astro-zone', 'UTC');
+    for (const [id, val] of [['#astro-date', ${JSON.stringify(ASTRO_PINS.date)}], ['#astro-clock', ${JSON.stringify(ASTRO_PINS.clock)}]]) {
+      const inp = document.querySelector(id);
+      if (!inp) return id + ' 不在页面上';
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(inp, val);
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await wait(150);
+    const btn = [...document.querySelectorAll('button')].find(x => /算行星位置/.test(x.textContent || ''));
+    return btn && !btn.disabled ? true : '「算行星位置」按钮不在或仍是灰的';
+  })()`,
   'astro-computed': `(async () => {
     const wait = ms => new Promise(r => setTimeout(r, ms));
     const sel = document.querySelector('#astro-zone');
@@ -1269,7 +1308,7 @@ const THEME_STATES = {
   western: 'dark', 'western-ask': 'dark', 'western-example': 'dark', 'western-example-open': 'dark',
   // /astro 是西方工作页开出去的那一页：main 上挂着 data-mode="western"，所以它必须与
   // /western 同色。东方那套浅底令牌要是漏进这一页，深底上的浅字就是 AA 的红。
-  astro: 'dark', 'astro-computed': 'dark',
+  astro: 'dark', 'astro-computed': 'dark', 'astro-angles': 'dark',
   'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-record': 'dark', 'tarot-375': 'dark',
   'tarot-keyboard': 'dark', 'tarot-reduced-motion': 'dark',
   oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
@@ -2922,6 +2961,7 @@ const TRUSTED = {
   // 真人点它属于用户输入（500ms 内的位移不计分），脚本点它就把一次正常交互量成回归，
   // 所以这一态走真实事件（与户型、合盘那几态同一条理由）。
   'astro-computed': ['算行星位置'],
+  'astro-angles': ['算行星位置'],
   'fengshui-filled': ['样例 · 两室夹一厅', '#fp-confirm'],
   'fengshui-3d': ['样例 · 两室夹一厅', '#fp-confirm', '3D'],
   // 识别两态：勾同意与按"送给模型提候选"都会改版面，必须真实事件。顺序有意义 ——
@@ -3216,8 +3256,8 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': IME 门闩不成立 — ' + x);
     console.log(`    IME 组词中 ${got && got.during} 轮 · 组词后 ${got && got.after} 轮`);
   }
-  if (base === 'astro' || base === 'astro-computed') {
-    const got = await evl(astroProbe(base === 'astro-computed'));
+  if (base === 'astro' || base === 'astro-computed' || base === 'astro-angles') {
+    const got = await evl(astroProbe(base !== 'astro', base === 'astro-angles'));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
     if (!miss) fail.push(tag + ': 行星位置探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 本命行星位置不等于钉值 — ' + x);
