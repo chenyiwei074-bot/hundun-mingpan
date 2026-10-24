@@ -536,7 +536,7 @@ export default function LiuyaoCreatePage() {
               查看完整校验码
             </summary>
             <div style={{display:'grid',gap:8,marginTop:6}}>
-              <code data-commitment-hash={commit.seedHash} style={{display:'block',padding:10,borderRadius:8,
+              <code data-commitment-hash={commit.seedHash} style={{display:'block',padding:10,borderRadius:8,fontSize:13,lineHeight:1.6,
                 overflowWrap:'anywhere',color:'var(--color-accent-gold-on-ink)',background:'rgba(255,255,255,0.06)'}}>
                 {commit.seedHash}
               </code>
