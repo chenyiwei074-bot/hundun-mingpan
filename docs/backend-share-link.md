@@ -23,13 +23,9 @@
 
 - 无需 visitorId。
 - 返回只读展示字段：`chartData / analysisData / aiAnalysis / expiresAt`。
-- 白名单清洗：递归删除 `visitorId / birthInfo / birthPlace / currentPlace / errorMessage / posterHtml / posterUrl`；
+- 白名单清洗：递归删除 `visitorId / birthInfo / birthPlace / currentPlace / errorMessage`（历史 poster 字段也一并防御性删除）；
   姓名与 visitorId 在任何字符串里替换成 `（已隐藏）`。
 - 无效、撤回、过期、命盘已删、未完成 → **统一 404**。
-
-### GET `/api/chart/share/:token/poster`
-
-- 同一令牌校验；返回 `text/html` 海报；无海报或链接无效 → 404。
 
 ### DELETE `/api/chart/:id/share-links/:shareId`
 
@@ -44,7 +40,7 @@ push 会把它当多余列删除。建表用 `server/prisma/chart_shares.sql`（
 
 ## 所有者接口归属校验
 
-`GET /api/chart/status/:id`、`/chart/result/:id`、`/chart/poster/:id` 均要求 `x-visitor-id`：
+`GET /api/chart/status/:id`、`/chart/result/:id` 均要求 `x-visitor-id`：
 
 - 缺标识 401；
 - 不存在/非本人 404；
@@ -54,3 +50,9 @@ push 会把它当多余列删除。建表用 `server/prisma/chart_shares.sql`（
 
 读取时实时校验 `expiresAt` 与 `revokedAt`，不依赖定时任务；过期记录可后续加 cron 清理
 （不影响失效判断）。
+
+## 海报（已从本站下线，2026-10-24）
+
+- 本站没有面向用户的海报功能；`/api/chart/poster/:id` 与 `/api/chart/share/:token/poster` 已移除。
+- 海报是 bot 侧独立流程（使用 `/srv/chaos/tools/bazi-ziwei/` 自带的模板与 render 脚本），不经过本站接口。
+- 数据库里 123 份历史 `poster_html/poster_url` 已清空（备份库中仍会随备份保留期滚动消失）。

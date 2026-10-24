@@ -2,14 +2,13 @@
 import { createLiuYao } from '../controllers/liuyao.controller';
 import { recognize, getFloorPlanImage, deleteFloorPlanImage } from '../controllers/fengshui.controller';
 import { getClassicSources } from '../controllers/classics.controller';
-import { createShareLink, getSharedChart, getSharedPoster, revokeShareLink } from '../controllers/share.controller';
+import { createShareLink, getSharedChart, revokeShareLink } from '../controllers/share.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
 import {
   createChart,
   getChartStatus,
   getChartResult,
-  getPoster,
   getQuota,
   trackEvent,
   getStats,
@@ -27,12 +26,10 @@ router.get('/receipts/:recordHash', getReceiptStatus);
 
 router.post('/chart/:id/share-links', createShareLink);
 router.get('/chart/share/:token', getSharedChart);
-router.get('/chart/share/:token/poster', getSharedPoster);
 router.delete('/chart/:id/share-links/:shareId', revokeShareLink);
 router.post('/chart/create', createChart);
 router.get('/chart/status/:id', getChartStatus);
 router.get('/chart/result/:id', getChartResult);
-router.get('/chart/poster/:id', getPoster);
 router.get('/chart/quota', getQuota);
 router.post('/event', trackEvent);
 router.post('/liuyao/create', createLiuYao);

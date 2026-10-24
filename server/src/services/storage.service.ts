@@ -104,16 +104,6 @@ class StorageService {
     console.log('[Storage] Using provider:', providerName);
   }
 
-  /** 上传海报 HTML，返回公开 URL */
-  async uploadPoster(chartId: string, html: string): Promise<string> {
-    return this.provider.uploadFile('posters/' + chartId + '.html', html, 'text/html; charset=utf-8');
-  }
-
-  /** 获取海报 URL */
-  getPosterUrl(chartId: string): string {
-    return this.provider.getFileUrl('posters/' + chartId + '.html');
-  }
-
   /** 上传通用文件 */
   async upload(key: string, content: Buffer | string, contentType?: string): Promise<string> {
     return this.provider.uploadFile(key, content, contentType);

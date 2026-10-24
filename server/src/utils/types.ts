@@ -16,13 +16,3 @@ export const CreateChartSchema = z.object({
 
 export type CreateChartInput = z.infer<typeof CreateChartSchema>;
 
-export interface ChartResultData {
-  posterHtml: string;
-  posterUrl: string;
-  freeContent: {
-    bazi: Record<string, unknown>;
-    ziwei: Record<string, unknown>;
-    keywords: string[];
-  };
-  unlockDescription: Array<{ title: string; desc: string }>;
-}

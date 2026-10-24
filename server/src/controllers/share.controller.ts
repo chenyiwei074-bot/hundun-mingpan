@@ -69,24 +69,6 @@ export async function getSharedChart(req: Request, res: Response) {
   }
 }
 
-/** GET /api/chart/share/:token/poster —— 海报也必须用令牌校验。 */
-export async function getSharedPoster(req: Request, res: Response) {
-  try {
-    const token = String(req.params.token || '');
-    if (!isValidShareToken(token)) return notFound(res);
-    const share = await prisma.chartShare.findUnique({ where: { tokenHash: hashShareToken(token) } });
-    if (!share || !isShareActive(share)) return notFound(res);
-    const chart = await prisma.chart.findUnique({ where: { id: share.chartId } });
-    if (!chart?.posterHtml) return notFound(res);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'private, max-age=0, no-store');
-    return res.send(chart.posterHtml);
-  } catch (error) {
-    console.error('[chart/share] 海报失败:', error instanceof Error ? error.message : error);
-    return res.status(500).json({ success: false, error: '服务器错误' });
-  }
-}
-
 /** DELETE /api/chart/:id/share-links/:shareId —— 仅所有者可撤回，撤回后立即失效。 */
 export async function revokeShareLink(req: Request, res: Response) {
   try {
