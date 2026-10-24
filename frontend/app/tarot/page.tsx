@@ -459,8 +459,8 @@ export default function TarotPage() {
         <summary>牌组历史与资料依据</summary>
         <p>牌面构图保留易识别的传统象征线索，以原创矢量绘制；牌义摘要按牌位方向对应原文段落意译，并保留 Waite 原书中相互矛盾或另有异说的部分。引文仅作历史文化参照，不将占卜结论当作科学证据。</p>
         <ul>
-          <li><a href="https://en.wikisource.org/wiki/The_Pictorial_Key_to_the_Tarot/Part_3" target="_blank" rel="noreferrer">A. E. Waite，《The Pictorial Key to the Tarot》（1910），Part III：Divinatory Meanings</a></li>
-          <li><a href="https://www.vam.ac.uk/articles/tarot-cards" target="_blank" rel="noreferrer">Victoria and Albert Museum：A history of tarot cards</a></li>
+          <li><a href="https://en.wikisource.org/wiki/The_Pictorial_Key_to_the_Tarot/Part_3" target="_blank" rel="noreferrer" className="qn-link" style={{ display: 'flex', alignItems: 'center', minHeight: 44, maxWidth: '100%', lineHeight: 1.5, overflowWrap: 'anywhere' }}>A. E. Waite，《The Pictorial Key to the Tarot》（1910），Part III：Divinatory Meanings</a></li>
+          <li><a href="https://www.vam.ac.uk/articles/tarot-cards" target="_blank" rel="noreferrer" className="qn-link" style={{ display: 'flex', alignItems: 'center', minHeight: 44, maxWidth: '100%', lineHeight: 1.5, overflowWrap: 'anywhere' }}>Victoria and Albert Museum：A history of tarot cards</a></li>
         </ul>
       </details>
     </main>

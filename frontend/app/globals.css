@@ -460,6 +460,8 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   padding: 28px 24px 32px;
   text-align: center;
 }
+/* 分享内容异步到达前，保留页脚占位但暂时隐藏；长报告替换加载卡时不会把可见页脚推走。 */
+body:has(main[data-share-loading="true"]) > footer.qn-footer { visibility: hidden; }
 .qn-footer__inner {
   display: flex;
   flex-direction: column;

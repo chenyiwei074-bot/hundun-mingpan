@@ -620,23 +620,23 @@ export default function FloorPlanStudio() {
                 <span className="qn-meta" id={`fp-opening-tag-${o.id}`} style={{ minWidth: 28, fontVariantNumeric: 'tabular-nums' }}>
                   {tagOf(tags, o)}
                 </span>
-                <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
+                <button type="button" className="qn-chip" style={{ minHeight: 48, minWidth: 48, borderRadius: 0 }}
                   onClick={() => setGeom(g => toggleOpeningKind(g, o.id))}
                   title="点一下换成另一种：宽度会按新类型重新夹">
                   {o.类型}
                 </button>
-                <button type="button" className="qn-chip" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
+                <button type="button" className="qn-chip" style={{ minHeight: 48, minWidth: 48, borderRadius: 0 }}
                   onClick={() => setGeom(g => setOpeningConfirmed(g, o.id, !o.已确认))}>
                   {o.已确认 ? '已确认' : '未确认'}
                 </button>
                 <span className="qn-meta">{墙名(o.墙)} · 宽 {Math.round(o.宽 * 100) / 100}m · 位置 {Math.round(o.位 * 100)}% · {o.置信度 == null ? '手工标注' : confidenceText(o.置信度).文本}</span>
-                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 48, minWidth: 48, borderRadius: 0, padding: '0 8px' }}
                   onClick={() => setGeom(g => shiftOpening(g, o.id, -1))} aria-label={`把 ${o.类型} 沿墙往一头挪`}>◀</button>
-                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 48, minWidth: 48, borderRadius: 0, padding: '0 8px' }}
                   onClick={() => setGeom(g => shiftOpening(g, o.id, 1))} aria-label={`把 ${o.类型} 沿墙往另一头挪`}>▶</button>
-                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 48, minWidth: 48, borderRadius: 0, padding: '0 8px' }}
                   onClick={() => setGeom(g => resizeOpening(g, o.id, -1))} aria-label={`${o.类型} 变窄`}>窄</button>
-                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
+                <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 48, minWidth: 48, borderRadius: 0, padding: '0 8px' }}
                   onClick={() => setGeom(g => resizeOpening(g, o.id, 1))} aria-label={`${o.类型} 变宽`}>宽</button>
                 <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 48, minWidth: 48, marginLeft: 'auto' }}
                   onClick={() => setGeom(g => deleteOpening(g, o.id))}>删</button>
