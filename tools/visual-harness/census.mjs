@@ -3601,7 +3601,7 @@ const fsEditProbe = p => `(() => {
       const txt = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-meta, p.qn-note')]
         .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
       return { state: st ? st.getAttribute('data-recognize-state') : null,
-        calls: window.__recCalls || null, hasNotRetry: /暂时不可用|请稍后重试|手工绘制/.test(txt),
+        calls: window.__recCalls || null, hasNotRetry: /暂时不可用|重试|手工绘制|无法读取这张图片/.test(txt),
         hasHonest: /不装作成功/.test(txt), hasNoGeom: /还没有几何|手工画/.test(txt) };
     })()`);
     if (!ui || typeof ui.state !== 'string') miss.push('识别状态那一行读不到（#fp-recognize-state）');
