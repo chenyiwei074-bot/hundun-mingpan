@@ -66,16 +66,16 @@ const ok = (id: string, cond: boolean, detail: string) => {
   // 占星与塔罗各自实现了可核对的部分链路。不要强行要求两种独立体系共享一个引擎戳：
   // 占星戳由天文引擎验，塔罗抽取由其自身的种子复算测试验。
   const open = WESTERN_TOOLS.filter(t => t.status !== '未开放');
-  ok('west/open-items-have-scoped-evidence', open.length === 2 && open.every(t => t.status === '部分可用'
-    && !!t.href && (t.done?.length ?? 0) > 0 && (t.notDone?.length ?? 0) > 0),
-    `只开放已有真实部分链路且清楚列出已做/未做的条目；占星与塔罗共 ${open.length} 项：${open.map(t => t.slug).join('、') || '无开放项'}`);
+  ok('west/open-items-have-scoped-evidence', open.length === 5 && open.every(t => !!t.href
+    && (t.status !== '部分可用' || ((t.done?.length ?? 0) > 0 && (t.notDone?.length ?? 0) > 0))),
+    `五个开放条目都有入口；标「部分可用」的逐项写明已做/未做：${open.map(t => t.slug).join('、') || '无开放项'}`);
   const astroLive = open.find(t => t.slug === 'astro-natal');
   const tarotLive = open.find(t => t.slug === 'tarot-draw');
   ok('west/astro-open-item-states-public-basis', !!astroLive && /地心观察/.test(astroLive.basis)
     && /回归黄道/.test(astroLive.basis) && !/astro-planets-v1|astro-moment-iana-v1|astronomy-engine|DE441/.test(astroLive.basis),
     '本命行星项说明采用的观察体系，不显示内部版本号或实现库');
   ok('west/tarot-open-item-stays-honest', !!tarotLive && tarotLive.href === '/tarot'
-    && /正位与逆位/.test(tarotLive.method) && /韦特 1910/.test(tarotLive.reading)
+    && /正位与逆位/.test(tarotLive.method) && /韦特 1910/.test([tarotLive.reading, ...(tarotLive.done || [])].join(' '))
     && /跨传统牌义比较/.test(tarotLive.notDone?.join(' ') || ''),
     `塔罗目录指向真实抽牌页面，标明正逆位、逐牌历史译述，并如实列出尚未完成的跨传统比较：${tarotLive?.href || '无入口'}`);
   const openStamps = [...new Set(open.flatMap(t => (t.basis || '').match(/[a-z]+(?:-[a-z]+)+-v\d+/g) || []))];

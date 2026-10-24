@@ -25,7 +25,7 @@ const COPY: Record<Mode, { eyebrow: string; title: string; lead: string }> = {
   western: {
     eyebrow: '西方神秘学',
     title: '西方神秘学',
-    lead: '从本命行星位置与塔罗三张牌开始，查看星象数据或抽取过去、现在与未来。',
+    lead: '本命行星、跨盘相位、塔罗三张牌、月相与数字取数，都可从下方直接进入。',
   },
 };
 

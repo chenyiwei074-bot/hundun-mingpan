@@ -23,6 +23,9 @@ import { askRoute } from '../../frontend/lib/assistant/route-client';
 import type { ToolEntry } from '../../frontend/lib/tools/catalog';
 
 const ROOT = join(__dirname, '../..');
+// 当目录所有工具都开放后，用合成的关闭条目继续验证入口白名单，避免把产品倒退。
+const asClosed = (tool: ToolEntry): ToolEntry => ({ ...tool, status: '未开放', href: undefined,
+  note: '暂未开放：等待口径核验。' });
 
 const arg = (name: string) => {
   const hit = process.argv.find(a => a.startsWith('--' + name + '='));
@@ -125,14 +128,16 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
   const forged = reconcile(base({ toolSlug: '../../../../etc/passwd', available: true }), 'oriental', CATALOGS.oriental);
   ok('gate/forged-slug-rejected', forged.toolSlug === null && !forged.available && forged.needsClarification,
     `伪造 slug 一律抹掉并转追问：实得 ${JSON.stringify(forged.toolSlug)}`);
-  const closed = reconcile(base({ toolSlug: 'xingming', available: true }), 'oriental', CATALOGS.oriental);
+  const closed = reconcile(base({ toolSlug: 'xingming', available: true }), 'oriental',
+    CATALOGS.oriental.map(t => t.slug === 'xingming' ? asClosed(t) : t));
   ok('gate/closed-slug-rejected', closed.toolSlug === null && !closed.available,
-    '目录里存在但未开放的 slug 也不许给入口（xingming「姓名合盘（五格剖象）」在表里，但今天没有门）');
+    '目录条目若被设为未开放，即使服务端说可用也不能给入口');
   // 上面那条只钉"不给入口"。harness 的 western-ask 那一态抓到过更细的一种假：
   // 入口是没了，可回答里还留着"进入「西洋占星」还要补：日期、时辰、地点" —— 半开的门。
-  // 用仍未开放的月相项检验半开门约束，塔罗抽牌已开放为部分可用。
+  // 用合成的未开放月相项检验半开门约束，产品目录里的月相仍然可用。
+  const closedWestern = CATALOGS.western.map(t => t.slug === 'lunar-phase' ? asClosed(t) : t);
   const halfOpen = reconcile(
-    routeLocal('western', '下个满月是什么时候', CATALOGS.western, OTHER.western), 'western', CATALOGS.western);
+    routeLocal('western', '下个满月是什么时候', closedWestern, OTHER.western), 'western', closedWestern);
   ok('gate/no-half-open-door', halfOpen.toolSlug === null && halfOpen.missingFields.length === 0
     && !(halfOpen.clarification || '').includes('还要补') && (halfOpen.clarification || '').includes('还没开放'),
     `未开放工具被抹掉时，"还要补什么"必须一起抹掉：${JSON.stringify(halfOpen.clarification)}`);
@@ -176,11 +181,11 @@ async function sectionFallbacks() {
   ok('fallback/server-result-used', srv.source === 'server' && srv.result.toolSlug === 'liuyao' && srv.degraded === null,
     '服务端正常返回（并且自己说这是它算的）时用的是它的结果（不是本机那份）');
 
-  const srvForged = await run(async () => json({ mode: 'oriental', toolSlug: 'xingming', confidence: 0.99,
+  const srvForged = await run(async () => json({ mode: 'oriental', toolSlug: 'fabricated-tool', confidence: 0.99,
     needsClarification: false, clarification: null, missingFields: [], available: true, source: 'server', degraded: null }), 'oriental', '想摇一卦');
   ok('fallback/server-still-reconciled', srvForged.source === 'server' && srvForged.result.toolSlug === null
     && !srvForged.result.available,
-    '服务端说"未开放的 xingming 可用"也不作数：白名单核对对本机与服务端两条路一视同仁');
+    '服务端捏造不存在的工具也不作数：白名单核对对本机与服务端两条路一视同仁');
 
   // 服务端自己回落本机目录时，页面不许把它说成"模型/服务端算的"。这就是生产今天的实际形状。
   const srvLocal = await run(async () => json({ data: { protocol: ASSISTANT_PROTOCOL, mode: 'western', toolSlug: null,
@@ -347,10 +352,10 @@ async function sectionServer() {
     prompt.includes('未开放') && prompt.includes('askable'),
     '未开放的工具也进白名单，但标成 askable=false —— 让模型知道"有这个东西但今天不能推"');
 
-  const forged = S.acceptModelResult('oriental', { mode: 'oriental', toolSlug: 'xingming', confidence: 0.99,
+  const forged = S.acceptModelResult('oriental', { mode: 'oriental', toolSlug: 'fabricated-tool', confidence: 0.99,
     needsClarification: false, clarification: null, missingFields: [], available: true, href: 'https://evil/x' });
   ok('srv/model-forged-slug-dropped', !!forged && forged.toolSlug === null && !forged.available
-    && !('href' in forged), `模型说"未开放的 xingming 可用"也不作数：${JSON.stringify(forged && forged.toolSlug)}`);
+    && !('href' in forged), `模型编造不存在的工具及站外链接也不作数：${JSON.stringify(forged && forged.toolSlug)}`);
   const cross = S.acceptModelResult('oriental', { mode: 'oriental', toolSlug: 'tarot-draw', confidence: 0.9,
     needsClarification: false, clarification: null, missingFields: [], available: true });
   ok('srv/model-cross-mode-dropped', !!cross && cross.toolSlug === null,
@@ -389,7 +394,10 @@ async function sectionServer() {
 
 // ── 7. 批B：四种落点、降级理由上屏、IME 门闩、needs 只有一个出处 ──
 {
-  const CAT: Record<Mode, ToolEntry[]> = { oriental: CATALOGS.oriental, western: CATALOGS.western };
+  const CAT: Record<Mode, ToolEntry[]> = {
+    oriental: CATALOGS.oriental.map(t => t.slug === 'xingming' ? asClosed(t) : t),
+    western: CATALOGS.western.map(t => t.slug === 'lunar-phase' ? asClosed(t) : t),
+  };
   // 7.1 并列候选必须过同一道白名单：模型/本机给的 slug 一个都不许直接变成 chip。
   const tie = reconcile({
     mode: 'oriental', toolSlug: null, confidence: 0.5, needsClarification: true,

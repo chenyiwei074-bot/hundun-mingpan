@@ -40,17 +40,17 @@ export const TROPICAL_SIGNS_BASIS: BasisTriple = {
   ],
 };
 
-/** 相位几何：给"相位"这项未做功能的口径预置出处，并把 orb 的来历钉死在近代那一档。
- *  注意本页此时还没算相位 —— 这块挂在「未做」清单之后，读的人看得见它说的是缺的那一样。 */
+/** 相位几何：角度由古典段落支持；容许度是本站公开的现代实现选择。 */
 export const ASPECT_GEOMETRY_BASIS: BasisTriple = {
   底本: 'docs/classics/western/tetrabiblos.txt',
   底本段: 'i-xvi-mutual-configurations',
   版本: 'Project Gutenberg #70850 · J. M. Ashmand 英译 · 原出版 W. Foulsham & Co. 1900',
   位置: '该版 Book I 第十六章「MUTUAL CONFIGURATIONS OF THE SIGNS」（≈ 今本 I.13，编号按本版记）',
   原文: 'This mutual configuration attaches to all parts diametrically distant from each other, containing between them two right angles, or six signs, or a hundred and eighty degrees: it also exists in all parts at the triangular distance from each other, containing between them one right angle and a third, or four signs, or a hundred and twenty degrees; also, in all parts at the quadrate distance from each other, containing between them exactly one right angle, or three signs, or ninety degrees; and, also, in all parts at the hexagonal distance from each other, containing between them two-thirds of a right angle, or two signs, or sixty degrees.',
-  白话: '这段给的是相位按角度的定义：对宫 180°、三分相 120°、四分相 90°、六分相 60°（外加不合相）。本站相位表打算用的正是这四个角度加合相 0°。',
+  白话: '这段给的是相位按角度的定义：对宫 180°、三分相 120°、四分相 90°、六分相 60°。本站相位表采用这四个角度加合相 0°。',
   口径: [
-    { 说法: '相位角度 0° / 60° / 90° / 120° / 180°', 属于: '古籍原文' },
+    { 说法: '相位角度 60° / 90° / 120° / 180°', 属于: '古籍原文' },
+    { 说法: '合相 0° 纳入本站五类主要相位', 属于: '本站实现选择' },
     { 说法: '容许度 orb（日月 ±8°、其余 ±6°、冲合 ±8°）', 属于: '无古籍出处 · 近代约定' },
     { 说法: 'Placidus 分宫、synastry 合盘', 属于: '无古籍出处 · 近代约定' },
   ],

@@ -155,6 +155,14 @@ const STATIC_PAGES = [
   ['western', '/western'],
   // 关系中心：桌面与窄屏都检查页面真实渲染和两条可用入口。
   ['hepan', '/hepan'],
+  ['name-compat', '/name-compat'],
+  ['name-compat-computed', '/name-compat'],
+  ['synastry', '/synastry'],
+  ['synastry-computed', '/synastry'],
+  ['moon', '/moon'],
+  ['moon-computed', '/moon'],
+  ['numerology', '/numerology'],
+  ['numerology-computed', '/numerology'],
   // 成功态使用合成盘且只在 --stub 下运行，防止把固定测试 token 请求到真实服务。
   ['share-chart-valid', '/share/chart/visual-harness-valid-token'],
   // 限时命盘分享：用虚构无效 token 检查统一失效页与隐私边界，不读取真实分享数据。
@@ -543,6 +551,63 @@ const TAROT_RECORD_HOOK = `(async () => {
 })()`;
 
 const AFTER = {
+  'name-compat': `(() => document.querySelectorAll('main input').length >= 6 || '姓名五格缺少双方逐字笔画输入')()`,
+  'name-compat-computed': `(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const pause = () => new Promise(r => setTimeout(r, 60));
+    for (const [id, value] of [['first-surname','7'],['first-given','6, 5'],['second-surname','8'],['second-given','6']]) {
+      const el = document.getElementById(id); if (!el) return '缺输入框 ' + id;
+      set.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+    }
+    const button = [...document.querySelectorAll('button')].find(x => /计算五格对照/.test(x.textContent || ''));
+    if (!button) return '缺少计算按钮'; button.click(); await pause();
+    const main = document.querySelector('main');
+    return main?.textContent?.includes('两份五格并排看') && main?.textContent?.includes('展开双方取数式')
+      || '五格结果与复核算式未出现';
+  })()`,
+  'synastry': `(() => document.querySelectorAll('main input[type="date"]').length === 2
+    && document.querySelectorAll('main input[type="time"]').length === 2 || '跨盘相位缺双方出生时刻输入')()`,
+  'synastry-computed': `(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const pause = () => new Promise(r => setTimeout(r, 60));
+    for (const [id, value] of [['synastry-first-date','1990-01-01'],['synastry-first-clock','12:00'],
+      ['synastry-second-date','1991-02-03'],['synastry-second-clock','09:30']]) {
+      const el = document.getElementById(id); if (!el) return '缺输入框 ' + id;
+      set.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true })); await pause();
+    }
+    const button = [...document.querySelectorAll('button')].find(x => /计算跨盘相位/.test(x.textContent || ''));
+    if (!button || button.disabled) return '跨盘相位计算按钮未就绪'; button.click(); await pause();
+    const main = document.querySelector('main');
+    return main?.textContent?.includes('两张行星环') && main?.textContent?.includes('跨盘主要相位')
+      || '跨盘双环或主要相位未出现';
+  })()`,
+  'moon': `(() => document.querySelector('main button')?.textContent?.includes('查看所选时刻')
+    || '月相页缺计算入口')()`,
+  'moon-computed': `(async () => {
+    const button = [...document.querySelectorAll('button')].find(x => /查看此刻/.test(x.textContent || ''));
+    if (!button) return '缺少查看此刻按钮'; button.click();
+    await new Promise(r => setTimeout(r, 100));
+    const main = document.querySelector('main');
+    return main?.textContent?.includes('下一次朔') && main?.textContent?.includes('下一次望')
+      || '月相朔望结果未出现';
+  })()`,
+  'numerology': `(() => !!(document.querySelector('main input[type="date"]')
+    && document.querySelector('main input[type="text"]')) || '数字命理缺生日或拉丁拼写输入')()`,
+  'numerology-computed': `(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+    const fields = [['date','2009-11-22'],['text','ADA']];
+    for (const [type, value] of fields) {
+      const el = document.querySelector('main input[type="' + type + '"]'); if (!el) return '缺输入框 ' + type;
+      set.call(el, value); el.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 60));
+    }
+    const button = [...document.querySelectorAll('button')].find(x => /计算并展开步骤/.test(x.textContent || ''));
+    if (!button || button.disabled) return '数字命理计算按钮未就绪'; button.click();
+    await new Promise(r => setTimeout(r, 60));
+    const main = document.querySelector('main');
+    return main?.textContent?.includes('日期怎样算') && main?.textContent?.includes('姓名怎样算')
+      || '数字命理计算过程未出现';
+  })()`,
   'hepan': `(() => {
     const main = document.querySelector('main');
     if (!main) return '关系中心没有主内容区';
@@ -1309,9 +1374,12 @@ const THEME_STATES = {
   // /astro 是西方工作页开出去的那一页：main 上挂着 data-mode="western"，所以它必须与
   // /western 同色。东方那套浅底令牌要是漏进这一页，深底上的浅字就是 AA 的红。
   astro: 'dark', 'astro-computed': 'dark', 'astro-angles': 'dark',
+  synastry: 'dark', 'synastry-computed': 'dark', moon: 'dark', 'moon-computed': 'dark',
+  numerology: 'dark', 'numerology-computed': 'dark',
   'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-record': 'dark', 'tarot-375': 'dark',
   'tarot-keyboard': 'dark', 'tarot-reduced-motion': 'dark',
   oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
+  hepan: 'light', 'name-compat': 'light', 'name-compat-computed': 'light',
   'admin-dashboard': 'light', fengshui: 'light', home: 'gate',
   // 答完之后那一帧也必须还是那个主题：答案卡里塞一块浅底，就是"两套体系混在一页"的开始。
   'oriental-ask': 'light', 'oriental-choices': 'light', 'oriental-chosen': 'light', 'oriental-ime': 'light',
