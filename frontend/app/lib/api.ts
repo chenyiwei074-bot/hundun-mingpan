@@ -92,3 +92,20 @@ export async function trackEvent(event_name: string, visitor_id: string, chart_i
 
 
 
+
+export type ChinaGeoLookup = { lng: number; lat: number; tz: string; src: 'city' | 'county' | 'province' };
+
+/** 后端地点/时区接口。失败时返回 null，调用方回退到本地数据，不阻塞页面。 */
+export async function lookupChinaGeo(province: string, city?: string, district?: string): Promise<ChinaGeoLookup | null> {
+  const q = new URLSearchParams({ province });
+  if (city) q.set('city', city);
+  if (district) q.set('district', district);
+  try {
+    const res = await fetch(API_BASE + '/geo/lookup?' + q.toString());
+    const json = await res.json();
+    if (!res.ok || json?.success === false) return null;
+    const d = json?.data;
+    if (!d || !Number.isFinite(d.lng) || !Number.isFinite(d.lat) || typeof d.tz !== 'string') return null;
+    return { lng: d.lng, lat: d.lat, tz: d.tz, src: d.src };
+  } catch { return null; }
+}

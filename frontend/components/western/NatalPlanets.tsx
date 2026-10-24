@@ -4,11 +4,12 @@
 //
 // 计算全在这台设备上：日期/时间/时区只用来在本地算一个绝对时刻，不发请求、不落任何库。
 // 这也是这一项能做而"AI 报告"那类不能做的原因 —— 没有原文要保护。
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { computePlanets, ASTRO_CROSS_CHECK, PLANETS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
 import { computeAngles, angleText, ANGLE_CROSS_CHECK, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
 import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { provinces } from '@/app/lib/region-data';
+import { lookupChinaGeo } from '@/app/lib/api';
 import { REGION_TZ } from '@/app/lib/true-solar/city-geo';
 import { lookupGeo, type GeoLookup } from '@/app/lib/true-solar/birth-wiring';
 import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS } from '@/lib/astro/classics';
@@ -62,7 +63,19 @@ export default function NatalPlanets() {
 
   const selectedProvince = provinces.find(item => item.name === province);
   const cityOptions = selectedProvince?.cities ?? [];
-  const placeGeo = province ? lookupGeo(city ? { province, city } : { province }) : null;
+  const localGeo = province ? lookupGeo(city ? { province, city } : { province }) : null;
+  const [serverGeo, setServerGeo] = useState<GeoLookup | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!province) { setServerGeo(null); return () => { alive = false; }; }
+    lookupChinaGeo(province, city || undefined).then(g => {
+      if (!alive) return;
+      setServerGeo(g ? { ...g } : null);
+    });
+    return () => { alive = false; };
+  }, [province, city]);
+  // 后端坐标优先；接口不可用时回退到本地已核对的 382 城数据，不阻塞本页。
+  const placeGeo = serverGeo ?? localGeo;
 
   const 结果 = useMemo<Outcome | null>(() => {
     if (!已算) return null;
