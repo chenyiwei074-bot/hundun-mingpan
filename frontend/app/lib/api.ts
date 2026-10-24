@@ -116,7 +116,7 @@ export type TarotReadingCard = {
   orientation: '正位' | '逆位'; text: string; source: string; sourceIds: string[];
 };
 export type TarotReadingResponse = {
-  readingId: string; mode: 'rules-only'; aiReady: false; model: 'hundun-tarot-rules-v1';
+  readingId: string; mode: 'ai' | 'rules-only' | 'rules-fallback'; aiReady: boolean; model: string;
   createdAt: string; cards: TarotReadingCard[]; summary: string; notes: string[];
 };
 export async function createTarotReading(input: {

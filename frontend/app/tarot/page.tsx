@@ -7,6 +7,7 @@ import { drawThree, THREE_CARD_POSITIONS } from '@/lib/tarot/deck';
 import type { TarotCard, TarotDraw, TarotOrientation, TarotPosition } from '@/lib/tarot/deck';
 import { TarotIllustration } from '@/components/tarot/TarotIllustration';
 import { TAROT_MEANINGS } from '@/lib/tarot/meanings';
+import { createTarotReading, type TarotReadingResponse } from '@/app/lib/api';
 import { getDeckTilt } from '@/lib/tarot/interaction';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
@@ -130,6 +131,9 @@ export default function TarotPage() {
   } | null>(null);
   const [notice, setNotice] = useState('洗牌后生成抽牌校验码；三张牌只在本机抽取。');
   const [announcement, setAnnouncement] = useState('三张牌位已准备好。');
+  const [aiReading, setAiReading] = useState<TarotReadingResponse | null>(null);
+  const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [aiError, setAiError] = useState('');
   const timers = useRef<number[]>([]);
   const stageRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLButtonElement>(null);
@@ -163,6 +167,9 @@ export default function TarotPage() {
       setSelectedIndex(null);
       setVisibleCount(0);
       setFlight(null);
+      setAiReading(null);
+      setAiState('idle');
+      setAiError('');
       setDrawState('shuffled');
       setNotice('抽牌校验码已生成并固定；三张牌揭晓后会公开用于复核的随机值。');
       setAnnouncement('洗牌完成，抽牌校验码已公布。现在可以抽出三张牌。');
@@ -247,8 +254,30 @@ export default function TarotPage() {
     setSelectedIndex(null);
     setVisibleCount(0);
     setFlight(null);
+    setAiReading(null);
+    setAiState('idle');
+    setAiError('');
     setNotice('洗牌后生成抽牌校验码；三张牌只在本机抽取。');
     setAnnouncement('已重置。三张牌位已准备好。');
+  };
+
+  const generateAiReading = async () => {
+    if (drawnCards.length !== 3 || aiState === 'loading') return;
+    setAiState('loading');
+    setAiError('');
+    try {
+      const next = await createTarotReading({
+        question: drawQuestion || undefined,
+        spread: 'three-card',
+        cards: drawnCards.map(({ card, position, orientation }) => ({ cardId: card.id, position, orientation })),
+      });
+      setAiReading(next);
+      setAiState('idle');
+      setAnnouncement(next.aiReady ? '混沌自研 AI 综合解读已生成。' : '综合 AI 暂不可用，已回退逐牌牌义。');
+    } catch {
+      setAiState('error');
+      setAiError('综合 AI 解读暂时不可用，请稍后再试；逐牌牌义仍可查看。');
+    }
   };
 
   const primaryAction = async () => {
@@ -470,6 +499,44 @@ export default function TarotPage() {
                 );
               })}
             </ol>
+
+            <div className="tarot-ai-reading" data-tarot-ai-mode={aiReading?.mode ?? 'none'} data-ai-ready={aiReading?.aiReady ? 'true' : 'false'}>
+              <button type="button" className="qn-btn qn-btn--solid" style={{ minHeight: 44 }}
+                onClick={() => void generateAiReading()} disabled={aiState === 'loading'}
+                aria-describedby="tarot-ai-boundary">
+                {aiState === 'loading' ? 'AI 综合解读生成中…' : aiReading ? '重新生成 AI 综合解读' : '生成 AI 综合解读'}
+              </button>
+              {aiError && <p className="qn-alert" role="alert">{aiError}</p>}
+              {aiReading && (
+                <section aria-labelledby="tarot-ai-title" style={{ marginTop: 12 }}>
+                  <p className="qn-cap" style={{ margin: 0 }}>
+                    {aiReading.mode === 'ai' && aiReading.aiReady ? '混沌自研 AI 综合解读' : '规则回退 · AI 未接入'}
+                  </p>
+                  {aiReading.mode === 'ai' && aiReading.aiReady ? (
+                    <>
+                      <p id="tarot-ai-title" className="qn-note" style={{ margin: '8px 0 0' }}>{aiReading.summary}</p>
+                      <ul className="qn-meta" style={{ margin: '10px 0 0', paddingLeft: '1.2em' }}>
+                        {aiReading.cards.map(c => (
+                          <li key={c.cardId} style={{ marginTop: 8 }}>
+                            <strong>{c.position}「{c.nameZh}」{c.orientation}</strong>：{c.text}
+                            <span className="qn-cap" style={{ display: 'block', marginTop: 2 }}>
+                              牌义出处：{c.source}；AI 文本不等于牌面事实，出处未核验时标本站自研。
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : (
+                    <p id="tarot-ai-title" className="qn-note" style={{ margin: '8px 0 0' }}>
+                      {aiReading.notes[0] || 'AI 未参与本轮解读，当前仅显示已登记牌义。'}
+                    </p>
+                  )}
+                  <p id="tarot-ai-boundary" className="qn-cap" style={{ margin: '8px 0 0' }}>
+                    {aiReading.notes.join(' ')}
+                  </p>
+                </section>
+              )}
+            </div>
           </>
         ) : (
           <>
