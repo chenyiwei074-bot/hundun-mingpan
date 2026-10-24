@@ -801,7 +801,7 @@ export default function OrientalBody() {
         }
         .hp .text-link {
           display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
-          min-height: 44px; padding: 0 0.4rem; margin: -0.5rem 0;
+          min-height: 44px; padding: 0 0.4rem; margin: 0;
           font-size: var(--qn-fs-meta); font-weight: 600; letter-spacing: 0.06em;
           color: var(--color-accent-gold-text);
           transition: transform 400ms cubic-bezier(0.16,1,0.3,1);
