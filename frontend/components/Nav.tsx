@@ -3,30 +3,27 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// 导航 ≤5 项（裁定 ①）。梅花/星宿/黄历不再各占一格：它们由「百宝箱」这一格统一带进去，
-// 首屏的四类意图入口也指向同一份 lib/tools/catalog，不靠导航位数硬撑。
+// 全局导航提供东方、西方、全部工具和报告入口；具体功能由体系页与工具目录承接。
 const LINKS = [
-  { href: '/create', label: '八字 & 紫微', short: '命盘' },
-  { href: '/liuyao', label: '六爻', short: '六爻' },
-  { href: '/tools', label: '玄学百宝箱', short: '百宝' },
-  // narrow 变体在 375px 放五个词，「我的报告」四字会折行（实测把「命盘」一起挤成两行），
-  // 窄屏只留两字，宽屏仍写全称。
+  { href: '/oriental', label: '东方术数', short: '东方' },
+  { href: '/western', label: '西方神秘学', short: '西方' },
+  { href: '/tools', label: '全部工具', short: '工具' },
+  // 窄屏只显示短标签，宽屏显示完整名称。
   { href: '/dashboard', label: '我的报告', short: '报告' },
 ];
 
 // 两页工作页的导航只回答三件事：这是哪一系、怎么换一系、我的报告在哪。
-// 「当前位置」是纯文字不是链接 —— 它已经在那儿了，做成可点的就是一个点了没反应的按钮，
-// 而 census 会把每一个 <a> 当命中区去量。命盘/六爻/百宝那三格在工作页上不出现：
-// 那一页自己的意图入口与工具卡就是把人交出去的地方，导航再列一遍就是两个竞争的路径源。
+// 当前体系以文字标出，另提供返回体系选择与报告的入口。
 const WORK_HERE: Record<string, { label: string; short: string }> = {
-  '/oriental': { label: '东方玄学', short: '东方' },
-  '/western': { label: '西方玄学', short: '西方' },
+  '/oriental': { label: '东方术数', short: '东方' },
+  '/western': { label: '西方神秘学', short: '西方' },
 };
 
 export default function Nav() {
   const pathname = usePathname();
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const belongsTo = (route: string) => pathname === route || pathname.startsWith(route + '/');
 
   const renderLinks = (field: 'label' | 'short') => LINKS.map(l => {
     const active = isActive(l.href);
@@ -42,7 +39,9 @@ export default function Nav() {
     );
   });
 
-  const here = WORK_HERE[pathname];
+  const isWestern = ['/western', '/astro', '/tarot'].some(belongsTo);
+  const isOriental = ['/oriental', '/create', '/bazi-chart', '/chart', '/liuyao', '/meihua', '/xiu', '/huangli', '/fengshui'].some(belongsTo);
+  const here = isWestern ? WORK_HERE['/western'] : isOriental ? WORK_HERE['/oriental'] : undefined;
   if (here) {
     const work = (field: 'label' | 'short') => (
       <>

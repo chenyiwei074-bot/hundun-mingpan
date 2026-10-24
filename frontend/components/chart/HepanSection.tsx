@@ -17,7 +17,6 @@ import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
 import { toCivilInput, leapMonthOfYear, lunarDayCount } from '@/app/lib/core/yiqi-core/lunar-input';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { analyzeHepan } from '@/lib/hepan/engine';
-import { HEPAN_BASIS } from '@/lib/hepan/types';
 import type { HepanReport } from '@/lib/hepan/types';
 import { clearPartner, isPersisted, loadPartner, savePartner } from '@/lib/hepan/local-store';
 import type { PartnerDraft } from '@/lib/hepan/local-store';
@@ -147,23 +146,21 @@ export default function HepanSection({ chartData }: Props) {
     const 真存 = isPersisted();
     set存成(真存);
     set提示(留存 && 真存
-      ? '已留在这台设备的 localStorage 里，7 天后自动作废；随时可清除。'
+      ? '已选择在这台设备保留，到期后失效；你也可以随时清除。'
       : 留存 && !真存
-        ? '这台设备没让存（无痕模式或存储被禁），现在只在本标签页里。'
-        : '只存在这个标签页的内存里，关掉标签页就没了。');
+        ? '当前浏览器不支持保留，这份资料只在本次打开期间使用。'
+        : '这份资料只在本次打开期间使用，关闭页面后即清除。');
   }
 
   return (
     <section className="qn-card" id="hepan" data-hepan="1">
       <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
         <p className="qn-cap" style={{ margin: 0 }}>合盘 · 两人对照</p>
-        <span className="qn-badge">自研 · 非还原</span>
-        <span className="qn-meta">口径 {HEPAN_BASIS}</span>
       </div>
 
       <p className="qn-note" style={{ marginTop: 8 }}>
-        这一节只把两张盘上读得到的事实并排，<strong>不出评分、不出匹配度、不说合适不合适</strong>；
-        也不引古籍 —— docs/classics 里没有合婚原文，原典之外不发明。
+        这一节并列两张盘中可核对的结构，<strong>不出评分、不出匹配度，也不替双方判断是否合适</strong>。
+        目前没有经过校核、可直接支持这套对照方式的具体原文，因此不把它包装成古籍断语。
       </p>
 
       {!draft && (
@@ -173,7 +170,7 @@ export default function HepanSection({ chartData }: Props) {
             <strong>对方生辰需要本人同意才能填</strong>，这是这一节的前提，不是提示语。
           </p>
           <p className="qn-meta" style={{ marginTop: 6 }}>
-            填了也不进报告、不进回执、不进台账、不上链；默认只活在这个标签页里。
+            对方资料只用于本次对照，不会加入你的命盘报告。默认在关闭页面后清除。
           </p>
           {/* 句中那个 17px 的「建盘」链接是 D1 那一类：它把一整句话变成命中区，四个角都点不中。
               要留入口就做成真控件 —— 单起一行、44×44、与正文不重叠。 */}
@@ -182,7 +179,7 @@ export default function HepanSection({ chartData }: Props) {
           </div>
           <button type="button" id="hp-open" className="qn-btn qn-btn--ghost" style={{ marginTop: 10, minHeight: 44 }}
             onClick={() => { setDraft({ 称呼: '', 性别: '女', year: '', month: '', day: '', hour: '12', minute: '00', isLunar: false, isLeapMonth: false, 省份: '北京', 城市: '北京', savedAt: 0 }); }}>
-            填对方生辰（本机计算）
+            填写对方生辰
           </button>
         </div>
       )}
@@ -242,17 +239,17 @@ export default function HepanSection({ chartData }: Props) {
           <label className="qn-note" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input type="checkbox" style={{ width: 44, height: 44, flex: '0 0 auto', margin: 0, display: 'grid', placeItems: 'center' }}
               checked={留存} onChange={e => set留存(e.target.checked)} />
-            <span>留在这台设备上（7 天后自动作废）。不勾就只在本标签页，关掉即失。</span>
+            <span>在这台设备保留 7 天。关闭选项时，资料只在本次打开期间使用。</span>
           </label>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button type="submit" className="qn-btn qn-btn--solid" style={{ minHeight: 44 }} disabled={!同意}>
               并排对照
             </button>
             <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
-              onClick={() => { clearPartner(); setDraft(null); set已存(false); set提示('已清除本机存的对方生辰。'); }}>清除</button>
+              onClick={() => { clearPartner(); setDraft(null); set已存(false); set提示('已清除已保留的资料。'); }}>清除</button>
           </div>
-          {!同意 && <p className="qn-meta">没勾「已获得对方同意」，这一节不会把生辰存到任何地方。</p>}
-          {已存 && <p className="qn-meta">{存成 ? '存在这台设备上（7 天自动作废）' : '只在本标签页内存里'}</p>}
+          {!同意 && <p className="qn-meta">请先确认已获得对方同意，再保存这份资料。</p>}
+          {已存 && <p className="qn-meta">{存成 ? '已在这台设备保留，7 天后失效。' : '当前只在本次打开期间使用。'}</p>}
         </form>
       )}
 

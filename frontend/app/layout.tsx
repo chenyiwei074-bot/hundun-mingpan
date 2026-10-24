@@ -5,8 +5,8 @@ import Footer from '@/components/Footer';
 import MotionEnhancer from '@/components/MotionEnhancer';
 
 export const metadata: Metadata = {
-  title: '混沌命盘 - AI融合八字×紫微斗数',
-  description: 'AI驱动的八字紫微斗数综合命盘分析，生成你的专属命理档案',
+  title: '混沌｜东方术数与风水 · 西方神秘学',
+  description: '以东方术数与风水、西方神秘学为入口，体验命盘、占卜、星象与居家空间解读。',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

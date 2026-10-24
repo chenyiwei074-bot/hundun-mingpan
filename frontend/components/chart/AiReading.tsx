@@ -1,5 +1,9 @@
+'use client';
+
+import { useMemo } from 'react';
 import { aiReadingSections } from '@/lib/chart/aiReading';
 import { RichText } from '@/lib/ui/richText';
+import ClassicalReferences from '@/components/chart/ClassicalReferences';
 
 /**
  * AI 解读卡的内容区。
@@ -7,7 +11,8 @@ import { RichText } from '@/lib/ui/richText';
  * 组件里不许再出现 JSON.stringify / 键名直出。
  */
 export default function AiReading({ aiAnalysis }: { aiAnalysis: unknown }) {
-  const sections = aiReadingSections(aiAnalysis);
+  const sections = useMemo(() => aiReadingSections(aiAnalysis), [aiAnalysis]);
+  const missingSources = sections.filter(section => !section.sourceIds?.length).map(section => section.title);
   if (!sections.length) {
     return <p className="qn-meta">这一次没有可展示的解读文本（可能生成失败或内容为空）。</p>;
   }
@@ -27,10 +32,16 @@ export default function AiReading({ aiAnalysis }: { aiAnalysis: unknown }) {
             {s.title}
           </h3>
           {s.body ? <RichText text={s.body} /> : null}
+          {s.sourceIds?.length ? <ClassicalReferences sourceIds={s.sourceIds} /> : null}
         </section>
       ))}
+      {missingSources.length > 0 && (
+        <p className="qn-note" role="note" style={{ margin: 0 }}>
+          以下部分尚未关联可核验的文献出处：{missingSources.join('、')}。
+        </p>
+      )}
       <p className="qn-cap" style={{ margin: '4px 0 0', lineHeight: 1.8 }}>
-        以上是传统象义的解读，不是计算结果；盘面数据以页面上方的四柱与星盘为准，不同流派说法不同。
+        盘面数据以页面上方的四柱与星盘为准。传统解释应结合对应文献出处阅读，不同流派说法也可能不同。
       </p>
     </div>
   );

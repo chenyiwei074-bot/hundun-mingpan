@@ -34,7 +34,7 @@ export default function Footer() {
           ))}
         </nav>
 
-        <p className="qn-footer__foot">传统文化研究 · AI辅助解读 · 仅供个人参考</p>
+        <p className="qn-footer__foot">传统文化研究 · 混沌自研 AI · 仅供个人参考</p>
       </div>
     </footer>
   );

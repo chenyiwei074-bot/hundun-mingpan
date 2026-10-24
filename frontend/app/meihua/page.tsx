@@ -226,7 +226,7 @@ export default function MeiHuaPage() {
           </section>
 
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
-            <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
+            <p className="qn-eyebrow" style={{ margin: 0 }}>起卦过程</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
               {result.steps.map((s, i) => (
                 <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
@@ -238,13 +238,9 @@ export default function MeiHuaPage() {
           </section>
 
           <section className="qn-legal" style={{ marginTop: 24 }}>
-            <h2>起卦口径</h2>
-            {result.basis.map(b => <p key={b}>{b}</p>)}
-            <h2>关于这份断语</h2>
-            <p>趋势指数与上面的断语出自本站自建规则，本模型为自研，非还原：权重写在
-              frontend/lib/meihua/engine.ts 顶部注释里，可以直接读。同类产品的评分模型与解读文案
-              均未公开，也没有被取用。</p>
-            <p>象义取自《说卦传》一类公版基础概念。占卜供参照与思考之用，不构成医疗、法律、投资建议。</p>
+            <h2>阅读说明</h2>
+            <p>本页展示本卦、互卦、变卦与体用关系，并提供本次起卦的过程记录，便于你对照结果理解卦象。</p>
+            <p>卦象解读属于传统文化参考，不构成对现实结果的保证，也不构成医疗、法律或投资建议。</p>
           </section>
 
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>

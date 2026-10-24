@@ -8,6 +8,17 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_API_URL: '/api',
   },
+  async headers() {
+    return [
+      {
+        source: '/share/chart/:token',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

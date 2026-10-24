@@ -11,6 +11,7 @@ import Link from 'next/link';
 import ReceiptPanel from './ReceiptPanel';
 import { saveReport } from '@/lib/report/saveReport';
 import { RichText } from '@/lib/ui/richText';
+import ClassicalReferences from '@/components/chart/ClassicalReferences';
 
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
 
@@ -19,6 +20,7 @@ export default function LiuyaoResultPage() {
   const [analysisData, setAnalysisData] = useState<LiuyaoAnalysisData | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportContent, setReportContent] = useState<string | null>(null);
+  const [reportSourceIds, setReportSourceIds] = useState<string[]>([]);
   const [reportError, setReportError] = useState('');
   const [loading, setLoading] = useState(true);
   const savedRef = useRef(false);
@@ -59,6 +61,11 @@ export default function LiuyaoResultPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '生成失败');
       setReportContent(data.report);
+      const rawSources = data.sourceIds || data.sources || data.citations || [];
+      const sourceIds = Array.isArray(rawSources)
+        ? rawSources.map((item: any) => typeof item === 'string' ? item : item?.sourceId || item?.id || '').filter(Boolean)
+        : [];
+      setReportSourceIds(Array.from(new Set(sourceIds)));
       saveReport({
         type: 'liuyao',
         title: result.question || '六爻占卜',
@@ -238,7 +245,7 @@ export default function LiuyaoResultPage() {
       {/* ===== 取数过程（时间起卦，与梅花页面同源） ===== */}
       {result.qiShu && (
         <section className="qn-card" style={{ marginBottom: 16, padding: '20px 24px' }}>
-          <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>起卦过程</p>
           <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
             {result.qiShu.steps.map((s, i) => (
               <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
@@ -290,13 +297,16 @@ export default function LiuyaoResultPage() {
         <section className="qn-card" style={{ marginBottom: 16, padding: '24px 28px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
             <p className="qn-title">六爻解析报告</p>
-            <button type="button" onClick={() => { setReportContent(null); setReportError(''); }} className="qn-btn qn-btn--quiet">
+            <button type="button" onClick={() => { setReportContent(null); setReportSourceIds([]); setReportError(''); }} className="qn-btn qn-btn--quiet">
               收起
             </button>
           </div>
           <div className="qn-body">
             <RichText text={reportContent} />
           </div>
+          {reportSourceIds.length > 0
+            ? <ClassicalReferences sourceIds={reportSourceIds} />
+            : <p className="qn-note" role="note" style={{ margin: '12px 0 0' }}>本次报告未附可核验的文献出处。</p>}
           <div style={{ marginTop: 20, textAlign: 'center' }}>
             <button type="button" onClick={generateReport} className="qn-btn qn-btn--quiet">重新生成</button>
           </div>
