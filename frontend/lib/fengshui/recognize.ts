@@ -115,28 +115,26 @@ export function classifyStatus(status: number): 'ok' | 'client' | 'upstream' {
   return 'client';
 }
 
-/** 服务端每条失败都带 code + 中文 message。这里只补两件服务端没说的事：
- *  5xx 要说"可以再按一次但不会自动重试"，422/503 要说"这张图它没认出来"。 */
+/** 把识别失败转成面向用户的处理建议；不把服务端原始报错或实现细节直接显示出来。 */
 const CODE_HINT: Record<string, string> = {
-  bad_visitor: '这台设备的访客标识服务端不认（正常不该走到这里，适配层已经先判过一次）。',
-  bad_image: '图片没读进去。换一张重新选一次。',
-  too_large: '服务端按解码后的字节数拒了（上限 5MB）。',
-  bad_type: '文件头不是 jpg / png / webp —— 服务端也按头判，不信扩展名。',
-  not_floorplan: '模型认为这不是一张户型图，没有编造几何。',
-  timeout: '视觉模型超时（服务端已把后备供应商的时间也花完了）。',
-  provider_error: '所有视觉供应商都没成。',
-  bad_json: '模型回了不是几何 JSON 的东西。',
-  no_provider: '服务端还没配置视觉模型。',
-  internal: '识别服务内部错误。',
+  bad_visitor: '暂时无法确认当前设备，请刷新页面后重试。',
+  bad_image: '没有成功读取这张图片，请重新选择。',
+  too_large: '图片文件过大，请选择 5 MB 以内的图片。',
+  bad_type: '图片格式暂不支持，请选择 JPG、PNG 或 WebP。',
+  not_floorplan: '暂时无法识别为户型图，请换一张清晰图片，或手工绘制。',
+  timeout: '混沌自研 AI 辅助识别暂时没有完成，请稍后重试或手工绘制。',
+  provider_error: '混沌自研 AI 辅助识别暂时不可用，请稍后重试或手工绘制。',
+  bad_json: '这次识别结果无法读取，请稍后重试或手工绘制。',
+  no_provider: '混沌自研 AI 辅助识别暂时不可用，请稍后重试或手工绘制。',
+  internal: '识别暂时不可用，请稍后重试或手工绘制。',
 };
 export function failReason(status: number, body: unknown): string {
   const code = isObj(body) && typeof body.code === 'string' ? body.code : undefined;
-  const serverMsg = isObj(body) && typeof body.message === 'string' ? body.message : '';
   const hint = code ? CODE_HINT[code] || '' : '';
-  const head = `${classifyStatus(status) === 'upstream' ? '识别服务不可用' : '识别被拒'}（HTTP ${status}${code ? ' · ' + code : ''}）`;
-  const parts = [`${head}：${serverMsg || hint || '服务端没给出原因'}`];
-  if (classifyStatus(status) === 'upstream') parts.push('可以再按一次，但这一页不会自动重试。');
-  return parts.join(' ');
+  if (hint) return hint;
+  return classifyStatus(status) === 'upstream'
+    ? '混沌自研 AI 辅助识别暂时不可用，请稍后重试或手工绘制。'
+    : '无法读取这张图片，请检查图片格式后重试。';
 }
 
 // ---------------------------------------------------------------- 响应侧
@@ -250,9 +248,8 @@ function readConfidence(v: unknown): number | null {
  *  两者不可区分，所以 0.5 这一档只说"没给数值"，不给百分比。
  *  措辞里不留空格：这几行字要被 harness 逐字钉，中英混排时多一个空格就是假红。 */
 export function confidenceText(c: number | null): { 文本: string; 是缺省: boolean } {
-  if (c === null) return { 文本: '模型把握：未给出', 是缺省: true };
-  if (c === DEFAULT_CONFIDENCE) return { 文本: '模型把握：未给出（0.5 是占位值，不是精确读数）', 是缺省: true };
-  return { 文本: `模型把握：${c > 0.75 ? '偏高' : c > 0.5 ? '居中' : '偏低'}`, 是缺省: false };
+  if (c === null || c === DEFAULT_CONFIDENCE) return { 文本: '识别参考：待人工核对', 是缺省: true };
+  return { 文本: `识别参考：${c > 0.75 ? '较高' : c > 0.5 ? '中等' : '较低'}`, 是缺省: false };
 }
 
 /** 归一化响应体 → 本站几何。字段名以服务端 RecognizedPlan 为准，别名（模型侧 camel /

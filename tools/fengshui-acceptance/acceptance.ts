@@ -417,13 +417,16 @@ const base: FloorInput = {
   ok('rc/status-buckets', classifyStatus(200) === 'ok' && classifyStatus(422) === 'client'
     && classifyStatus(413) === 'client' && classifyStatus(500) === 'upstream' && classifyStatus(504) === 'upstream',
     '5xx 一律 upstream（含 504 超时），422 归 client：它是"模型认为这不是户型图"，重试没有意义');
+  // 2026-10-24 口径更新：失败话术面向用户，不展示 HTTP 状态、内部 code、供应商或原始报错；
+  // 但必须给出明确下一步（重试 / 手工绘制），不能只剩"失败了"。
   const reason503 = failReason(503, { ok: false, code: 'provider_error', message: '所有视觉供应商都失败了：glm-4v:timeout', attempts: [] });
-  ok('rc/fail-reason-carries-code', /503/.test(reason503) && /provider_error/.test(reason503)
-    && /不会自动重试/.test(reason503) && /供应商/.test(reason503),
-    `失败话术带上状态、code 与服务端原话，并明说不会自动重试：${reason503}`);
+  ok('rc/fail-reason-user-facing', !/503|provider_error|glm-4v|供应商|timeout/i.test(reason503)
+    && /暂时不可用|暂时没有完成/.test(reason503) && /重试|手工绘制/.test(reason503),
+    `失败话术不泄露内部状态/code/供应商，并给出下一步：${reason503}`);
   const reason415 = failReason(415, { ok: false });
-  ok('rc/unknown-code-still-speaks', /415/.test(reason415) && /识别被拒/.test(reason415),
-    `body 里连 message 都没有时也不能只剩"失败了"：${reason415}`);
+  ok('rc/unknown-code-gives-next-step', !/415|识别被拒|code/i.test(reason415)
+    && /图片|格式|重试/.test(reason415),
+    `没有 code/message 时仍给用户可执行的下一步：${reason415}`);
 
   // E. 响应体形状：外层包不包 plan 都得吃下 —— 服务端成功分支是 { ok, imageId, plan: {...} }。
   const successCase = JSON.parse(readFileSync(join(__dirname, 'cases', 'recognize-success.json'), 'utf8'));

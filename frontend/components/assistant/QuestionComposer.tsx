@@ -52,10 +52,9 @@ function toolOf(mode: Mode, slug: string | null | undefined): ToolEntry | undefi
 
 /** 这一轮到底是谁给的：三种来源三句话，不许混用。 */
 function sourceLine(t: AskTurn): string {
-  if (t.via === 'choice') return '这一条是你在并列的候选里自己挑的，不是系统替你选的。';
-  if (t.via === 'example') return '这一条点的是目录里该项自己登记的例子，去哪个工具写在目录里，不是系统按这句话猜的。';
-  if (t.source === 'server') return '这一轮来自服务端路由';
-  return '这一轮由本机目录匹配给出，未经模型';
+  if (t.via === 'choice') return '你已从并列候选中选择此工具。';
+  if (t.via === 'example') return '已按这个工具提供的示例问题整理建议。';
+  return '混沌自研 AI 助手已为你整理相关工具建议。';
 }
 
 /** 落点判定。顺序有意义：closed 与 choices 都比"没对上"具体，先看具体的那一支。 */
@@ -114,7 +113,7 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
         outcome = await askRoute({ mode, text: q, catalog, otherCatalog: OTHER[mode].flatMap(g => g.tools) });
       } catch {
         // askRoute 自己已经兜底了；走到这里说明是编码错误，明说，不假装算过了。
-        setErr('这一步在本机也没算出来（不是网络问题，是这一条判断的代码坏了）。请直接看下面的目录。');
+        setErr('暂时无法整理工具建议，请稍后重试，或从下方目录直接选择。');
         setBusy(false);
         return;
       }
@@ -167,8 +166,11 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
       </form>
 
       <p id={`qa-note-${mode}`} className="qn-cap" style={{ marginTop: 6 }}>
-        问事框只把你带到该用的工具，不在这儿给结论；问题原文只留在这个页面上，不写日志、不进台账。
+        混沌自研 AI 助手用于整理相关工具建议，不直接提供占断结论。问题信息的处理方式见下方隐私说明。
       </p>
+      <div className="qn-linkrow" style={{ marginTop: 0 }}>
+        <Link href="/privacy" className="qn-link">隐私说明</Link>
+      </div>
 
       {ex.length > 0 && (
         <div className="qa-examples" style={{ marginTop: 10 }}>
@@ -270,13 +272,6 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
                 </p>
               )}
 
-              {/* 降级理由必须上屏（缺陷②）。以前这个字段拿到了却不显示，于是"服务端根本没接上"
-                  与"服务端答得很好"在页面上长得一模一样。 */}
-              {t.degraded && (
-                <p className="qn-note qa-degraded" role="status" style={{ marginTop: 8 }}>
-                  服务端这一轮没用上：{t.degraded}。
-                </p>
-              )}
               <p className="qn-cap" style={{ marginTop: 8 }}>{sourceLine(t)}</p>
             </div>
           );

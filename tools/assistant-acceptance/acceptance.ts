@@ -213,7 +213,7 @@ async function sectionFallbacks() {
     && empty.result.toolSlug === null, '空输入不发请求、不编结果');
 }
 
-// ── 5. 组件侧的诚实：来源标注与"不写日志"这两句话必须真的在代码里 ──
+// ── 5. 组件侧的诚实：统一产品口径，不夸大隐私承诺 ──
 {
   // 组件是产品源码：先剥注释再比（下面 comp/* 五条闸门共用这一份，注释里的字不算证据）。
   const read = (p: string) => {
@@ -221,13 +221,19 @@ async function sectionFallbacks() {
   };
   const comp = read('../../frontend/components/assistant/QuestionComposer.tsx');
   ok('comp/found', comp.length > 800, `读到了问事框组件（读不到下面几条全是空过）：${comp.length} 字符`);
-  ok('comp/source-labelled', /这一轮由本机目录匹配给出，未经模型/.test(comp) && /这一轮来自服务端路由/.test(comp),
-    '每一轮都要在屏上写明是谁算的：本机那份与模型那份是两件事，混着说就是骗');
+  ok('comp/public-product-copy', /混沌自研 AI 助手已为你整理相关工具建议/.test(comp)
+    && /你已从并列候选中选择此工具/.test(comp)
+    && /已按这个工具提供的示例问题整理建议/.test(comp),
+    '普通问事统一使用公开产品口径；用户选择与示例入口分别说明');
+  ok('comp/no-internal-routing-or-privacy-claim', !/本机目录匹配|来自服务端路由|服务端这一轮没用上|不写日志、不进台账|问题原文只留在这个页面上/.test(comp),
+    '界面不披露内部路由实现，也不作超出隐私说明的保证');
+  ok('comp/privacy-link', /href="\/privacy"/.test(comp),
+    '问事输入旁提供隐私说明入口');
   ok('comp/no-verdict-words', !/吉|凶|运势旺|转运|化解/.test(comp),
     '问事框自己不写任何吉凶结论（结论只在工具页由引擎给）');
-  ok('comp/no-storage-or-log', !/localStorage|sessionStorage|console\.(log|info)|fetch\(\s*['"]\/api\/event/.test(comp),
-    '问题原文不落本地存储、不进埋点、不写日志（隐私边界与回执链路同一套要求）');
-  ok('comp/href-only-from-catalog', !/href\s*=\s*["']\/(?!create|liuyao|meihua|xiu|huangli|tools)/.test(comp)
+  ok('comp/no-extra-persistence-or-analytics', !/localStorage|sessionStorage|console\.(log|info)|fetch\(\s*['"]\/api\/event/.test(comp),
+    '问事组件不额外持久化问题或发送埋点');
+  ok('comp/href-only-from-catalog', !/href\s*=\s*["']\/(?!create|liuyao|meihua|xiu|huangli|tools|privacy)/.test(comp)
     && /tool\.href!/.test(comp),
     '组件里不写死任何工具路由，入口一律由目录查出来的 tool.href 给');
 }
@@ -434,8 +440,8 @@ async function sectionServer() {
   ok('comp/needs-single-source', /routeByCatalogSlug\(/.test(comp) && !/日期或生日/.test(comp) && !/出生时辰/.test(comp),
     '目录点名的那一条必须由 intent.ts 的 routeByCatalogSlug 给出（里面含 needsFor + reconcile 那一条门）；'
     + '组件里再抄一份字段名表或再拼一次 reconcile 就是第二个真相');
-  ok('comp/degraded-on-screen', /服务端这一轮没用上/.test(comp) && /t\.degraded/.test(comp),
-    '降级理由必须真的渲染出来（缺陷②：askRoute 返回了 degraded 而组件拿到不显示，界面上"回落"与"算过"长得一样）');
+  ok('comp/hides-routing-details', !/服务端这一轮没用上|t\.degraded/.test(comp),
+    '内部路由降级细节不出现在用户界面');
   ok('comp/ime-latch', /onCompositionStart/.test(comp) && /onCompositionEnd/.test(comp)
     && /isComposing/.test(comp) && /composing\.current/.test(comp),
     '中文输入法门闩：组词中的回车不发送。两条都要（部分浏览器不在 nativeEvent.isComposing 上置位，所以自己记一份）');
@@ -444,14 +450,14 @@ async function sectionServer() {
     '多行输入：4 行起、Enter 发送、Shift+Enter 换行（单行 input 里 Shift+Enter 什么都不做，等于没给换行）');
   ok('comp/turns-capped', /\.slice\(0, 6\)/.test(comp),
     '对话轮数封顶 6 条：不封顶的话长会话会把答案区撑到不可读，也让 CLS 读数依赖历史');
-  ok('comp/choice-label', /你在并列的候选里自己挑的/.test(comp) && /t\.via === 'choice'/.test(comp),
-    '用户自己挑的那一条要单独标注 —— 把"你选的"说成"系统算的"，与把"目录匹配"说成"模型算的"是同一种错');
+  ok('comp/choice-label', /你已从并列候选中选择此工具/.test(comp) && /t\.via === 'choice'/.test(comp),
+    '并列候选必须明确标出由用户选择');
   // 批F④：点示例 = 目录里某一项自己给出的那句话，它对应哪个工具是登记过的。
   // 这一支不再打服务端（要去的工具已经定了，再让模型猜一遍只会把"没对上"猜回来），
   // 但必须仍然走同一道 reconcile —— 钉的是"换了来源、没换门"。
   ok('comp/example-carries-own-slug', /via:\s*'example'/.test(comp)
     && /via:\s*'choice'/.test(comp) && /\?\?\s*'typed'/.test(comp)
-    && /目录里该项自己登记的例子/.test(comp)
+    && /已按这个工具提供的示例问题整理建议/.test(comp)
     && comp.indexOf("picked?.via === 'example'") < comp.indexOf('askRoute({'),
     `三种来源三句话都要在（少一种就有两种落点在页面上长得一样），且示例那一条要在 askRoute 之前分出去：`
     + `点名分支 ${comp.indexOf("picked?.via === 'example'")} / askRoute ${comp.indexOf('askRoute({')}`);
