@@ -106,6 +106,27 @@ function buildChartSummary(chart: ChartResult): Record<string, unknown> {
   };
 }
 
+/**
+ * 给命盘解读的每个章节补齐 sourceIds。
+ *
+ * 2026-10-24 契约：前端把「没有 sourceIds」的章节标成「本站自研」。
+ * 因此这里只允许写入**已登记且确实支持该章节**的来源；当前底本尚不足以做章节级匹配，
+ * 一律返回空数组（空 = 本站自研），绝不把模型自报的来源或整份报告的来源挂到章节上。
+ * 后续接入底本匹配时，只在这个函数里填；AI 返回值中的 sourceIds 一律不信。
+ */
+export function attachVerifiedSourceIds(result: Record<string, unknown>): Record<string, unknown> {
+  const sections = Array.isArray(result.sections) ? result.sections : null;
+  if (!sections) return result;
+  return {
+    ...result,
+    sections: sections.map((section) => {
+      if (!section || typeof section !== 'object') return section;
+      const raw = section as Record<string, unknown>;
+      return { ...raw, sourceIds: [] };
+    }),
+  };
+}
+
 export async function generateAIAnalysis(chart: ChartResult, persona?: string, depth?: string): Promise<Record<string, unknown>> {
   const chartSummary = buildChartSummary(chart);
 
@@ -154,9 +175,9 @@ export async function generateAIAnalysis(chart: ChartResult, persona?: string, d
   console.log('DeepSeek analysis completed in ' + elapsed + 'ms, tokens: ' + (response.tokensUsed || '?'));
 
   // 2026-10-23：速读版必须六方面齐全；不齐就带着缺项重试一次（只重试一次，避免拖长等待）。
-  if (isDetail) return response.result;
+  if (isDetail) return attachVerifiedSourceIds(response.result as Record<string, unknown>);
   const missing = incompleteAspects(response.result);
-  if (!missing.length) return response.result;
+  if (!missing.length) return attachVerifiedSourceIds(response.result as Record<string, unknown>);
   console.warn('[AI] 解读不完整，重试一次：' + missing.join('；'));
   try {
     const retry = await provider.generateAnalysis({
@@ -166,13 +187,13 @@ export async function generateAIAnalysis(chart: ChartResult, persona?: string, d
         + '。请重新输出完整 JSON：六节都必须有，每节至少 3 句；某方面信息不足也要保留该节并写明。',
     });
     const retryMissing = incompleteAspects(retry.result);
-    if (!retryMissing.length) return retry.result;
+    if (!retryMissing.length) return attachVerifiedSourceIds(retry.result as Record<string, unknown>);
     console.warn('[AI] 重试后仍不完整：' + retryMissing.join('；'));
     const better = readingSections(retry.result).length >= readingSections(response.result).length
       ? retry.result : response.result;
-    return better;
+    return attachVerifiedSourceIds(better as Record<string, unknown>);
   } catch (e) {
     console.warn('[AI] 重试失败，返回第一版：' + (e instanceof Error ? e.message : e));
-    return response.result;
+    return attachVerifiedSourceIds(response.result as Record<string, unknown>);
   }
 }

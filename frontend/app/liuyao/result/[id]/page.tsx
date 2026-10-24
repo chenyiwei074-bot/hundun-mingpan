@@ -306,7 +306,7 @@ export default function LiuyaoResultPage() {
           </div>
           {reportSourceIds.length > 0
             ? <ClassicalReferences sourceIds={reportSourceIds} />
-            : <p className="qn-note" role="note" style={{ margin: '12px 0 0' }}>本次报告未附可核验的文献出处。</p>}
+            : <p className="qn-note" role="note" style={{ margin: '12px 0 0' }}>本站自研 · 本次报告未关联可核验的古籍出处。</p>}
           <div style={{ marginTop: 20, textAlign: 'center' }}>
             <button type="button" onClick={generateReport} className="qn-btn qn-btn--quiet">重新生成</button>
           </div>

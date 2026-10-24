@@ -93,7 +93,11 @@ export async function POST(req: Request) {
       }
     }
 
-    return NextResponse.json({ report, context, validation, rewrote });
+    return NextResponse.json({
+      report, context, validation, rewrote,
+      // 2026-10-24 契约：只返回已登记、可核验的出处；当前六爻无已入仓底本，留空由前端显示「本站自研」。
+      sourceIds: [],
+    });
   } catch (e: any) {
     console.error('Report generation error:', e);
     return NextResponse.json({ error: e.message || '未知错误' }, { status: 500 });
