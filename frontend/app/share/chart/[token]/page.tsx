@@ -86,7 +86,7 @@ export default function SharedChartPage() {
 
   if (loading) {
     return (
-      <main className="qn-shell qn-shell--wide" style={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
+      <main className="qn-shell qn-shell--wide" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))', display: 'grid', placeItems: 'center' }}>
         <section className="qn-card" role="status" aria-live="polite" style={{ width: 'min(100%, 520px)', textAlign: 'center', padding: '36px 24px' }}>
           <div aria-hidden="true" style={{ width: 34, height: 34, margin: '0 auto 18px', borderRadius: '50%', border: '2px solid rgba(178,149,93,.2)', borderTopColor: 'var(--color-accent-gold)', animation: 'qn-spin .9s linear infinite' }} />
           <p className="qn-meta" style={{ margin: 0 }}>正在打开命盘分享…</p>
