@@ -204,7 +204,7 @@ export default function LiuyaoCreatePage() {
   // ── Auto toss one round ──
   const executeTossRound = useCallback((rnd: number, recs: YaoRecord[]) => {
     if (!mounted.current) return;
-    
+
     // 本轮面值取自承诺过的 seed，不再现场取随机数：这样「揭晓」与「重放」必然是同一份。
     const cs = tossesRef.current[rnd - 1];
     if (!cs) {
