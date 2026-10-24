@@ -58,8 +58,9 @@ export default function FloorPlan3D({ 几何, onStatus }: Props) {
 
     const fail = (原因: string) => {
       if (disposed) return;
-      set说明(原因);
-      onStatus({ kind: 'degraded', 原因 });
+      const 文案 = `3D 降级：${原因}`;
+      set说明(文案);
+      onStatus({ kind: 'degraded', 原因: 文案 });
     };
 
     const probe = document.createElement('canvas');

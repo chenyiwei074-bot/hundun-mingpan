@@ -3396,7 +3396,7 @@ const fsEditProbe = p => `(() => {
       const fps = Math.round(window.__fp.frames / ((performance.now() - window.__fp.t0) / 1000) * 10) / 10;
       const stage = document.querySelector('[data-fp-stage]');
       const canvas = stage ? stage.querySelector('canvas') : null;
-      const reason = [...document.querySelectorAll('p.qn-alert, p.qn-callout')].map(p => (p.textContent || '').trim())
+      const reason = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-note')].map(p => (p.textContent || '').trim())
         .filter(t => /等轴|帧率|上下文/.test(t));
       const readout = [...document.querySelectorAll('span.qn-meta')].map(s => (s.textContent || '').trim())
         .find(t => /首帧/.test(t)) || null;
