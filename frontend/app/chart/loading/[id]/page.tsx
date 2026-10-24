@@ -76,7 +76,7 @@ export default function LoadingPage() {
         </div>
 
         <h1 className="qn-hero" style={{ margin: 0 }}>正在建立你的命理档案</h1>
-        <p className="qn-note" style={{ margin: '10px 0 30px' }}>八字 × 紫微双盘 AI 合参</p>
+        <p className="qn-note" style={{ margin: '10px 0 30px' }}>正在生成八字 × 紫微双盘解读</p>
 
         <div style={{ display: 'grid', gap: 12, maxWidth: 280, margin: '0 auto', textAlign: 'left' }}>
           {STEPS.map((s, i) => {

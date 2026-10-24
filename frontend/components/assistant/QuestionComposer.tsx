@@ -52,10 +52,10 @@ function toolOf(mode: Mode, slug: string | null | undefined): ToolEntry | undefi
 
 /** 这一轮到底是谁给的：三种来源三句话，不许混用。 */
 function sourceLine(t: AskTurn): string {
-  if (t.via === 'choice') return '这一条是你在并列的候选里自己挑的，不是系统替你选的。';
-  if (t.via === 'example') return '这一条点的是目录里该项自己登记的例子，去哪个工具写在目录里，不是系统按这句话猜的。';
-  if (t.source === 'server') return '这一轮来自服务端路由';
-  return '这一轮由本机目录匹配给出，未经模型';
+  if (t.via === 'choice') return '这是你从候选工具中选择的。';
+  if (t.via === 'example') return '这是该工具提供的示例问题。';
+  if (t.source === 'server') return '由混沌自研 AI 协助匹配，你可以继续查看推荐工具。';
+  return '由本站工具目录匹配。';
 }
 
 /** 落点判定。顺序有意义：closed 与 choices 都比"没对上"具体，先看具体的那一支。 */
@@ -107,14 +107,14 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
       // 而目录那句「适用问题」往往不含本项的关键词，于是「点了目录里的例子却说没对上」
       // （批B 记的 report-only 缺陷）。匹配错了不是降级，是把目录说的话又猜了一遍。
       result = bySlug(picked.slug, 1);
-      degraded = '这一条不需要路由：点的就是目录里该项自己的例子，按它登记的编号带过去';
+      degraded = null;
     } else {
       let outcome: RouteOutcome;
       try {
         outcome = await askRoute({ mode, text: q, catalog, otherCatalog: OTHER[mode].flatMap(g => g.tools) });
       } catch {
         // askRoute 自己已经兜底了；走到这里说明是编码错误，明说，不假装算过了。
-        setErr('这一步在本机也没算出来（不是网络问题，是这一条判断的代码坏了）。请直接看下面的目录。');
+        setErr('暂时无法匹配，请直接从下方工具目录选择。');
         setBusy(false);
         return;
       }
@@ -163,11 +163,11 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
             {busy ? '在想' : '问一下'}
           </button>
         </div>
-        <p className="qn-cap qa-keys">回车发送 · 上档键＋回车换行 · 中文组词中的回车不算发送</p>
+        <p className="qn-cap qa-keys">回车发送 · Shift + 回车换行 · 输入法选词时不会发送</p>
       </form>
 
       <p id={`qa-note-${mode}`} className="qn-cap" style={{ marginTop: 6 }}>
-        问事框只把你带到该用的工具，不在这儿给结论；问题原文只留在这个页面上，不写日志、不进台账。
+        用中文描述你想了解的事，混沌自研 AI 会帮你找到合适的工具；这里先做工具推荐，不直接给出占断结论。<Link href="/privacy" className="qn-link">数据处理方式见隐私政策</Link>。
       </p>
 
       {ex.length > 0 && (
@@ -194,7 +194,7 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
         {turns.length === 0 && (
           <div className="qa-empty">
             <span className="qa-empty__seal" aria-hidden="true">问</span>
-            <p><strong>待你发问</strong><span>匹配到的工具与口径说明会在这里出现</span></p>
+            <p><strong>待你发问</strong><span>适合你的工具和下一步会显示在这里</span></p>
           </div>
         )}
         {turns.map(t => {
@@ -256,7 +256,7 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
                         style={{ background: STATUS_DOT['未开放'] }} />
                       未开放
                     </span>
-                    <span style={{ marginLeft: 8 }}>{closed ? closed.name : '这一项'}还没做，所以这里不给入口。</span>
+                    <span style={{ marginLeft: 8 }}>{closed ? closed.name : '这一项'}目前暂未开放。</span>
                   </p>
                   <p className="qn-meta" style={{ marginTop: 6 }}>
                     {t.result.clarification || '缺的部分补齐之后才会开放。'}
@@ -274,7 +274,7 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
                   与"服务端答得很好"在页面上长得一模一样。 */}
               {t.degraded && (
                 <p className="qn-note qa-degraded" role="status" style={{ marginTop: 8 }}>
-                  服务端这一轮没用上：{t.degraded}。
+                  问事暂时无法响应，你可以直接从下方工具入口继续。
                 </p>
               )}
               <p className="qn-cap" style={{ marginTop: 8 }}>{sourceLine(t)}</p>

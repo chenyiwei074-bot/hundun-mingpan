@@ -303,7 +303,7 @@ export default function XiuPage() {
           )}
 
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
-            <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
+            <p className="qn-eyebrow" style={{ margin: 0 }}>出生日期与命宿</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
               {result.steps.map((s, i) => (
                 <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
@@ -315,11 +315,9 @@ export default function XiuPage() {
           </section>
 
           <section className="qn-legal" style={{ marginTop: 24 }}>
-            <h2>取值口径</h2>
-            {result.basis.map(b => <p key={b}>{b}</p>)}
-            <h2>关于这份说法</h2>
-            <p>命宿取的是通书「二十八宿值日」这一条循环，古籍与今本历书都在用，可以逐日核对。宿的性语为本站自写；合宿的倾向指数与权重出自本站自建规则，本模型为自研，非还原，权重写在 frontend/lib/xiu/engine.ts 顶部注释里，可以直接读。</p>
-            <p>「吉 / 凶」是通书以此宿直日的宜忌口径，属择日一面，不是命定吉凶。同类产品的评分模型与解读文案均未公开，也没有被取用。星宿供参照与思考之用，不构成医疗、法律、投资建议。</p>
+            <h2>阅读说明</h2>
+            <p>本页根据出生日期对应的值日宿与宿性关系整理结果。合宿文字用于传统文化参考，不代表所有流派的共同结论。</p>
+            <p>吉凶意象来自传统择日语境，不是对个人命运的定论。结果供研究与个人参考。</p>
           </section>
 
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>

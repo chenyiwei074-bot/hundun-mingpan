@@ -317,7 +317,7 @@ export default function HuangliPage() {
           </section>
 
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
-            <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
+            <p className="qn-eyebrow" style={{ margin: 0 }}>推导步骤</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
               {result.steps.map((s, i) => (
                 <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
@@ -329,10 +329,10 @@ export default function HuangliPage() {
           </section>
 
           <section className="qn-legal" style={{ marginTop: 24 }}>
-            <h2>取值口径</h2>
+            <h2>参考依据</h2>
             {result.basis.map(b => <p key={b}>{b}</p>)}
             <h2>关于这一页</h2>
-            <p>宜忌与神煞是择日一面的通书规则，与个人命盘的吉凶无关，也不构成医疗、法律、投资或任何行事建议。同类产品的解读文案与评分模型均未公开，也没有被取用；这一页不替用户取舍，也不给日子定分数。</p>
+            <p>每日宜忌与神煞参考传统通书规则，用于了解历法信息，与个人命盘判断不同。本页不替你决定事项，也不构成医疗、法律、投资或其他专业建议。</p>
           </section>
         </>
       )}

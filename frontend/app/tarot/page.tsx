@@ -262,7 +262,7 @@ export default function TarotPage() {
   return (
     <main className="qn-shell qn-shell--wide tarot-page" data-mode="western" data-tarot-state={drawState}>
       <header className="tarot-header qn-rise">
-        <p className="qn-eyebrow">西方玄学 · 塔罗</p>
+        <p className="qn-eyebrow">西方神秘学 · 塔罗</p>
         <h1 className="qn-hero">三张牌阵</h1>
         <p className="qn-meta">把过去、现在与未来放在同一条时间线上，先完成抽牌，再查看牌位。</p>
         <p className="tarot-scope-note">韦特—史密斯体系原创绘制 · 正位与逆位 · Waite 1910 年牌义译述</p>

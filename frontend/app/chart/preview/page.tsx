@@ -7,6 +7,8 @@ import BaziPillars from '@/components/bazi/BaziPillars';
 import BaziEnrich from '@/components/bazi/BaziEnrich';
 import DayunSection from '@/components/bazi/DayunSection';
 import ZiweiGongs from '@/components/ziwei/ZiweiGongs';
+import { getSiHuaByGan } from '@/app/lib/core/yiqi-core/sihua';
+import type { Tiangan } from '@/app/lib/core/yiqi-core/types';
 
 function getVid() {
   return typeof window !== 'undefined' ? localStorage.getItem('hundun_visitor_id') || 'visitor_anon' : 'visitor_anon';
@@ -60,6 +62,24 @@ export default function ChartPreviewPage() {
 
   // 当前选中流年
   const currentYearData = useMemo(() => allYears.find(y => y.year === selectedYear), [allYears, selectedYear]);
+
+  // 复用现有紫微四化表，按所选流年年干显示四化星曜及其所在宫位。
+  const currentYearSiHua = useMemo(() => {
+    const yearGan = currentYearData?.ganZhi?.[0];
+    if (!yearGan || !'甲乙丙丁戊己庚辛壬癸'.includes(yearGan) || !ziwei?.gongs?.length) return [];
+
+    const stars = getSiHuaByGan(yearGan as Tiangan);
+    const gongs = ziwei.gongs as Array<{ gong: string; mainStars?: string[]; auxStars?: string[] }>;
+    return [
+      { label: '化禄', star: stars.lu },
+      { label: '化权', star: stars.quan },
+      { label: '化科', star: stars.ke },
+      { label: '化忌', star: stars.ji },
+    ].map(item => ({
+      ...item,
+      gong: gongs.find(gong => [...(gong.mainStars || []), ...(gong.auxStars || [])].includes(item.star))?.gong,
+    }));
+  }, [currentYearData, ziwei]);
 
   // 大运信息
   const currentDayun = useMemo(() => {
@@ -257,14 +277,24 @@ export default function ChartPreviewPage() {
                       {currentYearData.year} 流年
                     </h3>
                   </div>
-                  <div className="p-4 text-center">
-                    <p className="text-[10px] text-text-muted/60 mb-2">流年四化（需后端数据）</p>
-                    <div className="flex justify-center gap-4">
-                      <span className="text-xs text-text-muted/40">化禄 -</span>
-                      <span className="text-xs text-text-muted/40">化权 -</span>
-                      <span className="text-xs text-text-muted/40">化科 -</span>
-                      <span className="text-xs text-text-muted/40">化忌 -</span>
-                    </div>
+                  <div className="p-4">
+                    {currentYearSiHua.length > 0 ? (
+                      <>
+                        <p className="text-[10px] text-text-muted/60 mb-3 text-center">按所选年份年干列出四化星曜与所在宫位</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {currentYearSiHua.map(item => (
+                            <div key={item.label} className="rounded-lg bg-black/[0.025] px-2 py-3 text-center">
+                              <p className="text-[10px] text-text-muted">{item.label}</p>
+                              <p className="text-sm font-serif font-semibold text-text-primary mt-1">{item.star}</p>
+                              <p className="text-[10px] text-text-secondary mt-1">{item.gong || '未列于当前盘面'}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-text-muted/70 mt-3 text-center">此处展示排盘映射，不单独据此作吉凶判断。</p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-text-muted text-center">当前流年或紫微宫位资料不完整，暂无法展示四化分布。</p>
+                    )}
                   </div>
                 </div>
               )}

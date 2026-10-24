@@ -117,7 +117,7 @@ export default function ScenarioMatrix({ chart }: { chart?: BaziChart }) {
       <p className="qn-note" style={{ marginTop: 12 }}>
         {PALACE_MAP}这一层取自《渊海子平》论伤官与《三命通會》卷五引《秘訣》两段。
         那两段在原典里是连着吉凶判词的，本站不抄那些判词、也不把它们当结论，只取宫分这一层结构；
-        两本的次序与用词有出入，差异原样记在 docs/classics/ 的两份底本里，本站不裁决。
+        两本的次序与用词有出入，引用时并列注明；本站不替两种说法作统一裁决。
         星之取用出自《滴天髓》六親論，同样只取映射子句。
       </p>
     </section>

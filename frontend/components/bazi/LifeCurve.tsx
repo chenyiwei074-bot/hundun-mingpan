@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { BaziChart } from '@/app/lib/core/yiqi-core/types';
-import { buildKline, KLINE_BASIS } from '@/lib/bazi/kline';
+import { buildKline } from '@/lib/bazi/kline';
 import type { KlineSegment } from '@/lib/bazi/kline';
 
 const STORE_PREFIX = 'kline-events-v1:';
@@ -78,18 +78,11 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
   return (
     <section className="qn-card qn-kline" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <h2 className="qn-title" style={{ margin: 0 }}>人生K线 · 类别轴</h2>
-        <span className="qn-badge">
-          <span className="qn-badge__dot" style={{ background: 'var(--color-accent-gold)' }} />
-          {KLINE_BASIS}
-        </span>
+        <h2 className="qn-title" style={{ margin: 0 }}>流年结构 · 十神视图</h2>
       </div>
 
       <p className="qn-meta" id="kline-axis-note" style={{ marginTop: 8 }}>
-        横着是年份，竖着是十神的十条道（{`比肩·劫财·食神·伤官·偏财·正财·七杀·正官·偏印·正印`}）。
-        格子里写的，是那一年的流年天干或地支藏干正好是这一颗星 —— 只有「引动没有」这一件事。
-        <strong style={{ fontWeight: 500 }}>本图不构成吉凶评分</strong>：不排高低、不计轻重、不给方向、不做预测；
-        十神一律取自盘面同一张表，不另立评分模型。
+        按年份查看流年干支与十神之间的对应关系。这里只展示盘面结构，不作吉凶评分或预测。
       </p>
 
       <div style={{ marginTop: 14, display: 'flex', flexWrap: 'wrap', gap: 8, rowGap: 12 }}>
@@ -178,7 +171,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
           <p className="qn-meta" style={{ margin: 0 }}>这一年那一支与四柱各支之间没有成对关系可报。</p>
         )}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <label className="qn-label" htmlFor="kline-event" style={{ margin: 0 }}>你给这一年标注的事（只存本机）</label>
+          <label className="qn-label" htmlFor="kline-event" style={{ margin: 0 }}>为这一年添加个人备注</label>
           <input id="kline-event" className="qn-input" style={{ flex: '1 1 200px', minWidth: 0 }}
             value={draft}
             onChange={e => setDraft(e.target.value)}
@@ -192,7 +185,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
           标注：{draft.trim() ? `${mark.年纪}：${draft.trim()}` : '无事件（未由你标注）'}
         </p>
         {storageBroken && (
-          <p className="qn-alert" role="alert">这台浏览器不让本地存（隐私模式或空间满）。标注这次只在当前页面上有效，没有上传。</p>
+          <p className="qn-alert" role="alert">这条备注暂时无法保留；离开当前页面后可能无法找回。</p>
         )}
       </div>
 
@@ -201,7 +194,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
       <div style={{ marginTop: 12, display: 'grid', gap: 4 }}>
         {view.边界.map(x => <p className="qn-note" key={x} style={{ margin: 0 }}>{x}</p>)}
         <p className="qn-note" style={{ margin: 0 }}>
-          标注只存在这台浏览器的 localStorage（键 {STORE_PREFIX}＋四柱与日主），不进任何接口、不进回执、不进链上存证。
+          个人备注只保存在当前设备，不会公开展示或加入命盘报告。清理浏览器数据后，备注可能无法找回。
         </p>
       </div>
     </section>

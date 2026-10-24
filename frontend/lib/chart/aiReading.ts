@@ -14,6 +14,7 @@
 export interface ReadingSection {
   title: string;
   body: string;
+  sourceIds?: string[];
 }
 
 const DIM_LABEL: Record<string, string> = {
@@ -32,6 +33,18 @@ const trimEnd = (s: string) => s.replace(/[。；;，,、\s]+$/u, '');
 
 function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
+}
+
+function sourceIds(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return Array.from(new Set(v.map(item => {
+    if (typeof item === 'string') return item.trim();
+    if (item && typeof item === 'object') {
+      const source = item as Record<string, unknown>;
+      return str(source.sourceId) || str(source.id);
+    }
+    return '';
+  }).filter(Boolean)));
 }
 
 /** 只把文字留下来：数组用「、」连接，对象取它的值，绝不输出键名/括号/引号。 */
@@ -151,7 +164,13 @@ export function aiReadingSections(aiAnalysis: unknown): ReadingSection[] {
       const s = raw as Record<string, unknown>;
       const title = str(s.title) || str(s.heading);
       const body = str(s.body) || str(s.text) || str(s.content);
-      if (title || body) sections.push({ title: title || '解读', body });
+      if (title || body) {
+        sections.push({
+          title: title || '解读',
+          body,
+          sourceIds: sourceIds(s.sourceIds ?? s.sources ?? s.citations),
+        });
+      }
     }
     const summary = str(ai.summary);
     if (summary) sections.unshift({ title: '一句话总断', body: summary });

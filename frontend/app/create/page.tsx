@@ -212,7 +212,7 @@ export default function CreatePage() {
         if (!v.ok) {
           // 走到这里说明前端自己造出了后端不接受的值 —— 是缺陷，不是要绕的坎。
           // 所以停下来把字段和原因说出来，而不是换个兜底 id 继续走（那正是原来的静默）。
-          setError(`这份请求后端不会收（${v.field}）：${v.why} 已停在本页，没有发出去。`);
+          setError('提交信息暂时无法处理，请检查姓名、性别和出生资料后重试。');
           setLoading(false);
           return;
         }
@@ -394,7 +394,7 @@ export default function CreatePage() {
       <main className="qn-shell" style={{ maxWidth: 520 }}>
         <div className="qn-rise" style={{ textAlign: 'center', paddingTop: 18, paddingBottom: 4 }}>
           <h1 className="qn-hero">创建你的专属命理档案</h1>
-          <p className="qn-meta" style={{ marginTop: 10 }}>八字 × 紫微双体系 AI 合参</p>
+          <p className="qn-meta" style={{ marginTop: 10 }}>八字 × 紫微双体系命盘 · 混沌自研 AI 辅助解读</p>
           <div className="w-10 h-px mx-auto" style={{ marginTop: 22, background: 'rgba(178,149,93,0.4)' }} />
         </div>
 
@@ -458,7 +458,7 @@ export default function CreatePage() {
                       后端 calendar 只收 公历/农历，这条永远存不进「我的报告」。 */}
                   {form.calendar === '四柱' && (
                     <p className="qn-note" id="create-persist-note" style={{ marginTop: 8 }}>
-                      {canPersist('四柱').原因}
+                      四柱直批结果只在当前页面展示，不会保存到“我的报告”。离开前请自行保存结果。
                     </p>
                   )}
                   {renderDateGroup('')}
@@ -523,7 +523,7 @@ export default function CreatePage() {
               </button>
             </form>
         </div>
-        <p className="qn-note" style={{ textAlign: 'center', marginTop: 30 }}>混沌 · 玄学一站式 — 古籍数字化 · AI 参详 · 仅供参考</p>
+        <p className="qn-note" style={{ textAlign: 'center', marginTop: 30 }}>混沌 · 东方术数与风水 · 混沌自研 AI 辅助解读 · 仅供参考</p>
       </main>
     </div>
   );
