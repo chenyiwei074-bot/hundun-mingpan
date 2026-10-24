@@ -14,7 +14,7 @@ export default function AstroPage() {
         <p className="qn-eyebrow" style={{ marginTop: 14 }}>西方 · 看本命</p>
         <h1 className="qn-hero">{ENTRY.name}</h1>
         <p className="qn-meta" style={{ marginTop: 10, maxWidth: '62ch' }}>
-          {ENTRY.question} 当前仅开放行星落座与度数，详细范围与参考依据见下方说明。
+          {ENTRY.question} 行星位置、主要相位、上升点与整宫制已开放，详细范围与参考依据见下方说明。
         </p>
       </header>
 
@@ -22,7 +22,7 @@ export default function AstroPage() {
 
       <section className="qn-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
-          出生日期、时间与地点只在这台设备中用于计算，不上传或保存；刷新后结果清空。需要留存请自行截图。
+          出生日期与时间在这台设备中用于计算；选择国内地点时，地点名称会向本站查询坐标。结果不保存，刷新后清空。需要留存请自行截图。
         </p>
         <p className="qn-linkrow">
           <Link className="qn-link" href="/western">返回西方目录</Link>

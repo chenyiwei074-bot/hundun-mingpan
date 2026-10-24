@@ -440,9 +440,10 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
     `目录说明不评分、规则为本站自研且未关联可核验古籍出处，不展示内部数据路径：${t.note}`);
   ok('catalog/hepan-declares-consent', t.method.includes('同意'),
     `方法段要写清"勾了同意才存"，让同意这件事在进来之前就被看到：${t.method}`);
-  const dupName = INTENTS.flatMap(g => g.tools).filter(x => x.name.includes('合盘')).map(x => x.slug);
-  ok('catalog/he-hepan-names-distinguished', dupName.join(',').includes('hepan') && dupName.join(',').includes('xingming'),
-    `「合盘」与「姓名合盘」都含"合盘"三字，一个可用一个未做，套件里引用"未开放的那个"必须写 slug 不能写名字（写名字迟早指错条目）：${dupName.join(' / ')}`);
+  const nameTool = TOOL_BY_SLUG['xingming'];
+  ok('catalog/he-hepan-names-distinguished', nameTool.name !== t.name && nameTool.href === '/name-compat'
+    && nameTool.status === '可用',
+    `双人命盘对照与姓名五格是不同的可用工具，按 slug 分辨：${t.name} / ${nameTool.name}`);
 
   const CATALOG = INTENTS.flatMap(g => g.tools);
   const base = (o: Partial<AssistantRouteResult>): AssistantRouteResult => ({
@@ -452,9 +453,9 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
   const r = reconcile(base(routeLocal('oriental', '帮我合盘看一下', CATALOG, [])), 'oriental', CATALOG);
   ok('router/hepan-now-routable', r.toolSlug === 'hepan' && r.available,
     `问"合盘"应当路由到 hepan 并给入口（开放之前这条是红的，现在反过来钉：不许悄悄退回"没这个工具"）：${JSON.stringify({ s: r.toolSlug, a: r.available })}`);
-  const closedOne = reconcile(base({ toolSlug: 'xingming', available: true }), 'oriental', CATALOG);
-  ok('router/name-hepan-still-closed', closedOne.toolSlug === null,
-    '同名的「姓名合盘」仍未开放，不许因为 slug 里都含"合盘"就跟着开门（开门是按 slug，不是按名字）');
+  const nameRoute = reconcile(base({ toolSlug: 'xingming', available: true }), 'oriental', CATALOG);
+  ok('router/name-hepan-now-open', nameRoute.toolSlug === 'xingming' && nameRoute.available,
+    '姓名五格有独立页面后，已开放的 xingming 应有自己的入口，不与八字合盘混用');
 }
 
 const summary = `hepan acceptance: items=${报告.项目.length} basis=${报告.口径戳} pass=${pass} fail=${fail}`

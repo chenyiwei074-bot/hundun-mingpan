@@ -2,11 +2,11 @@
 
 // 「本命行星位置」的工作区。一屏里说清三件事：算了什么、按什么口径算的、哪些没算。
 //
-// 计算全在这台设备上：日期/时间/时区只用来在本地算一个绝对时刻，不发请求、不落任何库。
-// 这也是这一项能做而"AI 报告"那类不能做的原因 —— 没有原文要保护。
+// 日期/时间在本机换算；国内地点名称可向本站查询坐标，接口不可用时回退本地表。
 import { useEffect, useMemo, useState } from 'react';
 import { computePlanets, ASTRO_CROSS_CHECK, PLANETS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
 import { computeAngles, angleText, ANGLE_CROSS_CHECK, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
+import { computeAspects } from '@/lib/astro/aspects';
 import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { provinces } from '@/app/lib/region-data';
 import { lookupChinaGeo } from '@/app/lib/api';
@@ -64,18 +64,19 @@ export default function NatalPlanets() {
   const selectedProvince = provinces.find(item => item.name === province);
   const cityOptions = selectedProvince?.cities ?? [];
   const localGeo = province ? lookupGeo(city ? { province, city } : { province }) : null;
-  const [serverGeo, setServerGeo] = useState<GeoLookup | null>(null);
+  const geoKey = `${province}|${city}`;
+  const [serverGeo, setServerGeo] = useState<{ key: string; geo: GeoLookup | null } | null>(null);
   useEffect(() => {
     let alive = true;
-    if (!province) { setServerGeo(null); return () => { alive = false; }; }
+    if (!province) return () => { alive = false; };
     lookupChinaGeo(province, city || undefined).then(g => {
       if (!alive) return;
-      setServerGeo(g ? { ...g } : null);
+      setServerGeo({ key: `${province}|${city}`, geo: g ? { ...g } : null });
     });
     return () => { alive = false; };
   }, [province, city]);
   // 后端坐标优先；接口不可用时回退到本地已核对的 382 城数据，不阻塞本页。
-  const placeGeo = serverGeo ?? localGeo;
+  const placeGeo = province && serverGeo?.key === geoKey ? serverGeo.geo ?? localGeo : localGeo;
 
   const 结果 = useMemo<Outcome | null>(() => {
     if (!已算) return null;
@@ -102,6 +103,7 @@ export default function NatalPlanets() {
 
   const why = 结果 && 结果.kind === 'fail' ? 结果.why : null;
   const got = 结果 && 结果.kind === 'ok' ? 结果 : null;
+  const ownAspects = got ? computeAspects(got.planets.positions) : [];
 
   return (
     <>
@@ -111,7 +113,7 @@ export default function NatalPlanets() {
           本页展示太阳、月亮与其他行星的星座位置和角度。以下列出星座划分所参考的传统文献。
         </p>
           <p className="qn-meta" style={{ margin: '8px 0 0' }}>
-            这里给的是「本命行星位置」，不叫星盘 —— 没有宫位与相位的盘，叫盘会让人以为缺的那几样也算了。
+            本页给出行星位置、五类主要相位、上升点与整宫制；其他宫制和小天体仍不在计算范围内。
           </p>
           <p className="qn-meta" style={{ margin: '6px 0 0' }}>
             每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
@@ -228,6 +230,17 @@ export default function NatalPlanets() {
             </table>
           </section>
 
+          <section className="qn-card" style={{ marginTop: 14 }} data-astro-aspects="1">
+            <p className="qn-cap" style={{ margin: 0 }}>行星主要相位 · {ownAspects.length} 条</p>
+            <p className="qn-meta" style={{ margin: '5px 0 12px' }}>按两颗行星的最小黄经角距，检查合、六分、四分、三分、对分五类；每条展示实际角距与偏差。</p>
+            {ownAspects.length ? <div style={{ display: 'grid', gap: 8 }}>
+              {ownAspects.map(aspect => <div className="qn-row" key={`${aspect.first.key}-${aspect.second.key}`} style={{ padding: 10 }}>
+                <strong style={{ fontSize: 'var(--qn-fs-body)' }}>{aspect.first.名称} {aspect.glyph} {aspect.second.名称} · {aspect.name}</strong>
+                <span className="qn-meta" style={{ display: 'block' }}>角距 {aspect.separation.toFixed(2)}° · 标准 {aspect.exactAngle}° · 偏差 {aspect.orb.toFixed(2)}°（范围 ±{aspect.allowedOrb}°）</span>
+              </div>)}
+            </div> : <p className="qn-meta">在当前容许度内，没有检出主要相位。</p>}
+          </section>
+
           <section className="qn-card" style={{ marginTop: 14 }} data-astro-angles={got.angles?.ok ? 'ok' : 'unavailable'}>
             <p className="qn-cap" style={{ margin: 0 }}>上升点与整宫制</p>
             {got.angles?.ok ? (
@@ -259,7 +272,7 @@ export default function NatalPlanets() {
                   </table>
                 </div>
                 <p className="qn-note" style={{ margin: '10px 0 0' }}>
-                  只做上升点与整宫制宫位；行星相位、其他非整宫制宫位、凯龙星、南北交点、恒星黄道仍未纳入本页。
+                  上升点与整宫制宫位已计算；其他非整宫制宫位、凯龙星、南北交点、恒星黄道仍未纳入本页。
                 </p>
                 <p className="qn-note" style={{ margin: '6px 0 0' }}>
                   上升点与整宫制已和 {ANGLE_CROSS_CHECK.cases} 组独立对拍数据核对，公差 {ANGLE_CROSS_CHECK.toleranceDeg}°；
@@ -286,12 +299,12 @@ export default function NatalPlanets() {
       <section className="qn-card" style={{ marginTop: 14 }}>
         <p className="qn-cap" style={{ margin: 0 }}>当前结果范围</p>
         <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          当前展示十颗行星的星座位置、星座内角度、黄经与黄纬，以及上升点与整宫制宫位。行星相位、其他非整宫制宫位、凯龙星、南北交点、恒星黄道尚未纳入本页计算。
+          当前展示十颗行星的位置、主要相位，以及上升点与整宫制宫位。其他非整宫制宫位、凯龙星、南北交点和恒星黄道尚未纳入本页。
         </p>
       </section>
       {!结果 && (
         <div style={{ marginTop: 14 }}>
-          <Callout tier="info">还没算。这张表只在你在这一页按下按钮之后由本机算出；日期、时刻与时区都不离开这台设备。</Callout>
+          <Callout tier="info">还没算。按下按钮后由本机计算行星位置；选国内地点时仅用地点名称向本站查询坐标。</Callout>
         </div>
       )}
 
@@ -301,14 +314,14 @@ export default function NatalPlanets() {
           {DONE.map(s => <li key={s}>{s}</li>)}
         </ul>
         <p className="qn-cap" style={{ margin: '10px 0 0' }}>未做（{NOT_DONE.length} 项）</p>
-        <p className="qn-cap" style={{ margin: '2px 0 0' }}>缺的哪几样都写在门上，不藏在"部分可用"这四个字后面。</p>
+        <p className="qn-cap" style={{ margin: '2px 0 0' }}>缺的哪几样都写在门上，不藏在「部分可用」这四个字后面。</p>
         <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
           {NOT_DONE.map(s => <li key={s}>{s}</li>)}
         </ul>
         <p className="qn-note" style={{ margin: '10px 0 0' }}>
-          因此这里给的是「本命行星位置」，不叫星盘 —— 没有宫位与相位的盘，叫盘会让人以为缺的那几样也算了。
+          本页仍称「本命行星位置」，不叫星盘：其他宫制与小天体尚未纳入；每一层已做范围都在上方单列。
         </p>
-        <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 相位（这一项还没做，先钉口径）" />
+        <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
       </section>
 
     </>

@@ -83,7 +83,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('dir/open-hrefs-resolve', badOpen.length === 0,
     `${OPEN.length} 个已开放条目的 href 全部对应 app/**/page.tsx 真实存在：不存在的 ${badOpen.join(' | ') || '0 个'}`);
   const closedWithLink = ALL_TOOLS.filter(t => t.status === '未开放' && !!t.href).map(t => `${t.name}→${t.href}`);
-  ok('dir/closed-has-no-entry', closedWithLink.length === 0 && CLOSED_TOOLS.length > 0,
+  ok('dir/closed-has-no-entry', closedWithLink.length === 0,
     `未开放条目（${CLOSED_TOOLS.length} 个：${CLOSED_TOOLS.join('、')}）一律不得带 href：违规 ${closedWithLink.join(' | ') || '0 个'}`);
   const liveOk = LIVE_HREFS.every(routeExists);
   ok('dir/live-hrefs-dedup', liveOk && LIVE_HREFS.length > 0,

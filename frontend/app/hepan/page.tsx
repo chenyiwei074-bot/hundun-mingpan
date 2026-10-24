@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: '姻缘与关系｜混沌',
-  description: '选择八字合盘或二十八宿合宿，了解两个人之间可观察的结构。',
+  description: '选择八字合盘、二十八宿合宿或姓名五格对照，查看两个人之间可复核的取数关系。',
 };
 
 const cardStyle = {
@@ -36,7 +36,7 @@ export default function HepanPage() {
 
       <section className="qn-card qn-rise qn-rise--2" style={{ marginBottom: 16 }}>
         <p className="qn-body" style={{ margin: 0 }}>
-          目前开放两种关系观察方式。八字合盘逐条展示盘面对应与依据，不给匹配分，也不替双方判断是否合适；二十八宿合宿从两个视角呈现宿性关系。
+          目前开放三种关系观察方式。八字合盘展示盘面对应，二十八宿合宿展示双向宿性；姓名五格由你确认笔画后并排对照。都不替双方判断是否合适。
         </p>
       </section>
 
@@ -64,11 +64,23 @@ export default function HepanPage() {
             <Link href="/xiu" className="qn-btn qn-btn--ghost qn-btn--block">开始二十八宿合宿</Link>
           </div>
         </article>
+
+        <article className="qn-card qn-rise qn-rise--3" style={cardStyle}>
+          <p className="qn-cap" style={{ margin: 0 }}>姓名五格 · 手动核笔画</p>
+          <h2 className="qn-title" style={{ margin: '10px 0 6px' }}>双人五格对照</h2>
+          <p className="qn-meta" style={{ margin: 0 }}>
+            双方分别填入姓与名的逐字笔画，查看天、人、地、外、总五格的数字和五行关系。
+          </p>
+          <div style={{ marginTop: 'auto', paddingTop: 18 }}>
+            <p className="qn-note" style={{ margin: '0 0 10px' }}>五格是近代方法；请用同一笔画口径核对，不自动猜康熙笔画。</p>
+            <Link href="/name-compat" className="qn-btn qn-btn--ghost qn-btn--block">开始姓名五格对照</Link>
+          </div>
+        </article>
       </section>
 
       <section className="qn-legal qn-rise qn-rise--3" style={{ marginTop: 22 }}>
         <h2>关系由你定义</h2>
-        <p>这些工具呈现传统术数视角下的结构与倾向，不能代替双方沟通，也不会替你作出关系决定。</p>
+        <p>这些工具呈现各自方法下的取数关系，不能代替双方沟通，也不会替你作出关系决定。</p>
         <p className="qn-linkrow">
           <Link href="/tools" className="qn-link">查看全部工具</Link>
           <Link href="/oriental" className="qn-link">回到东方体系</Link>

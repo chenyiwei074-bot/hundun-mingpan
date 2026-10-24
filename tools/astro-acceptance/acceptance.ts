@@ -3,7 +3,7 @@
 // 这一批是有引擎、有出处、有对拍的第一项西方功能，所以这里钉的东西与批D 相反：
 // 批D 钉的是"不许先许诺"，这一批钉的是"许诺的那一小块真的对得上权威星历，
 // 而且没做的那几样在屏上写得出来"。运维 2026-10-23 裁定的口径是这套判据的根据：
-// 地心 / 回归黄道 / 无 ayanamsa / 无宫位无相位 / 戳 astro-planets-v1 / 客户端算 /
+// 地心 / 回归黄道 / 无 ayanamsa / 戳 astro-planets-v1 / 客户端算 /
 // 与权威星历抽样对拍且公差进文档与套件 / 显示名不叫"星盘"。
 //
 // 用法（与其余验收同一条命令形状）：
@@ -217,9 +217,9 @@ const ref = refText ? JSON.parse(refText) : null;
   ok('astro/notdone-list-equals-engine', JSON.stringify(ENTRY.notDone) === JSON.stringify([...ASTRO_NOT_DONE]),
     `「未做」那份必须与 ASTRO_NOT_DONE 逐字同序（缺的样子里少写一条，读者就以为那条做了）`);
   const notDone = (ENTRY.notDone || []).join(' ');
-  ok('astro/missing-calls-out-what-is-missing', /相位/.test(notDone)
-    && /凯龙/.test(notDone) && /交点/.test(notDone) && /恒星黄道/.test(notDone) && /宫制/.test(notDone),
-    `相位/凯龙/交点/恒星黄道/其他宫制都要在"未做"里点名（上升点与整宫制已做，不再混进未做）：${notDone.slice(0, 80)}…`);
+  ok('astro/missing-calls-out-what-is-missing', /凯龙/.test(notDone)
+    && /交点/.test(notDone) && /恒星黄道/.test(notDone) && /宫制/.test(notDone),
+    `凯龙/交点/恒星黄道/其他宫制都要在"未做"里点名（主要相位、上升点与整宫制已做）：${notDone.slice(0, 80)}…`);
   ok('astro/angles-done', (ENTRY.done || []).some(s => /上升点/.test(s) && /整宫制/.test(s)),
     `「已做」里必须出现上升点与整宫制：${JSON.stringify(ENTRY.done)}`);
   // 目录给用户看的说明应使用中文，不把工程版本标识或实现库名称当作产品文案。
@@ -231,7 +231,7 @@ const ref = refText ? JSON.parse(refText) : null;
     `目录卡面的介绍用中文表达，不显示工程版本号、实现库或许可信息：英文 ${latin.join('、') || '无'}；内部标识 ${internal ? '仍有' : '无'}`);
   // 反向：已经不算的东西不许出现在"会算"的那一侧，也不许在问题与读法里许诺。
   const promises = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.reading, ENTRY.teaser || '', ...(ENTRY.done || [])].join(' ');
-  const banned = ['相位', '凯龙', '交点', '性格'].filter(w => promises.includes(w));
+  const banned = ['凯龙', '交点', '性格'].filter(w => promises.includes(w));
   ok('astro/no-undelivered-promise', banned.length === 0,
     `"做了什么"的每一行都不许出现没做的那几样（写了读者就会去找）：命中 ${banned.join('、') || '无'}`);
   ok('astro/partial-renders-both-lists', (() => {
@@ -246,7 +246,7 @@ const ref = refText ? JSON.parse(refText) : null;
   // 问事框的路由词表也算"承诺"：拿 上升/宫位/星盘 这些这一项**不做**的东西当关键词，
   // 用户就会被领到一个装着"没做的东西"的页面上，而那句话是问事框说的，不是目录说的。
   const askWords = ROUTER_SPECS['astro-natal'].ask;
-  const undelivered = ['上升', '宫位', '星盘', '本命盘', '相位', '凯龙', '交点'];
+  const undelivered = ['星盘', '本命盘', '凯龙', '交点'];
   const over = askWords.filter(k => undelivered.some(u => k.includes(u)));
   ok('astro/router-words-are-delivered', over.length === 0,
     `astro-natal 的路由关键词只能是我做得到的那几样（实得 ${askWords.join('、')}）：越界 ${over.join('、') || '无'}`);
@@ -276,27 +276,28 @@ const ref = refText ? JSON.parse(refText) : null;
 // ── 4. 其余西方项仍然未开放，且写明缺什么 ──
 {
   const others = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.slug !== 'astro-natal');
-    // 2026-10-23：塔罗升为「部分可用」的预览项（无引擎、不解读）。这一条不再要求"其余全关"，
-    // 但咬得更细：其余项要么仍未开放（写清缺什么），要么是预览项（有入口但必须写明未接入什么、
-    // 且不许挂引擎戳）。"第一项开放"绝不等于"整页开放"。
     const otherViolations = others.filter(t => {
       if (t.status === '未开放') return !!t.href || (t.note || '').length < 8 || !t.basis.includes('缺');
       if (t.status === '部分可用') {
         return !t.href || (t.done?.length ?? 0) === 0 || (t.notDone?.length ?? 0) === 0
           || /astro-planets-v1|astro-moment-iana-v1/.test(t.basis || '')
-          || !/未接入|缺|待校核/.test((t.basis || '') + (t.note || ''));
+          || (t.note || '').length < 8;
       }
+      if (t.status === '可用') return !t.href || !existsSync(join(ROOT, 'frontend', 'app', t.href.slice(1), 'page.tsx'))
+        || (t.note || '').length < 8;
       return true;
     });
-    ok('astro/others-still-closed', otherViolations.length === 0,
-      `本命行星位置之外，其余 ${others.length} 项要么仍未开放（写清缺什么），要么是写明未接入内容的预览项（不许挂引擎戳）——`
+  ok('astro/others-still-closed', otherViolations.length === 0,
+      `本命行星位置之外，其余 ${others.length} 项要有真实入口与准确范围说明——`
       + `违规 ${otherViolations.map(t => t.slug).join('、') || '无'}`);
   const syn = WESTERN_TOOL_BY_SLUG['astro-synastry'];
-  ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /缺/.test(syn.basis),
-    `合盘那句"缺什么"要跟着本命盘这一批更新（本命盘已能算落座，合盘缺的是相位那一层）：${syn.basis.slice(0, 40)}…`);
+  ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /宫位叠合/.test(syn.note || '')
+    && /中点盘/.test(syn.note || ''),
+    `跨盘相位已实现，尚未做的宫位叠合与中点盘须明示：${syn.basis.slice(0, 40)}…`);
   const liveSlugs = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放').map(t => t.slug).sort();
-  ok('astro/open-one-does-not-flip-others', JSON.stringify(liveSlugs) === JSON.stringify(['astro-natal', 'tarot-draw']),
-    `仅本命行星位置与塔罗抽取开放，其他西方工具维持未开放：实得 ${liveSlugs.join('、') || '无'}`);
+  ok('astro/open-one-does-not-flip-others', JSON.stringify(liveSlugs) === JSON.stringify(
+    ['astro-natal', 'astro-synastry', 'lunar-phase', 'numerology', 'tarot-draw']),
+    `西方五项均有对应实现，且本命与塔罗继续明示部分范围：实得 ${liveSlugs.join('、') || '无'}`);
 }
 
 // ── 5. 降级：算不出来要说明白，不许猜 ──
