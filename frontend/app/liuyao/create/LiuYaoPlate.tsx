@@ -73,7 +73,7 @@ export default function LiuYaoPlate(p: Props) {
     }}>
       {/* ===== Header: 本卦 / 变卦 titles ===== */}
       <div />
-      <div style={{ padding:'16px 6px 10px 0',display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'end',borderBottom:`1px solid ${sepColor}`,fontSize:10,fontWeight:600,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>
+      <div style={{ padding:'16px 6px 10px 0',display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'end',borderBottom:`1px solid ${sepColor}`,fontSize:11,fontWeight:600,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>
         <span>六亲</span><span>天干</span><span>地支</span><span>五行</span><span />
       </div>
       <div style={{ padding:'16px 0 10px',textAlign:'center',borderBottom:`1px solid ${sepColor}` }}>
@@ -90,7 +90,7 @@ export default function LiuYaoPlate(p: Props) {
           <div style={{ fontSize:11,color:'var(--color-text-secondary)',marginTop:3 }}>—</div>
         )}
       </div>
-      <div style={{ padding:'16px 0 10px 6px',display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'end',borderBottom:`1px solid ${sepColor}`,fontSize:10,fontWeight:600,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>
+      <div style={{ padding:'16px 0 10px 6px',display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'end',borderBottom:`1px solid ${sepColor}`,fontSize:11,fontWeight:600,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>
         <span>六亲</span><span>天干</span><span>地支</span><span>五行</span><span />
       </div>
 
@@ -110,7 +110,7 @@ export default function LiuYaoPlate(p: Props) {
         const dongColor = isDong ? 'var(--color-accent-gold-dark)' : 'var(--color-text-primary)';
 
         return (
-          <div key={i} style={{ display:'contents' }}>
+          <div key={i} data-yao-position={nj.position} style={{ display:'contents' }}>
             {/* Col 1: 六神 */}
             <div style={{
               padding:'0',height:rowH,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:3,

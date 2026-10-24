@@ -158,9 +158,10 @@ export default function HepanSection({ chartData }: Props) {
         <p className="qn-cap" style={{ margin: 0 }}>合盘 · 两人对照</p>
       </div>
 
+      <p className="qn-meta" style={{ marginTop: 6 }}>本站自研 · 合盘结构对照</p>
       <p className="qn-note" style={{ marginTop: 8 }}>
         这一节并列两张盘中可核对的结构，<strong>不出评分、不出匹配度，也不替双方判断是否合适</strong>。
-        目前没有经过校核、可直接支持这套对照方式的具体原文，因此不把它包装成古籍断语。
+        结果供双方了解盘面差异与相似处。
       </p>
 
       {!draft && (

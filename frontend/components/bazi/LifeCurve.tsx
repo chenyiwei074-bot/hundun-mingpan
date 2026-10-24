@@ -58,7 +58,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
   if (!view || !seg || !mark) {
     return (
       <section className="qn-card qn-kline qn-kline--empty" style={{ marginBottom: 16 }}>
-        <h2 className="qn-title" style={{ margin: 0 }}>人生K线</h2>
+        <h2 className="qn-title" style={{ margin: 0 }}>人生K线 · 十神视图</h2>
         <p className="qn-meta" style={{ marginTop: 8 }}>
           这一节把大运与流年按十神摆成泳道，读的是八字的大运干支与日主十神。
           当前这份数据里没有可用的岁运序列，所以没有可摆的格子 —— 这里不预置示例盘。
@@ -78,7 +78,7 @@ export default function LifeCurve({ chart }: { chart?: BaziChart }) {
   return (
     <section className="qn-card qn-kline" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <h2 className="qn-title" style={{ margin: 0 }}>流年结构 · 十神视图</h2>
+        <h2 className="qn-title" style={{ margin: 0 }}>人生K线 · 十神视图</h2>
       </div>
 
       <p className="qn-meta" id="kline-axis-note" style={{ marginTop: 8 }}>

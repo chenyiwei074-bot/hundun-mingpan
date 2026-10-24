@@ -800,14 +800,14 @@ const LIUYAO_PINS = {
   },
   'liuyao-result-time': {
     base: 13, gua: '火雷噬嗑', gong: '巽宫', bianName: '火泽睽', kong: 2,
-    text: ['己未日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日', '取数过程'],
+    text: ['己未日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日', '起卦过程'],
     absent: ['本盘按起卦时口径生成'],
     ben: ['父母庚子水', '兄弟庚寅木', '妻财庚辰土', '官鬼己酉金', '妻财己未土', '子孙己巳火'],
     bian: ['父母丁巳火', '官鬼丁卯木', '兄弟丁丑土', '子孙己酉金', '兄弟己未土', '父母己巳火'],
   },
   'liuyao-result-number': {
     base: 25, gua: '乾为天', gong: '乾宫', bianName: '天火同人', kong: 2,
-    text: ['戊午日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日', '取数过程'],
+    text: ['戊午日', '子丑旬空', '真太阳时', '87.62°E', '校正后跨日', '起卦过程'],
     absent: ['本盘按起卦时口径生成'],
     ben: ['子孙甲子水', '妻财甲寅木', '父母甲辰土', '官鬼壬午火', '兄弟壬申金', '父母壬戌土'],
     bian: ['父母己卯木', '子孙己丑土', '官鬼己亥水', '兄弟壬午火', '妻财壬申金', '子孙壬戌土'],
@@ -878,7 +878,7 @@ const KLINE_PINS = {
     lanes: ['比肩', '劫财', '食神', '伤官', '偏财', '正财', '七杀', '正官', '偏印', '正印'],
     cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
     cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
-    text: ['人生K线 · 类别轴', 'kline-category-v1', '本图不构成吉凶评分',
+    text: ['人生K线 · 十神视图', '不作吉凶评分或预测',
       '流年干支按立春换年', '无事件（未由你标注）', '落点取的是流年支', '格子只读'],
     // 落点的逐字期望（手工推，不跑代码）：默认展示首段 1996 丙子，日主辛，四柱 戊辰 己未 辛未 乙未。
     //   子 × 未 = 六害（月／日／时三柱各一条）；子藏癸 × 辰藏戊 = 戊癸合 → 暗合（年柱一条）；
@@ -900,7 +900,7 @@ const KLINE_PINS = {
     cells: { 比肩: ['1997', '2001', '2005'], 正官: ['1996', '1998', '2001'] },
     cellText: { 比肩: ['丁丑', '辛巳', '乙酉'], 正官: ['丙子', '戊寅', '辛巳'] },
     land: null,
-    text: ['人生K线 · 类别轴', '本图不构成吉凶评分', '这份数据里没有完整四柱', '格子只读'],
+    text: ['人生K线 · 十神视图', '不作吉凶评分或预测', '这份数据里没有完整四柱', '格子只读'],
   },
   'chart-result-barren': {
     mode: 'empty', segments: 0, years: [], lanes: [], cells: {}, cellText: {}, land: null,
@@ -920,8 +920,8 @@ const KLINE_PINS = {
 //   年命纳音：戊辰与己巳同属大林木 → 同为木，shengKe 在 WuXing 上是全函数，这一档报「同」。
 const HEPAN_DEGRADED = {
   mode: 'degraded', items: [],
-  text: ['合盘 · 两人对照', '自研 · 非还原', 'hepan-local-v1', '对方生辰需要本人同意才能填',
-    '填对方生辰（本机计算）', '不进报告、不进回执、不进台账、不上链', '进入 · 建盘页（双人合盘）'],
+  text: ['合盘 · 两人对照', '本站自研 · 合盘结构对照', '对方生辰需要本人同意才能填',
+    '填写对方生辰', '对方资料只用于本次对照，不会加入你的命盘报告', '进入 · 建盘页（双人合盘）'],
   absent: ['null', 'undefined', 'NaN'],
   noScoreIn: ['评分', '匹配度', '吉', '凶', '宜忌', '%'],
 };
@@ -940,7 +940,7 @@ const HEPAN_PINS = {
       '是「偏印」', '我盘里月柱的天干也是这个十神',
       '我年支 辰、对方年支 巳：暗合', '我日支 未、对方日支 亥：暗合',
       '大林木', '两者是「同」',
-      '1990-2-3 12:00', '自研 · 非还原', 'hepan-local-v1', '没做的部分',
+      '1990-2-3 12:00', '本站自研 · 合盘结构对照', '没做的部分',
       '合盘评分 / 匹配度百分比：不做（裁定）',
     ],
     // 反向：整节里既不该出现 undefined/null 这类没被兜住的空值，也不该出现结论性数字。
@@ -1021,7 +1021,7 @@ const liuyaoProbe = p => `(() => {
   const out = [];
   const plate = document.querySelector('.liuyao-plate');
   if (!plate) return { miss: ['plate: .liuyao-plate 不存在（sessionStorage 没被读进盘面）'] };
-  const rows = [...plate.children].filter(d => d.children.length === 5);
+  const rows = [...plate.children].filter(d => d.hasAttribute('data-yao-position'));
   if (rows.length !== 6) return { miss: ['plate: 爻行数=' + rows.length + '（应为 6）'] };
   const txt = el => ((el && el.textContent) || '').replace(/\\s+/g, '');
   const yao = rows.map(r => txt(r.children[1])).reverse();   // 盘面上爻在顶，翻回 初→上
@@ -3127,7 +3127,7 @@ async function measure(tag, url) {
     // 与运维 5a4edb4 对 CHART_PINS 四柱钉值的处理同一条路，否则真盘回归永远红、就没人跑。
     if (LIVE_CHART && base === 'chart-result') {
       kp.mode = 'live'; kp.segments = 0; kp.years = []; kp.cells = {}; kp.cellText = {}; kp.land = null;
-      kp.text = ['人生K线 · 类别轴', '本图不构成吉凶评分', '落点取的是流年支', '格子只读'];
+      kp.text = ['人生K线 · 十神视图', '不作吉凶评分或预测', '落点取的是流年支', '格子只读'];
     }
     const got = await evl(klineProbe(kp));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
