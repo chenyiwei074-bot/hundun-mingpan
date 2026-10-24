@@ -327,7 +327,7 @@ const QA_PINS = {
   // 挑了一个之后：入口出现，而且来源那一句必须换成"你自己挑的"。
   'oriental-chosen': {
     q: '我出生那天值哪一宿',
-    mustSay: ['你在并列的候选里自己挑的', '该用的是'],
+    mustSay: ['你已从并列候选中选择此工具', '该用的是'],
     entry: { text: '进入 · 八字 & 紫微斗数', href: '/create' },
     absent: [],
     choose: '八字 & 紫微斗数', chosenClean: true,
@@ -351,7 +351,7 @@ const QA_PINS = {
   'western-example-open': {
     q: '',
     clickExample: 0,
-    mustSay: ['该用的是', '本命行星位置', '目录里该项自己登记的例子'],
+    mustSay: ['该用的是', '本命行星位置', '已按这个工具提供的示例问题整理建议'],
     entry: { text: '进入 · 本命行星位置', href: '/astro' },
     absent: ['还没开放'],
   },
@@ -1205,13 +1205,13 @@ const FS_PROBE = `(() => {
 const FS_RECOGNIZE_PINS = {
   'fengshui-recognize-fail': {
     state: '失败', line: '识别：失败', calls: 1, plan: false,
-    must: ['HTTP 503', 'provider_error', '不会自动重试', '这条不装作成功', '还没有几何'],
+    must: ['混沌自研 AI 辅助识别暂时不可用', '请稍后重试或手工绘制', '这条不装作成功', '还没有几何'],
     not: ['候选已载入', '墙 2 道'],
   },
   'fengshui-recognize-candidates': {
     state: '候选待确认', line: '墙 2 道 · 房间 2 间 · 门 1 · 窗 1 · 跨度按 9m', calls: 1, plan: true,
     must: ['每一项都要你逐条确认', '长边按 9m 估', '请在俯视图里拖角点对一下',
-      '模型把握：未给出（0.5 是占位值，不是精确读数）', '模型把握：偏高',
+      '识别参考：待人工核对', '识别参考：较高',
       // 这一条是 aspect 的浏览器侧证据：fixture 是 200×100（2:1），两轴同缩会得到 33×31，
       // 分轴缩才是 33×16。图一旦解不出来（上一版就是这样）这里立刻红。
       '可行走网格 33×16 格'],
@@ -1532,7 +1532,7 @@ const CALLOUT_INK_PROBE = `(() => {
   main.setAttribute('data-mode', 'western');
   const TIERS = [['info', '提示', '上传是可选的，不上传也能走完全部判定。'],
     ['pending', '待你处理', '候选已载入，每一项都要你逐条确认。'],
-    ['danger', '失败', '识别服务不可用（HTTP 503），一次都没有重试。']];
+    ['danger', '失败', '混沌自研 AI 辅助识别暂时不可用，请稍后重试或手工绘制。']];
   const rows = []; const made = [];
   for (const [tier, tag, text] of TIERS) {
     const p = document.createElement('p');
@@ -1712,13 +1712,13 @@ const qaProbe = p => `(() => {
   // 来源与降级理由这一对，批B 起改成钉"配对关系"而不是钉某一句：
   // 桩下 /api/assistant 回 404（必然回落本机 + 必须写明为什么），真后端会真的答一句。
   // 两种模式各钉一句的话，端点修好那天这套钉值就集体过期 —— 钉不变量才不会。
-  const srcLocal = txt.indexOf('本机目录匹配') >= 0, srcServer = txt.indexOf('来自服务端路由') >= 0;
-  const chosen = txt.indexOf('你在并列的候选里自己挑的') >= 0, degraded = txt.indexOf('服务端这一轮没用上') >= 0;
+  const product = txt.indexOf('混沌自研AI助手已为你整理相关工具建议') >= 0; const srcLocal = false, srcServer = false;
+  const chosen = txt.indexOf('你已从并列候选中选择此工具') >= 0, degraded = false;
   // 批F④ 起有第四种来源：点的是目录里某一项自己的例子（目标工具是登记过的，没再匹配一遍）。
   // 仍然钉的是那个不变量 —— 每一轮都必须说出"是谁算的"，四种里恰好一种；
   // 少一句会红（这一轮没人认领），两句同时出现也会红（读者不知道信哪个）。
-  const fromExample = txt.indexOf('目录里该项自己登记的例子') >= 0;
-  const howMany = [srcLocal, srcServer, chosen, fromExample].filter(Boolean).length;
+  const fromExample = txt.indexOf('已按这个工具提供的示例问题整理建议') >= 0;
+  const howMany = [product, chosen, fromExample].filter(Boolean).length;
   if (howMany > 1) out.push('同一轮写了两种来源标注，读者不知道信哪个：'
     + JSON.stringify({ srcLocal, srcServer, chosen, fromExample }));
   if (howMany === 0) out.push('这一轮没写是谁算的（来源标注没上屏）');
@@ -3285,7 +3285,7 @@ const fsEditProbe = p => `(() => {
   if (!walls) out.push('墙体那一格不在页面上（#fp-walls）');
   if (!opens) out.push('门窗那一格不在页面上（#fp-openings）');
   if (walls && !walls.includes(${JSON.stringify(p.walls)})) out.push('墙体数应为「' + ${JSON.stringify(p.walls)} + '」，实得「' + walls.slice(0, 40) + '」');
-  if (opens && (opens.match(/手工标注|模型把握/g) || []).length !== ${p.openings}) out.push('开口行应有 ${p.openings} 条，实得 ' + (opens.match(/手工标注|模型把握/g) || []).length);
+  if (opens && (opens.match(/手工标注|识别参考/g) || []).length !== ${p.openings}) out.push('开口行应有 ${p.openings} 条，实得 ' + (opens.match(/手工标注|识别参考/g) || []).length);
   if (opens && !opens.includes(${JSON.stringify(p.doorWidth)})) out.push('按过一次「宽」之后新门应显示 ' + ${JSON.stringify(p.doorWidth)});
   if (opens && !opens.includes(${JSON.stringify(p.手工)})) out.push('手工画的开口要标「手工标注」（置信度 null），不能冒充模型给的');
   // 门窗格里"未确认" chip 的个数：starter 那道门是识别语义（未确认），手工新加的那道算已确认。
@@ -3601,13 +3601,13 @@ const fsEditProbe = p => `(() => {
       const txt = [...document.querySelectorAll('p.qn-alert, p.qn-callout, p.qn-meta, p.qn-note')]
         .map(x => (x.innerText || '').replace(/\\s+/g, ' ').trim()).join(' | ');
       return { state: st ? st.getAttribute('data-recognize-state') : null,
-        calls: window.__recCalls || null, hasNotRetry: /不自动重试|一次都没重试/.test(txt),
+        calls: window.__recCalls || null, hasNotRetry: /暂时不可用|请稍后重试|手工绘制/.test(txt),
         hasHonest: /不装作成功/.test(txt), hasNoGeom: /还没有几何|手工画/.test(txt) };
     })()`);
     if (!ui || typeof ui.state !== 'string') miss.push('识别状态那一行读不到（#fp-recognize-state）');
     else {
       if (ui.state !== '失败') miss.push('拦停之后应落到「失败」那一格，实为 ' + ui.state);
-      if (!ui.hasNotRetry) miss.push('页面上没有"不会自动重试"那半句');
+      if (!ui.hasNotRetry) miss.push('失败后没有给出下一步（重试或手工绘制）');
       if (!ui.hasHonest) miss.push('页面上没有"这条不装作成功"');
       if (!ui.hasNoGeom) miss.push('没有给出下一步（手工画 / 合成样例）');
     }
