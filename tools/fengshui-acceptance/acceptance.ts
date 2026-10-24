@@ -393,9 +393,15 @@ const base: FloorInput = {
     && /^data:image\/png;base64,/.test(String(reqBody.imageBase64)),
     `请求体是 JSON、只有 visitorId + imageBase64 两个键（${Object.keys(reqBody || {}).join(',') || '读不出来'}）；`
     + 'FormData / multipart 会被服务端解析成空 body，那条错一直报 bad_visitor，看着像 id 不合法');
+  // 2026-10-24：新增「删除本人图」后，页面允许两处 fetch：识别 + DELETE。
+  // 判据不是"只许一个请求"，而是"没有第二条上传通道"：仍禁 FormData/multipart，
+  // 且第二处必须是 DELETE /api/fengshui/image/:id（删，不是再传一份）。
+  const studioFetchCount = (studio.match(/fetch\(/g) || []).length;
   ok('rc/no-multipart-left-in-page', !/FormData|multipart|form\.append/.test(studio)
-    && (studio.match(/fetch\(/g) || []).length === 1,
-    `页面里不再出现 FormData，fetch 只剩一处（实测 ${(studio.match(/fetch\(/g) || []).length} 处）：一次请求完成校验+落盘+识别，没有独立上传端点`);
+    && studioFetchCount <= 2
+    && /fetch\(`\/api\/fengshui\/image\/\$\{target\}\?visitorId=/.test(studio)
+    && /method: 'DELETE'/.test(studio),
+    `页面里没有 FormData；fetch 只允许「识别 + 删除本人图」两处（实测 ${studioFetchCount} 处），且第二处是 DELETE`);
 
   // C. 本地预校验：与控制器同一条正则，把注定 400 的请求拦在发出之前。
   ok('rc/visitor-rule-matches-server', /const VISITOR_RE = (\/[^;]+;)/.exec(ctrl)?.[1]

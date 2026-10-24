@@ -129,6 +129,8 @@ export default function FloorPlanStudio() {
   const [关心点已答, set关心点已答] = useState(false);
   // 「移除这张图」的二次确认：第一次点击只把按钮换成"确认移除"，第二次才清。
   const [要移除, set要移除] = useState(false);
+  // 服务端入库的图 id：有它就意味着服务端有一份副本，移除时要调 DELETE。
+  const [serverImageId, setServerImageId] = useState<string | null>(null);
 
   /** 回执一律走 Callout，档位是必填的第一个参数 —— 于是"忘了给档"在类型上就过不去，
    *  而不是所有消息都默认套一个红底（那正是这一批要修的毛病）。 */
@@ -163,6 +165,14 @@ export default function FloorPlanStudio() {
       set要移除(true);
       say('pending', '再按一次「确认移除」才会丢掉这张图与在它上面改过的全部几何。这一步不可撤销：这一页不存草稿。');
       return;
+    }
+    if (serverImageId) {
+      // 先删服务端那份：失败也不阻塞本地清空，但要如实提示（7 天内仍会保留）。
+      const target = serverImageId;
+      void fetch(`/api/fengshui/image/${target}?visitorId=${encodeURIComponent(visitorId)}`, { method: 'DELETE' })
+        .then(res => { if (!res.ok) say('danger', '服务端图片没有删掉（可能已过期）；主存储最迟 7 天内仍会保留。'); })
+        .catch(() => say('danger', '服务端删除请求没发出去；主存储最迟 7 天内仍会保留。'));
+      setServerImageId(null);
     }
     setImage(null); setGeom(emptyGeom()); set已确认(false);
     set选中(null); set选中墙(null); set视图('俯视');

@@ -1,4 +1,11 @@
 import type { CreateChartPayload } from '@/lib/api/contract';
+import { getVisitorId } from '@/lib/auth/visitor';
+
+/** chart status/result 现在要求本人标识；没有标识时请求会 401（而不是拿到别人的盘）。 */
+function visitorHeader(): Record<string, string> {
+  const id = getVisitorId();
+  return id ? { 'x-visitor-id': id } : {};
+}
 
 const API_BASE = "/api";
 
@@ -14,12 +21,12 @@ export async function createChart(data: CreateChartPayload) {
 }
 
 export async function getChartStatus(id: string) {
-  const res = await fetch(API_BASE + "/chart/status/" + id);
+  const res = await fetch(API_BASE + "/chart/status/" + id, { headers: visitorHeader() });
   return res.json();
 }
 
 export async function getChartResult(id: string) {
-  const res = await fetch(API_BASE + "/chart/result/" + id);
+  const res = await fetch(API_BASE + "/chart/result/" + id, { headers: visitorHeader() });
   const json = await res.json();
   return { ...json, httpStatus: res.status };
 }

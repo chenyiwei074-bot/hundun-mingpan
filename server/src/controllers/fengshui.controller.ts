@@ -10,7 +10,7 @@
  */
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
 import { recognizeFloorPlan } from '../services/vision.service';
 
@@ -83,3 +83,26 @@ export function getFloorPlanImage(req: Request, res: Response) {
   }
   return fail(res, 404, 'not_found', '找不到这张图（可能已过 7 天保留期）');
 }
+
+/** DELETE /api/fengshui/image/:id?visitorId=... —— 立即删除主存储里的图（幂等）。
+ *  备份里可能还有一份，最迟随备份保留期（7 天）滚动消失；模型服务侧副本不由本站控制。 */
+export function deleteFloorPlanImage(req: Request, res: Response) {
+  const visitorId = String(req.query.visitorId || req.header('x-visitor-id') || '').trim();
+  const id = String(req.params.id || '').trim();
+  if (!VISITOR_RE.test(visitorId)) return fail(res, 400, 'bad_visitor', 'visitorId 不合法');
+  if (!UUID_RE.test(id)) return fail(res, 400, 'bad_id', 'id 不合法');
+  let removed: string | null = null;
+  for (const ext of ['jpg', 'png', 'webp'] as const) {
+    const p = path.join(ROOT, visitorId, `${id}.${ext}`);
+    if (existsSync(p) && statSync(p).isFile()) {
+      try { unlinkSync(p); removed = ext; } catch (e) {
+        console.error('[fengshui/delete] 删除失败:', e instanceof Error ? e.message : e);
+        return fail(res, 500, 'delete_failed', '删除失败');
+      }
+      break;
+    }
+  }
+  // 幂等：文件本来就不在（已删/过期）也算成功
+  return res.json({ ok: true, removed: !!removed });
+}
+

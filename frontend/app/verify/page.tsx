@@ -102,7 +102,7 @@ export default function VerifyPage() {
             也不说明内容是谁写的。
           </p>
           <p className="qn-cap" style={{ marginTop: 8 }}>
-            锚定状态：{result.receipt.anchor ? `${result.receipt.anchor.date} 已入台账 root ${result.receipt.anchor.root}` : '未锚定 —— 站点尚未接入每日 Merkle 台账，此处不做任何上链声明。'}
+            锚定状态：{result.receipt.anchor ? `${result.receipt.anchor.date} 已入台账 root ${result.receipt.anchor.root}` : '未锚定 —— 回执摘要尚未进入对外公开的每日台账；此处不做任何上链声明。'}
           </p>
         </section>
       )}
