@@ -790,7 +790,7 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 .gate-legal { padding: 0 24px; margin-top: 14px; }
 @media (max-width: 639px) {
   .gate-head { padding: 18px 20px 4px; }
-  .gate-head .qn-hero { font-size: 27px; line-height: 1.3; }
+  .gate-head .qn-hero { font-size: var(--qn-fs-hero); line-height: 1.3; }
   .gate-legal { padding: 0 20px; }
 }
 .gate-grid {
@@ -910,7 +910,7 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
     top: 8px;
   }
   .domain-card[data-mode="western"] .domain-card__copy { width: 100%; }
-  .domain-card__title { font-size: 34px; }
+  .domain-card__title { font-size: var(--qn-fs-display); }
   /* 手机端首屏已有精简介绍，工具名眉标留给桌面，避免与 3D 器物争空间。 */
   .domain-card__copy > .qn-eyebrow { display: none; }
 }
@@ -1174,10 +1174,10 @@ body:has(main[data-mode="western"]) .qn-footer { border-top: 0.5px solid var(--c
     linear-gradient(180deg, #f8f5ed 0%, #f0eadc 100%);
   border-bottom: 1px solid rgba(123, 99, 60, .14);
 }
-.hp .hero-copy .h1 { font-size: clamp(56px, 5.8vw, 72px); letter-spacing: .09em; }
-.hp .hero-copy .hero-sub { font-size: 21px; letter-spacing: .05em; }
-.hp .h2 { font-size: 30px; }
-.hp .core-row .h3 { font-size: 18px; line-height: 1.4; }
+.hp .hero-copy .h1 { font-size: var(--qn-fs-display); letter-spacing: .09em; }
+.hp .hero-copy .hero-sub { font-size: var(--qn-fs-hero); letter-spacing: .05em; }
+.hp .h2 { font-size: var(--qn-fs-hero); }
+.hp .core-row .h3 { font-size: var(--qn-fs-title); line-height: 1.4; }
 .hp .core-row { border-radius: 16px; }
 .hp .module-glyph { transform: perspective(700px) rotateX(5deg) rotateY(-4deg); }
 .hp .module-glyph svg { transform: translateZ(4px); transition: transform .32s cubic-bezier(.2,.8,.2,1), filter .32s ease; }
