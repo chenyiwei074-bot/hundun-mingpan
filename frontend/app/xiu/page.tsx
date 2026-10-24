@@ -303,7 +303,7 @@ export default function XiuPage() {
           )}
 
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
-            <p className="qn-eyebrow" style={{ margin: 0 }}>出生日期与命宿</p>
+            <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
               {result.steps.map((s, i) => (
                 <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>

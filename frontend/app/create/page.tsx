@@ -458,7 +458,7 @@ export default function CreatePage() {
                       后端 calendar 只收 公历/农历，这条永远存不进「我的报告」。 */}
                   {form.calendar === '四柱' && (
                     <p className="qn-note" id="create-persist-note" style={{ marginTop: 8 }}>
-                      四柱直批结果只在当前页面展示，不会保存到“我的报告”。离开前请自行保存结果。
+                      四柱直批结果只在当前页面展示，不会存进服务器，也不会保存到“我的报告”；刷新就没了，离开前请自行保存结果。
                     </p>
                   )}
                   {renderDateGroup('')}
