@@ -2,6 +2,7 @@
 import { createLiuYao } from '../controllers/liuyao.controller';
 import { recognize, getFloorPlanImage, deleteFloorPlanImage } from '../controllers/fengshui.controller';
 import { getClassicSources } from '../controllers/classics.controller';
+import { createShareLink, getSharedChart, getSharedPoster, revokeShareLink } from '../controllers/share.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
 import {
@@ -24,6 +25,10 @@ router.get('/classics/sources', getClassicSources);
 router.post('/receipts', submitReceipt);
 router.get('/receipts/:recordHash', getReceiptStatus);
 
+router.post('/chart/:id/share-links', createShareLink);
+router.get('/chart/share/:token', getSharedChart);
+router.get('/chart/share/:token/poster', getSharedPoster);
+router.delete('/chart/:id/share-links/:shareId', revokeShareLink);
 router.post('/chart/create', createChart);
 router.get('/chart/status/:id', getChartStatus);
 router.get('/chart/result/:id', getChartResult);

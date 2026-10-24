@@ -158,8 +158,12 @@ export async function getChartResult(req: Request, res: Response) {
 // GET /api/chart/poster/:id
 export async function getPoster(req: Request, res: Response) {
   try {
+    const visitorId = readVisitorId(req);
+    if (!visitorId) return res.status(401).json({ success: false, error: '缺少本人标识' });
     const chart = await prisma.chart.findUnique({ where: { id: req.params.id as string } });
-    if (!chart?.posterHtml) return res.status(404).json({ success: false, error: '海报不存在' });
+    if (!chart || chart.visitorId !== visitorId || !chart.posterHtml) {
+      return res.status(404).json({ success: false, error: '海报不存在' });
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.send(chart.posterHtml);
   } catch (error: any) {

@@ -108,3 +108,15 @@ model Product {
 
   @@map("products")
 }
+
+model ChartShare {
+  id        String    @id @default(cuid())
+  chartId   String    @map("chart_id")
+  tokenHash String    @unique @map("token_hash")
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  @@index([chartId])
+  @@map("chart_shares")
+}
