@@ -45,7 +45,6 @@ function buildChartSummary(chart: ChartResult): Record<string, unknown> {
   const en = bz.enrichment || {};
 
   return {
-    name: '',
     birthInfo: {
       solar: bz.birthInfo.year + '-' + String(bz.birthInfo.month).padStart(2,'0') + '-' + String(bz.birthInfo.day).padStart(2,'0') + ' ' + String(bz.birthInfo.hour).padStart(2,'0') + ':' + String(bz.birthInfo.minute).padStart(2,'0'),
       gender: bz.birthInfo.gender === 'male' ? '男' : '女',
@@ -107,9 +106,8 @@ function buildChartSummary(chart: ChartResult): Record<string, unknown> {
   };
 }
 
-export async function generateAIAnalysis(chart: ChartResult, name: string, persona?: string, depth?: string): Promise<Record<string, unknown>> {
+export async function generateAIAnalysis(chart: ChartResult, persona?: string, depth?: string): Promise<Record<string, unknown>> {
   const chartSummary = buildChartSummary(chart);
-  chartSummary.name = name;
 
   const isDetail = depth === 'detail';
   const prompt = getPrompt(isDetail ? 'detail' : 'brief');
@@ -136,7 +134,6 @@ export async function generateAIAnalysis(chart: ChartResult, name: string, perso
   const req = {
     chartData: chartSummary,
     type: 'comprehensive' as const,
-    name,
     promptOverride: prompt + styleInstruction + '\n\n请基于以下命盘数据生成分析 JSON：',
     // C 方案：brief 收紧输出上限（4k），detail 才给 16k
     maxTokens: isDetail ? 16384 : 4096,

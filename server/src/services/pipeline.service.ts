@@ -95,7 +95,7 @@ export async function runPipeline(input: CreateChartInput, chartId: string): Pro
           if (n >= AI_DAILY_VISITOR_CAP) {
             console.warn(`[AI] 访客今日已生成 ${n} 份解读（上限 ${AI_DAILY_VISITOR_CAP}），跳过`);
           } else {
-            const res = await generateAIAnalysis(chart as any, input.name || '', undefined, 'brief');
+            const res = await generateAIAnalysis(chart as any, undefined, 'brief');
             if (res && typeof res === 'object' && !(res as any).raw && (res as any).meta) {
               aiJson = JSON.stringify(res);
               console.log('[AI] 自动解读完成');

@@ -8,8 +8,6 @@ export interface AIAnalysisRequest {
   chartData: Record<string, unknown>;
   /** 分析类型: bazi | ziwei | comprehensive */
   type: 'bazi' | 'ziwei' | 'comprehensive';
-  /** 用户姓名（可选） */
-  name?: string;
   /** 提示词覆盖（可选，用于自定义 prompt） */
   promptOverride?: string;
   /** 输出 token 上限（可选；brief 用 2048，detail 用 16384） */
