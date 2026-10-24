@@ -2227,7 +2227,7 @@ const CENSUS = String.raw`(() => {
     R[g] = R[g] || { sizes: new Map(), aa: [] };
     const size = Math.round(parseFloat(cs.fontSize) * 10) / 10;
     R[g].sizes.set(size, (R[g].sizes.get(size) || 0) + 1);
-    if (g !== 'svg' && !LADDER.includes(size))
+    if (g !== 'svg' && !el.closest('svg') && !LADDER.includes(size))
       off.push({ size, text: t.slice(0, 16), tag: el.nodeName.toLowerCase(), cls: String(el.className || '').slice(0, 44), region: g });
     if (g !== 'svg') {
       const fg = parse(cs.color);
