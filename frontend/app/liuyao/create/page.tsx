@@ -10,6 +10,8 @@ import { buildTimeResult } from '@/lib/liuyao/methods/time';
 import { buildNumberResult } from '@/lib/liuyao/methods/number';
 import { getGua, getNaJia, getDayGanZhi, getXunKong, GUA_MAP } from '@/lib/liuyao/core';
 import { resolveQiguaMoment, type QiguaPlace } from '@/lib/liuyao/solar-basis';
+import { lookupChinaGeo } from '@/app/lib/api';
+import type { GeoLookup } from '@/app/lib/true-solar/birth-wiring';
 import type { QiguaSolarInfo, CoinCommitment } from '@/types/liuyao';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 
@@ -177,14 +179,25 @@ export default function LiuyaoCreatePage() {
   const [placeProv, setPlaceProv] = useState('');
   const [placeCity, setPlaceCity] = useState('');
   const [basis, setBasis] = useState<QiguaSolarInfo | null>(null);
+  const [serverGeo, setServerGeo] = useState<GeoLookup | null>(null);
   const placeRef = useRef<QiguaPlace | null>(null);
   placeRef.current = placeProv || placeCity ? { province: placeProv, city: placeCity } : null;
+  const geoRef = useRef<GeoLookup | null>(null);
+  geoRef.current = serverGeo;
+
+  // 出生地优先走后端；接口不可用时 resolveQiguaMoment 自己会回退本地 382 城数据。
+  useEffect(() => {
+    let alive = true;
+    if (!placeProv && !placeCity) { setServerGeo(null); return () => { alive = false; }; }
+    lookupChinaGeo(placeProv, placeCity || undefined).then(g => { if (alive) setServerGeo(g ? { ...g } : null); });
+    return () => { alive = false; };
+  }, [placeProv, placeCity]);
 
   // 口径预览只在客户端求值：SSR 用服务器时钟渲染时刻文本会触发 hydration 不一致
-  useEffect(() => { setBasis(resolveQiguaMoment(new Date(), placeRef.current).info); }, [placeProv, placeCity]);
+  useEffect(() => { setBasis(resolveQiguaMoment(new Date(), placeRef.current, geoRef.current).info); }, [placeProv, placeCity, serverGeo]);
 
   const doTimeGua = useCallback(() => {
-    const m = resolveQiguaMoment(new Date(), placeRef.current);
+    const m = resolveQiguaMoment(new Date(), placeRef.current, geoRef.current);
     const result = { ...buildTimeResult({ question, questionType, date: m.date }), solar: m.info };
     sessionStorage.setItem('liuyao_result', JSON.stringify(result));
     router.push('/liuyao/result/' + result.id);
@@ -195,7 +208,7 @@ export default function LiuyaoCreatePage() {
     const nums = rawNums.map(Number);
     if(rawNums.length!==3 || nums.some(n=>!Number.isSafeInteger(n)||n<=0)){setError('请输入 3 个正整数，用逗号隔开');return;}
     setError('');
-    const m = resolveQiguaMoment(new Date(), placeRef.current);
+    const m = resolveQiguaMoment(new Date(), placeRef.current, geoRef.current);
     const result = { ...buildNumberResult({ question, questionType, nums, now: m.date }), solar: m.info };
     sessionStorage.setItem('liuyao_result', JSON.stringify(result));
     router.push('/liuyao/result/' + result.id);
@@ -235,7 +248,7 @@ export default function LiuyaoCreatePage() {
         if (rnd >= 6) {
           const gua = getGua(newRecs.map(r=>r.value));
           const benVals = newRecs.map(r=>r.value);
-          const toss = resolveQiguaMoment(new Date(), placeRef.current);
+          const toss = resolveQiguaMoment(new Date(), placeRef.current, geoRef.current);
           const tossNow = toss.date;
           const dg = getDayGanZhi(tossNow);
           const xk = getXunKong(dg.ganIdx, dg.zhiIdx);

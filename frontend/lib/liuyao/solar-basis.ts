@@ -8,7 +8,7 @@
  * 不再新增第二份真太阳时实现。
  */
 
-import { lookupGeo, buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
+import { lookupGeo, buildTrueSolarWiring, type GeoLookup } from '@/app/lib/true-solar/birth-wiring';
 import { calculateTrueSolarTime } from '@/app/lib/core/yiqi-core/true-solar-time';
 import type { QiguaSolarInfo } from '@/types/liuyao';
 
@@ -26,10 +26,10 @@ export interface QiguaMoment {
 const pad = (n: number) => String(n).padStart(2, '0');
 const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-export function resolveQiguaMoment(now: Date, place?: QiguaPlace | null): QiguaMoment {
+export function resolveQiguaMoment(now: Date, place?: QiguaPlace | null, geoOverride?: GeoLookup | null): QiguaMoment {
   const city = place?.city?.trim();
   const province = place?.province?.trim();
-  const geo = city || province ? lookupGeo({ province, city }) : null;
+  const geo = geoOverride ?? (city || province ? lookupGeo({ province, city }) : null);
 
   if (!geo) {
     return {
@@ -47,7 +47,7 @@ export function resolveQiguaMoment(now: Date, place?: QiguaPlace | null): QiguaM
   const wiring = buildTrueSolarWiring({ province, city }, {
     year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(),
     hour: now.getHours(), minute: now.getMinutes(),
-  });
+  }, geoOverride ? { geoOverride } : {});
   const tst = calculateTrueSolarTime({
     year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate(),
     hour: now.getHours(), minute: now.getMinutes(), second: 0,
