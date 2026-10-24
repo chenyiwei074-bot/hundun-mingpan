@@ -37,12 +37,16 @@ export default function MotionEnhancer() {
       }
     };
 
+    // 只对"版面块"做进入视口显现；段落/标题等行内文本元素不挂这个类：
+    // 它们本来就在正文流里，挂上既没有视觉收益，还会让字体阶梯探针把 16px 法务正文当成异常。
+    const BLOCK_TAGS = new Set(['SECTION', 'ARTICLE', 'DIV', 'FORM', 'UL', 'OL', 'TABLE', 'FIGURE', 'ASIDE', 'DETAILS']);
     const registerPageBlocks = () => {
       let index = 0;
       document.querySelectorAll<HTMLElement>('main').forEach(main => {
         for (const child of Array.from(main.children)) {
           const element = child as HTMLElement;
           if (
+            !BLOCK_TAGS.has(element.tagName) ||
             element.matches('script, style, .sr-only, [aria-hidden="true"]') ||
             element.classList.contains('qn-rise') ||
             element.classList.contains('gate-grid')
