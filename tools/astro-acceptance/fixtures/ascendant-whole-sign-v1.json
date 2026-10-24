@@ -1,0 +1,629 @@
+{
+  "schemaVersion": 1,
+  "fixtureVersion": "ascendant-whole-sign-v1",
+  "generatedAt": "2026-10-24T15:20:27.117Z",
+  "reference": "natal-chart-math (MIT) + astronomy-engine; cross-checked with Celestine (MIT, Swiss Ephemeris validated)",
+  "toleranceDeg": 0.05,
+  "cases": [
+    {
+      "id": "asc-01",
+      "place": "北京",
+      "lat": 39.905023,
+      "lon": 116.724502,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1990-06-15",
+      "localTime": "14:30",
+      "utcISO": "1990-06-15T05:30:00.000Z",
+      "ascendantDeg": 189.968032,
+      "wholeSignCuspsDeg": [
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 189.968111,
+        "maxDiffDeg": 0.000079,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-02",
+      "place": "上海",
+      "lat": 31.230525,
+      "lon": 121.473667,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1984-01-20",
+      "localTime": "08:05",
+      "utcISO": "1984-01-20T00:05:00.000Z",
+      "ascendantDeg": 319.55717,
+      "wholeSignCuspsDeg": [
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240,
+        270
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 319.55769,
+        "maxDiffDeg": 0.00052,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-03",
+      "place": "广州",
+      "lat": 23.130061,
+      "lon": 113.264499,
+      "timezone": "Asia/Shanghai",
+      "localDate": "2000-12-31",
+      "localTime": "23:50",
+      "utcISO": "2000-12-31T15:50:00.000Z",
+      "ascendantDeg": 181.048116,
+      "wholeSignCuspsDeg": [
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 181.048116,
+        "maxDiffDeg": 0,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-04",
+      "place": "深圳",
+      "lat": 22.543527,
+      "lon": 114.057939,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1995-07-07",
+      "localTime": "19:45",
+      "utcISO": "1995-07-07T11:45:00.000Z",
+      "ascendantDeg": 294.084172,
+      "wholeSignCuspsDeg": [
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 294.082718,
+        "maxDiffDeg": 0.001454,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-05",
+      "place": "成都",
+      "lat": 30.572961,
+      "lon": 104.066301,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1988-03-08",
+      "localTime": "06:10",
+      "utcISO": "1988-03-07T22:10:00.000Z",
+      "ascendantDeg": 321.293974,
+      "wholeSignCuspsDeg": [
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240,
+        270
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 321.295975,
+        "maxDiffDeg": 0.002001,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-06",
+      "place": "重庆",
+      "lat": 29.563707,
+      "lon": 106.550483,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1999-09-09",
+      "localTime": "12:00",
+      "utcISO": "1999-09-09T04:00:00.000Z",
+      "ascendantDeg": 235.331817,
+      "wholeSignCuspsDeg": [
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 235.331417,
+        "maxDiffDeg": 0.0004,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-07",
+      "place": "武汉",
+      "lat": 30.593354,
+      "lon": 114.304569,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1992-11-11",
+      "localTime": "16:20",
+      "utcISO": "1992-11-11T08:20:00.000Z",
+      "ascendantDeg": 28.662449,
+      "wholeSignCuspsDeg": [
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240,
+        270,
+        300,
+        330
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 28.662659,
+        "maxDiffDeg": 0.000211,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-08",
+      "place": "西安",
+      "lat": 34.343207,
+      "lon": 108.939645,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1986-05-01",
+      "localTime": "00:15",
+      "utcISO": "1986-04-30T16:15:00.000Z",
+      "ascendantDeg": 283.177242,
+      "wholeSignCuspsDeg": [
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 283.179286,
+        "maxDiffDeg": 0.002045,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-09",
+      "place": "杭州",
+      "lat": 30.246026,
+      "lon": 120.210792,
+      "timezone": "Asia/Shanghai",
+      "localDate": "2003-02-14",
+      "localTime": "21:30",
+      "utcISO": "2003-02-14T13:30:00.000Z",
+      "ascendantDeg": 194.650177,
+      "wholeSignCuspsDeg": [
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 194.650215,
+        "maxDiffDeg": 0.000039,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-10",
+      "place": "南京",
+      "lat": 32.059344,
+      "lon": 118.796624,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1978-10-10",
+      "localTime": "10:10",
+      "utcISO": "1978-10-10T02:10:00.000Z",
+      "ascendantDeg": 247.159952,
+      "wholeSignCuspsDeg": [
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 247.158878,
+        "maxDiffDeg": 0.001074,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-11",
+      "place": "天津",
+      "lat": 39.085318,
+      "lon": 117.201509,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1965-04-05",
+      "localTime": "05:50",
+      "utcISO": "1965-04-04T21:50:00.000Z",
+      "ascendantDeg": 12.873132,
+      "wholeSignCuspsDeg": [
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240,
+        270,
+        300,
+        330
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 12.872827,
+        "maxDiffDeg": 0.000305,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-12",
+      "place": "哈尔滨",
+      "lat": 45.802981,
+      "lon": 126.53505,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1991-08-08",
+      "localTime": "18:40",
+      "utcISO": "1991-08-08T09:40:00.000Z",
+      "ascendantDeg": 292.100225,
+      "wholeSignCuspsDeg": [
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 292.10144,
+        "maxDiffDeg": 0.001214,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-13",
+      "place": "乌鲁木齐",
+      "lat": 43.825377,
+      "lon": 87.616824,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1987-12-12",
+      "localTime": "09:25",
+      "utcISO": "1987-12-12T01:25:00.000Z",
+      "ascendantDeg": 256.50642,
+      "wholeSignCuspsDeg": [
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 256.508579,
+        "maxDiffDeg": 0.00216,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-14",
+      "place": "拉萨",
+      "lat": 29.653491,
+      "lon": 91.171924,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1998-06-01",
+      "localTime": "15:15",
+      "utcISO": "1998-06-01T07:15:00.000Z",
+      "ascendantDeg": 179.559118,
+      "wholeSignCuspsDeg": [
+        150,
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 179.55912,
+        "maxDiffDeg": 0.000002,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-15",
+      "place": "昆明",
+      "lat": 24.88149,
+      "lon": 102.833669,
+      "timezone": "Asia/Shanghai",
+      "localDate": "2005-03-21",
+      "localTime": "07:07",
+      "utcISO": "2005-03-20T23:07:00.000Z",
+      "ascendantDeg": 357.486569,
+      "wholeSignCuspsDeg": [
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240,
+        270,
+        300
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 357.48669,
+        "maxDiffDeg": 0.000121,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-16",
+      "place": "福州",
+      "lat": 26.074286,
+      "lon": 119.296411,
+      "timezone": "Asia/Shanghai",
+      "localDate": "1975-09-30",
+      "localTime": "23:05",
+      "utcISO": "1975-09-30T15:05:00.000Z",
+      "ascendantDeg": 95.928966,
+      "wholeSignCuspsDeg": [
+        90,
+        120,
+        150,
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 95.929623,
+        "maxDiffDeg": 0.000657,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-17",
+      "place": "台北",
+      "lat": 25.082908,
+      "lon": 121.553323,
+      "timezone": "Asia/Taipei",
+      "localDate": "2001-01-01",
+      "localTime": "00:00",
+      "utcISO": "2000-12-31T16:00:00.000Z",
+      "ascendantDeg": 190.802865,
+      "wholeSignCuspsDeg": [
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 190.80286,
+        "maxDiffDeg": 0.000005,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-18",
+      "place": "香港",
+      "lat": 22.277468,
+      "lon": 114.171203,
+      "timezone": "Asia/Hong_Kong",
+      "localDate": "1983-06-19",
+      "localTime": "13:13",
+      "utcISO": "1983-06-19T05:13:00.000Z",
+      "ascendantDeg": 188.591027,
+      "wholeSignCuspsDeg": [
+        180,
+        210,
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 188.591027,
+        "maxDiffDeg": 0,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-19",
+      "place": "澳门",
+      "lat": 22.195328,
+      "lon": 113.552825,
+      "timezone": "Asia/Macau",
+      "localDate": "1997-07-01",
+      "localTime": "20:00",
+      "utcISO": "1997-07-01T12:00:00.000Z",
+      "ascendantDeg": 292.050079,
+      "wholeSignCuspsDeg": [
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210,
+        240
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 292.048417,
+        "maxDiffDeg": 0.001662,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    },
+    {
+      "id": "asc-20",
+      "place": "三亚",
+      "lat": 18.252865,
+      "lon": 109.511709,
+      "timezone": "Asia/Shanghai",
+      "localDate": "2010-10-10",
+      "localTime": "10:10",
+      "utcISO": "2010-10-10T02:10:00.000Z",
+      "ascendantDeg": 245.190058,
+      "wholeSignCuspsDeg": [
+        240,
+        270,
+        300,
+        330,
+        0,
+        30,
+        60,
+        90,
+        120,
+        150,
+        180,
+        210
+      ],
+      "crossCheck": {
+        "celestineAscendantDeg": 245.190123,
+        "maxDiffDeg": 0.000065,
+        "toleranceDeg": 0.05,
+        "ok": true
+      }
+    }
+  ]
+}
