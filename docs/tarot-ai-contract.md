@@ -76,3 +76,15 @@
 1. 后端定义 zod 契约 + `POST /api/tarot/reading`，先用固定牌义拼装做无 AI 冒烟；
 2. 接自研 AI 编排层，错误映射到上表；
 3. 前端抽牌完成后接入；无来源时继续逐牌显示既有出处。
+
+## 当前实现（2026-10-24）
+
+`POST /api/tarot/reading` 已上线**规则拼装版**：
+
+- 校验三张牌、过去/现在/未来顺序、正逆位、牌组内唯一性；
+- 返回逐牌已登记牌义（来源字段来自 frontend/lib/tarot/meanings.ts），`sourceIds: []`；
+- 响应硬字段 `mode: "rules-only"`、`aiReady: false`，`notes` 明确“不是 AI 综合解读”；
+- 不调用模型、不写库、不保存问题；
+- 前端 helper：`createTarotReading()`（frontend/app/lib/api.ts），页面接入时必须按 `aiReady` 标注，不得把这段文字当 AI 综合解读。
+
+下一版才接自研 AI 编排；接口形状不变，只把 `mode/aiReady/model` 升级并补 AI 文字。

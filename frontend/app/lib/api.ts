@@ -109,3 +109,24 @@ export async function lookupChinaGeo(province: string, city?: string, district?:
     return { lng: d.lng, lat: d.lat, tz: d.tz, src: d.src };
   } catch { return null; }
 }
+
+
+export type TarotReadingCard = {
+  cardId: string; nameZh: string; position: '过去' | '现在' | '未来';
+  orientation: '正位' | '逆位'; text: string; source: string; sourceIds: string[];
+};
+export type TarotReadingResponse = {
+  readingId: string; mode: 'rules-only'; aiReady: false; model: 'hundun-tarot-rules-v1';
+  createdAt: string; cards: TarotReadingCard[]; summary: string; notes: string[];
+};
+export async function createTarotReading(input: {
+  question?: string; spread: 'three-card';
+  cards: { cardId: string; position: '过去' | '现在' | '未来'; orientation: '正位' | '逆位' }[];
+}): Promise<TarotReadingResponse> {
+  const res = await fetch(API_BASE + '/tarot/reading', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  });
+  const json = await res.json();
+  if (!res.ok || json?.success === false) throw new Error(json?.error || '综合解读暂时不可用');
+  return json.data as TarotReadingResponse;
+}
