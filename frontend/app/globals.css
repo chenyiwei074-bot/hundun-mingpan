@@ -768,7 +768,7 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
   min-height: calc(100dvh - var(--qn-nav-h, 56px));
 }
 .gate-head { padding: 22px 24px 6px; }
-.gate-head .qn-hero { font-size: clamp(32px, 3vw, 40px); line-height: 1.2; }
+.gate-head .qn-hero { font-size: var(--qn-fs-hero); line-height: 1.2; }
 /* h1 下面这一行是运维 2026-10-21 补的：站是干什么的要在门廊就说清。
    用 title 档（18px）而不是 body：它跟 h1 是一组，不能与下面那段说明同字号，
    否则首屏顶部三行字一样大，读起来没有轻重。 */
@@ -1243,7 +1243,7 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
   .domain-card__art { width: min(260px, 22vw); right: -12px; top: 8px; }
   .domain-card__copy { width: min(68%, 520px); }
   .domain-card__copy > .qn-eyebrow { max-width: 30ch; }
-  .domain-card__title { font-size: min(var(--qn-fs-display), 72px); }
+  .domain-card__title { font-size: var(--qn-fs-display); }
 }
 .domain-card__art svg {
   display: block;
