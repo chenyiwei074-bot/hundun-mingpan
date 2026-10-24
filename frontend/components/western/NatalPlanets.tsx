@@ -10,7 +10,7 @@ import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/ast
 import { provinces } from '@/app/lib/region-data';
 import { REGION_TZ } from '@/app/lib/true-solar/city-geo';
 import { lookupGeo, type GeoLookup } from '@/app/lib/true-solar/birth-wiring';
-import { TROPICAL_SIGNS_BASIS } from '@/lib/astro/classics';
+import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS } from '@/lib/astro/classics';
 import { WESTERN_TOOL_BY_SLUG } from '@/lib/tools/western-catalog';
 import BasisQuote from '@/components/western/BasisQuote';
 import Callout from '@/components/ui/Callout';
@@ -89,20 +89,6 @@ export default function NatalPlanets() {
             黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；过了 {ASTRO_CROSS_CHECK.to} 本站不打包票 ——
             远未来那一批历元上月亮已经偏出这条线，逐颗星的实测偏差与出处都记在仓库里的对拍夹具中，不在这儿复述。
           </p>
-          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-            <div>
-              <p className="qn-cap" style={{ margin: 0 }}>已做</p>
-              <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                {DONE.map(item => <li key={item}>{item}</li>)}
-              </ul>
-            </div>
-            <div>
-              <p className="qn-cap" style={{ margin: 0 }}>未做</p>
-              <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: 18 }}>
-                {NOT_DONE.map(item => <li key={item}>{item}</li>)}
-              </ul>
-            </div>
-          </div>
         <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
       </section>
 
@@ -228,6 +214,28 @@ export default function NatalPlanets() {
           当前展示十颗行星的星座位置、星座内角度、黄经与黄纬。出生地用于匹配时区；宫位、上升点与行星相位尚未纳入本页计算。
         </p>
       </section>
+      {!结果 && (
+        <div style={{ marginTop: 14 }}>
+          <Callout tier="info">还没算。这张表只在你在这一页按下按钮之后由本机算出；日期、时刻与时区都不离开这台设备。</Callout>
+        </div>
+      )}
+
+      <section className="qn-card" style={{ marginTop: 14 }}>
+        <p className="qn-cap" style={{ margin: 0 }}>已做（{DONE.length} 项）</p>
+        <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
+          {DONE.map(s => <li key={s}>{s}</li>)}
+        </ul>
+        <p className="qn-cap" style={{ margin: '10px 0 0' }}>未做（{NOT_DONE.length} 项）</p>
+        <p className="qn-cap" style={{ margin: '2px 0 0' }}>缺的哪几样都写在门上，不藏在"部分可用"这四个字后面。</p>
+        <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
+          {NOT_DONE.map(s => <li key={s}>{s}</li>)}
+        </ul>
+        <p className="qn-note" style={{ margin: '10px 0 0' }}>
+          因此这里给的是「本命行星位置」，不叫星盘 —— 没有宫位与相位的盘，叫盘会让人以为缺的那几样也算了。
+        </p>
+        <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 相位（这一项还没做，先钉口径）" />
+      </section>
+
     </>
   );
 }
