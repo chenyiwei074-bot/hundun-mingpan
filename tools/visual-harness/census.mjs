@@ -394,9 +394,10 @@ function astroProbe(computed) {
     miss.push('已做/未做两张清单没成对出现（只写"部分可用"不写缺什么 = 读者自己猜）：'
       + JSON.stringify([done && done[1], notDone && notDone[1]]));
   const lis = [...document.querySelectorAll('li')].map(x => (x.innerText || '').trim());
-  if (!lis.some(t => t.indexOf('上升点与宫位') >= 0)) miss.push('「未做」里没有上升/宫位那一条');
+  if (!lis.some(t => t.indexOf('上升点与整宫制') >= 0)) miss.push('「已做」里没有上升点与整宫制');
+  if (!lis.some(t => t.indexOf('相位') >= 0)) miss.push('「未做」里没有相位');
   const zone = (document.querySelector('#astro-zone') || {}).value || '';
-  const rows = [...document.querySelectorAll('table tbody tr')];
+  const rows = [...document.querySelectorAll('table[data-astro-planets] tbody tr')];
   if (${computed}) {
     if (zone !== 'UTC') miss.push('时区没被拨到 UTC（实得 ' + zone + '）—— 那十个钉值就不是这一个时刻的');
     if (rows.length !== ${ASTRO_PINS.rows.length}) miss.push('表行数 ' + rows.length + '，钉的是 ${ASTRO_PINS.rows.length}（少一颗星就是那一行没人看）');

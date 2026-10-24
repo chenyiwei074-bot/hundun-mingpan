@@ -187,7 +187,7 @@ export default function NatalPlanets() {
           </section>
 
           <section className="qn-card" style={{ marginTop: 14, overflowX: 'auto' }} data-vh-scroll="table-scroll">
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)' }}>
+            <table data-astro-planets="1" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)' }}>
               <caption className="qn-cap" style={{ textAlign: 'left', marginBottom: 6 }}>
               星座内角度采用常见占星表示方式，例如 12°34′。
               </caption>
