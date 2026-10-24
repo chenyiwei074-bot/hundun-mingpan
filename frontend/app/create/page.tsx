@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { createChart as apiCreateChart, trackEvent } from '@/app/lib/api';
+import { createChart as apiCreateChart, trackEvent, lookupChinaGeo } from '@/app/lib/api';
 import { canPersist, validateCreateChart } from '@/lib/api/contract';
 import type { CreateChartPayload } from '@/lib/api/contract';
 import { describeQuota, fetchQuota } from '@/lib/api/quota';
 import type { QuotaView } from '@/lib/api/quota';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { createChart, BirthInfo } from '@/app/lib/core/yiqi-core';
-import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
+import { buildTrueSolarWiring, type GeoLookup } from '@/app/lib/true-solar/birth-wiring';
 import { clearPartner, savePartner } from '@/lib/hepan/local-store';
 import { toCivilInput, lunarDayCount, leapMonthOfYear } from '@/app/lib/core/yiqi-core/lunar-input';
 import { getVisitorId } from '@/lib/auth/visitor';
@@ -46,6 +46,7 @@ export default function CreatePage() {
   }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [birthGeo, setBirthGeo] = useState<GeoLookup | null>(null);
 
   const [form, setForm] = useState({
     name: '', gender: '男' as '男'|'女', calendar: '公历' as '公历'|'农历'|'四柱',
@@ -62,6 +63,14 @@ export default function CreatePage() {
     /** 对方生辰的同意位。不勾就不写进本机存放（见 handleSubmit 里那段）。 */
     partnerConsent: false,
   });
+
+  // 出生地坐标优先走后端；提交时若还没拿到就现场请求一次，失败则交给本地兜底。
+  useEffect(() => {
+    let alive = true;
+    if (!form.birthProvince) { setBirthGeo(null); return () => { alive = false; }; }
+    lookupChinaGeo(form.birthProvince, form.birthCity || undefined).then(g => { if (alive) setBirthGeo(g ? { ...g } : null); });
+    return () => { alive = false; };
+  }, [form.birthProvince, form.birthCity]);
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
   // 额度只在拿到访客 id 之后读一次（服务端按 visitor_id 查）。读失败保持"未知"，
@@ -157,9 +166,15 @@ export default function CreatePage() {
       // 前端秒算排盘
       // 真太阳时（2026-10 接入）：由出生地得经度，由内置 IANA 数据得历史夏令时
       // 顺序：农历→公历换算 → 真太阳时校正（引擎内部在 Solar 构造前做）→ 晚子时换日
+      let geoOverride: GeoLookup | null = birthGeo;
+      if (!geoOverride && form.birthProvince) {
+        const fetched = await lookupChinaGeo(form.birthProvince, form.birthCity || undefined);
+        if (fetched) { geoOverride = fetched; setBirthGeo(fetched); }
+      }
       const tstWiring = buildTrueSolarWiring(
         { province: form.birthProvince, city: form.birthCity, district: form.birthDistrict },
         { year: civil.year, month: civil.month, day: civil.day, hour: civil.hour, minute: civil.minute },
+        geoOverride ? { geoOverride } : {},
       );
       const birthInfo: BirthInfo = {
         year: parseInt(form.year), month: parseInt(form.month), day: parseInt(form.day),
