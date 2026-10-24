@@ -74,7 +74,7 @@ const ok = (id: string, cond: boolean, detail: string) => {
   ok('west/astro-open-item-still-carries-stamp', !!astroLive && astroLive.basis.includes('astro-planets-v1'),
     `本命行星项继续由天文口径戳识别：${astroLive?.basis.match(/astro-planets-v1/)?.[0] || '缺少戳'}`);
   ok('west/tarot-open-item-stays-honest', !!tarotLive && tarotLive.href === '/tarot'
-    && /正位与逆位/.test(tarotLive.method) && /Waite 1910/.test(tarotLive.reading)
+    && /正位与逆位/.test(tarotLive.method) && /韦特 1910/.test(tarotLive.reading)
     && /跨传统牌义比较/.test(tarotLive.notDone?.join(' ') || ''),
     `塔罗目录指向真实抽牌页面，标明正逆位、逐牌历史译述，并如实列出尚未完成的跨传统比较：${tarotLive?.href || '无入口'}`);
   const openStamps = [...new Set(open.flatMap(t => (t.basis || '').match(/[a-z]+(?:-[a-z]+)+-v\d+/g) || []))];
