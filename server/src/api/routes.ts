@@ -1,7 +1,8 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { createLiuYao } from '../controllers/liuyao.controller';
 import { recognize, getFloorPlanImage, deleteFloorPlanImage } from '../controllers/fengshui.controller';
 import { getClassicSources } from '../controllers/classics.controller';
+import { lookupPlace } from '../controllers/geo.controller';
 import { createShareLink, getSharedChart, revokeShareLink } from '../controllers/share.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
@@ -21,6 +22,7 @@ router.get('/fengshui/image/:id', getFloorPlanImage);
 router.delete('/fengshui/image/:id', deleteFloorPlanImage);
 
 router.get('/classics/sources', getClassicSources);
+router.get('/geo/lookup', lookupPlace);
 router.post('/receipts', submitReceipt);
 router.get('/receipts/:recordHash', getReceiptStatus);
 
