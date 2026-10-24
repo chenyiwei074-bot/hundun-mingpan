@@ -64,6 +64,7 @@ export default function ModeLanding({ mode, hero, shellClass, children }: {
               它就又变成"第三个地方"，两栏选体系这件事也被稀释了。
               批F 起 /tools 真的两套目录都在，链接文字也终于能写「全部」二字。 */}
           <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
+          {mode === 'oriental' && <Link className="qn-link" href="/hepan">合盘与关系</Link>}
           <Link className="qn-link" href="/">返回选择体系</Link>
         </p>
       </section>
