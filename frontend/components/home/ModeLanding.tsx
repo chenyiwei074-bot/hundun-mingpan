@@ -23,9 +23,9 @@ const COPY: Record<Mode, { eyebrow: string; title: string; lead: string }> = {
     lead: '八字紫微、六爻、梅花、星宿、黄历与户型相关的一套。',
   },
   western: {
-    eyebrow: '西方体系',
-    title: '西方工作页',
-    lead: '占星、塔罗、月相与数字命理的一套。每一项都按自己的算法口径独立成立，不借东方的表。',
+    eyebrow: '西方神秘学',
+    title: '西方神秘学',
+    lead: '从本命行星位置与塔罗三张牌开始，查看星象数据或抽取过去、现在与未来。',
   },
 };
 

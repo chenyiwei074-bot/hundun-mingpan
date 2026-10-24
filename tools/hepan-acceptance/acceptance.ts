@@ -425,8 +425,12 @@ const 名字 = (r: HepanReport) => r.项目.map(x => x.立项);
 // ── 7. 目录与入口：这一节"内嵌不新增入口"，但目录必须诚实说它做了 ──
 {
   const t = TOOL_BY_SLUG['hepan'];
-  ok('catalog/hepan-open', t.status !== '未开放' && t.href === '/create',
-    `合盘条目现在应带入口且只指向 /create（裁定：结果页内嵌一节，不新增路由）：status ${t.status} / href ${t.href}`);
+  // 2026-10-24 口径更新：合盘新增独立落地页 /hepan（双人合盘 + 合宿两个入口），
+  // 目录不再只指向 /create；落地页必须真的给出两条入口，不能只是换个 href。
+  const hepanPage = stripComments(readFileSync(join(ROOT, 'frontend/app/hepan/page.tsx'), 'utf8'));
+  ok('catalog/hepan-open', t.status !== '未开放' && t.href === '/hepan'
+    && /href="\/create\?mode=double"/.test(hepanPage) && /href="\/xiu"/.test(hepanPage),
+    `合盘条目应指向 /hepan 落地页，且落地页提供「双人合盘 /create?mode=double」与「合宿 /xiu」两条入口：status ${t.status} / href ${t.href}`);
   ok('catalog/hepan-stamp-in-basis', t.basis.includes(HEPAN_BASIS) && CATALOG_STAMPS.hepan === HEPAN_BASIS,
     `目录里的口径戳 ${CATALOG_STAMPS.hepan} 必须逐字等于引擎常量 ${HEPAN_BASIS}（引擎改戳而目录没跟上，dir/stamps-equal-engine 也会红，这里再钉一次是因为合盘的戳只出现在这一条）`);
   ok('catalog/hepan-declares-no-score', t.note.includes('不出合盘评分') && t.note.includes('自研 · 非还原')

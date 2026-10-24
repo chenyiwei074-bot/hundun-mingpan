@@ -240,11 +240,11 @@ export default function ChartResultPage() {
             <div style={{ maxWidth: 620 }}>
               <p className="qn-cap" style={{ margin: '0 0 8px' }}>只读分享</p>
               <h2 id="chart-share-title" className="qn-title" style={{ margin: '0 0 8px' }}>把这份命盘分享给别人</h2>
-              <p className="qn-meta" style={{ margin: 0 }}>对方可查看盘面与解读，不会看到姓名、出生资料或地点。分享链接 7 天后失效。</p>
+              <p className="qn-meta" style={{ margin: 0 }}>对方可查看已生成的盘面与解读，不会看到姓名、出生资料或地点。分享链接 7 天后失效。</p>
             </div>
             {!share && (
               <button type="button" onClick={makeShareLink} disabled={shareBusy || !canShare} className="qn-btn qn-btn--solid">
-                {shareBusy ? '正在生成…' : canShare ? '生成分享链接' : '解读完成后可分享'}
+                {shareBusy ? '正在生成…' : canShare ? '生成分享链接' : '命盘生成完成后可分享'}
               </button>
             )}
           </div>

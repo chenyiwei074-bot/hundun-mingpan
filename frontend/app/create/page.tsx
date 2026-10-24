@@ -39,6 +39,11 @@ export default function CreatePage() {
   // 初值必须是"未知"，不能先渲染一个数字再被服务端纠正 —— 那一闪就是假信息。
   const [quota, setQuota] = useState<QuotaView>(() => describeQuota(null));
   const [tab, setTab] = useState<'single'|'double'>('single');
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('mode') === 'double') {
+      setTab('double');
+    }
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -171,7 +176,7 @@ export default function CreatePage() {
       chart.bazi.birthInfo = birthInfo;
       const chartName = form.name.trim();
       sessionStorage.setItem('chart_preview', JSON.stringify({
-        chart, chartName,
+        chart, chartName, mode: tab,
         trueSolarWiring: { geo: tstWiring.geo, dstOffset: tstWiring.dstOffset, ambiguousDst: tstWiring.ambiguousDst, warning: tstWiring.warning },
       }));
 
