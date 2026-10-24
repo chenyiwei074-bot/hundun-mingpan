@@ -73,7 +73,9 @@ export default function LiuYaoPlate(p: Props) {
     }}>
       {/* ===== Header: 本卦 / 变卦 titles ===== */}
       <div />
-      <div />
+      <div style={{ padding:'16px 6px 10px 0',display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'end',borderBottom:`1px solid ${sepColor}`,fontSize:10,fontWeight:600,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>
+        <span>六亲</span><span>天干</span><span>地支</span><span>五行</span><span />
+      </div>
       <div style={{ padding:'16px 0 10px',textAlign:'center',borderBottom:`1px solid ${sepColor}` }}>
         <div style={{ fontSize:11,color:'var(--color-text-secondary)',letterSpacing:'0.12em',marginBottom:4 }}>本卦</div>
         <div style={{ fontSize:18,fontFamily:'"Noto Serif SC","STSong",serif',color:'var(--color-text-primary)',lineHeight:1.3 }}>{benName}</div>
@@ -88,13 +90,19 @@ export default function LiuYaoPlate(p: Props) {
           <div style={{ fontSize:11,color:'var(--color-text-secondary)',marginTop:3 }}>—</div>
         )}
       </div>
-      <div />
+      <div style={{ padding:'16px 0 10px 6px',display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'end',borderBottom:`1px solid ${sepColor}`,fontSize:10,fontWeight:600,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>
+        <span>六亲</span><span>天干</span><span>地支</span><span>五行</span><span />
+      </div>
 
       {/* ===== Six Yao rows ===== */}
       {naJiaResult.length===6 && [...naJiaResult].reverse().map((nj,i)=>{
         const pos = nj.position-1;
         const isDong = nj.isDong;
         const bn = bianNaJiaResult.length===6 ? [...bianNaJiaResult].reverse()[i] : null;
+        const naGan = nj.naGan || nj.ganZhi.slice(0, 1);
+        const naZhi = nj.naZhi || nj.ganZhi.slice(1, 2);
+        const bianGan = bn ? (bn.naGan || bn.ganZhi.slice(0, 1)) : '';
+        const bianZhi = bn ? (bn.naZhi || bn.ganZhi.slice(1, 2)) : '';
         const ls = liuShenList[pos];
         const isLast = i===5;
         const bb = isLast?'none':`1px solid ${sepColor}`;
@@ -114,14 +122,15 @@ export default function LiuYaoPlate(p: Props) {
             </div>
 
             {/* Col 2: 本卦 六亲+干支+五行 */}
-            <div style={{
-              padding:'0',height:rowH,display:'flex',alignItems:'center',justifyContent:'flex-end',
-              gap:6,paddingRight:10,borderBottom:bb,background:bg,
+            <div aria-label={`本卦：六亲${nj.liuQin}，天干${naGan}，地支${naZhi}，五行${WX[naZhi] || '未标注'}`} style={{
+              padding:'0 6px 0 0',height:rowH,display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'center',
+              borderBottom:bb,background:bg,
             }}>
-              <span style={{ fontSize:11,color:dongColor,whiteSpace:'nowrap' }}>{nj.liuQin}</span>
-              <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:dongColor,whiteSpace:'nowrap' }}>{nj.ganZhi}</span>
-              <span style={{ fontSize:11,color:'var(--color-text-secondary)' }}>{WX[nj.naZhi]}</span>
-              {nj.xunKong && <span data-ly-kong style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
+              <span style={{ fontSize:11,color:dongColor,whiteSpace:'nowrap',textAlign:'center' }}>{nj.liuQin}</span>
+              <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:dongColor,whiteSpace:'nowrap',textAlign:'center' }}>{naGan}</span>
+              <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:dongColor,whiteSpace:'nowrap',textAlign:'center' }}>{naZhi}</span>
+              <span style={{ fontSize:11,color:'var(--color-text-secondary)',textAlign:'center' }}>{WX[naZhi]}</span>
+              {nj.xunKong && <span data-ly-kong style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>空</span>}
             </div>
 
             {/* Col 3: 本卦爻象 */}
@@ -141,14 +150,15 @@ export default function LiuYaoPlate(p: Props) {
             </div>
 
             {/* Col 5: 变卦 六亲+干支+五行 */}
-            <div style={{
-              padding:'0',height:rowH,display:'flex',alignItems:'center',
-              gap:6,paddingLeft:10,borderBottom:bb,background:bg,
+            <div aria-label={bn ? `变卦：六亲${bn.liuQin}，天干${bianGan}，地支${bianZhi}，五行${WX[bianZhi] || '未标注'}` : '无变卦纳甲信息'} style={{
+              padding:'0 0 0 6px',height:rowH,display:'grid',gridTemplateColumns:'minmax(34px,1fr) 24px 24px 24px 16px',gap:2,alignItems:'center',
+              borderBottom:bb,background:bg,
             }}>
-              <span style={{ fontSize:11,color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap' }}>{bn?bn.liuQin:'—'}</span>
-              <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap' }}>{bn?bn.ganZhi:'—'}</span>
-              <span style={{ fontSize:11,color:'var(--color-text-secondary)' }}>{bn?WX[bn.naZhi]:'—'}</span>
-              {bn?.xunKong && <span data-ly-kong style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap' }}>空</span>}
+              <span style={{ fontSize:11,color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>{bn?bn.liuQin:'—'}</span>
+              <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>{bn?bianGan:'—'}</span>
+              <span style={{ fontSize:11,fontFamily:'"Noto Serif SC",serif',color:bn?'var(--color-text-primary)':'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>{bn?bianZhi:'—'}</span>
+              <span style={{ fontSize:11,color:'var(--color-text-secondary)',textAlign:'center' }}>{bn?WX[bianZhi]:'—'}</span>
+              {bn?.xunKong && <span data-ly-kong style={{ fontSize:11,color:'var(--color-text-secondary)',whiteSpace:'nowrap',textAlign:'center' }}>空</span>}
             </div>
           </div>
         );
