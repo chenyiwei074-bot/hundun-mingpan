@@ -5,19 +5,13 @@
 // 计算全在这台设备上：日期/时间/时区只用来在本地算一个绝对时刻，不发请求、不落任何库。
 // 这也是这一项能做而"AI 报告"那类不能做的原因 —— 没有原文要保护。
 import { useMemo, useState } from 'react';
-import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, PLANETS, SIGNS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
-import { toUtc, availableZones, MOMENT_BASIS, type MomentFail, type MomentOk } from '@/lib/astro/moment';
-import { WESTERN_TOOL_BY_SLUG } from '@/lib/tools/western-catalog';
-import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS } from '@/lib/astro/classics';
+import { computePlanets, PLANETS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
+import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/astro/moment';
+import { TROPICAL_SIGNS_BASIS } from '@/lib/astro/classics';
 import BasisQuote from '@/components/western/BasisQuote';
 import Callout from '@/components/ui/Callout';
 
 const ZONES = availableZones();
-// 已做/未做那两张清单来自目录，不在这里重抄 —— 目录卡面与工作页各写一份，
-// 早晚一句"没算宫位"和另一句"宫位在路上"同时出现在同一个站上（缺陷6 的原形状）。
-const ENTRY = WESTERN_TOOL_BY_SLUG['astro-natal'];
-const DONE = ENTRY.done ?? [];
-const NOT_DONE = ENTRY.notDone ?? [];
 const deviceZone = () => {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
 };
@@ -63,13 +57,9 @@ export default function NatalPlanets() {
   return (
     <>
       <section className="qn-card" style={{ marginTop: 18 }}>
-        <p className="qn-cap" style={{ margin: 0 }}>按什么口径</p>
+        <p className="qn-cap" style={{ margin: 0 }}>行星位置与传统文献</p>
         <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          地心、回归黄道（当日真春分点）、不作恒星黄道（岁差）换算；时刻换算用这台设备自带的时区数据库（含夏令时与历史偏移）。
-          口径戳 {ASTRO_BASIS} 与时间口径 {MOMENT_BASIS}：改任何一条都要升戳，否则老截图分不出是哪一版算的。
-          每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
-          黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；过了 {ASTRO_CROSS_CHECK.to} 本站不打包票 ——
-          远未来那一批历元上月亮已经偏出这条线，逐颗星的实测偏差与出处都记在仓库里的对拍夹具中，不在这儿复述。
+          本页展示太阳、月亮与其他行星的星座位置和角度。以下列出星座划分所参考的传统文献。
         </p>
         <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
       </section>
@@ -123,7 +113,7 @@ export default function NatalPlanets() {
           <section className="qn-card" style={{ marginTop: 14, overflowX: 'auto' }} data-vh-scroll="table-scroll">
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)' }}>
               <caption className="qn-cap" style={{ textAlign: 'left', marginBottom: 6 }}>
-                黄道经度按当日真春分点起算；"星座内"那两列就是占星写法 12°34′。
+              星座内角度采用常见占星表示方式，例如 12°34′。
               </caption>
               <thead>
                 <tr>
@@ -153,27 +143,15 @@ export default function NatalPlanets() {
 
       {!结果 && (
         <div style={{ marginTop: 14 }}>
-          <Callout tier="info">还没算。这张表只在你在这一页按下按钮之后由本机算出；日期、时刻与时区都不离开这台设备。</Callout>
+          <Callout tier="info">填写出生日期、当地时间与时区后，即可查看行星位置。</Callout>
         </div>
       )}
 
       <section className="qn-card" style={{ marginTop: 14 }}>
-        <p className="qn-cap" style={{ margin: 0 }}>已做（{DONE.length} 项）</p>
-        <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
-          {DONE.map(s => <li key={s}>{s}</li>)}
-        </ul>
-        <p className="qn-cap" style={{ margin: '10px 0 0' }}>未做（{NOT_DONE.length} 项）</p>
-        <p className="qn-cap" style={{ margin: '2px 0 0' }}>缺的哪几样都写在门上，不藏在"部分可用"这四个字后面。</p>
-        <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
-          {NOT_DONE.map(s => <li key={s}>{s}</li>)}
-        </ul>
-        <p className="qn-note" style={{ margin: '10px 0 0' }}>
-          因此这里给的是「本命行星位置」，不叫星盘 —— 没有宫位与相位的盘，叫盘会让人以为缺的那几样也算了。
-          黄纬按同一口径一并给出（{SIGNS.length} 个 30° 区间就是上面那张表的落座边界）。
+        <p className="qn-cap" style={{ margin: 0 }}>当前结果范围</p>
+        <p className="qn-meta" style={{ margin: '4px 0 0' }}>
+          当前展示十颗行星的星座位置、星座内角度、黄经与黄纬。宫位和行星相位暂未开放，因此结果不包含这些内容。
         </p>
-        {/* 相位这项**还没做**，这块不是功能展示，是把将来那张贴出来之前先把两件事钉住：
-            角度定义有公版古籍出处，容许度数值没有。挂在未做清单之后就是这个意思。 */}
-        <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 相位（这一项还没做，先钉口径）" />
       </section>
     </>
   );

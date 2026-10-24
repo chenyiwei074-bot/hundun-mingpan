@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getChartResult } from '@/app/lib/api';
+import { createChartShareLink, getChartResult, revokeChartShareLink } from '@/app/lib/api';
 import ChartOverview from '@/components/chart/ChartOverview';
 import BaziCard from '@/components/chart/BaziCard';
 import ScenarioMatrix from '@/components/bazi/ScenarioMatrix';
@@ -15,6 +15,13 @@ import { aiWaitMessage, decideAiWait } from '@/lib/chart/ai-wait';
 import type { AiWaitState } from '@/lib/chart/ai-wait';
 import AiReading from '@/components/chart/AiReading';
 
+type ChartShare = { shareId: string; url: string; expiresAt: string };
+
+function formatShareExpiry(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
 export default function ChartResultPage() {
   const params = useParams();
   const router = useRouter();
@@ -26,7 +33,68 @@ export default function ChartResultPage() {
   const [chartName, setChartName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canShare, setCanShare] = useState(false);
+  const [share, setShare] = useState<ChartShare | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareNotice, setShareNotice] = useState('');
+  const [shareError, setShareError] = useState('');
   const savedRef = useRef(false);
+
+  const makeShareLink = async () => {
+    if (!id || !canShare || shareBusy) return;
+    setShareBusy(true);
+    setShareNotice('');
+    setShareError('');
+    try {
+      const result: any = await createChartShareLink(id);
+      const data = result?.data;
+      if (!result?.success || !data?.token || !data?.shareId || !data?.expiresAt) {
+        if (result?.httpStatus === 409) throw new Error('命盘还未完成，请稍后再生成分享链接。');
+        if (result?.httpStatus === 401) throw new Error('无法确认本机身份，请刷新页面后重试。');
+        if (result?.httpStatus === 404) throw new Error('没有找到这份命盘，可能已过保存期限。');
+        throw new Error(result?.error || '分享链接生成失败，请稍后重试。');
+      }
+      const url = new URL(`/share/chart/${encodeURIComponent(data.token)}`, window.location.origin).toString();
+      setShare({ shareId: data.shareId, url, expiresAt: data.expiresAt });
+      setShareNotice('链接已生成。复制后可发送给对方，7 天后自动失效。');
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : '分享链接生成失败，请稍后重试。');
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const copyShareLink = async () => {
+    if (!share?.url) return;
+    try {
+      await navigator.clipboard.writeText(share.url);
+      setShareNotice('分享链接已复制。');
+      setShareError('');
+    } catch {
+      setShareError('浏览器未允许复制，请选中链接并手动复制。');
+    }
+  };
+
+  const revokeShareLink = async () => {
+    if (!id || !share || shareBusy) return;
+    setShareBusy(true);
+    setShareNotice('');
+    setShareError('');
+    try {
+      const result: any = await revokeChartShareLink(id, share.shareId);
+      if (!result?.success && result?.httpStatus !== 200) {
+        if (result?.httpStatus === 401) throw new Error('无法确认本机身份，请刷新页面后重试。');
+        if (result?.httpStatus === 404) throw new Error('分享链接已失效，或当前浏览器不再拥有这份命盘。');
+        throw new Error(result?.error || '撤回失败，请稍后重试。');
+      }
+      setShare(null);
+      setShareNotice('分享链接已撤回，持有者现在无法再查看这份命盘。');
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : '撤回失败，请稍后重试。');
+    } finally {
+      setShareBusy(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) { setError('缺少命盘ID'); setLoading(false); return; }
@@ -68,7 +136,15 @@ export default function ChartResultPage() {
         res = { httpStatus: 202, data: { status: 'processing' } };
       }
       if (cancelled) return;
+      if (res?.httpStatus === 401 || res?.httpStatus === 404) {
+        setError(res.httpStatus === 401
+          ? '无法确认本机身份，请使用创建这份命盘时的浏览器重新打开。'
+          : '这份命盘不存在、已过保存期限，或当前浏览器无权访问。');
+        setLoading(false);
+        return;
+      }
       const data = res?.data || {};
+      if (data.status === 'complete' || data.status === 'completed') setCanShare(true);
       const d = decideAiWait({
         httpStatus: res?.httpStatus ?? 0,
         status: data.status,
@@ -159,6 +235,39 @@ export default function ChartResultPage() {
   return (
     <main className="qn-shell qn-shell--wide">
       <div style={{ display: 'grid', gap: 40 }}>
+        <section className="qn-card" aria-labelledby="chart-share-title">
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
+            <div style={{ maxWidth: 620 }}>
+              <p className="qn-cap" style={{ margin: '0 0 8px' }}>只读分享</p>
+              <h2 id="chart-share-title" className="qn-title" style={{ margin: '0 0 8px' }}>把这份命盘分享给别人</h2>
+              <p className="qn-meta" style={{ margin: 0 }}>对方可查看盘面与解读，不会看到姓名、出生资料或地点。分享链接 7 天后失效。</p>
+            </div>
+            {!share && (
+              <button type="button" onClick={makeShareLink} disabled={shareBusy || !canShare} className="qn-btn qn-btn--solid">
+                {shareBusy ? '正在生成…' : canShare ? '生成分享链接' : '解读完成后可分享'}
+              </button>
+            )}
+          </div>
+          {share && (
+            <div className="chart-share-controls" style={{ gap: 10, alignItems: 'end', marginTop: 20 }}>
+              <label style={{ minWidth: 0 }}>
+                <span className="qn-cap" style={{ display: 'block', marginBottom: 7 }}>分享链接 · 有效至 {formatShareExpiry(share.expiresAt)}</span>
+                <input
+                  type="url"
+                  readOnly
+                  value={share.url}
+                  aria-label="命盘分享链接"
+                  onFocus={event => event.currentTarget.select()}
+                  style={{ width: '100%', minWidth: 0, padding: '11px 12px', border: '1px solid rgba(95,75,42,.22)', borderRadius: 8, background: 'rgba(255,255,255,.62)', color: 'var(--color-text-primary)', fontSize: 13 }}
+                />
+              </label>
+              <button type="button" onClick={copyShareLink} disabled={shareBusy} className="qn-btn qn-btn--solid">复制链接</button>
+              <button type="button" onClick={revokeShareLink} disabled={shareBusy} className="qn-btn qn-btn--ghost">撤回</button>
+            </div>
+          )}
+          {shareNotice && <p role="status" className="qn-meta" style={{ margin: '12px 0 0' }}>{shareNotice}</p>}
+          {shareError && <p role="alert" className="qn-meta" style={{ margin: '12px 0 0', color: '#a13b31' }}>{shareError}</p>}
+        </section>
         <ChartOverview chartData={enrichedChartData} chartName={chartName} />
         <DoubleVerify chartData={enrichedChartData} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />

@@ -6,7 +6,7 @@
 // 会话用这条纪律，一旦走服务端就得重新论证）。这一版只收用户自己确认过的结构化标注。
 
 import { useMemo, useState } from 'react';
-import { analyzeFloor, FENGSHUI_BASIS } from '@/lib/fengshui/analysis';
+import { analyzeFloor } from '@/lib/fengshui/analysis';
 import { FACING_LIST, PALACES, ROOM_KINDS } from '@/lib/fengshui/types';
 import type { FacingInput, Palace, Room, RoomKind } from '@/lib/fengshui/types';
 import { PALACE_GRID } from '@/lib/fengshui/types';
@@ -122,7 +122,7 @@ export default function FloorPlanForm() {
             checked={已确认} onChange={e => set已确认(e.target.checked)} />
           <span>以上每一项都是我自己标的，可以让规则层据此判定。
             <span className="qn-note" style={{ display: 'block', marginTop: 4 }}>
-              不勾就只出提示不出判定：拿没确认的输入算出来的结论，在页面上和确认过的一模一样，这是最容易被读错的一种绿。
+              不勾选时只显示提示。请先核对标注，再查看户型观察结果。
             </span>
           </span>
         </label>
@@ -134,7 +134,7 @@ export default function FloorPlanForm() {
 
       {report && (
         <section className="qn-card" style={{ marginTop: 12 }} aria-live="polite">
-          <p className="qn-axis">规则层结果 · {report.口径戳}</p>
+          <p className="qn-axis">户型空间观察</p>
           <ul className="qn-meta" style={{ margin: '8px 0 0', paddingLeft: '1.1em' }}>
             {report.输入摘要.map(x => <li key={x}>{x}</li>)}
           </ul>
@@ -157,8 +157,7 @@ export default function FloorPlanForm() {
           )}
           <p className="qn-note" style={{ marginTop: 12 }}>
             以上全部是几何与动线层面的观察（相邻、对宫、通路、同宫），不是方位吉凶。
-            八宅、玄空那一层本站不做：docs/classics 里没有可引的宅经原文，原典之外不发明。
-            同一组标注永远得到同一份结果（口径戳 {FENGSHUI_BASIS}），换判据会升这个号。
+            本页只依据已标注的房间、门窗与动线观察空间关系；不提供八宅、玄空的方位吉凶判断。
           </p>
         </section>
       )}
