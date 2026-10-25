@@ -7,7 +7,7 @@ import { drawThree, THREE_CARD_POSITIONS } from '@/lib/tarot/deck';
 import type { TarotCard, TarotDraw, TarotOrientation, TarotPosition } from '@/lib/tarot/deck';
 import { TarotIllustration } from '@/components/tarot/TarotIllustration';
 import { TAROT_MEANINGS } from '@/lib/tarot/meanings';
-import { createTarotReading, type TarotReadingResponse } from '@/app/lib/api';
+import { createTarotReading, getClassicSources, type TarotReadingResponse, type ClassicSource } from '@/app/lib/api';
 import { getDeckTilt } from '@/lib/tarot/interaction';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
@@ -134,10 +134,22 @@ export default function TarotPage() {
   const [aiReading, setAiReading] = useState<TarotReadingResponse | null>(null);
   const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [aiError, setAiError] = useState('');
+  const [sourceRefs, setSourceRefs] = useState<Record<string, ClassicSource>>({});
   const timers = useRef<number[]>([]);
   const stageRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLButtonElement>(null);
   const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const ids = [...new Set((aiReading?.cards || []).flatMap(c => c.sourceIds))];
+    if (!ids.length) { setSourceRefs({}); return; }
+    let alive = true;
+    getClassicSources(ids).then(list => {
+      if (!alive) return;
+      setSourceRefs(Object.fromEntries(list.map(s => [s.sourceId, s])));
+    }).catch(() => { if (alive) setSourceRefs({}); });
+    return () => { alive = false; };
+  }, [aiReading]);
 
   useEffect(() => () => timers.current.forEach(timer => window.clearTimeout(timer)), []);
 
@@ -520,8 +532,16 @@ export default function TarotPage() {
                           <li key={c.cardId} style={{ marginTop: 8 }}>
                             <strong>{c.position}「{c.nameZh}」{c.orientation}</strong>：{c.text}
                             <span className="qn-cap" style={{ display: 'block', marginTop: 2 }}>
-                              牌义出处：{c.source}；AI 文本不等于牌面事实，出处未核验时标本站自研。
+                              牌义出处：{c.source}；AI 文本不等于牌面事实。
                             </span>
+                            {c.sourceIds.length > 0 && (
+                              <span className="qn-cap" style={{ display: 'block', marginTop: 2 }} data-tarot-sources={c.sourceIds.join(',')}>
+                                已登记出处：{c.sourceIds.map(id => {
+                                  const s = sourceRefs[id];
+                                  return s ? `${s.book} · ${s.chapter}` : id;
+                                }).join('；')}
+                              </span>
+                            )}
                           </li>
                         ))}
                       </ul>
