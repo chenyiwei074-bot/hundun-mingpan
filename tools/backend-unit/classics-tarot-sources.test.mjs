@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
 const { allSources } = require('../../server/dist/services/classics-registry.js');
-const ROOT = path.resolve(__dirname, '../..');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 test('塔罗 78 张全部入仓，sourceId 唯一', () => {
   const all = allSources();
