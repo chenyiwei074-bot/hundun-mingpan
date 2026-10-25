@@ -442,8 +442,9 @@ const ref = refText ? JSON.parse(refText) : null;
 
   // 每条口径都得指得到一个真实存在、且真有那一段的底本 —— 悬空引文比不引更坏：它承诺了复核却没处可核。
   const dangling = bases.map(b => { const { f, p } = find(b); return (!f || !p) ? `${b.底本段}@${b.底本}` : null; }).filter(Boolean);
-  ok('astro/basis-files-registered', files.length === 3 && dangling.length === 0,
-    `三份西方底本在册且每条依据都能落到具体段：实得 ${files.length} 份（${files.map(f => f.文件).join('、') || '无'}）；悬空 ${dangling.join('、') || '无'}`);
+  // 塔罗底本已移到 docs/classics/tarot/：本命页只认两份 PG 西方占星底本。
+  ok('astro/basis-files-registered', files.length === 2 && dangling.length === 0,
+    `两份西方底本在册且每条依据都能落到具体段：实得 ${files.length} 份（${files.map(f => f.文件).join('、') || '无'}）；悬空 ${dangling.join('、') || '无'}`);
 
   // 逐字性：规范化之后判连续子串（两侧同一个 canon —— 折叠方式不同会伪装成"引文不一致"）
   const badQuote = bases.filter(b => { const { p } = find(b); return !(p && canon(p.text).includes(canon(b.原文))); });

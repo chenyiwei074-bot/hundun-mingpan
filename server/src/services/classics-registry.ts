@@ -126,11 +126,14 @@ export function allSources(): SourceRef[] {
     const one = parseChinese(full);
     if (one) out.push(one);
   }
-  const westernDir = path.join(CLASSICS_ROOT, 'western');
-  if (statSync(westernDir, { throwIfNoEntry: false })) {
-    for (const name of readdirSync(westernDir)) {
+  // 西方占星底本与塔罗底本分目录：塔罗不是“西方占星底本”，
+  // 放一起会让目录门禁把它算成第 3 份 PG 底本。
+  for (const dirName of ['western', 'tarot']) {
+    const dir = path.join(CLASSICS_ROOT, dirName);
+    if (!statSync(dir, { throwIfNoEntry: false })) continue;
+    for (const name of readdirSync(dir)) {
       if (!name.endsWith('.txt')) continue;
-      out.push(...parseWestern(path.join(westernDir, name)));
+      out.push(...parseWestern(path.join(dir, name)));
     }
   }
   cache = out.sort((a, b) => a.sourceId.localeCompare(b.sourceId));
