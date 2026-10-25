@@ -3271,7 +3271,7 @@ const TRUSTED = {
 //    网络层根本没有这一枪，拦不到不等于契约不合，只能 SKIP。
 const STUB_ONLY = new Set(['fengshui-recognize-fail', 'fengshui-recognize-candidates']);
 const LIVE_ONLY = new Set(['fengshui-recognize-wire']);
-const STUB_PAGE_ONLY = new Set(['share-chart-valid', 'dayun-result']);
+const STUB_PAGE_ONLY = new Set(['share-chart-valid', 'dayun-result', 'tarot-save', 'saved-tarot-dashboard']);
 
 // 2026-10-21 细化裁定：只读与否**按动作分，不按整页分**；而"挂载到底写不写"必须是网络观测的结果，
 // 不是"我读了代码觉得没写"—— 那正是这类假绿的老路。两本账都在 measure() 里：
