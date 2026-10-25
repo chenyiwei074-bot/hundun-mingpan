@@ -27,6 +27,8 @@ export default function DashboardPage() {
       <h1 className="qn-hero" style={{ margin: '0 0 6px' }}>我的报告</h1>
       <p className="qn-meta" style={{ marginBottom: 28 }}>八字命盘 · 紫微斗数 · 六爻占卜</p>
 
+      {/* 加载/空/列表三种状态共用同一高度容器：页脚在数据到达前后不移动。 */}
+      <div data-dashboard-content style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px) - 120px)' }}>
       {error ? (
         <>
           <div className="qn-alert" role="alert">{error}</div>
@@ -74,6 +76,7 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+      </div>
     </main>
   );
 }
