@@ -4,6 +4,7 @@ import { recognize, getFloorPlanImage, deleteFloorPlanImage } from '../controlle
 import { getClassicSources } from '../controllers/classics.controller';
 import { lookupPlace } from '../controllers/geo.controller';
 import { createTarotReading } from '../controllers/tarot.controller';
+import { deleteTarotReading, getTarotReading, listTarotReadings, saveTarotReading } from '../controllers/tarot-reading.controller';
 import { createShareLink, getSharedChart, revokeShareLink } from '../controllers/share.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
@@ -25,6 +26,10 @@ router.delete('/fengshui/image/:id', deleteFloorPlanImage);
 router.get('/classics/sources', getClassicSources);
 router.get('/geo/lookup', lookupPlace);
 router.post('/tarot/reading', createTarotReading);
+router.post('/tarot/readings', saveTarotReading);
+router.get('/tarot/readings', listTarotReadings);
+router.get('/tarot/readings/:id', getTarotReading);
+router.delete('/tarot/readings/:id', deleteTarotReading);
 router.post('/receipts', submitReceipt);
 router.get('/receipts/:recordHash', getReceiptStatus);
 

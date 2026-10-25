@@ -99,3 +99,30 @@
 - 失败/超时/输出不合格：返回 `mode:"rules-fallback"`、`aiReady:false`，只给逐牌已登记牌义，
   并在 notes 明说“AI 未参与”；不会把规则拼装说成 AI。
 - 响应不写供应商名/底层模型名；日志只记内部耗时与错误，不记问题原文。
+
+
+## 牌阵契约（2026-10-25）
+
+`POST /api/tarot/reading` 支持：
+
+| spread | 张数 | 位置 |
+|---|---:|---|
+| `single` | 1 | 指引 |
+| `three-card` | 3 | 过去 / 现在 / 未来 |
+| `five-card` | 5 | 过去 / 现在 / 未来 / 建议 / 结果 |
+| `celtic-cross` | 10 | 现状 / 挑战 / 过去 / 未来 / 目标 / 潜在 / 态度 / 环境 / 希望与恐惧 / 结果 |
+
+- 不传 `spread` 默认 `three-card`；
+- 张数、位置、牌 ID、正逆位必须与牌阵一致，否则 400；
+- AI 规则按牌阵动态生成，不编造牌阵来源；牌阵布局为本站实现。
+
+## 账号内保存（2026-10-25）
+
+复用 `reports` 表 `type='tarot'`，不新增表；按 visitorId 归属，7 天保留（现有 retention 清理）：
+
+- `POST /api/tarot/readings`：`{ visitorId, question?, reading }`，201 返回 id；
+- `GET /api/tarot/readings?visitorId=...`：本人列表；
+- `GET /api/tarot/readings/:id?visitorId=...`：本人详情；
+- `DELETE /api/tarot/readings/:id?visitorId=...`：本人删除。
+
+所有读写都校验 visitorId；他人记录返回 404。保存内容只来自前端已生成的 reading，不重算、不伪造来源。

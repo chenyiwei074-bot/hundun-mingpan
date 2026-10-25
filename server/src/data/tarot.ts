@@ -1,7 +1,14 @@
 // 由 frontend/lib/tarot/{deck,meanings}.ts 生成，勿手改。
 // 牌义来源：A. E. Waite《The Pictorial Key to the Tarot》（1910）本站译述。
-export const TAROT_POSITIONS = ["过去","现在","未来"] as const;
-export type TarotPosition = typeof TAROT_POSITIONS[number];
+export const TAROT_SPREADS = {
+  single: { label: "单牌指引", positions: ["指引"] },
+  "three-card": { label: "三张牌", positions: ["过去", "现在", "未来"] },
+  "five-card": { label: "五张牌", positions: ["过去", "现在", "未来", "建议", "结果"] },
+  "celtic-cross": { label: "凯尔特十字", positions: ["现状", "挑战", "过去", "未来", "目标", "潜在", "态度", "环境", "希望与恐惧", "结果"] },
+} as const;
+export type TarotSpread = keyof typeof TAROT_SPREADS;
+export type TarotPosition = string;
+export const TAROT_POSITIONS = TAROT_SPREADS["three-card"].positions;
 export type TarotOrientation = '正位' | '逆位';
 export interface TarotCardData { id: string; nameZh: string; nameEn: string; arcana: 'major' | 'minor'; suit: string | null; rank: string | null; upright: string; reversed: string; source: string }
 export const TAROT_CARDS: TarotCardData[] = [
