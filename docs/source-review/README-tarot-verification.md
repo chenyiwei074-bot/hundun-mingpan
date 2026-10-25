@@ -39,3 +39,11 @@ A. E. Waite, *The Pictorial Key to the Tarot* (1910), Part III: Divinatory Meani
 
 `PASS` + 版本 + 章节/段落 + 英文连续原文齐全 + 人工复核签字，才登记塔罗 sourceId。
 未通过前，塔罗 AI 的 `sourceIds` 继续为空，页面标“本站自研”。
+
+## 签核结果（2026-10-25）
+
+- 78/78 张牌为 PASS，字段齐全；
+- 已入仓底本：`docs/classics/western/waite-tarot-1910.txt`，78 个 `# PASSAGE`；
+- sourceId 命名：`tarot-<cardId>`（如 `tarot-major-13`）；
+- 塔罗规则版与 AI 版逐牌响应现在带 `sourceIds`（只来自登记表）；
+- 中文牌义摘要仍是本站译述，不等于逐行翻译；AI 文本不等于牌面事实。

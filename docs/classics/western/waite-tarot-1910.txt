@@ -1,0 +1,315 @@
+# 载体: A. E. Waite, The Pictorial Key to the Tarot
+# 版本与译者: William Rider & Son, London, 1922 reprint (first published 1910); Wikisource scan pages cited per passage
+# 注: 逐牌 passage 由 2026-10-25 签核表登记；版本、印刷页与牌义对应见每条“该版位置”。中文摘要为本站译述，非逐行翻译。
+
+# PASSAGE tarot-major-00
+# 该版位置: Part III §3, The Fool, printed p.286–287
+Folly, mania, extravagance, intoxication, delirium, frenzy, bewrayment. Reversed: Negligence, absence, distribution, carelessness, apathy, nullity, vanity.
+
+# PASSAGE tarot-major-01
+# 该版位置: Part III §3, The Magician, printed p.283
+Skill, diplomacy, address, subtlety; sickness, pain, loss, disaster, snares of enemies; self-confidence, will; the Querent, if male. Reversed: Physician, Magus, mental disease, disgrace, disquiet.
+
+# PASSAGE tarot-major-02
+# 该版位置: Part III §3, The High Priestess, printed p.283
+Secrets, mystery, the future as yet unrevealed; the woman who interests the Querent, if male; the Querent herself, if female; silence, tenacity; mystery, wisdom, science. Reversed: Passion, moral or physical ardour, conceit, surface knowledge.
+
+# PASSAGE tarot-major-03
+# 该版位置: Part III §3, The Empress, printed p.283
+Fruitfulness, action, initiative, length of days; the unknown, clandestine; also difficulty, doubt, ignorance. Reversed: Light, truth, the unravelling of involved matters, public rejoicings; according to another reading, vacillation.
+
+# PASSAGE tarot-major-04
+# 该版位置: Part III §3, The Emperor, printed p.283–284
+Stability, power, protection, realization; a great person; aid, reason, conviction; also authority and will. Reversed: Benevolence, compassion, credit; also confusion to enemies, obstruction, immaturity.
+
+# PASSAGE tarot-major-05
+# 该版位置: Part III §3, The Hierophant, printed p.284
+Marriage, alliance, captivity, servitude; by another account, mercy and goodness; inspiration; the man to whom the Querent has recourse. Reversed: Society, good understanding, concord, over-kindness, weakness.
+
+# PASSAGE tarot-major-06
+# 该版位置: Part III §3, The Lovers, printed p.284
+Attraction, love, beauty, trials overcome. Reversed: Failure, foolish designs. Another account speaks of marriage frustrated and contrarieties of all kinds.
+
+# PASSAGE tarot-major-07
+# 该版位置: Part III §3, The Chariot, printed p.284
+Succour, providence; also war, triumph, presumption, vengeance, trouble. Reversed: Riot, quarrel, dispute, litigation, defeat.
+
+# PASSAGE tarot-major-08
+# 该版位置: Part III §3, Strength, printed p.284
+Power, energy, action, courage, magnanimity; also complete success and honours. Reversed: Despotism, abuse of power, weakness, discord, sometimes even disgrace.
+
+# PASSAGE tarot-major-09
+# 该版位置: Part III §3, The Hermit, printed p.284
+Prudence, circumspection; also and especially treason, dissimulation, roguery, corruption. Reversed: Concealment, disguise, policy, fear, unreasoned caution.
+
+# PASSAGE tarot-major-10
+# 该版位置: Part III §3, Wheel of Fortune, printed p.284–285
+Destiny, fortune, success, elevation, luck, felicity. Reversed: Increase, abundance, superfluity.
+
+# PASSAGE tarot-major-11
+# 该版位置: Part III §3, Justice, printed p.285
+Equity, rightness, probity, executive; triumph of the deserving side in law. Reversed: Law in all its departments, legal complications, bigotry, bias, excessive severity.
+
+# PASSAGE tarot-major-12
+# 该版位置: Part III §3, The Hanged Man, printed p.285
+Wisdom, circumspection, discernment, trials, sacrifice, intuition, divination, prophecy. Reversed: Selfishness, the crowd, body politic.
+
+# PASSAGE tarot-major-13
+# 该版位置: Part III §3, Death, printed p.285
+End, mortality, destruction, corruption; also, for a man, the loss of a benefactor; for a woman, many contrarieties; for a maid, failure of marriage projects. Reversed: Inertia, sleep, lethargy, petrifaction, somnambulism; hope destroyed.
+
+# PASSAGE tarot-major-14
+# 该版位置: Part III §3, Temperance, printed p.285
+Economy, moderation, frugality, management, accommodation. Reversed: Things connected with churches, religions, sects, the priesthood, sometimes even the priest who will marry the Querent; also disunion, unfortunate combinations, competing interests.
+
+# PASSAGE tarot-major-15
+# 该版位置: Part III §3, The Devil, printed p.285–286
+Ravage, violence, vehemence, extraordinary efforts, force, fatality; that which is predestined but is not for this reason evil. Reversed: Evil fatality, weakness, pettiness, blindness.
+
+# PASSAGE tarot-major-16
+# 该版位置: Part III §3, The Tower, printed p.286
+Misery, distress, indigence, adversity, calamity, disgrace, deception, ruin. It is a card in particular of unforeseen catastrophe. Reversed: According to one account, the same in a lesser degree; also oppression, imprisonment, tyranny.
+
+# PASSAGE tarot-major-17
+# 该版位置: Part III §3, The Star, printed p.286
+Loss, theft, privation, abandonment; another reading says—hope and bright prospects, Reversed: Arrogance, haughtiness, impotence.
+
+# PASSAGE tarot-major-18
+# 该版位置: Part III §3, The Moon, printed p.286
+Hidden enemies, danger, calumny, darkness, terror, deception, occult forces, error. Reversed: Instability, inconstancy, silence, lesser degrees of deception and error.
+
+# PASSAGE tarot-major-19
+# 该版位置: Part III §3, The Sun, printed p.286
+Material happiness, fortunate marriage, contentment. Reversed: The same in a lesser sense.
+
+# PASSAGE tarot-major-20
+# 该版位置: Part III §3, Judgement, printed p.286
+Change of position, renewal, outcome. Another account specifies total loss though lawsuit. Reversed: Weakness, pusillanimity, simplicity; also deliberation, decision, sentence.
+
+# PASSAGE tarot-major-21
+# 该版位置: Part III §3, The World, printed p.287
+Assured success, recompense, voyage, route, emigration, flight, change of place. Reversed: Inertia, fixity, stagnation, permanence. It will be seen that, except where there is an irresistible suggestion conveyed by the surface meaning, that which is extracted from the Trumps Major by the divinatory art is at once artificial and arbitrary, as it seems to me, in the highest degree. But of one order are the mysteries of light and of another are those of fantasy. The allocation of a fortune-telling aspect to these cards is the story of a prolonged impertinence.
+
+# PASSAGE tarot-minor-wands-a
+# 该版位置: Part III §2, Wands — Ace, printed p.196
+Upright: Creation, invention, enterprise, the powers which result in these; principle, beginning, source; birth, family, origin, and in a sense the virility which is behind them; the starting point of enterprises; according to another account, money, fortune, inheritance.; Reversed: Fall, decadence, ruin, perdition, to perish; also a certain clouded joy.
+
+# PASSAGE tarot-minor-wands-2
+# 该版位置: Part III §2, Wands — Two, printed p.194
+Upright: Between the alternative readings there is no marriage possible; on the one hand, riches, fortune, magnificence; on the other, physical suffering, disease, chagrin, sadness, mortification. The design gives one suggestion; here is a lord overlooking his dominion and alternately contemplating a globe; it looks like the malady, the mortification, the sadness of Alexander amidst the grandeur of this world's wealth.; Reversed: Surprise, wonder, enchantment, emotion, trouble, fear.
+
+# PASSAGE tarot-minor-wands-3
+# 该版位置: Part III §2, Wands — Three, printed p.192
+Upright: He symbolizes established strength, enterprise, effort, trade, commerce, discovery; those are his ships, bearing his merchandise, which are sailing over the sea. The card also signifies able co-operation in business, as if the successful merchant prince were looking from his side towards yours with a view to help you.; Reversed: The end of troubles, suspension or cessation of adversity, toil and disappointment.
+
+# PASSAGE tarot-minor-wands-4
+# 该版位置: Part III §2, Wands — Four, printed p.190
+Upright: They are for once almost on the surface—country life, haven of refuge, a species of domestic harvest-home, repose, concord, harmony, prosperity, peace, and the perfected work of these.; Reversed: The meaning remains unaltered; it is prosperity, increase, felicity, beauty, embellishment.
+
+# PASSAGE tarot-minor-wands-5
+# 该版位置: Part III §2, Wands — Five, printed p.188
+Upright: Imitation, as, for example, sham fight, but also the strenuous competition and struggle of the search after riches and fortune. In this sense it connects with the battle of life. Hence some attributions say that it is a card of gold, gain, opulence.; Reversed: Litigation, disputes, trickery, contradiction.
+
+# PASSAGE tarot-minor-wands-6
+# 该版位置: Part III §2, Wands — Six, printed p.186
+Upright: The card has been so designed that it can cover several significations; on the surface, it is a victor triumphing, but it is also great news, such as might be carried in state by the King's courier; it is expectation crowned with its own desire, the crown of hope, and so forth.; Reversed: Apprehension, fear, as of a victorious enemy at the gate; treachery, disloyalty, as of gates being opened to the enemy; also indefinite delay.
+
+# PASSAGE tarot-minor-wands-7
+# 该版位置: Part III §2, Wands — Seven, printed p.184
+Upright: It is a card of valour, for, on the surface, six are attacking one, who has, however, the vantage position. On the intellectual plane, it signifies discussion, wordy strife; in business—negotiations, war of trade, barter, competition. It is further a card of success, for the combatant is on the top and his enemies may be unable to reach him.; Reversed: Perplexity, embarrassments, anxiety. It is also a caution against indecision.
+
+# PASSAGE tarot-minor-wands-8
+# 该版位置: Part III §2, Wands — Eight, printed p.182
+Upright: Activity in undertakings, the path of such activity, swiftness, as that of an express messenger; great haste, great hope, speed towards an end which promises assured felicity; generally, that which is on the move; also the arrows of love.; Reversed: Arrows of jealousy, internal dispute, stingings of conscience, quarrels; and domestic disputes for persons who are married.
+
+# PASSAGE tarot-minor-wands-9
+# 该版位置: Part III §2, Wands — Nine, printed p.180
+Upright: The card signifies strength in opposition. If attacked, the person will meet an onslaught boldly; and his build shews that he may prove a formidable antagonist. With this main significance there are all its possible adjuncts—delay, suspension, adjournment.; Reversed: Obstacles, adversity, calamity.
+
+# PASSAGE tarot-minor-wands-10
+# 该版位置: Part III §2, Wands — Ten, printed p.178
+Upright: A card of many significances, and some of the readings cannot be harmonized. I set aside that which connects it with honour and good faith. The chief meaning is oppression simply, but it is also fortune, gain, any kind of success, and then it is the oppression of these things. It is also a card of false-seeming, disguise, perfidy. The place which the figure is approaching may suffer from the rods that he carries. Success is stultified if the Nine of Swords follows, and if it is a question of a lawsuit, there will be certain loss.; Reversed: Contrarieties, difficulties, intrigues, and their analogies.
+
+# PASSAGE tarot-minor-wands-p
+# 该版位置: Part III §2, Wands — Page, printed p.176
+Upright: Dark young man, faithful, a lover, an envoy, a postman. Beside a man, he will bear favourable testimony concerning him. A dangerous rival, if followed by the Page of Cups. Has the chief qualities of his suit. He may signify family intelligence.; Reversed: Anecdotes, announcements, evil news. Also indecision and the instability which accompanies it.
+
+# PASSAGE tarot-minor-wands-n
+# 该版位置: Part III §2, Wands — Knight, printed p.174
+Upright: Departure, absence, flight, emigration. A dark young man, friendly. Change of residence.; Reversed: Rupture, division, interruption, discord.
+
+# PASSAGE tarot-minor-wands-q
+# 该版位置: Part III §2, Wands — Queen, printed p.172
+Upright: A dark woman, countrywoman, friendly, chaste, loving, honourable. If the card beside her signifies a man, she is well disposed towards him; if a woman, she is interested in the Querent. Also, love of money, or a certain success in business.; Reversed: Good, economical, obliging, serviceable. Signifies also—but in certain positions and in the neighbourhood of other cards tending in such directions—opposition, jealousy, even deceit and infidelity.
+
+# PASSAGE tarot-minor-wands-k
+# 该版位置: Part III §2, Wands — King, printed p.170
+Upright: Dark man, friendly, countryman, generally married, honest and conscientious. The card always signifies honesty, and may mean news concerning an unexpected heritage to fall in before very long.; Reversed: Good, but severe; austere, yet tolerant.
+
+# PASSAGE tarot-minor-cups-a
+# 该版位置: Part III §2, Cups — Ace, printed p.224
+Upright: House of the true heart, joy, content, abode, nourishment, abun­dance, fertility; Holy Table, felicity hereof.; Reversed: House of the false heart, mutation, instability, revolution.
+
+# PASSAGE tarot-minor-cups-2
+# 该版位置: Part III §2, Cups—Two, printed p.222; reversed meaning in Part III §4, printed p.290
+§2 upright: Love, passion, friendship, affinity, union, concord, sympathy, the interrelation of the sexes, and—as a suggestion apart from all offices of divination—that desire which is not in Nature, but by which Nature is sanctified.; §4: Favourable in things of pleasure and business, as well as love; also wealth and honour. Reversed: Passion.
+
+# PASSAGE tarot-minor-cups-3
+# 该版位置: Part III §2, Cups — Three, printed p.220
+Upright: The conclusion of any matter in plenty, perfection and merriment; happy issue, victory, fulfilment, solace, healing.; Reversed: Expedition, dispatch, achievement, end. It signifies also the side of excess in physical enjoyment, and the pleasures of the senses.
+
+# PASSAGE tarot-minor-cups-4
+# 该版位置: Part III §2, Cups — Four, printed p.218
+Upright: Weariness, disgust, aversion, imaginary vexations, as if the wine of this world had caused satiety only; another wine, as if a fairy gift, is now offered the wastrel, but he sees no consolation therein. This is also a card of blended pleasure.; Reversed: Novelty, presage, new instruction, new relations.
+
+# PASSAGE tarot-minor-cups-5
+# 该版位置: Part III §2, Cups — Five, printed p.216
+Upright: It is a card of loss, but something remains over; three have been taken, but two are left; it is a card of inheritance, patrimony, transmission, but not corresponding to expectations; with some interpreters it is a card of marriage, but not without bitterness or frustration.; Reversed: News, alliances, affinity, consanguinity, ancestry, return, false projects.
+
+# PASSAGE tarot-minor-cups-6
+# 该版位置: Part III §2, Cups — Six, printed p.214
+Upright: A card of the past and of memories, looking back, as—for example—on childhood; happiness, enjoyment, but coming rather from the past; things that have vanished. Another reading reverses this, giving new relations, new knowledge, new environment, and then the children are disporting in an unfamiliar precinct.; Reversed: The future, renewal, that which will come to pass presently.
+
+# PASSAGE tarot-minor-cups-7
+# 该版位置: Part III §2, Cups — Seven, printed p.212
+Upright: Fairy favours, images of reflection, sentiment, imagination, things seen in the glass of contemplation; some attainment in these degrees, but nothing permanent or substantial is suggested.; Reversed: Desire, will, determination, project.
+
+# PASSAGE tarot-minor-cups-8
+# 该版位置: Part III §2, Cups — Eight, printed p.210
+Upright: The card speaks for itself on the surface, but other readings are entirely antithetical—giving joy, mildness, timidity, honour, modesty. In practice, it is usually found that the card shews the decline of a matter, or that a matter which has been thought to be important is really of slight consequence—either for good or evil.; Reversed: Great joy, happiness, feasting.
+
+# PASSAGE tarot-minor-cups-9
+# 该版位置: Part III §2, Cups — Nine, printed p.208
+Upright: Concord, contentment, physical bien-être; also victory, success, advantage; satisfaction for the Querent or person for whom the consultation is made.; Reversed: Truth, loyalty, liberty; but the readings vary and include mistakes, imperfections, etc.
+
+# PASSAGE tarot-minor-cups-10
+# 该版位置: Part III §2, Cups — Ten, printed p.206
+Upright: Contentment, repose of the entire heart; the perfection of that state; also perfection of human love and friendship; if with several picture-cards, a person who is taking charge of the Querent's interests; also the town, village or country inhabited by the Querent.; Reversed: Repose of the false heart, indignation, violence.
+
+# PASSAGE tarot-minor-cups-p
+# 该版位置: Part III §2, Cups — Page, printed p.204
+Upright: Fair young man, one impelled to render service and with whom the Querent will be connected; a studious youth; news, message; application, reflection, meditation; also these things directed to business.; Reversed: Taste, inclination, attachment, seduction, deception, artifice.
+
+# PASSAGE tarot-minor-cups-n
+# 该版位置: Part III §2, Cups — Knight, printed p.202
+Upright: Arrival, approach—sometimes that of a messenger; advances, proposition, demeanour, invitation, incitement.; Reversed: Trickery, artifice, subtlety, swindling, duplicity, fraud.
+
+# PASSAGE tarot-minor-cups-q
+# 该版位置: Part III §2, Cups — Queen, printed p.200
+Upright: Good, fair woman; honest, devoted woman, who will do service to the Querent; loving intelligence, and hence the gift of vision; success, happiness, pleasure; also wisdom, virtue; a perfect spouse and a good mother.; Reversed: The accounts vary; good woman; otherwise, distinguished woman but one not to be trusted; perverse woman; vice, dishonour, depravity.
+
+# PASSAGE tarot-minor-cups-k
+# 该版位置: Part III §2, Cups — King, printed p.198
+Upright: Fair man, man of business, law, or divinity; responsible, disposed to oblige the Querent; also equity, art and science, including those who profess science, law and art; creative intelligence.; Reversed: Dishonest, double-dealing man; roguery, exaction, injustice, vice, scandal, pillage, considerable loss.
+
+# PASSAGE tarot-minor-swords-a
+# 该版位置: Part III §2, Swords — Ace, printed p.252
+Upright: Triumph, the excessive degree in everything, conquest, triumph of force. It is a card of great force, in love as well as in hatred. The crown may carry a much higher significance than comes usually within the sphere of fortune-telling.; Reversed: The same, but the results are disastrous; another account says—conception, childbirth, augmentation, multiplicity.
+
+# PASSAGE tarot-minor-swords-2
+# 该版位置: Part III §2, Swords — Two, printed p.250
+Upright: Conformity and the equipoise which it suggests, courage, friendship, concord in a state of arms; another reading gives tenderness, affection, intimacy. The suggestion of harmony and other favourable readings must be considered in a qualified manner, as Swords generally are not symbolical of beneficent forces in human affairs.; Reversed: Imposture, falsehood, duplicity, disloyalty.
+
+# PASSAGE tarot-minor-swords-3
+# 该版位置: Part III §2, Swords — Three, printed p.248
+Upright: Removal, absence, delay, division, rupture, dispersion, and all that the design signifies naturally, being too simple and obvious to call for specific enumeration.; Reversed: Mental alienation, error, loss, distraction, disorder, confusion.
+
+# PASSAGE tarot-minor-swords-4
+# 该版位置: Part III §2, Swords — Four, printed p.246
+Upright: Vigilance, retreat, solitude, hermit's repose, exile, tomb and coffin. It is these last that have suggested the design.; Reversed: Wise administration, circumspection, economy, avarice, precaution, testament.
+
+# PASSAGE tarot-minor-swords-5
+# 该版位置: Part III §2, Swords — Five, printed p.244
+Upright: Degradation, destruction, revocation, infamy, dishonour, loss, with the variants and analogues of these.; Reversed: The same; burial and obsequies.
+
+# PASSAGE tarot-minor-swords-6
+# 该版位置: Part III §2, Swords — Six, printed p.242
+Upright: Journey by water, route, way, envoy, commissionary, expedient.; Reversed: Declaration, confession, publicity; one account says that it is a proposal of love.
+
+# PASSAGE tarot-minor-swords-7
+# 该版位置: Part III §2, Swords — Seven, printed p.240
+Upright: Design, attempt, wish, hope, confidence; also quarrelling, a plan that may fail, annoyance. The design is uncertain in its import, because the significations are widely at variance with each other.; Reversed: Good advice, counsel, instruction, slander, babbling.
+
+# PASSAGE tarot-minor-swords-8
+# 该版位置: Part III §2, Swords — Eight, printed p.238
+Upright: Bad news, violent chagrin, crisis, censure, power in trammels, conflict, calumny; also sickness.; Reversed: Disquiet, difficulty, opposition, accident, treachery; what is unforeseen; fatality.
+
+# PASSAGE tarot-minor-swords-9
+# 该版位置: Part III §2, Swords — Nine, printed p.236
+Upright: Death, failure, miscarriage, delay, deception, disappointment, despair.; Reversed: Imprisonment, suspicion, doubt, reasonable fear, shame.
+
+# PASSAGE tarot-minor-swords-10
+# 该版位置: Part III §2, Swords — Ten, printed p.234
+Upright: Whatsoever is intimated by the design; also pain, affliction, tears, sadness, desolation. It is not especially a card of violent death.; Reversed: Advantage, profit, success, favour, but none of these are permanent; also power and authority.
+
+# PASSAGE tarot-minor-swords-p
+# 该版位置: Part III §2, Swords — Page, printed p.232
+Upright: Authority, overseeing, secret service, vigilance, spying, examination, and the qualities thereto belonging.; Reversed: More evil side of these qualities; what is unforeseen, unprepared state; sickness is also intimated.
+
+# PASSAGE tarot-minor-swords-n
+# 该版位置: Part III §2, Swords — Knight, printed p.230
+Upright: Skill, bravery, capacity, defence, address, enmity, wrath, war, destruction, opposition, resistance, ruin. There is therefore a sense in which the card signifies death, but it carries this meaning only in its proximity to other cards of fatality.; Reversed: Imprudence, incapacity, extravagance.
+
+# PASSAGE tarot-minor-swords-q
+# 该版位置: Part III §2, Swords — Queen, printed p.228
+Upright: Widowhood, female sadness and embarrassment, absence, sterility, mourning, privation, separation.; Reversed: Malice, bigotry, artifice, prudery, bale, deceit.
+
+# PASSAGE tarot-minor-swords-k
+# 该版位置: Part III §2, Swords — King, printed p.226
+Upright: Whatsoever arises out of the idea of judgment and all its connexions—power, command, authority, militant intelligence, law, offices of the crown, and so forth.; Reversed: Cruelty, perversity, barbarity, perfidy, evil intention.
+
+# PASSAGE tarot-minor-pentacles-a
+# 该版位置: Part III §2, Pentacles — Ace, printed p.280
+Upright: Perfect contentment, felicity, ecstasy; also speedy intelligence; gold.; Reversed: The evil side of wealth, bad intelligence; also great riches. In any case it shews prosperity, comfortable material conditions, but whether these are of advantage to the possessor will depend on whether the card is reversed or not.
+
+# PASSAGE tarot-minor-pentacles-2
+# 该版位置: Part III §2, Pentacles — Two, printed p.278
+Upright: On the one hand it is represented as a card of gaiety, recreation and its connexions, which is the subject of the design; but it is read also as news and messages in writing, as obstacles, agitation, trouble, embroilment.; Reversed: Enforced gaiety, simulated enjoyment, literal sense, handwriting, composition, letters of exchange.
+
+# PASSAGE tarot-minor-pentacles-3
+# 该版位置: Part III §2, Pentacles — Three, printed p.276
+Upright: Métier, trade, skilled labour; usually, how-ever, regarded as a card of nobility, aristocracy, renown, glory.; Reversed: Mediocrity, in work and otherwise, puerility, pettiness, weakness.
+
+# PASSAGE tarot-minor-pentacles-4
+# 该版位置: Part III §2, Pentacles — Four, printed p.274
+Upright: The surety of possessions, cleaving to that which one has, gift, legacy, inheritance.; Reversed; (printed semicolon) Suspense, delay, opposition.
+
+# PASSAGE tarot-minor-pentacles-5
+# 该版位置: Part III §2, Pentacles — Five, printed p.272
+Upright: The card foretells material trouble above all, whether in the form illustrated—that is, destitution—or otherwise. For some cartomancists, it is a card of love and lovers—wife, husband, friend, mistress; also concordance, affinities. These alternatives cannot be harmonized.; Reversed: Disorder, chaos, ruin, discord, profligacy.
+
+# PASSAGE tarot-minor-pentacles-6
+# 该版位置: Part III §2, Pentacles — Six, printed p.270
+Upright: Presents, gifts, gratification; another account says attention, vigilance; now is the accepted time, present prosperity, etc.; Reversed: Desire, cupidity, envy, jealousy, illusion.
+
+# PASSAGE tarot-minor-pentacles-7
+# 该版位置: Part III §2, Pentacles — Seven, printed p.268
+Upright: These are exceedingly contradictory; in the main, it is a card of money, business, barter; but one reading gives altercation, quarrel—and another innocence, ingenuity, purgation.; Reversed: Cause for anxiety regarding money which it may be proposed to lend.
+
+# PASSAGE tarot-minor-pentacles-8
+# 该版位置: Part III §2, Pentacles — Eight, printed p.266
+Upright: Work, employment, commission, craftsmanship, skill in craft and business, perhaps in the preparatory stage.; Reversed: Voided ambition, vanity, cupidity, exaction, usury. It may also signify the possession of skill, in the sense of the ingenious mind turned to cunning and intrigue.
+
+# PASSAGE tarot-minor-pentacles-9
+# 该版位置: Part III §2, Pentacles — Nine, printed p.264
+Upright: Prudence, safety, success, accomplishment, certitude, discernment.; Reversed: Roguery, deception, voided project, bad faith.
+
+# PASSAGE tarot-minor-pentacles-10
+# 该版位置: Part III §2, Pentacles — Ten, printed p.262
+Upright: Gain, riches; family matters, archives, extraction, the abode of a family.; Reversed: Chance, fatality, loss, robbery, games of hazard; sometimes gift, dowry, pension.
+
+# PASSAGE tarot-minor-pentacles-p
+# 该版位置: Part III §2, Pentacles — Page, printed p.260
+Upright: Application, study, scholarship, reflection; another reading says news, messages and the bringer thereof; also rule, management.; Reversed: Prodigality, dissipation, liberality. luxury; unfavourable news.
+
+# PASSAGE tarot-minor-pentacles-n
+# 该版位置: Part III §2, Pentacles — Knight, printed p.258
+Upright: Utility, serviceableness, interest, responsibility, rectitude—all on the normal and external plane.; Reversed: inertia, idleness, repose of that kind, stagnation; also placidity, discouragement, carelessness.
+
+# PASSAGE tarot-minor-pentacles-q
+# 该版位置: Part III §2, Pentacles — Queen, printed p.256
+Upright: Opulence, generosity, magnificence, security, liberty.; Reversed: Evil, suspicion, suspense, fear, mistrust.
+
+# PASSAGE tarot-minor-pentacles-k
+# 该版位置: Part III §2, Pentacles — King, printed p.254
+Upright: Valour, realizing intelligence, business and normal intellectual aptitude, sometimes mathematical gifts and attainments of this kind; success in these paths.; Reversed: Vice, weakness, ugliness, perversity, corruption, peril.

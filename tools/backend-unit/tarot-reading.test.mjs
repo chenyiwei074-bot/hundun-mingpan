@@ -19,7 +19,7 @@ test('三张合法牌：返回逐牌牌义，明确 rules-only / aiReady=false',
   assert.equal(r.data.cards.length, 3);
   assert.deepEqual(r.data.cards.map(c => c.cardId), ['major-13', 'minor-cups-2', 'major-19']);
   assert.equal(r.data.cards[1].orientation, '逆位');
-  assert.equal(r.data.cards.every(c => Array.isArray(c.sourceIds) && c.sourceIds.length === 0), true);
+  assert.equal(r.data.cards.every(c => Array.isArray(c.sourceIds) && c.sourceIds.length === 1), true);
   assert.match(r.data.summary, /过去/);
   assert.match(r.data.notes[0], /不是 AI 综合解读/);
 });

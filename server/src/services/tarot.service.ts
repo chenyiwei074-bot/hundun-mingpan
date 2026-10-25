@@ -2,6 +2,7 @@ import { FreeModelProvider } from './ai/FreeModelProvider';
 import { DeepSeekProvider } from './ai/DeepSeekProvider';
 import type { AIProvider } from './ai/AIProvider';
 import { TAROT_CARDS, TAROT_POSITIONS, type TarotCardData, type TarotOrientation, type TarotPosition } from '../data/tarot';
+import { findSources } from './classics-registry';
 
 export interface TarotReadingCardInput { cardId: string; position: string; orientation: string }
 export interface TarotReadingInput { question?: string; spread?: string; cards: TarotReadingCardInput[] }
@@ -21,6 +22,11 @@ const BY_ID = new Map(TAROT_CARDS.map(c => [c.id, c]));
 const POSITIONS = new Set<string>(TAROT_POSITIONS);
 const ORIENTATIONS = new Set<string>(['正位', '逆位']);
 const TIMEOUT_MS = Number(process.env.TAROT_AI_TIMEOUT_MS || 25000);
+const TAROT_SOURCE_PREFIX = 'tarot-';
+function sourceIdsFor(cardId: string): string[] {
+  const id = TAROT_SOURCE_PREFIX + cardId;
+  return findSources([id]).found.length ? [id] : [];
+}
 
 function cardText(card: TarotCardData, orientation: TarotOrientation): { text: string; source: string } {
   return { text: orientation === '逆位' ? card.reversed : card.upright, source: card.source };
@@ -55,7 +61,7 @@ export function buildTarotReading(input: TarotReadingInput, now = new Date()): T
     seen.add(card.id);
     const orientation = raw.orientation as TarotOrientation;
     const { text, source } = cardText(card, orientation);
-    cards.push({ cardId: card.id, nameZh: card.nameZh, position: expectedPos, orientation, text, source, sourceIds: [] });
+    cards.push({ cardId: card.id, nameZh: card.nameZh, position: expectedPos, orientation, text, source, sourceIds: sourceIdsFor(card.id) });
   }
   return {
     ok: true,
