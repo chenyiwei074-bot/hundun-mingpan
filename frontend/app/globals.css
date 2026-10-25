@@ -1994,3 +1994,5 @@ details[open] > :not(summary) { animation: qn-disclosure-in 300ms cubic-bezier(.
 }
 
 .astro-source-links .qn-link { display: inline-flex; align-items: center; min-height: 44px; }
+
+.qn-ai-interpret { margin-top: 14px; }

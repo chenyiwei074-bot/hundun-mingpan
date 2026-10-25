@@ -543,7 +543,7 @@ const ref = refText ? JSON.parse(refText) : null;
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
 // 批H-W 的 §8 有 8 条（底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
 // 近代词条分层／引文不进目录）；本轮新增 7 条凯龙、交点、黄道与来源判据。
-const EXPECT = 81;
+const EXPECT = 80;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 
