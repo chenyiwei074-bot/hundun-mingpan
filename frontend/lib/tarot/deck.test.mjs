@@ -15,7 +15,7 @@ async function loadTs(relativePath) {
   return import(moduleUrl);
 }
 
-const { TAROT_DECK, drawThree } = await loadTs('deck.ts');
+const { TAROT_DECK, TAROT_SPREADS, drawSpread, drawThree } = await loadTs('deck.ts');
 const { TAROT_MEANINGS } = await loadTs('meanings.ts');
 
 assert.equal(TAROT_DECK.length, 78, 'Rider-Waite-Smith-compatible deck has 78 named cards');
@@ -24,6 +24,22 @@ const first = drawThree(seed);
 assert.deepEqual(drawThree(seed), first, 'the same revealed seed reproduces the same draw');
 assert.equal(new Set(first.map(draw => draw.card.id)).size, 3, 'a draw has three distinct cards');
 assert.ok(first.every(draw => ['正位', '逆位'].includes(draw.orientation)), 'each position has a supported upright/reversed orientation');
+
+const expectedSpreads = {
+  single: ['指引'],
+  'three-card': ['过去', '现在', '未来'],
+  'five-card': ['过去', '现在', '未来', '建议', '结果'],
+  'celtic-cross': ['现状', '挑战', '过去', '未来', '目标', '潜在', '态度', '环境', '希望与恐惧', '结果'],
+};
+assert.deepEqual(Object.keys(TAROT_SPREADS), Object.keys(expectedSpreads), 'frontend supports the same four spread IDs as the API');
+for (const [spread, positions] of Object.entries(expectedSpreads)) {
+  const draw = drawSpread(seed, spread);
+  assert.equal(draw.length, positions.length, `${spread} returns its configured card count`);
+  assert.deepEqual(draw.map(item => item.position), positions, `${spread} preserves API position order`);
+  assert.equal(new Set(draw.map(item => item.card.id)).size, positions.length, `${spread} contains no repeated card`);
+  assert.deepEqual(drawSpread(seed, spread), draw, `${spread} can be reproduced from the same seed`);
+  assert.ok(draw.every(item => ['正位', '逆位'].includes(item.orientation)), `${spread} assigns upright or reversed orientation to every card`);
+}
 
 const orientations = new Set();
 for (let sample = 0; sample < 128; sample += 1) {

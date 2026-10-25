@@ -111,17 +111,29 @@ export async function lookupChinaGeo(province: string, city?: string, district?:
 }
 
 
+export type TarotSpreadId = 'single' | 'three-card' | 'five-card' | 'celtic-cross';
+export type TarotPosition = '指引' | '过去' | '现在' | '未来' | '建议' | '结果' | '现状' | '挑战' | '目标' | '潜在' | '态度' | '环境' | '希望与恐惧';
 export type TarotReadingCard = {
-  cardId: string; nameZh: string; position: '过去' | '现在' | '未来';
+  cardId: string; nameZh: string; position: TarotPosition;
   orientation: '正位' | '逆位'; text: string; source: string; sourceIds: string[];
 };
 export type TarotReadingResponse = {
-  readingId: string; mode: 'ai' | 'rules-only' | 'rules-fallback'; aiReady: boolean; model: string;
+  readingId: string; spread: TarotSpreadId; spreadLabel: string;
+  mode: 'ai' | 'rules-only' | 'rules-fallback'; aiReady: boolean; model: string;
   createdAt: string; cards: TarotReadingCard[]; summary: string; notes: string[];
 };
+export type TarotSavedReading = {
+  spread: TarotSpreadId; spreadLabel?: string;
+  mode?: 'ai' | 'rules-only' | 'rules-fallback'; aiReady?: boolean;
+  cards: { cardId: string; nameZh?: string; position: TarotPosition; orientation: '正位' | '逆位'; text: string; source?: string; sourceIds?: string[] }[];
+  summary: string; notes: string[];
+};
+export type TarotSavedReadingListItem = { id: string; title: string; createdAt: string };
+export type TarotSavedReadingDetail = TarotSavedReadingListItem & { reading: TarotSavedReading };
+
 export async function createTarotReading(input: {
-  question?: string; spread: 'three-card';
-  cards: { cardId: string; position: '过去' | '现在' | '未来'; orientation: '正位' | '逆位' }[];
+  question?: string; spread: TarotSpreadId;
+  cards: { cardId: string; position: TarotPosition; orientation: '正位' | '逆位' }[];
 }): Promise<TarotReadingResponse> {
   const res = await fetch(API_BASE + '/tarot/reading', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
@@ -129,4 +141,37 @@ export async function createTarotReading(input: {
   const json = await res.json();
   if (!res.ok || json?.success === false) throw new Error(json?.error || '综合解读暂时不可用');
   return json.data as TarotReadingResponse;
+}
+
+async function requestTarotRecord<T>(path: string, init: RequestInit, fallback: string): Promise<T> {
+  const res = await fetch(API_BASE + path, init);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json?.success === false) throw new Error(json?.error || fallback);
+  return json.data as T;
+}
+
+export async function saveTarotReading(visitorId: string, question: string, reading: TarotSavedReading) {
+  if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
+  return requestTarotRecord<{ id: string; createdAt: string }>('/tarot/readings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ visitorId, question, reading }),
+  }, '保存塔罗记录失败');
+}
+
+export async function listTarotReadings(visitorId: string) {
+  if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
+  const query = new URLSearchParams({ visitorId });
+  return requestTarotRecord<TarotSavedReadingListItem[]>(`/tarot/readings?${query}`, {}, '加载塔罗记录失败');
+}
+
+export async function getTarotReading(visitorId: string, id: string) {
+  if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
+  const query = new URLSearchParams({ visitorId });
+  return requestTarotRecord<TarotSavedReadingDetail>(`/tarot/readings/${encodeURIComponent(id)}?${query}`, {}, '记录不存在或已过期');
+}
+
+export async function deleteTarotReading(visitorId: string, id: string) {
+  if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
+  const query = new URLSearchParams({ visitorId });
+  return requestTarotRecord<{ deleted: true }>(`/tarot/readings/${encodeURIComponent(id)}?${query}`, { method: 'DELETE' }, '删除塔罗记录失败');
 }

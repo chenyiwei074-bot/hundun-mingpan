@@ -193,11 +193,15 @@ const STATIC_PAGES = [
   // 人生曲线独立入口：无本机会话命盘时给真实建盘回退；结果态只使用合成盘。
   ['dayun-empty', '/dayun'],
   ['dayun-result', '/dayun/stubchart0001'],
-  // 塔罗是本轮新增的独立路由。空态、真实抽满三张、移动端、键盘与减少动态效果都各留一态。
+  // 塔罗四种牌阵各有桌面/手机态，并覆盖保存与我的报告详情、删除闭环。
   ['tarot-idle', '/tarot'],
   ['tarot-drawn', '/tarot'],
   ['tarot-record', '/tarot'],
   ['tarot-375', '/tarot'],
+  ['tarot-single', '/tarot'],
+  ['tarot-five', '/tarot'],
+  ['tarot-celtic', '/tarot'],
+  ['tarot-save', '/tarot'],
   ['tarot-keyboard', '/tarot'],
   ['tarot-reduced-motion', '/tarot'],
   // IME 门闩单独一态：它测的不是"答得对不对"，而是"组词中的回车有没有被当成发送"。
@@ -240,6 +244,7 @@ const STATIC_PAGES = [
   ['tools', '/tools'],
   ['verify', '/verify'],
   ['dashboard', '/dashboard'],
+  ['saved-tarot-dashboard', '/dashboard'],
   ['contact', '/contact'],
   ['privacy', '/privacy'],
   ['agreement', '/agreement'],
@@ -513,10 +518,21 @@ const FS_PICK = `(async () => {
   if (!document.getElementById('fp-consent')) return '塞了图但同意框没出现（onPick 没走完或校验把文件拒了）';
   return true; })()`;
 
-const TAROT_DRAW_HOOK = `(async () => {
+const tarotDrawHook = spreadId => {
+  const counts = { 'single': 1, 'three-card': 3, 'five-card': 5, 'celtic-cross': 10 };
+  const count = counts[spreadId];
+  if (!count) throw new Error('Unknown Tarot spread ' + spreadId);
+  return `(async () => {
   const wait = ms => new Promise(r => setTimeout(r, ms));
   const main = document.querySelector('main[data-tarot-state]');
   if (!main) return '没有 main[data-tarot-state]';
+  if (main.dataset.tarotSpread !== ${JSON.stringify(spreadId)}) {
+    const option = document.querySelector('[data-spread-option="${spreadId}"]');
+    if (!option) return '没有「${spreadId}」牌阵选项';
+    option.click();
+    for (let n = 0; n < 30 && main.dataset.tarotSpread !== ${JSON.stringify(spreadId)}; n++) await wait(40);
+    if (main.dataset.tarotSpread !== ${JSON.stringify(spreadId)}) return '牌阵切换失败：' + main.dataset.tarotSpread;
+  }
   const stages = [...document.querySelectorAll('.tarot-slot__stage')];
   window.__tarotStageBounds = stages.map(x => {
     const r = x.getBoundingClientRect();
@@ -533,13 +549,15 @@ const TAROT_DRAW_HOOK = `(async () => {
   shuffle.click();
   for (let n = 0; n < 40 && main.dataset.tarotState !== 'shuffled'; n++) await wait(50);
   if (main.dataset.tarotState !== 'shuffled') return '洗牌后状态不是 shuffled：' + main.dataset.tarotState;
-  const draw = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '抽出三张');
-  if (!draw) return '没有「抽出三张」按钮';
+  const draw = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '抽出${count}张');
+  if (!draw) return '没有「抽出${count}张」按钮';
   draw.click();
-  for (let n = 0; n < 100 && main.dataset.tarotState !== 'revealed'; n++) await wait(50);
+  for (let n = 0; n < Math.max(100, ${count} * 30) && main.dataset.tarotState !== 'revealed'; n++) await wait(50);
   if (main.dataset.tarotState !== 'revealed') return '抽牌后状态不是 revealed：' + main.dataset.tarotState;
   return true;
 })()`;
+};
+const TAROT_DRAW_HOOK = tarotDrawHook('three-card');
 
 const TAROT_RECORD_HOOK = `(async () => {
   const drawn = await ${TAROT_DRAW_HOOK};
@@ -550,6 +568,48 @@ const TAROT_RECORD_HOOK = `(async () => {
   button.click();
   for (let n = 0; n < 30 && main.dataset.tarotState !== 'reading'; n++) await new Promise(r => setTimeout(r, 40));
   if (main.dataset.tarotState !== 'reading') return '抽牌记录按钮没有打开记录';
+  return true;
+})()`;
+
+const TAROT_SAVE_HOOK = `(async () => {
+  const drawn = await ${TAROT_DRAW_HOOK};
+  if (drawn !== true) return drawn;
+  const save = document.querySelector('[data-tarot-save]');
+  if (!save || save.disabled) return '揭牌后没有可用的塔罗保存按钮';
+  save.click();
+  for (let n = 0; n < 80 && (save.textContent || '').trim() !== '已保存'; n++) await new Promise(r => setTimeout(r, 40));
+  if (!save.disabled || (save.textContent || '').trim() !== '已保存') return '保存没有完成：' + (save.textContent || '').trim();
+  if (!document.querySelector('a[href="/dashboard"].tarot-save__link')) return '保存成功后缺少前往我的报告入口';
+  if (!/7 天/.test(document.querySelector('.tarot-save')?.textContent || '')) return '保存入口没有说明 7 天保留期';
+  const payload = window.__tarotSaveRequest;
+  if (!payload || !payload.visitorId || !payload.question || payload.spread !== 'three-card' || payload.cardCount !== 3) return '保存请求没有携带本机标识、问题与完整牌阵：' + JSON.stringify(payload);
+  return true;
+})()`;
+
+const SAVED_TAROT_DASHBOARD_HOOK = `(async () => {
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const main = document.querySelector('[data-tarot-dashboard]');
+  if (!main) return '我的报告没有塔罗记录区域';
+  for (let n = 0; n < 60 && main.querySelector('.tarot-dashboard__empty')?.textContent?.includes('正在读取'); n++) await wait(50);
+  const item = main.querySelector('[data-tarot-record-id="tarot-stub-001"]');
+  if (!item) return '塔罗列表没有显示桩记录：' + (main.textContent || '').slice(0, 100);
+  const detailButton = item.querySelector('.tarot-dashboard__toggle');
+  if (!detailButton) return '塔罗记录缺少详情展开按钮';
+  detailButton.click();
+  for (let n = 0; n < 60 && !item.querySelector('.tarot-dashboard__detail .tarot-dashboard__cards'); n++) await wait(50);
+  if (!item.querySelector('.tarot-dashboard__detail .tarot-dashboard__cards')) return '详情没有加载牌阵记录';
+  if (!/过去/.test(item.textContent || '') || !/正位|逆位/.test(item.textContent || '')) return '详情缺少牌位或牌面方向';
+  window.confirm = () => true;
+  const del = item.querySelector('.tarot-dashboard__delete');
+  if (!del) return '记录缺少删除按钮';
+  del.click();
+  for (let n = 0; n < 60 && main.querySelector('[data-tarot-record-id="tarot-stub-001"]'); n++) await wait(50);
+  if (main.querySelector('[data-tarot-record-id="tarot-stub-001"]')) return '确认删除后记录仍留在列表';
+  if (!/还没有保存的塔罗记录/.test(main.textContent || '')) return '删除后没有回到空记录状态';
+  const requests = window.__net || [];
+  if (!requests.some(x => x.m === 'GET' && x.u.includes('/api/tarot/readings?'))) return '没有观察到获取塔罗记录列表的请求';
+  if (!requests.some(x => x.m === 'GET' && x.u.includes('/api/tarot/readings/tarot-stub-001?'))) return '没有观察到获取塔罗详情的请求';
+  if (!requests.some(x => x.m === 'DELETE' && x.u.includes('/api/tarot/readings/tarot-stub-001?'))) return '没有观察到删除塔罗记录的请求';
   return true;
 })()`;
 
@@ -723,6 +783,11 @@ const AFTER = {
   })()`,
   'tarot-drawn': TAROT_DRAW_HOOK,
   'tarot-record': TAROT_RECORD_HOOK,
+  'tarot-single': tarotDrawHook('single'),
+  'tarot-five': tarotDrawHook('five-card'),
+  'tarot-celtic': tarotDrawHook('celtic-cross'),
+  'tarot-save': TAROT_SAVE_HOOK,
+  'saved-tarot-dashboard': SAVED_TAROT_DASHBOARD_HOOK,
   'tarot-reduced-motion': TAROT_DRAW_HOOK,
   // /astro：把样例的三个输入都填上 —— 页面自己一个都不预填（批F③），所以那十个钉值
   // 现在得由 harness 提供；时区拨到 UTC 让这一刻与跑 harness 的这台机器无关。
@@ -1426,6 +1491,7 @@ const THEME_STATES = {
   synastry: 'dark', 'synastry-computed': 'dark', moon: 'dark', 'moon-computed': 'dark',
   numerology: 'dark', 'numerology-computed': 'dark',
   'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-record': 'dark', 'tarot-375': 'dark',
+  'tarot-single': 'dark', 'tarot-five': 'dark', 'tarot-celtic': 'dark', 'tarot-save': 'dark',
   'tarot-keyboard': 'dark', 'tarot-reduced-motion': 'dark',
   oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
   hepan: 'light', 'name-compat': 'light', 'name-compat-computed': 'light',
@@ -1473,20 +1539,31 @@ const themeProbe = kind => `(() => {
   return { miss: out, ...got };
 })()`;
 
-const tarotProbe = kind => `(async () => {
+const tarotProbe = kind => {
+  const spreadKey = kind.startsWith('single') ? 'single' : kind.startsWith('five') ? 'five-card' : kind.startsWith('celtic') ? 'celtic-cross' : 'three-card';
+  const spec = {
+    single: { key: 'single', positions: ['指引'], count: 1 },
+    'three-card': { key: 'three-card', positions: ['过去', '现在', '未来'], count: 3 },
+    'five-card': { key: 'five-card', positions: ['过去', '现在', '未来', '建议', '结果'], count: 5 },
+    'celtic-cross': { key: 'celtic-cross', positions: ['现状', '挑战', '过去', '未来', '目标', '潜在', '态度', '环境', '希望与恐惧', '结果'], count: 10 },
+  }[spreadKey];
+  return `(async () => {
   const main = document.querySelector('main[data-tarot-state]');
   if (!main) return { miss: ['缺少 main[data-tarot-state]'] };
+  const expected = ${JSON.stringify(spec)};
+  const kind = ${JSON.stringify(kind)};
   const miss = [];
   const state = main.dataset.tarotState;
-  const wantsRevealed = ['drawn', 'keyboard', 'reduced'].includes(${JSON.stringify(kind)});
-  const wantsRecord = ${JSON.stringify(kind)} === 'record';
+  const wantsRecord = kind === 'record';
+  const wantsRevealed = ['drawn', 'keyboard', 'reduced', 'save', 'single', 'five', 'celtic'].includes(kind);
+  if (main.dataset.tarotSpread !== expected.key) miss.push('当前牌阵应为 ' + expected.key + '，实际 ' + main.dataset.tarotSpread);
   if (wantsRevealed && state !== 'revealed') miss.push('预期 revealed，实际 ' + state);
   if (wantsRecord && state !== 'reading') miss.push('预期 reading，实际 ' + state);
   if (!wantsRevealed && !wantsRecord && state !== 'idle') miss.push('预期 idle，实际 ' + state);
   const slots = [...main.querySelectorAll('.tarot-slot')];
   const positions = slots.map(x => (x.querySelector('.tarot-slot__position')?.textContent || '').trim());
-  if (slots.length !== 3) miss.push('牌位数量应为 3，实际 ' + slots.length);
-  if (positions.join('/') !== '过去/现在/未来') miss.push('牌位次序不是过去/现在/未来：' + positions.join('/'));
+  if (slots.length !== expected.count) miss.push('牌位数量应为 ' + expected.count + '，实际 ' + slots.length);
+  if (positions.join('/') !== expected.positions.join('/')) miss.push('牌位顺序错误：' + positions.join('/'));
   const scope = main.querySelector('.tarot-scope-note')?.textContent || '';
   const body = main.innerText || '';
   if (!/1910/.test(scope + body) || !/译述|历史牌义/.test(scope + body)) miss.push('页面没有说明牌义的历史底本与译述性质');
@@ -1498,9 +1575,9 @@ const tarotProbe = kind => `(async () => {
     cards = [...main.querySelectorAll('.tarot-slot .tarot-card__front')];
     ids = [...main.querySelectorAll('.tarot-slot .tarot-card[data-card-id]')].map(x => x.dataset.cardId);
     names = cards.map(x => (x.querySelector('.tarot-card__name')?.textContent || '').trim());
-    if (cards.length !== 3) miss.push('揭示后的牌面数应为 3，实际 ' + cards.length);
-    if (ids.length !== 3 || new Set(ids).size !== 3) miss.push('三张牌必须有三个可识别且互不重复的牌 id：' + JSON.stringify(ids));
-    if (names.length !== 3 || names.some(x => !x || /[A-Za-z]{3,}/.test(x))) miss.push('牌面名称缺失或未以中文呈现：' + JSON.stringify(names));
+    if (cards.length !== expected.count) miss.push('揭晓后的牌面数应为 ' + expected.count + '，实际 ' + cards.length);
+    if (ids.length !== expected.count || new Set(ids).size !== expected.count) miss.push('牌面必须有互不重复的牌 id：' + JSON.stringify(ids));
+    if (names.length !== expected.count || names.some(x => !x || /[A-Za-z]{3,}/.test(x))) miss.push('牌面名称缺失或未以中文呈现：' + JSON.stringify(names));
     if (cards.some(x => !((x.textContent || '').includes('Waite') && (x.textContent || '').includes('1910')))) miss.push('每张牌都必须标出 Waite 1910 牌义来源');
     if (cards.some(x => !x.querySelector('.tarot-art[role="img"]'))) miss.push('每张牌都必须呈现原创 SVG 牌面插画');
     const orientationCards = [...main.querySelectorAll('.tarot-slot .tarot-card[data-card-id]')];
@@ -1510,7 +1587,7 @@ const tarotProbe = kind => `(async () => {
     if (wantsRecord) {
       const records = [...main.querySelectorAll('.tarot-record-list li')];
       const recordedPositions = records.map(x => x.querySelector('.tarot-record-list__position')?.textContent.trim());
-      if (records.length !== 3 || recordedPositions.join('/') !== '过去/现在/未来') miss.push('抽牌记录没有逐张列出过去/现在/未来：' + JSON.stringify(recordedPositions));
+      if (records.length !== expected.count || recordedPositions.join('/') !== expected.positions.join('/')) miss.push('逐牌记录没有按牌阵列出位置：' + JSON.stringify(recordedPositions));
       if (!/我接下来该怎样推进这次合作/.test(main.querySelector('.tarot-reading__question')?.textContent || '')) miss.push('本次问题没有回显到抽牌记录');
       if (records.some(x => !(x.querySelector('.tarot-record-list__meaning')?.textContent.trim().length > 4))) miss.push('每张抽牌记录都必须显示对应方向的牌义摘要');
       if (records.some(x => !/Waite/.test(x.querySelector('.tarot-record-list__source')?.textContent || '') || !/待校核/.test(x.querySelector('.tarot-record-list__source')?.textContent || ''))) miss.push('每张牌义都必须显示来源，且标明底本/章节待校核');
@@ -1521,10 +1598,9 @@ const tarotProbe = kind => `(async () => {
       const r = x.getBoundingClientRect();
       return [r.left, r.top + window.scrollY, r.width, r.height].map(n => Math.round(n * 10) / 10).join(',');
     });
-    if (before.length !== 3 || before.join('|') !== after.join('|')) miss.push('翻牌前后固定牌位几何发生变化：' + JSON.stringify({ before, after }));
-    const beforeHeight = window.__tarotDocHeight;
-    if (!wantsRecord && typeof beforeHeight === 'number' && Math.abs(document.documentElement.scrollHeight - beforeHeight) > 1)
-      miss.push('抽牌前后页面总高变化：' + beforeHeight + ' → ' + document.documentElement.scrollHeight);
+    if (before.length !== expected.count || before.join('|') !== after.join('|')) miss.push('翻牌前后固定牌位几何发生变化：' + JSON.stringify({ before, after }));
+    // The save panel becomes available after reveal, so the document may grow
+    // below the spread; fixed card-slot geometry above guards against the layout shift that matters.
     const rows = [...main.querySelectorAll('.tarot-integrity__row')];
     const row = label => rows.find(x => (x.textContent || '').includes(label));
     const hash = row('抽牌校验码')?.querySelector('code')?.textContent.trim() || '';
@@ -1536,30 +1612,30 @@ const tarotProbe = kind => `(async () => {
       const actual = [...digest].map(x => x.toString(16).padStart(2, '0')).join('');
       if (actual !== hash.toLowerCase()) miss.push('SHA-256 承诺摘要无法由揭晓种子复算');
     }
-    if (!/不会发送到服务器/.test(body) || !/不是区块链存证/.test(body)) miss.push('页面未说明本地保存边界与非链上存证');
-  } else if (main.querySelectorAll('.tarot-empty').length !== 3) {
-    miss.push('idle 态三个牌位都应为空');
+    if (!/未点击保存时/.test(body) || !/不是区块链存证/.test(body)) miss.push('页面未说明本地保存边界与非链上存证');
+  } else if (main.querySelectorAll('.tarot-empty').length !== expected.count) {
+    miss.push('空态牌位数量应为 ' + expected.count);
   }
-  if (${JSON.stringify(kind)} === 'mobile' && innerWidth <= 375) {
+  if (innerWidth <= 375) {
     const rects = slots.map(x => x.querySelector('.tarot-slot__stage')?.getBoundingClientRect());
-    if (rects.length !== 3 || rects.some(r => !r || r.width < 90 || r.width > 125 || r.height < 140 || r.height > 205))
-      miss.push('375px 下三张卡应约 100×160：' + JSON.stringify(rects.map(r => r && { w: Math.round(r.width), h: Math.round(r.height) })));
-    if (rects.length === 3 && !(rects[0].left < rects[1].left && rects[1].left < rects[2].left)) miss.push('375px 下三张牌必须横向排列');
+    const range = expected.count === 1 ? [145, 190] : expected.count === 3 ? [90, 125] : [125, 180];
+    if (rects.length !== expected.count || rects.some(r => !r || r.width < range[0] || r.width > range[1] || r.height < 140 || r.height > 300))
+      miss.push('375px 下牌面尺寸不在预期区间：' + JSON.stringify(rects.map(r => r && { w: Math.round(r.width), h: Math.round(r.height) })));
+    if (expected.count === 3 && rects.length === 3 && !(rects[0].left < rects[1].left && rects[1].left < rects[2].left)) miss.push('三张牌在手机端应横向排列');
+    if (expected.count > 3 && rects.some(r => r && (r.left < 0 || r.right > innerWidth))) miss.push('多牌阵手机卡片超出视口');
     if (document.documentElement.scrollWidth > innerWidth) miss.push('375px 下页面存在横向滚动');
   }
-  if (${JSON.stringify(kind)} === 'reduced') {
+  if (kind === 'reduced') {
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) miss.push('浏览器未启用 prefers-reduced-motion: reduce');
     const flying = [...main.querySelectorAll('.tarot-card--flying')];
     if (flying.length) miss.push('减少动态效果下仍渲染飞牌覆层：' + flying.length);
-    const durations = [...main.querySelectorAll('.tarot-card__inner')].map(x => ({
-      flip: getComputedStyle(x).transitionDuration,
-    }));
+    const durations = [...main.querySelectorAll('.tarot-card__inner')].map(x => getComputedStyle(x).transitionDuration);
     const milliseconds = value => parseFloat(value) * (value.trim().endsWith('ms') ? 1 : 1000);
-    if (durations.some(x => milliseconds(x.flip) > 0.01))
-      miss.push('减少动态效果下仍有可感知的翻面动画：' + JSON.stringify(durations));
+    if (durations.some(x => milliseconds(x) > 0.01)) miss.push('减少动态效果下仍有可感知的翻面动画：' + JSON.stringify(durations));
   }
-  return { miss, state, positions, ids, names, mobileWidth: innerWidth };
+  return { miss, state, spread: main.dataset.tarotSpread, positions, ids, names, mobileWidth: innerWidth };
 })()`;
+};
 
 // 静态稿那三态在真盘上的对应物：default（刚加载）→ hover（CDP 真指针挪进栏里）→
 // focus-visible（真键盘 Tab 进去）。两件事必须说清：
@@ -2116,9 +2192,40 @@ const STUB_BOOT = `(() => {
   const FIX = Object.fromEntries(LIST.map(r => [r.id, r]));
   const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
   const SHARE_CHART = ${JSON.stringify(SHARE_CHART_FIXTURE)};
+  let tarotSaved = true;
+  const tarotReading = {
+    spread: 'three-card', spreadLabel: '三张牌', mode: 'rules-only', aiReady: false,
+    summary: '过去「愚者」正位：保持开放。现在「女祭司」逆位：先厘清信息。未来「星星」正位：稳步推进。',
+    notes: ['visual harness synthetic fixture'],
+    cards: [
+      { cardId: 'major-00-fool', nameZh: '愚者', position: '过去', orientation: '正位', text: '保持开放与探索。', source: 'Waite 1910 · 待校核', sourceIds: [] },
+      { cardId: 'major-02-high-priestess', nameZh: '女祭司', position: '现在', orientation: '逆位', text: '先厘清尚未显现的信息。', source: 'Waite 1910 · 待校核', sourceIds: [] },
+      { cardId: 'major-17-star', nameZh: '星星', position: '未来', orientation: '正位', text: '以耐心恢复信心。', source: 'Waite 1910 · 待校核', sourceIds: [] },
+    ],
+  };
   const of = window.fetch;
   window.fetch = async (u, init) => {
     const url = String(u);
+    if (url.includes('/api/tarot/readings')) {
+      const method = String((init && init.method) || 'GET').toUpperCase();
+      const pathname = new URL(url, location.origin).pathname;
+      if (method === 'POST' && pathname === '/api/tarot/readings') {
+        try {
+          const body = JSON.parse((init && init.body) || '{}');
+          window.__tarotSaveRequest = { visitorId: body.visitorId, question: body.question, spread: body.reading?.spread, cardCount: body.reading?.cards?.length };
+        } catch { window.__tarotSaveRequest = { invalid: true }; }
+        return J({ success: true, data: { id: 'tarot-stub-001', createdAt: '2026-10-25T10:00:00.000Z' } }, 201);
+      }
+      if (method === 'GET' && pathname === '/api/tarot/readings')
+        return J({ success: true, data: tarotSaved ? [{ id: 'tarot-stub-001', title: '塔罗牌阵 · 三张牌', createdAt: '2026-10-25T10:00:00.000Z' }] : [] });
+      if (method === 'GET' && pathname === '/api/tarot/readings/tarot-stub-001' && tarotSaved)
+        return J({ success: true, data: { id: 'tarot-stub-001', title: '塔罗牌阵 · 三张牌', createdAt: '2026-10-25T10:00:00.000Z', reading: tarotReading } });
+      if (method === 'DELETE' && pathname === '/api/tarot/readings/tarot-stub-001') {
+        tarotSaved = false;
+        return J({ success: true, data: { deleted: true } });
+      }
+      return J({ success: false, error: 'visual-harness stub: Tarot record unavailable' }, 404);
+    }
     if (url.includes('/api/chart/share/')) {
       const token = url.split('/api/chart/share/')[1].split(/[?#]/)[0];
       if (token === 'visual-harness-valid-token') return J({ success: true, data: {
@@ -3191,15 +3298,15 @@ async function measure(tag, url) {
       const afterEnter = await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`);
       if (afterEnter !== 'shuffled') fail.push(tag + ': Enter 没有触发洗牌，状态为 ' + afterEnter);
       else {
-        const actionFocused = await evl(`(() => { const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === '抽出三张'); if (!b) return false; b.focus(); return document.activeElement === b; })()`);
-        if (!actionFocused) fail.push(tag + ': 洗牌后找不到可聚焦的「抽出三张」按钮');
+        const actionFocused = await evl(`(() => { const count = document.querySelectorAll('.tarot-slots .tarot-slot').length; const label = '抽出' + count + '张'; const b = [...document.querySelectorAll('button')].find(x => (x.textContent || '').trim() === label); if (!b) return false; b.focus(); return document.activeElement === b; })()`);
+        if (!actionFocused) fail.push(tag + ': 洗牌后找不到可聚焦的动态抽牌按钮');
         else {
           for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', {
             type, key: ' ', code: 'Space', windowsVirtualKeyCode: 32, nativeVirtualKeyCode: 32, text: type === 'keyDown' ? ' ' : undefined,
           });
           for (let n = 0; n < 70 && await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`) !== 'revealed'; n++) await sleep(50);
           const afterSpace = await evl(`document.querySelector('main[data-tarot-state]')?.dataset.tarotState`);
-          if (afterSpace !== 'revealed') fail.push(tag + ': Space 没有揭晓三张牌，状态为 ' + afterSpace);
+          if (afterSpace !== 'revealed') fail.push(tag + ': Space 没有揭晓牌面，状态为 ' + afterSpace);
         }
       }
     }
@@ -3617,6 +3724,8 @@ const fsEditProbe = p => `(() => {
   if (base.startsWith('tarot-')) {
     const tarotKind = ({
       'tarot-idle': 'idle', 'tarot-drawn': 'drawn', 'tarot-375': 'mobile',
+      'tarot-single': 'single', 'tarot-five': 'five',
+      'tarot-celtic': 'celtic', 'tarot-save': 'save',
       'tarot-record': 'record',
       'tarot-keyboard': 'keyboard', 'tarot-reduced-motion': 'reduced',
     })[base];
@@ -3631,6 +3740,12 @@ const fsEditProbe = p => `(() => {
     console.log(got && got.miss && got.miss.length
       ? '   TAROT MISMATCH ' + got.miss.join(' | ')
       : `   TAROT ${tarotKind}：${got?.state || '探针未返回'} · ${(got?.positions || []).join('/')} · ${(got?.ids || []).length} 张牌 · 无外部图片`);
+  }
+  if (base === 'saved-tarot-dashboard') {
+    const requests = await evl(`window.__net || []`);
+    if (!Array.isArray(requests) || !requests.some(x => x.m === 'DELETE' && x.u.includes('/api/tarot/readings/')))
+      fail.push(tag + ': 塔罗记录列表/详情/删除交互未完成');
+    else console.log('   TAROT dashboard：列表、详情与删除闭环通过');
   }
   // 图上标号（批C-5b）：凡是几何已经在屏上的态都量一次，因为"依据指回图上"这一半
   // 只有在画了东西的那一帧才谈得上。

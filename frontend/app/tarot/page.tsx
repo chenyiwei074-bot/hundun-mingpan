@@ -3,14 +3,23 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-import { drawThree, THREE_CARD_POSITIONS } from '@/lib/tarot/deck';
-import type { TarotCard, TarotDraw, TarotOrientation, TarotPosition } from '@/lib/tarot/deck';
+import { drawSpread, TAROT_SPREADS } from '@/lib/tarot/deck';
+import type { TarotCard, TarotDraw, TarotOrientation, TarotPosition, TarotSpreadId } from '@/lib/tarot/deck';
 import { TarotIllustration } from '@/components/tarot/TarotIllustration';
 import { TAROT_MEANINGS } from '@/lib/tarot/meanings';
-import { createTarotReading, getClassicSources, type TarotReadingResponse, type ClassicSource } from '@/app/lib/api';
+import { createTarotReading, getClassicSources, saveTarotReading, type TarotReadingResponse, type TarotSavedReading, type ClassicSource } from '@/app/lib/api';
+import { getVisitorId } from '@/lib/auth/visitor';
 import { getDeckTilt } from '@/lib/tarot/interaction';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
+
+const SPREAD_GUIDES: Record<TarotSpreadId, string> = {
+  single: '先聚焦一件事，用一张牌整理当下的提醒。',
+  'three-card': '把过去、现在与未来放在同一条时间线上。',
+  'five-card': '沿着时间、建议与结果，展开一件事的脉络。',
+  'celtic-cross': '从现状和挑战出发，连看内在、环境与结果。',
+};
 
 function toHex(bytes: ArrayLike<number>) {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
@@ -54,7 +63,7 @@ function TarotSlot({
   stageElementRef?: (node: HTMLDivElement | null) => void;
 }) {
   return (
-    <article className="tarot-slot" aria-label={`${position}牌位${visible && drawn ? `：${drawn.card.nameZh}` : '，尚未揭示'}`}>
+    <article className="tarot-slot" data-position={position} aria-label={`${position}牌位${visible && drawn ? `：${drawn.card.nameZh}` : '，尚未揭示'}`}>
       <h2 className="tarot-slot__position">{position}</h2>
       <div className="tarot-slot__stage" ref={stageElementRef}>
         {visible && drawn ? (
@@ -107,6 +116,7 @@ function TarotCardFace({ card, orientation }: { card: TarotCard; orientation: Ta
 }
 
 export default function TarotPage() {
+  const [spreadId, setSpreadId] = useState<TarotSpreadId>('three-card');
   const [drawState, setDrawState] = useState<DrawState>('idle');
   const [seedHex, setSeedHex] = useState('');
   const [seedHash, setSeedHash] = useState('');
@@ -129,16 +139,20 @@ export default function TarotPage() {
     targetHeight: number;
     revealed: boolean;
   } | null>(null);
-  const [notice, setNotice] = useState('洗牌后生成抽牌校验码；三张牌只在本机抽取。');
-  const [announcement, setAnnouncement] = useState('三张牌位已准备好。');
+  const [notice, setNotice] = useState('洗牌后生成抽牌校验码；牌面只在本机抽取。');
+  const [announcement, setAnnouncement] = useState('牌位已准备好。');
   const [aiReading, setAiReading] = useState<TarotReadingResponse | null>(null);
   const [aiState, setAiState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [aiError, setAiError] = useState('');
   const [sourceRefs, setSourceRefs] = useState<Record<string, ClassicSource>>({});
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [savedId, setSavedId] = useState('');
+  const [saveError, setSaveError] = useState('');
   const timers = useRef<number[]>([]);
   const stageRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLButtonElement>(null);
   const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const spread = TAROT_SPREADS[spreadId];
 
   useEffect(() => {
     const ids = [...new Set((aiReading?.cards || []).flatMap(c => c.sourceIds))];
@@ -182,9 +196,12 @@ export default function TarotPage() {
       setAiReading(null);
       setAiState('idle');
       setAiError('');
+      setSaveState('idle');
+      setSavedId('');
+      setSaveError('');
       setDrawState('shuffled');
-      setNotice('抽牌校验码已生成并固定；三张牌揭晓后会公开用于复核的随机值。');
-      setAnnouncement('洗牌完成，抽牌校验码已公布。现在可以抽出三张牌。');
+      setNotice('抽牌校验码已生成并固定；全部牌面揭晓后会公开用于复核的随机值。');
+      setAnnouncement(`洗牌完成，抽牌校验码已公布。现在可以抽出${spread.count}张牌。`);
     } catch {
       setNotice('无法生成抽牌校验码，请重新洗牌。');
     }
@@ -193,10 +210,10 @@ export default function TarotPage() {
   const reveal = async () => {
     if (!seedHex || drawState !== 'shuffled') return;
     if (!question.trim()) {
-      setNotice('先写下这次想聚焦的问题，再抽出三张牌。');
+      setNotice(`先写下这次想聚焦的问题，再抽出${spread.count}张牌。`);
       return;
     }
-    const result = drawThree(seedHex);
+    const result = drawSpread(seedHex, spreadId);
     setDrawQuestion(question.trim());
     const stageRect = stageRef.current?.getBoundingClientRect();
     const deckRect = deckRef.current?.querySelector('.tarot-deck')?.getBoundingClientRect();
@@ -208,17 +225,17 @@ export default function TarotPage() {
     setSelectedIndex(null);
     setVisibleCount(0);
     setDrawState('drawing');
-    setNotice('正在依次揭晓过去、现在与未来牌位。');
+    setNotice(`正在依次揭晓${spread.positions.join('、')}牌位。`);
 
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setVisibleCount(THREE_CARD_POSITIONS.length);
+      setVisibleCount(spread.positions.length);
       setDrawState('revealed');
-      setNotice('三张牌已揭晓。可打开抽牌记录查看方向对应的传统牌义与出处。');
-      setAnnouncement('三张牌已揭晓：过去、现在、未来。');
+      setNotice(`${spread.count}张牌已揭晓。可打开抽牌记录查看各牌位的传统牌义与出处。`);
+      setAnnouncement(`${spread.count}张牌已揭晓：${spread.positions.join('、')}。`);
       return;
     }
 
-    for (let index = 0; index < THREE_CARD_POSITIONS.length; index += 1) {
+    for (let index = 0; index < spread.positions.length; index += 1) {
       const slotRect = slotRefs.current[index]?.getBoundingClientRect();
       if (!slotRect) continue;
       setFlight({
@@ -245,12 +262,12 @@ export default function TarotPage() {
       });
       setVisibleCount(index + 1);
       setFlight(null);
-      setAnnouncement(`${THREE_CARD_POSITIONS[index]}牌已揭晓：${result[index].card.nameZh}。`);
+      setAnnouncement(`${spread.positions[index]}牌已揭晓：${result[index].card.nameZh}。`);
     }
     timers.current = [];
     setDrawState('revealed');
-    setNotice('三张牌已揭晓。可打开抽牌记录查看方向对应的传统牌义与出处。');
-    setAnnouncement('三张牌已揭晓：过去、现在、未来。');
+    setNotice(`${spread.count}张牌已揭晓。可打开抽牌记录查看各牌位的传统牌义与出处。`);
+    setAnnouncement(`${spread.count}张牌已揭晓：${spread.positions.join('、')}。`);
   };
 
   const reset = () => {
@@ -269,21 +286,91 @@ export default function TarotPage() {
     setAiReading(null);
     setAiState('idle');
     setAiError('');
-    setNotice('洗牌后生成抽牌校验码；三张牌只在本机抽取。');
-    setAnnouncement('已重置。三张牌位已准备好。');
+    setSaveState('idle');
+    setSavedId('');
+    setSaveError('');
+    setNotice('洗牌后生成抽牌校验码；抽牌过程在本机完成。');
+    setAnnouncement(`已重置。${spread.count}个牌位已准备好。`);
+  };
+
+  const selectSpread = (next: TarotSpreadId) => {
+    if (next === spreadId || drawState === 'drawing') return;
+    timers.current.forEach(timer => window.clearTimeout(timer));
+    timers.current = [];
+    const nextSpread = TAROT_SPREADS[next];
+    setSpreadId(next);
+    setDrawState('idle');
+    setSeedHex('');
+    setSeedHash('');
+    setCopyStatus('');
+    setDrawQuestion('');
+    setDrawnCards([]);
+    setSelectedIndex(null);
+    setVisibleCount(0);
+    setFlight(null);
+    setAiReading(null);
+    setAiState('idle');
+    setAiError('');
+    setSaveState('idle');
+    setSavedId('');
+    setSaveError('');
+    setNotice(`${nextSpread.label}已选。洗牌后即可开始抽牌。`);
+    setAnnouncement(`已切换到${nextSpread.label}，共${nextSpread.count}张。`);
+  };
+
+  const persistReading = async () => {
+    if (drawnCards.length !== spread.positions.length || saveState === 'saving' || savedId) return;
+    setSaveState('saving');
+    setSaveError('');
+    try {
+      const visitorId = getVisitorId();
+      const reading: TarotSavedReading = {
+        spread: spreadId,
+        spreadLabel: spread.label,
+        mode: aiReading?.mode ?? 'rules-only',
+        aiReady: aiReading?.aiReady ?? false,
+        cards: drawnCards.map(({ card, position, orientation }) => {
+          const localMeaning = TAROT_MEANINGS[card.id];
+          const interpreted = aiReading?.cards.find(item => item.cardId === card.id);
+          return {
+            cardId: card.id,
+            nameZh: card.nameZh,
+            position,
+            orientation,
+            text: interpreted?.text ?? localMeaning?.[orientation === '正位' ? 'upright' : 'reversed'] ?? '此牌义暂缺，后续补充来源校核。',
+            source: interpreted?.source ?? localMeaning?.source ?? '待校核',
+            sourceIds: interpreted?.sourceIds ?? [],
+          };
+        }),
+        summary: aiReading?.summary ?? drawnCards.map(({ card, position, orientation }) => {
+          const meaning = TAROT_MEANINGS[card.id];
+          return `${position}「${card.nameZh}」（${orientation}）：${meaning?.[orientation === '正位' ? 'upright' : 'reversed'] ?? '牌义待补'}`;
+        }).join('；'),
+        notes: aiReading?.notes ?? ['本次保存包含本站生成的牌阵、牌面方向与逐牌牌义；未生成 AI 综合解读。'],
+      };
+      const saved = await saveTarotReading(visitorId, drawQuestion, reading);
+      setSavedId(saved.id);
+      setSaveState('saved');
+      setNotice('已保存到我的报告；记录保留 7 天。');
+    } catch (error) {
+      setSaveState('error');
+      setSaveError(error instanceof Error ? error.message : '保存失败，请稍后重试');
+    }
   };
 
   const generateAiReading = async () => {
-    if (drawnCards.length !== 3 || aiState === 'loading') return;
+    if (drawnCards.length !== spread.positions.length || aiState === 'loading') return;
     setAiState('loading');
     setAiError('');
     try {
       const next = await createTarotReading({
         question: drawQuestion || undefined,
-        spread: 'three-card',
+        spread: spreadId,
         cards: drawnCards.map(({ card, position, orientation }) => ({ cardId: card.id, position, orientation })),
       });
       setAiReading(next);
+      setSavedId('');
+      setSaveState('idle');
       setAiState('idle');
       setAnnouncement(next.aiReady ? '混沌自研 AI 综合解读已生成。' : '综合 AI 暂不可用，已回退逐牌牌义。');
     } catch {
@@ -304,7 +391,7 @@ export default function TarotPage() {
 
   const buttonLabel = {
     idle: '洗牌并生成校验码',
-    shuffled: '抽出三张',
+    shuffled: `抽出${spread.count}张`,
     drawing: '正在逐张揭晓',
     revealed: '查看抽牌记录',
     reading: '重新洗牌',
@@ -315,14 +402,46 @@ export default function TarotPage() {
   const selectedMeaning = selectedDraw ? TAROT_MEANINGS[selectedDraw.card.id] : undefined;
 
   return (
-    <main className="qn-shell qn-shell--wide tarot-page" data-mode="western" data-tarot-state={drawState}>
+    <main className="qn-shell qn-shell--wide tarot-page" data-mode="western" data-tarot-state={drawState} data-tarot-spread={spreadId}>
       <header className="tarot-header qn-rise">
         <Link href="/western" className="domain-back">← 返回西方目录</Link>
         <p className="qn-eyebrow">西方神秘学 · 塔罗</p>
-        <h1 className="qn-hero">三张牌阵</h1>
-        <p className="qn-meta">把过去、现在与未来放在同一条时间线上，先完成抽牌，再查看牌位。</p>
+        <h1 className="qn-hero">{spread.label}</h1>
+        <p className="qn-meta">{SPREAD_GUIDES[spreadId]}先完成抽牌，再逐张查看牌位。</p>
         <p className="tarot-scope-note">韦特—史密斯体系原创绘制 · 正位与逆位 · 参考 Waite 1910 牌义译述（近代文献 · 非古籍；底本待校核）</p>
       </header>
+
+      <section className="tarot-spread-picker" aria-labelledby="tarot-spread-title">
+        <div className="tarot-spread-picker__heading">
+          <div>
+            <p className="qn-eyebrow">选择展开方式</p>
+            <h2 className="qn-title" id="tarot-spread-title">你想用哪种牌阵？</h2>
+          </div>
+          <span className="qn-cap">共 {spread.count} 张</span>
+        </div>
+        <div className="tarot-spread-options" role="group" aria-label="塔罗牌阵">
+          {(Object.keys(TAROT_SPREADS) as TarotSpreadId[]).map(id => {
+            const option = TAROT_SPREADS[id];
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`tarot-spread-option${spreadId === id ? ' is-selected' : ''}`}
+                data-spread-option={id}
+                aria-pressed={spreadId === id}
+                disabled={drawState === 'drawing'}
+                onClick={() => selectSpread(id)}
+              >
+                <span className="tarot-spread-option__count">{option.count}<small>张</small></span>
+                <span className="tarot-spread-option__copy">
+                  <strong>{option.label}</strong>
+                  <span>{option.positions.slice(0, 3).join(' · ')}{option.positions.length > 3 ? ' · …' : ''}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <section className="tarot-question qn-rise" aria-labelledby="tarot-question-label">
         <div className="tarot-question__heading">
@@ -340,16 +459,16 @@ export default function TarotPage() {
           onChange={event => setQuestion(event.target.value)}
           aria-describedby="tarot-question-note"
         />
-        <p className="tarot-question__note" id="tarot-question-note">问题只留在当前页面，不发送到服务器；抽牌后会与牌位记录一起显示。</p>
+        <p className="tarot-question__note" id="tarot-question-note">抽牌在本机完成。生成 AI 综合解读时，问题会随本次请求处理；点击保存后，问题与牌面记录会存入“我的报告”，保留 7 天。</p>
       </section>
 
       <section ref={stageRef} className="tarot-stage qn-rise" aria-label="塔罗抽牌区">
         <div className="tarot-stage__heading">
           <div>
-            <p className="tarot-stage__eyebrow">三张 · 过去 / 现在 / 未来</p>
+            <p className="tarot-stage__eyebrow">当前牌阵 · {spread.label}</p>
             <h2 className="tarot-stage__title">静心洗牌</h2>
           </div>
-          <span className="tarot-stage__count">{visibleCount} / 3 已揭晓</span>
+          <span className="tarot-stage__count">{visibleCount} / {spread.count} 已揭晓</span>
         </div>
 
         <button
@@ -371,7 +490,7 @@ export default function TarotPage() {
           }}
           onClick={primaryAction}
           disabled={!canAct || drawState === 'revealed' || drawState === 'reading' || (drawState === 'shuffled' && !question.trim())}
-          aria-label={drawState === 'idle' ? '洗牌并生成校验码' : '从牌堆抽出三张牌'}
+          aria-label={drawState === 'idle' ? '洗牌并生成校验码' : `从牌堆抽出${spread.count}张牌`}
         >
           <span className="tarot-deck" aria-hidden="true">
             {Array.from({ length: 7 }, (_, index) => (
@@ -388,7 +507,7 @@ export default function TarotPage() {
               </span>
             ))}
           </span>
-          <span className="tarot-deck__caption">{drawState === 'idle' ? '点击洗牌' : drawState === 'shuffled' ? '点击抽出三张' : drawState === 'drawing' ? '牌面揭晓中' : '牌堆已完成'}</span>
+          <span className="tarot-deck__caption">{drawState === 'idle' ? '点击洗牌' : drawState === 'shuffled' ? `点击抽出${spread.count}张` : drawState === 'drawing' ? '牌面揭晓中' : '牌堆已完成'}</span>
         </button>
 
         {flight && (
@@ -410,8 +529,8 @@ export default function TarotPage() {
           </div>
         )}
 
-        <div className="tarot-slots" aria-label="过去、现在、未来三个固定牌位">
-          {THREE_CARD_POSITIONS.map((position, index) => (
+        <div className="tarot-slots" data-spread={spreadId} aria-label={`${spread.label}牌位`}>
+          {spread.positions.map((position, index) => (
             <TarotSlot
               key={position}
               position={position}
@@ -476,10 +595,10 @@ export default function TarotPage() {
         </div>
         <div className="tarot-integrity__row">
           <span>校验用随机值</span>
-          <code>{drawState === 'revealed' || drawState === 'reading' ? seedHex : '三张牌揭晓后公开'}</code>
+          <code>{drawState === 'revealed' || drawState === 'reading' ? seedHex : `${spread.count}张牌揭晓后公开`}</code>
         </div>
         <p className="tarot-integrity__note">
-          校验码在抽牌前固定，揭晓后公开随机值，供事后复算牌序。记录只保存在当前页面，不会发送到服务器，也不是区块链存证。
+          校验码在抽牌前固定，揭晓后公开随机值，供事后复算牌序。未点击保存时，抽牌记录只留在当前页面；保存后会归入本机访问者标识下的“我的报告”，7 天后自动清理。当前不是区块链存证。
         </p>
         <details style={{ marginTop: 8 }}>
           <summary className="qn-meta" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>校验方式说明</summary>
@@ -493,7 +612,7 @@ export default function TarotPage() {
         {drawState === 'reading' ? (
           <>
             <p className="qn-eyebrow">本次抽牌记录</p>
-            <h2 className="qn-title">过去、现在与未来</h2>
+            <h2 className="qn-title">{spread.label} · 逐牌记录</h2>
             {drawQuestion && <blockquote className="tarot-reading__question">「{drawQuestion}」</blockquote>}
             <p className="qn-meta">下列含义参考 Waite 1910 年文本作中文译述（章节对应待校核），仅代表这一历史底本；不同传统与组合语境会有差异。</p>
             <ol className="tarot-record-list">
@@ -562,10 +681,30 @@ export default function TarotPage() {
           <>
             <p className="qn-eyebrow">解读状态</p>
             <h2 className="qn-title">{drawState === 'revealed' ? '查看逐牌参照' : '牌位已预留'}</h2>
-            <p className="qn-meta">{drawState === 'revealed' ? '展开抽牌记录，即可查看每张牌对应正位或逆位的历史译述与章节出处。' : '抽牌后可按过去、现在与未来查看牌名、牌面方向和传统释义出处。'}</p>
+            <p className="qn-meta">{drawState === 'revealed' ? '展开抽牌记录，即可查看每张牌对应正位或逆位的历史译述与章节出处。' : '抽牌后会按所选牌阵展示每张牌的牌名、方向与传统释义出处。'}</p>
           </>
         )}
       </section>
+
+      {(drawState === 'revealed' || drawState === 'reading') && (
+        <section className="tarot-save" aria-label="保存塔罗记录">
+          <div>
+            <p className="qn-cap">保存到本机访问者标识对应的“我的报告”，7 天后自动清理。</p>
+            {saveError && <p className="qn-alert" role="alert">{saveError}</p>}
+            {saveState === 'saved' && <p className="qn-meta" role="status">记录已保存，可前往我的报告查看或删除。</p>}
+          </div>
+          <button
+            type="button"
+            className="qn-btn qn-btn--ghost tarot-save__button"
+            data-tarot-save
+            onClick={() => void persistReading()}
+            disabled={saveState === 'saving' || saveState === 'saved'}
+          >
+            {saveState === 'saving' ? '正在保存…' : saveState === 'saved' ? '已保存' : '保存到我的记录'}
+          </button>
+          {saveState === 'saved' && <Link href="/dashboard" className="tarot-save__link">查看我的报告 →</Link>}
+        </section>
+      )}
 
       <p className="sr-only" aria-live="polite">{announcement}</p>
       <p className="tarot-footnote">牌名与牌序参考韦特—史密斯体系，牌面为本站原创符号插画。所列牌义是指定历史文本的中文译述，不代表统一标准、学术共识或科学预测。</p>

@@ -69,8 +69,15 @@ export const TAROT_DECK: TarotCard[] = [
   }))),
 ];
 
-export const THREE_CARD_POSITIONS = ['过去', '现在', '未来'] as const;
-export type TarotPosition = (typeof THREE_CARD_POSITIONS)[number];
+export const TAROT_SPREADS = {
+  single: { label: '单牌指引', count: 1, positions: ['指引'] },
+  'three-card': { label: '三张牌', count: 3, positions: ['过去', '现在', '未来'] },
+  'five-card': { label: '五张牌', count: 5, positions: ['过去', '现在', '未来', '建议', '结果'] },
+  'celtic-cross': { label: '凯尔特十字', count: 10, positions: ['现状', '挑战', '过去', '未来', '目标', '潜在', '态度', '环境', '希望与恐惧', '结果'] },
+} as const;
+export type TarotSpreadId = keyof typeof TAROT_SPREADS;
+export type TarotPosition = (typeof TAROT_SPREADS)[TarotSpreadId]['positions'][number];
+export const THREE_CARD_POSITIONS = TAROT_SPREADS['three-card'].positions;
 export type TarotOrientation = '正位' | '逆位';
 export type TarotDraw = { card: TarotCard; position: TarotPosition; orientation: TarotOrientation };
 
@@ -104,8 +111,8 @@ function seededRandom(seedHex: string) {
   };
 }
 
-/** Deterministically reproduces the same three-card draw from a revealed 256-bit seed. */
-export function drawThree(seedHex: string): TarotDraw[] {
+/** Deterministically reproduces a spread from the revealed 256-bit seed. */
+export function drawSpread(seedHex: string, spread: TarotSpreadId): TarotDraw[] {
   const next = seededRandom(seedHex);
   const cards = [...TAROT_DECK];
   for (let i = cards.length - 1; i > 0; i -= 1) {
@@ -116,9 +123,14 @@ export function drawThree(seedHex: string): TarotDraw[] {
     const j = value % upperBound;
     [cards[i], cards[j]] = [cards[j], cards[i]];
   }
-  return THREE_CARD_POSITIONS.map((position, index) => ({
+  return TAROT_SPREADS[spread].positions.map((position, index) => ({
     card: cards[index],
     position,
     orientation: next() & 1 ? '逆位' : '正位',
   }));
+}
+
+/** Backward-compatible helper for existing callers and historical tests. */
+export function drawThree(seedHex: string): TarotDraw[] {
+  return drawSpread(seedHex, 'three-card');
 }

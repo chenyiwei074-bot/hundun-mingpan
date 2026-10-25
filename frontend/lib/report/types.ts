@@ -1,6 +1,6 @@
 ﻿// 统一报告记录模型 — 八字/紫微/六爻 共用
 
-export type ReportType = 'bazi' | 'ziwei' | 'liuyao';
+export type ReportType = 'bazi' | 'ziwei' | 'liuyao' | 'tarot';
 export type ReportStatus = 'FREE' | 'GENERATING' | 'LOCKED' | 'UNLOCKED' | 'FAILED';
 
 export interface ReportRecord {
@@ -42,12 +42,14 @@ export const REPORT_TYPE_LABELS: Record<ReportType, string> = {
   bazi: '八字命盘',
   ziwei: '紫微斗数',
   liuyao: '六爻占卜',
+  tarot: '塔罗牌阵',
 };
 
 export const REPORT_TYPE_ICONS: Record<ReportType, string> = {
   bazi: '☯',
   ziwei: '⭐',
   liuyao: '🪙',
+  tarot: '✦',
 };
 export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   FREE: '免费查看',
