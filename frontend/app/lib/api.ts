@@ -119,7 +119,7 @@ export type TarotReadingCard = {
 };
 export type TarotReadingResponse = {
   readingId: string; spread: TarotSpreadId; spreadLabel: string;
-  mode: 'ai' | 'rules-only' | 'rules-fallback'; aiReady: boolean; model: string;
+  mode: 'ai' | 'rules-only' | 'rules-fallback'; aiReady: boolean; model?: string;
   createdAt: string; cards: TarotReadingCard[]; summary: string; notes: string[];
 };
 export type TarotSavedReading = {

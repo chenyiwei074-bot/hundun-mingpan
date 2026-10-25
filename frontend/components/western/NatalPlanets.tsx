@@ -353,16 +353,15 @@ export default function NatalPlanets() {
             data-astro-house-system={houseResult?.ok ? houseSystem : 'unavailable'}>
             <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', alignItems: 'end' }}>
               <p className="qn-cap" style={{ margin: 0 }}>上升点与宫制</p>
-              {got.angles?.ok && (
-                <label className="qn-label" htmlFor="astro-house-system" style={{ margin: 0 }}>
-                  选择宫制
-                  <select id="astro-house-system" className="qn-input" value={houseSystem}
-                    data-astro-house-selector="1" style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
-                    onChange={e => setHouseSystem(e.target.value as HouseSystem)}>
-                    {HOUSE_SYSTEMS.map(system => <option key={system.id} value={system.id}>{system.label}</option>)}
-                  </select>
-                </label>
-              )}
+              <label className="qn-label" htmlFor="astro-house-system" style={{ margin: 0 }}>
+                选择宫制
+                <select id="astro-house-system" className="qn-input" value={houseSystem}
+                  disabled={!got?.angles?.ok}
+                  data-astro-house-selector="1" style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
+                  onChange={e => setHouseSystem(e.target.value as HouseSystem)}>
+                  {HOUSE_SYSTEMS.map(system => <option key={system.id} value={system.id}>{system.label}</option>)}
+                </select>
+              </label>
             </div>
             {got.angles?.ok ? (
               <>
