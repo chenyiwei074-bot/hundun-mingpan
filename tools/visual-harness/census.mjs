@@ -347,14 +347,12 @@ const QA_PINS = {
   // 钉（它引的是目录现读值，这里再抄一句就是第二份真相）。
   'western-example': {
     q: '',
-    // 批F④ 改了这里钉的那一条：以前只能点第 4 条（月相），因为第 2、3 条那句话
-    // 不含自己工具的关键词，走关键词匹配会落到"没对上"而不是"还没开放" —— 那正是
-    // report-only 清单里「点了目录里的例子却说没对上」那条。现在示例带着自己的 slug，
-    // 所以这一态点的是**当年会错的那一条**（西洋占星 · 合盘），落点必须是它自己的 closed。
+    // 2026-10-25：跨盘相位已开放，西方示例第 2 枚不再是 closed；这一态改为验证
+    // 示例自带 slug 后落到已开放项并给出入口（closed 分支由目录状态保证，不再拿它当样本）。
     clickExample: 1,
-    mustSay: ['还没开放', '西洋占星 · 合盘', '已按这个工具提供的示例问题整理建议'],
-    entry: null,
-    absent: ['进入 ·', '没能对上'],
+    mustSay: ['已按这个工具提供的示例问题整理建议', '跨盘相位'],
+    entry: { text: '进入 · 西洋占星 · 跨盘相位', href: '/synastry' },
+    absent: ['还没开放', '没能对上'],
   },
   // 同一支的另一边：示例里那一项是开着的（本命行星位置，部分可用）→ 必须给入口，
   // 并且说明该建议来自这个工具提供的示例问题。
@@ -435,8 +433,8 @@ function astroProbe(computed, withAngles = false) {
   } else {
     if (rows.length) miss.push('没按按钮就已经有表了：' + rows.length + ' 行');
     if (flat.indexOf('还没算') < 0) miss.push('空态没写"还没算"（预留那一格不能是空白）');
-    if (flat.indexOf('生辰不出这台设备') < 0 && flat.indexOf('不离开这台设备') < 0)
-      miss.push('空态没写"数据不出这台设备"那句');
+    if (flat.indexOf('结果不保存') < 0 || flat.indexOf('刷新后清空') < 0)
+      miss.push('空态没写"结果不保存/刷新后清空"那句');
     // 批F③ 在 DOM 上的那一条：页面打开时出生时刻是空的。源码闸门（astro/no-prefilled-birth-moment）
     // 钉的是写法，这里钉的是用户第一眼看到的像素 —— 两者缺一：改法没落地 / 落地了又漂回去。
     const d = document.querySelector('#astro-date'), c = document.querySelector('#astro-clock');
@@ -1603,7 +1601,7 @@ async function gateInteraction(tag) {
 // 源码里 var() 指对了、但落到底不是量过的那一块，照样掉下 3:1；西方那一档原来更狠 ——
 // 它 var() 的是一支全站从没定义过的令牌，于是安静地画成近乎透明。
 // 下限 3:1（非文本），并且每个徽章必须带文字：只靠颜色区分状态，色觉之外的人就读不到。
-const DOT_STATES = { tools: 'three', western: 'one' };
+const DOT_STATES = { tools: 'two', western: 'one' };
 // 页内对比度只留一套算法（lum / ground / ratio）。以前 dotProbe 内联一份、主审计另一份，
 // 两处口径不同就会量出两个数 —— 这一批已经因为"同一个比值手算出三个值"吃过教训。
 const CONTRAST_JS = `
@@ -1720,6 +1718,7 @@ const dotProbe = want => `(() => {
   const kinds = Object.keys(seen);
   if (!dots.length) miss.push('这一页一个状态徽章都没有（.qn-badge__dot = 0）—— 这一态从未被测到，不是通过');
   else if ('${want}' === 'three' && kinds.length < 3) miss.push('三档状态没集齐，实得 ' + kinds.join('/'));
+  else if ('${want}' === 'two' && kinds.length < 2) miss.push('两档状态没集齐，实得 ' + kinds.join('/'));
   return { miss, n: dots.length, kinds: seen };
 })()`;
 
