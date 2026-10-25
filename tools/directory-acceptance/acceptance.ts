@@ -80,8 +80,11 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 // ── 2. 入口诚实：可用条目指向真实路由，未开放条目不许有入口 ──
 {
   const badOpen = OPEN.filter(t => !t.href || !routeExists(t.href)).map(t => `${t.name}→${t.href || '无'}`);
-  ok('dir/open-hrefs-resolve', badOpen.length === 0,
-    `${OPEN.length} 个已开放条目的 href 全部对应 app/**/page.tsx 真实存在：不存在的 ${badOpen.join(' | ') || '0 个'}`);
+  const dayun = TOOL_BY_SLUG.dayun;
+  const dayunReady = dayun?.status === '可用' && dayun.href === '/dayun' && routeExists('/dayun');
+  ok('dir/open-hrefs-resolve', badOpen.length === 0 && dayunReady,
+    `${OPEN.length} 个已开放条目的 href 全部对应 app/**/page.tsx 真实存在：不存在的 ${badOpen.join(' | ') || '0 个'}；` +
+    `人生曲线入口=${dayunReady ? '可用 /dayun' : `${dayun?.status || '缺失'} ${dayun?.href || '无路由'}`}`);
   const closedWithLink = ALL_TOOLS.filter(t => t.status === '未开放' && !!t.href).map(t => `${t.name}→${t.href}`);
   ok('dir/closed-has-no-entry', closedWithLink.length === 0,
     `未开放条目（${CLOSED_TOOLS.length} 个：${CLOSED_TOOLS.join('、')}）一律不得带 href：违规 ${closedWithLink.join(' | ') || '0 个'}`);

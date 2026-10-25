@@ -5,7 +5,8 @@
 // 日期/时间在本机换算；国内地点名称可向本站查询坐标，接口不可用时回退本地表。
 import { useEffect, useMemo, useState } from 'react';
 import { computePlanets, ASTRO_CROSS_CHECK, PLANETS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
-import { computeAngles, angleText, ANGLE_CROSS_CHECK, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
+import { computeAngles, angleText, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
+import { computeHouseCusps, HOUSE_CROSS_CHECK, HOUSE_SYSTEMS, type HouseSystem } from '@/lib/astro/houses';
 import { computeAspects } from '@/lib/astro/aspects';
 import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { provinces } from '@/app/lib/region-data';
@@ -57,6 +58,7 @@ export default function NatalPlanets() {
   const [zone, setZone] = useState(deviceZone());
   const [date, setDate] = useState('');
   const [clock, setClock] = useState('');
+  const [houseSystem, setHouseSystem] = useState<HouseSystem>('whole-sign');
   const [province, setProvince] = useState('');
   const [city, setCity] = useState('');
   const [已算, set已算] = useState<Input | null>(null);
@@ -103,6 +105,7 @@ export default function NatalPlanets() {
 
   const why = 结果 && 结果.kind === 'fail' ? 结果.why : null;
   const got = 结果 && 结果.kind === 'ok' ? 结果 : null;
+  const houseResult = got?.angles?.ok ? computeHouseCusps(got.angles, houseSystem) : null;
   const ownAspects = got ? computeAspects(got.planets.positions) : [];
 
   return (
@@ -113,7 +116,7 @@ export default function NatalPlanets() {
           本页展示太阳、月亮与其他行星的星座位置和角度。以下列出星座划分所参考的传统文献。
         </p>
           <p className="qn-meta" style={{ margin: '8px 0 0' }}>
-            本页给出行星位置、五类主要相位、上升点与整宫制；其他宫制和小天体仍不在计算范围内。
+            本页给出行星位置、五类主要相位、上升点与五种宫制：整宫、等宫、三分、普拉西德与科赫。
           </p>
           <p className="qn-meta" style={{ margin: '6px 0 0' }}>
             每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
@@ -241,42 +244,62 @@ export default function NatalPlanets() {
             </div> : <p className="qn-meta">在当前容许度内，没有检出主要相位。</p>}
           </section>
 
-          <section className="qn-card" style={{ marginTop: 14 }} data-astro-angles={got.angles?.ok ? 'ok' : 'unavailable'}>
-            <p className="qn-cap" style={{ margin: 0 }}>上升点与整宫制</p>
+          <section className="qn-card" style={{ marginTop: 14 }} data-astro-angles={got.angles?.ok ? 'ok' : 'unavailable'}
+            data-astro-house-system={houseResult?.ok ? houseSystem : 'unavailable'}>
+            <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', alignItems: 'end' }}>
+              <p className="qn-cap" style={{ margin: 0 }}>上升点与宫制</p>
+              {got.angles?.ok && (
+                <label className="qn-label" htmlFor="astro-house-system" style={{ margin: 0 }}>
+                  选择宫制
+                  <select id="astro-house-system" className="qn-input" value={houseSystem}
+                    data-astro-house-selector="1" style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
+                    onChange={e => setHouseSystem(e.target.value as HouseSystem)}>
+                    {HOUSE_SYSTEMS.map(system => <option key={system.id} value={system.id}>{system.label}</option>)}
+                  </select>
+                </label>
+              )}
+            </div>
             {got.angles?.ok ? (
               <>
                 <p className="qn-title" style={{ margin: '6px 0 0' }} data-astro-ascendant>
                   上升点 {angleText(got.angles.ascendant)}
                 </p>
                 <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-                  天顶 {angleText(got.angles.midheaven)} · 口径 {got.angles.basis}
+                  天顶 {angleText(got.angles.midheaven)}
                 </p>
-                <div style={{ overflowX: 'auto', marginTop: 8 }} data-vh-scroll="angles-table">
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)' }}>
-                    <thead>
-                      <tr>
-                        {['宫位', '宫头星座', '宫头黄经'].map(h => (
-                          <th key={h} scope="col" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {got.angles.wholeSignCusps.map(c => (
-                        <tr key={c.house}>
-                          <th scope="row" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500 }}>{c.house} 宫</th>
-                          <td style={{ padding: '6px 8px' }}>{c.星座} 0°</td>
-                          <td style={{ padding: '6px 8px' }}>{c.lon.toFixed(3)}°</td>
+                {houseResult?.ok ? (
+                  <div style={{ overflowX: 'auto', marginTop: 8 }} data-vh-scroll="angles-table">
+                    <table data-astro-house-cusps={houseSystem}
+                      style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)' }}>
+                      <thead>
+                        <tr>
+                          {['宫位', '宫头星座', '宫头黄经'].map(h => (
+                            <th key={h} scope="col" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {houseResult.cusps.map(c => (
+                          <tr key={c.house}>
+                            <th scope="row" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500 }}>{c.house} 宫</th>
+                            <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                              {c.星座} {c.signDeg}°{String(c.signMin).padStart(2, '0')}′
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>{c.lon.toFixed(3)}°</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : houseResult ? (
+                  <Callout tier={houseResult.reason === '极区不适用' ? 'info' : 'danger'}>{houseResult.detail}</Callout>
+                ) : null}
                 <p className="qn-note" style={{ margin: '10px 0 0' }}>
-                  上升点与整宫制宫位已计算；其他非整宫制宫位、凯龙星、南北交点、恒星黄道仍未纳入本页。
+                  不同宫制会用不同规则划分十二宫。以上只展示计算出的宫头位置，不把宫位转成预测结论。
                 </p>
                 <p className="qn-note" style={{ margin: '6px 0 0' }}>
-                  上升点与整宫制已和 {ANGLE_CROSS_CHECK.cases} 组独立对拍数据核对，公差 {ANGLE_CROSS_CHECK.toleranceDeg}°；
-                  参考实现：{ANGLE_CROSS_CHECK.authority}。
+                  上升点与宫头已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，宫头公差 {HOUSE_CROSS_CHECK.toleranceDeg}°。
+                  凯龙星、南北交点与恒星黄道尚未纳入。
                 </p>
               </>
             ) : (

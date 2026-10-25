@@ -86,6 +86,10 @@ for (const [tag, [id, file]] of Object.entries(CHART_ROUTES)) {
   if (!existsSync(file)) { console.log(`\nSKIP ${tag}: fixture 不存在 ${file}（生成：tools/visual-harness/make-chart-fixture.ts）`); continue; }
   CHART_BY_PATH[`/chart/result/${id}`] = readFileSync(file, 'utf8');
 }
+if (CHART_BY_PATH['/chart/result/stubchart0001']) {
+  const dayunFixture = JSON.parse(CHART_BY_PATH['/chart/result/stubchart0001']);
+  CHART_BY_PATH['/dayun/stubchart0001'] = JSON.stringify({ ...dayunFixture, chartId: 'stubchart0001' });
+}
 const HAS_CHART = Object.keys(CHART_BY_PATH).length > 0;
 const CHART_FIXTURE = HAS_CHART;
 
@@ -185,6 +189,10 @@ const STATIC_PAGES = [
   ['astro-computed', '/astro'],
   // 已选出生地：真实选省/市，验证上升点与 12 宫头（数值由 astro acceptance 的 20 组夹具核）。
   ['astro-angles', '/astro'],
+  ['astro-house-systems', '/astro'],
+  // 人生曲线独立入口：无本机会话命盘时给真实建盘回退；结果态只使用合成盘。
+  ['dayun-empty', '/dayun'],
+  ['dayun-result', '/dayun/stubchart0001'],
   // 塔罗是本轮新增的独立路由。空态、真实抽满三张、移动端、键盘与减少动态效果都各留一态。
   ['tarot-idle', '/tarot'],
   ['tarot-drawn', '/tarot'],
@@ -598,6 +606,38 @@ const AFTER = {
     return main?.textContent?.includes('下一次朔') && main?.textContent?.includes('下一次望')
       || '月相朔望结果未出现';
   })()`,
+  'dayun-empty': `(() => {
+    const main = document.querySelector('main');
+    if (!main || main.dataset.mode !== 'oriental') return '独立人生曲线页缺东方主题主内容区';
+    if (!main.querySelector('[data-dayun-state="empty"]')) return '无盘态没有明确显示「先打开一张命盘」';
+    if (!main.querySelector('a[href="/create"]')) return '无盘态缺少去 /create 排盘入口';
+    if (main.querySelector('[data-lane]')) return '无盘态出现了预置岁运泳道数据';
+    return true;
+  })()`,
+  'dayun-result': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    for (let n = 0; n < 40; n++) {
+      const main = document.querySelector('main');
+      const sec = main?.querySelector('.qn-kline');
+      if (sec) {
+        if (!main.querySelector('[data-dayun-state="ready"]')) return '命盘读取后没有进入岁运就绪态';
+        const lanes = new Set([...sec.querySelectorAll('span[data-lane]')].map(x => x.getAttribute('data-lane')));
+        const ticks = sec.querySelectorAll('button[data-tick]');
+        const cells = sec.querySelectorAll('td[data-lane][data-year]');
+        if (sec.classList.contains('qn-kline--empty')) return '合成命盘已带岁运数据，页面却走了空态';
+        if (lanes.size !== 10 || ticks.length !== 10 || cells.length !== 100)
+          return '岁运结构不完整：泳道=' + lanes.size + ' 年票=' + ticks.length + ' 格子=' + cells.length;
+        if (!main.querySelector('h1')?.textContent?.includes('人生曲线')) return '独立页主标题缺失';
+        const requests = window.__net || [];
+        if (!requests.some(x => x.m === 'GET' && String(x.u).includes('/api/chart/result/stubchart0001')))
+          return '没有观察到对应命盘的只读 GET';
+        if (requests.some(x => x.m !== 'GET' && x.m !== 'HEAD' && x.m !== 'OPTIONS')) return '页面读取命盘时产生了写请求';
+        return true;
+      }
+      await wait(50);
+    }
+    return '等待命盘数据后，独立人生曲线仍未渲染';
+  })()`,
   'numerology': `(() => !!(document.querySelector('main input[type="date"]')
     && document.querySelector('main input[type="text"]')) || '数字命理缺生日或拉丁拼写输入')()`,
   'numerology-computed': `(async () => {
@@ -887,6 +927,8 @@ const AFTER = {
     if (rows < 6) return '六爻记录只渲染出 ' + rows + ' 行';
     return true; })()`,
 };
+
+AFTER['astro-house-systems'] = AFTER['astro-angles'];
 
 // Injected states must actually land on screen. A fixture the app silently fails to
 // read leaves the page on its empty state, and an empty state is also "a page with a
@@ -1380,7 +1422,7 @@ const THEME_STATES = {
   western: 'dark', 'western-ask': 'dark', 'western-example': 'dark', 'western-example-open': 'dark',
   // /astro 是西方工作页开出去的那一页：main 上挂着 data-mode="western"，所以它必须与
   // /western 同色。东方那套浅底令牌要是漏进这一页，深底上的浅字就是 AA 的红。
-  astro: 'dark', 'astro-computed': 'dark', 'astro-angles': 'dark',
+  astro: 'dark', 'astro-computed': 'dark', 'astro-angles': 'dark', 'astro-house-systems': 'dark',
   synastry: 'dark', 'synastry-computed': 'dark', moon: 'dark', 'moon-computed': 'dark',
   numerology: 'dark', 'numerology-computed': 'dark',
   'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-record': 'dark', 'tarot-375': 'dark',
@@ -1388,6 +1430,7 @@ const THEME_STATES = {
   oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
   hepan: 'light', 'name-compat': 'light', 'name-compat-computed': 'light',
   'admin-dashboard': 'light', fengshui: 'light', home: 'gate',
+  'dayun-empty': 'light', 'dayun-result': 'light',
   // 答完之后那一帧也必须还是那个主题：答案卡里塞一块浅底，就是"两套体系混在一页"的开始。
   'oriental-ask': 'light', 'oriental-choices': 'light', 'oriental-chosen': 'light', 'oriental-ime': 'light',
 };
@@ -2158,7 +2201,7 @@ if (HAS_CHART) {
   await send('Page.addScriptToEvaluateOnNewDocument', {
     source: 'try{const m=' + JSON.stringify(CHART_BY_PATH) + ';const k=m[location.pathname];' +
       'if(k)sessionStorage.setItem("chart_preview",k);' +
-      'else if(/^\\/chart\\/result\\//.test(location.pathname))sessionStorage.removeItem("chart_preview");}catch(e){}',
+      'else if(/^\\/chart\\/result\\//.test(location.pathname)||location.pathname==="/dayun")sessionStorage.removeItem("chart_preview");}catch(e){}',
   });
 }
 // 合盘的对方数据活在本机，一张 Chrome 连跑十几个态时它也会顺着 sessionStorage 串页：
@@ -3038,6 +3081,7 @@ const TRUSTED = {
   // 所以这一态走真实事件（与户型、合盘那几态同一条理由）。
   'astro-computed': ['算行星位置'],
   'astro-angles': ['算行星位置'],
+  'astro-house-systems': ['算行星位置'],
   'fengshui-filled': ['样例 · 两室夹一厅', '#fp-confirm'],
   'fengshui-3d': ['样例 · 两室夹一厅', '#fp-confirm', '3D'],
   // 识别两态：勾同意与按"送给模型提候选"都会改版面，必须真实事件。顺序有意义 ——
@@ -3070,7 +3114,7 @@ const TRUSTED = {
 //    网络层根本没有这一枪，拦不到不等于契约不合，只能 SKIP。
 const STUB_ONLY = new Set(['fengshui-recognize-fail', 'fengshui-recognize-candidates']);
 const LIVE_ONLY = new Set(['fengshui-recognize-wire']);
-const STUB_PAGE_ONLY = new Set(['share-chart-valid']);
+const STUB_PAGE_ONLY = new Set(['share-chart-valid', 'dayun-result']);
 
 // 2026-10-21 细化裁定：只读与否**按动作分，不按整页分**；而"挂载到底写不写"必须是网络观测的结果，
 // 不是"我读了代码觉得没写"—— 那正是这类假绿的老路。两本账都在 measure() 里：
@@ -3330,13 +3374,35 @@ async function measure(tag, url) {
     else for (const x of miss) fail.push(tag + ': IME 门闩不成立 — ' + x);
     console.log(`    IME 组词中 ${got && got.during} 轮 · 组词后 ${got && got.after} 轮`);
   }
-  if (base === 'astro' || base === 'astro-computed' || base === 'astro-angles') {
-    const got = await evl(astroProbe(base !== 'astro', base === 'astro-angles'));
+  if (base === 'astro' || base === 'astro-computed' || base === 'astro-angles' || base === 'astro-house-systems') {
+    const got = await evl(astroProbe(base !== 'astro', base === 'astro-angles' || base === 'astro-house-systems'));
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
     if (!miss) fail.push(tag + ': 行星位置探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 本命行星位置不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    ASTRO MISMATCH ' + miss.join(' | ')
       : `    ${base === 'astro' ? '空态' : '算完那态'}：表 ${got.rows} 行 · 时区 ${got.zone} · 已做 ${got.done} 项 / 未做 ${got.notDone} 项 · 戳与"不叫星盘"都在屏上`);
+    if (base === 'astro-house-systems') {
+      const changed = await evl(`(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        const select = document.querySelector('#astro-house-system');
+        const table = document.querySelector('[data-astro-house-cusps]');
+        if (!select || !table) return '宫制选择器或宫头表不存在';
+        const required = ['whole-sign', 'equal', 'porphyry', 'placidus', 'koch'];
+        if (required.some(x => ![...select.options].some(o => o.value === x))) return '选择器缺少已实现宫制';
+        const before = [...table.querySelectorAll('tbody tr')].map(r => r.innerText.replace(/\\s+/g, '')).join('|');
+        Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'placidus');
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        for (let n = 0; n < 20 && table.dataset.astroHouseCusps !== 'placidus'; n++) await wait(25);
+        const rows = [...document.querySelectorAll('[data-astro-house-cusps="placidus"] tbody tr')];
+        const after = rows.map(r => r.innerText.replace(/\\s+/g, '')).join('|');
+        if (select.value !== 'placidus' || !document.querySelector('[data-astro-house-system="placidus"]')) return '切换后页面状态没有更新为 Placidus';
+        if (rows.length !== 12) return '切换后宫头行数不是 12：' + rows.length;
+        if (before === after) return '切换宫制后 12 宫头没有变化';
+        return true;
+      })()`);
+      if (changed !== true) fail.push(tag + ': 宫制切换交互未通过 — ' + (typeof changed === 'string' ? changed : JSON.stringify(changed)));
+      else console.log('    宫制切换 whole-sign → Placidus，十二宫头随制式变化');
+    }
   }
   // 目录页（批F ①）：/tools 必须两套目录都在，且卡上的状态与计数与目录源码一致。
   // 为什么单独钉这一页：以前它只渲染东方那一套，而全站有四处页脚链接把它叫「全部工具目录」——

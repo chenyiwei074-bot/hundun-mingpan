@@ -16,6 +16,7 @@ import { stripComments } from '../_lib/codesrc';
 import { VETTED_PINNED } from '../_lib/vettedDeps';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
 import { computeAngles, ANGLE_CROSS_CHECK } from '../../frontend/lib/astro/angles';
+import { computeHouseCusps, HOUSE_CROSS_CHECK, HOUSE_SYSTEMS, type HouseSystem } from '../../frontend/lib/astro/houses';
 import { toUtc, MOMENT_BASIS, availableZones } from '../../frontend/lib/astro/moment';
 import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS, type BasisTriple } from '../../frontend/lib/astro/classics';
 import { readWesternBases } from '../_lib/classics';
@@ -69,6 +70,48 @@ const ref = refText ? JSON.parse(refText) : null;
     ok('angles/fixture-match', !bad && max <= 0.05,
       bad ? `对拍超差 ${bad}` : `20 组上升/整宫全部在 0.05°内，实测最大差 ${max.toFixed(6)}°`);
   }
+}
+
+// ── 0b. 非整宫制：20 个时刻逐系统对拍 Swiss Ephemeris 与 Celestine ──
+{
+  const file = join(HERE, 'fixtures', 'house-systems-v1.json');
+  ok('houses/fixture-present', existsSync(file), `宫制对拍夹具必须存在：${file}`);
+  if (existsSync(file)) {
+    const fix = JSON.parse(readFileSync(file, 'utf8')) as {
+      toleranceDeg: number; systems: HouseSystem[];
+      cases: Array<{ id: string; utcISO: string; lat: number; lon: number;
+        references: Record<string, { swissEphemeris: number[]; celestine: number[] }> }>;
+    };
+    const expectedSystems = HOUSE_SYSTEMS.filter(s => s.id !== 'whole-sign').map(s => s.id);
+    ok('houses/fixture-count', fix.cases.length === 20 && fix.toleranceDeg === HOUSE_CROSS_CHECK.toleranceDeg
+      && JSON.stringify(fix.systems) === JSON.stringify(expectedSystems),
+      `20 组 × ${expectedSystems.join('/')}，公差 ${HOUSE_CROSS_CHECK.toleranceDeg}°：cases=${fix.cases.length} systems=${fix.systems.join('/')} tolerance=${fix.toleranceDeg}`);
+    let maxSwiss = 0; let maxCelestine = 0; let bad = '';
+    const diff = (a: number, b: number) => { const d = Math.abs(((a - b) % 360 + 360) % 360); return d > 180 ? 360 - d : d; };
+    for (const c of fix.cases) {
+      const angles = computeAngles(Date.parse(c.utcISO), c.lat, c.lon);
+      if (!angles.ok) { bad = `${c.id}: ${angles.reason}`; break; }
+      for (const system of expectedSystems) {
+        const result = computeHouseCusps(angles, system);
+        if (!result.ok || result.cusps.length !== 12) { bad = `${c.id}/${system}: ${result.ok ? '宫头不满 12 个' : result.reason}`; break; }
+        const refs = c.references[system];
+        if (!refs || refs.swissEphemeris.length !== 12 || refs.celestine.length !== 12) { bad = `${c.id}/${system}: 缺独立参考值`; break; }
+        for (let i = 0; i < 12; i++) {
+          maxSwiss = Math.max(maxSwiss, diff(result.cusps[i].lon, refs.swissEphemeris[i]));
+          maxCelestine = Math.max(maxCelestine, diff(result.cusps[i].lon, refs.celestine[i]));
+        }
+      }
+      if (bad) break;
+    }
+    ok('houses/fixture-match-swiss', !bad && maxSwiss <= HOUSE_CROSS_CHECK.toleranceDeg,
+      bad ? `Swiss Ephemeris 对拍失败 ${bad}` : `80 组宫头对拍通过，最大差 ${maxSwiss.toFixed(6)}°`);
+    ok('houses/fixture-match-celestine', !bad && maxCelestine <= HOUSE_CROSS_CHECK.toleranceDeg,
+      bad ? `Celestine 对拍失败 ${bad}` : `80 组宫头对拍通过，最大差 ${maxCelestine.toFixed(6)}°`);
+  }
+  const sampleAngles = computeAngles(Date.parse('2000-01-01T12:00:00.000Z'), 67, 0);
+  const polar = sampleAngles.ok ? computeHouseCusps(sampleAngles, 'placidus') : sampleAngles;
+  ok('houses/polar-limit-explicit', !polar.ok && polar.reason === '极区不适用',
+    `Placidus 极区条件必须明确报错，不静默换宫制：${polar.ok ? '意外返回可用' : polar.reason}`);
 }
 
 // ── 1. 对拍夹具：先在，再能重算，再看公差 ──
@@ -399,8 +442,8 @@ const ref = refText ? JSON.parse(refText) : null;
 
   // 每条口径都得指得到一个真实存在、且真有那一段的底本 —— 悬空引文比不引更坏：它承诺了复核却没处可核。
   const dangling = bases.map(b => { const { f, p } = find(b); return (!f || !p) ? `${b.底本段}@${b.底本}` : null; }).filter(Boolean);
-  ok('astro/basis-files-registered', files.length === 2 && dangling.length === 0,
-    `两份底本在册且每条依据都能落到具体段：实得 ${files.length} 份（${files.map(f => f.文件).join('、') || '无'}）；悬空 ${dangling.join('、') || '无'}`);
+  ok('astro/basis-files-registered', files.length === 3 && dangling.length === 0,
+    `三份西方底本在册且每条依据都能落到具体段：实得 ${files.length} 份（${files.map(f => f.文件).join('、') || '无'}）；悬空 ${dangling.join('、') || '无'}`);
 
   // 逐字性：规范化之后判连续子串（两侧同一个 canon —— 折叠方式不同会伪装成"引文不一致"）
   const badQuote = bases.filter(b => { const { p } = find(b); return !(p && canon(p.text).includes(canon(b.原文))); });
@@ -449,9 +492,9 @@ const ref = refText ? JSON.parse(refText) : null;
 
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
-// 批H-W 的 §8 有 8 条（两份底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
-// 近代词条分层／引文不进目录），57 → 67（2026-10-24 新增上升/整宫 4 条夹具判据）。上一轮这条锁抓到我把 6 数成 5，这轮它继续有效。
-const EXPECT = 67;
+// 批H-W 的 §8 有 8 条（底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
+// 近代词条分层／引文不进目录）；本轮新增 5 条宫制夹具判据，计数锁随之从 67 调至 72。
+const EXPECT = 72;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

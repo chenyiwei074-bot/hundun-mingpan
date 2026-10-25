@@ -462,6 +462,9 @@ html { scroll-padding-top: calc(var(--qn-nav-h) + 12px); scrollbar-gutter: stabl
 }
 /* 分享内容异步到达前，保留页脚占位但不显示；这样长报告替换加载卡时不会把可见页脚推走。 */
 body:has(main[data-share-loading="true"]) > footer.qn-footer { visibility: hidden; }
+/* 独立岁运页异步读取命盘时也保留页脚占位、暂不显示，避免短加载态的页脚跳到首屏。 */
+body:has(main[data-dayun-loading="true"]) > footer.qn-footer,
+body:has(main[data-dayun-loading="true"]) .qn-dayun-legal { visibility: hidden; }
 .qn-footer__inner {
   display: flex;
   flex-direction: column;

@@ -20,6 +20,7 @@ import { zhiPairRelations } from '../../frontend/app/lib/core/bazi-enrich/zhi-re
 import { SHISHEN_MAP } from '../../frontend/app/lib/core/yiqi-core/ganzhi';
 import { getNaYin, getNaYinWuXing } from '../../frontend/app/lib/core/yiqi-core/nayin';
 import type { BaziChart } from '../../frontend/app/lib/core/yiqi-core/types';
+import { TOOL_BY_SLUG } from '../../frontend/lib/tools/catalog';
 import {
   buildKline, eventLabel, KLINE_BASIS, KLINE_LANES, KLINE_GROUPS,
   KLINE_NO_SCORE, KLINE_LICHUN_NOTE, KLINE_RELATION_NOTE, KLINE_RELATION_MISSING,
@@ -293,13 +294,13 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   ok('storage/no-visitor-id', !/getVisitorId|visitor_id/.test(comp),
     '标注键只用四柱+日主，不挂 visitorId —— 那是报告归属凭据，不该把本地涂鸦与账号绑起来');
   const mounted = strip(readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8'));
-  ok('route/mounted-unconditional', /<LifeCurve chart=\{enrichedChartData\.bazi\} \/>/.test(mounted)
+  ok('route/mounted-unconditional', /<LifeCurve chart=\{enrichedChartData\.bazi\} independentHref=\{`\/dayun\/\$\{encodeURIComponent\(id\)\}`\} \/>/.test(mounted)
     && !/LifeCurve chart=\{[^}]*\}\s*&&/.test(mounted),
-    '结果页无条件挂载，降级由组件自己给（与 #40 裁定 6 同一条路）');
+    '结果页无条件挂载，且提供与当前命盘绑定的独立岁运入口；降级由组件自己给');
   const home = strip(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
-  const catalog = strip(readFileSync(join(ROOT, 'frontend', 'lib', 'tools', 'catalog.ts'), 'utf8'));
-  ok('route/no-new-entry', !/人生K线/.test(home) && !/人生K线/.test(catalog),
-    '首页与目录页都不新增入口 —— 它是命盘的一个读法，不是一件新工具');
+  const dayun = TOOL_BY_SLUG.dayun;
+  ok('route/dayun-catalog-entry', !/人生K线/.test(home) && dayun?.status === '可用' && dayun.href === '/dayun',
+    `人生曲线已作为命盘读法提供独立入口：目录状态=${dayun?.status || '缺失'}，href=${dayun?.href || '缺失'}`);
   const pkg = JSON.parse(readFileSync(join(ROOT, 'frontend', 'package.json'), 'utf8'));
   const basePkg = JSON.parse(execSync('git show origin/main:frontend/package.json',
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 1 << 24 }));
