@@ -135,6 +135,10 @@ export default function CreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (form.calendar === '四柱') {
+      setError('四柱直批暂不能生成可信命盘：仅有四柱干支无法确定出生日期、起运和紫微宫位。请改用公历或农历生日。');
+      return;
+    }
     const err = validate();
     if (err) { setError(err); return; }
     setLoading(true);
@@ -157,9 +161,7 @@ export default function CreatePage() {
       // 「用户选的历法」，历史行就有 isLunar:true/calendar:'农历'。若为了迁就后端
       // 把农历归一化成公历再报「公历」，同一列的新旧行语义就分叉了——那是静默的
       // 数据污染。换算属于引擎职责（前后端同一套），不在传输层做。
-      const birthday = form.calendar === '四柱'
-        ? `四柱:${form.yearGan}${form.yearZhi},${form.monthGan}${form.monthZhi},${form.dayGan}${form.dayZhi},${form.hourGan}${form.hourZhi}`
-        : `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
+      const birthday = `${form.year}-${pad(form.month)}-${pad(form.day)} ${pad(form.hour)}:${pad(form.minute)}`;
       const birthPlace = [form.birthProvince, form.birthCity, form.birthDistrict].filter(Boolean).join(' ');
       const currentPlace = [form.currentProvince, form.currentCity, form.currentDistrict].filter(Boolean).join(' ');
 
@@ -190,10 +192,14 @@ export default function CreatePage() {
       const chart = createChart(birthInfo);
       chart.bazi.birthInfo = birthInfo;
       const chartName = form.name.trim();
-      sessionStorage.setItem('chart_preview', JSON.stringify({
+      const preview = {
         chart, chartName, mode: tab,
         trueSolarWiring: { geo: tstWiring.geo, dstOffset: tstWiring.dstOffset, ambiguousDst: tstWiring.ambiguousDst, warning: tstWiring.warning },
-      }));
+      };
+      const navigateWithPreview = (chartId: string) => {
+        sessionStorage.setItem('chart_preview', JSON.stringify({ ...preview, chartId }));
+        router.push('/chart/loading/' + encodeURIComponent(chartId));
+      };
 
       // 双人那一栏原来收完对方生辰就丢掉（handleSubmit 一个 partner* 键都不读）。
       // 现在接管成真输入：只写本机 sessionStorage，零请求 —— 不进下面的 POST、不进报告、
@@ -239,28 +245,29 @@ export default function CreatePage() {
       }
 
       if (!persist.能) {
-        // 四柱直批：只走本机引擎。为什么存不进服务器，页面上方那句已经写在提交键之前了。
-        const fallbackId = 'local_' + Date.now().toString(36);
-        router.push('/chart/loading/' + fallbackId);
+        setError('此输入方式暂不能生成命盘，请改用公历或农历生日。');
+        setLoading(false);
         return;
       }
 
-      const res = await apiCreateChart({
-        visitor_id: visitorId, name: chartName, gender: form.gender,
-        calendar: form.calendar, birthday, isLeapMonth: isLeapOn,
-        birthPlace: birthPlace || '未指定', currentPlace: currentPlace || '未指定',
-      });
-
-      if (res.success && res.data?.id) {
-        trackEvent('create_click', visitorId, res.data.id);
-        router.push('/chart/loading/' + res.data.id);
-      } else {
-        const fallbackId = 'local_' + Date.now().toString(36);
-        router.push('/chart/loading/' + fallbackId);
+      try {
+        const res = await apiCreateChart({
+          visitor_id: visitorId, name: chartName, gender: form.gender,
+          calendar: form.calendar, birthday, isLeapMonth: isLeapOn,
+          birthPlace: birthPlace || '未指定', currentPlace: currentPlace || '未指定',
+        });
+        if (res.success && res.data?.id) {
+          trackEvent('create_click', visitorId, res.data.id);
+          navigateWithPreview(res.data.id);
+        } else {
+          navigateWithPreview('local_' + Date.now().toString(36));
+        }
+      } catch {
+        navigateWithPreview('local_' + Date.now().toString(36));
       }
-    } catch (err: any) {
-      const fallbackId = 'local_' + Date.now().toString(36);
-      router.push('/chart/loading/' + fallbackId);
+    } catch {
+      setError('排盘计算失败，请检查出生资料后重试。');
+      setLoading(false);
     }
   };
 
@@ -463,7 +470,7 @@ export default function CreatePage() {
                   <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
                     <label className="qn-label" style={{ marginBottom: 0 }}>诞辰之候</label>
                     <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'rgba(0,0,0,0.04)' }}>
-                      {['公历','农历','四柱'].map(cal => (
+                      {['公历','农历'].map(cal => (
                         <button key={cal} type="button" onClick={() => setField('calendar', cal)} className="qn-chip"
                           style={{ minWidth: 46, padding: '0 12px', fontSize: 'var(--qn-fs-meta)',
                             border: 'none', borderRadius: 6,
@@ -474,11 +481,10 @@ export default function CreatePage() {
                       ))}
                     </div>
                   </div>
-                  {/* 选了「四柱」就把话说在前面，而不是等提交之后让用户猜为什么没存上。
-                      后端 calendar 只收 公历/农历，这条永远存不进「我的报告」。 */}
+                  {/* 仅有干支无法反推唯一出生日期；现有排盘引擎不能据此计算起运与紫微。 */}
                   {form.calendar === '四柱' && (
                     <p className="qn-note" id="create-persist-note" style={{ marginTop: 8 }}>
-                      四柱直批结果只在当前页面展示，不会存进服务器，也不会保存到“我的报告”；刷新就没了，离开前请自行保存结果。
+                      四柱直批暂未开放：仅凭四柱无法确定出生日期、起运与紫微宫位。请切回公历或农历，使用完整出生资料排盘。
                     </p>
                   )}
                   {renderDateGroup('')}
@@ -538,8 +544,8 @@ export default function CreatePage() {
                 {quota.文本}
               </p>
 
-              <button type="submit" disabled={loading} className="qn-btn qn-btn--solid qn-btn--block" style={{ minHeight: 50 }}>
-                {loading ? '生成中...' : '生成我的双盘命格'}
+              <button type="submit" disabled={loading || form.calendar === '四柱'} className="qn-btn qn-btn--solid qn-btn--block" style={{ minHeight: 50 }}>
+                {loading ? '生成中...' : form.calendar === '四柱' ? '四柱直批暂不可用' : '生成我的双盘命格'}
               </button>
             </form>
         </div>

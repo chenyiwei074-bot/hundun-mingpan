@@ -39,6 +39,7 @@ export default function ChartResultPage() {
   const id = params?.id as string;
 
   const [chartData, setChartData] = useState<any>(null);
+  const [chartOrigin, setChartOrigin] = useState<'server' | 'local' | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [aiState, setAiState] = useState<AiWaitState>('chart-pending');
   const [chartName, setChartName] = useState('');
@@ -118,7 +119,9 @@ export default function ChartResultPage() {
       try {
         const raw = sessionStorage.getItem('chart_preview');
         if (!raw) return cd;
-        const local = JSON.parse(raw)?.chart;
+        const preview = JSON.parse(raw);
+        if (preview?.chartId !== id) return cd;
+        const local = preview.chart;
         const sig = (s: any) => ['year', 'month', 'day', 'hour'].map(k => (s?.[k]?.gan || '') + (s?.[k]?.zhi || '')).join(' ');
         const ls = sig(local?.bazi?.siZhu);
         if (ls.length < 8 || ls !== sig(cd.bazi.siZhu)) return cd;
@@ -130,10 +133,28 @@ export default function ChartResultPage() {
     const fallbackToSession = () => {
       try {
         const raw = sessionStorage.getItem('chart_preview');
-        if (raw) { const p = JSON.parse(raw); setChartData(p.chart); setChartName(p.chartName || ''); setLoading(false); return true; }
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (p.chartId === id && p.chart?.bazi) {
+            setChartData(p.chart);
+            setChartName(p.chartName || '');
+            setChartOrigin('local');
+            setAiState('ai-none');
+            setCanShare(false);
+            setLoading(false);
+            return true;
+          }
+        }
       } catch {}
       return false;
     };
+    if (id.startsWith('local_')) {
+      if (!fallbackToSession()) {
+        setError('本机预览已失效，请重新排盘。');
+        setLoading(false);
+      }
+      return;
+    }
     const startedAt = Date.now();
     let plateShown = false;
     const poll = async () => {
@@ -168,6 +189,7 @@ export default function ChartResultPage() {
         plateShown = true;
         setChartData(graftLocalMeta(data.chartData));
         setChartName(data.name || '');
+        setChartOrigin('server');
         setError(null);
         setLoading(false);
       }
@@ -185,7 +207,7 @@ export default function ChartResultPage() {
 
   // 统一接入报告保存：数据加载完成后保存八字和紫微报告
   useEffect(() => {
-    if (!chartData || !chartName || savedRef.current) return;
+    if (chartOrigin !== 'server' || !chartData || !chartName || savedRef.current) return;
     savedRef.current = true;
 
     const birthInfo = chartData?.bazi?.birthInfo || {};
@@ -219,7 +241,7 @@ export default function ChartResultPage() {
         analysisJson: undefined,
       }).catch(() => {});
     }
-  }, [chartData, chartName]);
+  }, [chartData, chartName, chartOrigin]);
 
   const enrichedChartData = chartData;
 
@@ -246,6 +268,12 @@ export default function ChartResultPage() {
   return (
     <main className="qn-shell qn-shell--wide">
       <div style={{ display: 'grid', gap: 40 }}>
+        {chartOrigin === 'local' ? (
+          <section className="qn-card" role="status">
+            <p className="qn-cap" style={{ margin: '0 0 8px' }}>本机预览</p>
+            <p className="qn-meta" style={{ margin: 0 }}>当前盘面只保存在这个浏览器会话中，未存入服务器，刷新或离开后可能无法找回；无法生成分享链接或在线报告。需要留存请自行截图。</p>
+          </section>
+        ) : (
         <section className="qn-card" aria-labelledby="chart-share-title">
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
             <div style={{ maxWidth: 620 }}>
@@ -279,6 +307,7 @@ export default function ChartResultPage() {
           {shareNotice && <p role="status" className="qn-meta" style={{ margin: '12px 0 0' }}>{shareNotice}</p>}
           {shareError && <p role="alert" className="qn-meta" style={{ margin: '12px 0 0', color: '#a13b31' }}>{shareError}</p>}
         </section>
+        )}
         <ChartOverview chartData={enrichedChartData} chartName={chartName} />
         <DoubleVerify chartData={enrichedChartData} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
@@ -295,7 +324,9 @@ export default function ChartResultPage() {
             免费模型的耗时实测 94–116 秒但随负载浮动，编一个进度条就是撒谎。 */}
         <section className="qn-card">
           <p className="qn-cap" style={{ marginBottom: 8 }}>混沌自研 AI 解读 · 免费</p>
-          {aiAnalysis ? (
+          {chartOrigin === 'local' ? (
+            <p className="qn-body" style={{ margin: 0 }}>当前显示本机排盘预览，未生成混沌自研 AI 解读。</p>
+          ) : aiAnalysis ? (
             <AiReading aiAnalysis={aiAnalysis} />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

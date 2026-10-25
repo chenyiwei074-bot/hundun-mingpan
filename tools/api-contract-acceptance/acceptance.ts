@@ -1,15 +1,13 @@
 // 前端 ↔ 后端取值契约验收（D6：前端不许发后端不接受的取值）。
 //
-// 这一层为什么值得单独一套：这类错**不报错**。四柱直批那一条提交时，后端 zod 拒收，
-// 前端落进 else 分支换了个 local_ 的 id 继续跳转 —— 页面正常、盘也排出来了，
-// 只有"这条没存进服务器、刷新就没了"这件事没人说。用户看到的是一个成功的结果。
+// 这一层为什么值得单独一套：后端不接受四柱直批，现有本机引擎也需要出生日期。
+// 界面只开放公历/农历；即使以后有其他代码把四柱值带到提交路径，也必须在请求前拦住。
 //
 // 三条纪律：
 //  1. 枚举与 regex 的**真值住在后端**（server/src/utils/types.ts）。前端那份是副本，
 //     所以这里逐字比对两边；后端改了而这条没红 = 同步漏了。
 //  2. 扫服务端源码之前必须先剥注释。这条已经踩过三次：注释里的字会咬自己的断言。
-//  3. 判"没有违规"之前先证明违规**曾经可能** —— 所以留了 gate/unsupported-value-was-reachable
-//     这一条：界面的第三个 tab 真的能选出 '四柱'，否则上面那些闸门是空转。
+//  3. 当前正式建盘入口只展示公历/农历，同时保留四柱值的提交前防御门。
 //
 // 用法（与其余验收同一条命令形状）：
 //   cd <repo root> && NODE_PATH="$PWD/frontend/node_modules" \
@@ -109,8 +107,9 @@ const good: CreateChartPayload = {
 
 // ── 3. 页面侧：先过契约再发请求，且拦下来时不许静默继续 ──
 {
-  ok('gate/unsupported-value-was-reachable', /'公历','农历','四柱'/.test(pageSrc),
-    '界面的历法切换里真的有第三个值「四柱」：这条不成立的话，下面那些闸门全是空转');
+  ok('gate/unsupported-value-hidden', (pageSrc.match(/\{\['公历','农历'\]\.map\(cal/g) || []).length >= 2
+    && !/\{\['公历','农历','四柱'\]\.map\(cal/.test(pageSrc),
+    '单人和双人建盘都只展示公历/农历，不把四柱直批作为可选入口');
   ok('gate/validate-before-send', pageSrc.includes('canPersist(form.calendar)')
     && pageSrc.includes('validateCreateChart(')
     && pageSrc.indexOf('validateCreateChart(') < pageSrc.indexOf('await apiCreateChart('),
@@ -124,9 +123,11 @@ const good: CreateChartPayload = {
     && !/router\.push/.test(invalidBranch),
     `校验不过的那一支（截到 ${invalidBranch.length} 字符）：写错误、return，且**不跳转** —— `
     + '原来这里正是"换个 local_ id 继续走"把失败洗成了成功');
-  ok('gate/disclosure-before-submit', /id="create-persist-note"/.test(pageSrc)
-    && /form\.calendar === '四柱'/.test(pageSrc),
-    '选了四柱就在提交键之前把"这条不会存进服务器"写在页面上，而不是等用户事后猜');
+  const submitAt = pageSrc.indexOf('const handleSubmit = async');
+  const validateAt = pageSrc.indexOf('const err = validate()', submitAt);
+  const preflight = submitAt >= 0 && validateAt > submitAt ? pageSrc.slice(submitAt, validateAt) : '';
+  ok('gate/unsupported-input-stops', /if \(form\.calendar === '四柱'\)\s*\{[\s\S]*?setError\([\s\S]*?return;/.test(preflight),
+    '即使四柱值进入内部状态，提交前也会报错并停止，不发送请求或生成本机假盘');
   // 冻结的是**发出去的那份值**的语义，不是页面里不许出现 '公历' 这个字面量（默认 tab 就是它）。
   const call = /apiCreateChart\(\{[\s\S]*?\}\)/.exec(pageSrc)?.[0] || '';
   ok('frozen/value-semantics-unchanged', call.length > 0 && /calendar:\s*form\.calendar/.test(call)

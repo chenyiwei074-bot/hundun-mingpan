@@ -24,8 +24,8 @@ export default function LoadingPage() {
       const raw = sessionStorage.getItem('chart_preview');
       if (raw) {
         const preview = JSON.parse(raw);
-        setMode(preview.mode === 'double' ? 'double' : 'single');
-        if (preview.chart) {
+        if (preview.chartId === id) setMode(preview.mode === 'double' ? 'double' : 'single');
+        if (preview.chart && preview.chartId === id) {
           timer = setTimeout(() => {
             if (!cancelled) router.push('/chart/result/' + id);
           }, 600);

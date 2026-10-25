@@ -60,14 +60,14 @@ export function validateCreateChart(p: CreateChartPayload): Validation {
   return { ok: true };
 }
 
-/** 这一条能不能持久化到后端。'四柱' 的答案是"不能"，而且要说得出为什么不能。 */
+/** 这一条能不能由现有建盘流程处理。'四柱' 缺少出生日期，不能生成完整八字与紫微盘。 */
 export function canPersist(calendar: UiCalendar): { 能: boolean; 原因: string } {
   if (calendar === '四柱') {
     return {
       能: false,
-      原因: '四柱直批目前只有本机引擎支持：后端的 calendar 只收 公历 / 农历，'
-        + 'birthday 也必须是「年-月-日 时:分」。所以这一条只在本机排盘，不会存进「我的报告」，'
-        + '刷新就没了 —— 要留结果请自己截图。',
+      原因: '四柱直批暂未开放：仅凭四柱干支无法确定出生日期、起运与紫微宫位，'
+        + '现有本机引擎也不能据此生成可信的完整命盘；后端仅接收公历或农历生日。'
+        + '此输入方式不会存进「我的报告」，请改用完整出生资料。',
     };
   }
   return { 能: true, 原因: '' };
