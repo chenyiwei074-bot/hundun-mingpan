@@ -46,3 +46,16 @@
 curl -s 'https://hundunmp.vip/api/geo/lookup?province=广东省&city=深圳市'
 node --test tools/backend-unit/geo-lookup.test.mjs
 ```
+
+
+## v2：区县级坐标（2026-10-25）
+
+`GET /api/geo/lookup?province=北京市&city=北京市&district=东城区`
+
+- 数据：AreaCity 2023.240319.240616 的 `ok_geo.csv` + `ok_data_level3.csv`（2,851 个区县质心）；
+- 响应新增 `precision: "district" | "city" | "province"` 与 `districtMatched: boolean`；
+- 区县命中时 `src: "county"`、`version: "china-geo-v2"`；
+- 区县未收录时回退 v1 的 382 城数据，`districtMatched: false`，不猜；
+- 坐标为行政区质心，不是门牌级地址；仍不做地址地理编码；
+- 数据来源与许可：AreaCity 仓库 MIT；底层行政区划来自民政部/国家统计局/高德/腾讯，使用前按项目要求保留来源说明。
+- 前端可继续只传 province/city；传 district 才启用区县精度。

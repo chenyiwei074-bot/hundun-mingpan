@@ -93,7 +93,7 @@ export async function trackEvent(event_name: string, visitor_id: string, chart_i
 
 
 
-export type ChinaGeoLookup = { lng: number; lat: number; tz: string; src: 'city' | 'county' | 'province' };
+export type ChinaGeoLookup = { lng: number; lat: number; tz: string; src: 'city' | 'county' | 'province'; precision?: 'district' | 'city' | 'province'; districtMatched?: boolean };
 
 /** 后端地点/时区接口。失败时返回 null，调用方回退到本地数据，不阻塞页面。 */
 export async function lookupChinaGeo(province: string, city?: string, district?: string): Promise<ChinaGeoLookup | null> {

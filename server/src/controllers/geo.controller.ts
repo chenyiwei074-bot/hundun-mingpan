@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { lookupGeo } from '../lib/true-solar/birth-wiring';
+import { lookupGeoV2 } from '../services/geo.service';
 
 /**
  * GET /api/geo/lookup?province=广东省&city=深圳市&district=南山区
@@ -16,7 +16,7 @@ export function lookupPlace(req: Request, res: Response) {
   if (!province && !city) {
     return res.status(400).json({ success: false, error: '至少提供 province 或 city' });
   }
-  const geo = lookupGeo({ province, city, district });
+  const geo = lookupGeoV2({ province, city, district });
   if (!geo) {
     return res.status(404).json({
       success: false,
@@ -27,12 +27,14 @@ export function lookupPlace(req: Request, res: Response) {
   return res.json({
     success: true,
     data: {
-      version: 'china-city-geo-v1',
+      version: geo.precision === 'district' ? 'china-geo-v2' : 'china-city-geo-v1',
       query: { province, city, district },
       lng: geo.lng,
       lat: geo.lat,
       tz: geo.tz,
       src: geo.src,
+      precision: geo.precision,
+      districtMatched: geo.districtMatched,
     },
   });
 }
