@@ -249,7 +249,21 @@ export default function MeiHuaPage() {
           </div>
         </>
       )}
-            {result && <ToolInterpretation tool="meihua" title="梅花易数 · 混沌自研 AI 解读" payload={result} />}
+            {result && <ToolInterpretation tool="meihua" title="梅花易数 · 混沌自研 AI 解读" payload={{
+              method: result.method,
+              dongYao: result.dongYao,
+              ben: result.ben,
+              hu: result.hu,
+              bian: result.bian,
+              ti: result.ti,
+              yong: result.yong,
+              relation: result.relation,
+              huRelation: result.huRelation,
+              bianRelation: result.bianRelation,
+              huTi: result.huTi,
+              huYong: result.huYong,
+              readings: result.readings,
+            }} />}
       </main>
   );
 }

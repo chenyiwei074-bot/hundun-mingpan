@@ -139,7 +139,7 @@ const ENTRIES: Entry[] = [
   {
     href: '/western', mode: 'western',
     name: '西方神秘学',
-    lead: '沿用西方神秘学自身的知识与方法，不与东方术数混用；未开放的功能会明确标注。',
+    lead: '循西方神秘学自身的知识与方法，不与东方术数混用；每项工具都写明适用范围与依据。',
     cta: '进入西方世界 →',
     groups: WESTERN_INTENTS,
     art: <EclArt />,
@@ -191,7 +191,7 @@ export default function GatePage() {
 
       <section className="qn-legal gate-legal">
         <p className="qn-note" style={{ margin: 0 }}>
-          栏底那三个数（可用 / 部分可用 / 未开放，相加等于总项数）由两套目录现算，本站不在门廊维护第二份工具清单。
+          栏底的开放数量由两套目录现算，本站不在门廊维护第二份工具清单。
           每一项的可用状态、计算口径与需要哪些输入，进到「全部工具与取数口径」那一页看。
         </p>
       </section>

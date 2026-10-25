@@ -82,13 +82,12 @@ const OPEN = (m: Mode) => CATALOGS[m].filter(t => t.status !== '未开放' && t.
     { mode: 'oriental', q: '我的月亮星座是什么', slug: null, clarify: true,
       why: '东方表里 0 命中、西方表命中 astro-natal（E2 起它已开放也一样）→ 判为跨体系，只问一句"要换过去吗"，不给入口' },
     { mode: 'oriental', q: '随便说点什么吧', slug: null, clarify: true, why: '两边都对不上 → 追问并指向目录' },
-    { mode: 'western', q: '我的上升是什么', slug: null, clarify: true,
-      why: 'E2 裁定后 astro-natal 只做落座与度数，"上升"不再是它的关键词 —— 问事框不许拿没做的那一样当门牌，'
-        + '这句话必须走"没对上已开放的工具"并指向目录（目录里写着未做上升）' },
+    { mode: 'western', q: '我的上升是什么', slug: 'astro-natal', clarify: true,
+      why: '本命行星位置页已开放上升与宫位；问事框应给 /astro 入口，并继续追问出生日期、时刻与地点' },
     { mode: 'western', q: '我的月亮星座和太阳星座是什么', slug: 'astro-natal', clarify: true,
-      why: '月亮星座/太阳星座 命中 astro-natal，E2 起它「部分可用」且带 /astro 入口 → reconcile 后 available；问句里没日期没时辰没地点，仍要追问' },
+      why: '月亮星座/太阳星座 命中已开放的 astro-natal → reconcile 后 available；问句里没日期没时辰没地点，仍要追问' },
     { mode: 'western', q: '帮我抽个塔罗牌阵', slug: 'tarot-draw', clarify: true,
-      why: '塔罗抽牌已部分开放；问句缺少具体问题，路由到真实页面并追问，不得伪称牌义已接入' },
+      why: '塔罗抽牌与牌阵已开放；问句缺少具体问题，路由到真实页面并追问' },
     { mode: 'western', q: '今天黄历宜忌', slug: null, clarify: true, why: '东方工具在西方页不该被路由过去（跨体系要问，不要自动换）' },
   ];
   let bad = 0;

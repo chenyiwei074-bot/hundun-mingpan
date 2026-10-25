@@ -73,10 +73,9 @@
   /* ===== 工具状态圆点（值与 lib/tools/status.ts 一一对应，西方在下方重指向）=====
      非文本对比度下限 3:1。浅底与墨底不可能共用一支金：#b2955d（旧值）在白底只有 2.87:1，
      而它压墨底有 5.69:1 —— 所以按底分叉，与金漆文字同一做法。
-     具体读数不在这里写死：由 harness 的 status-dot 审计从渲染结果现场量（三种状态 × 两种底，
+     具体读数不在这里写死：由 harness 的 status-dot 审计从渲染结果现场量（两种状态 × 两种底，
      低于 3:1 直接红），注释里的小差异救不了任何人，屏幕上的才作数。 */
   --color-status-open: #8b6d3b;
-  --color-status-partial: #a3823a;
   --color-status-closed: #86868b;
 }
 
@@ -1075,9 +1074,8 @@ body:has(main[data-dayun-loading="true"]) .qn-dayun-legal { visibility: hidden; 
      而西方作用域里 --color-accent-gold 已被重指成 #d9b877，所以这两支只能引未被重指的令牌。
      深浅两档的"哪个更开放"在两种底上方向相反（浅底越深越开放、墨底越亮越开放），
      这一点靠圆点本身说不清 —— 所以徽章永远同时带文字，harness 同时钉"文字在"与"点够 3:1"。
-     读数由 harness 从渲染结果量（三种状态 × 两种底），不写在注释里。 */
+     读数由 harness 从渲染结果量（两种状态 × 两种底），不写在注释里。 */
   --color-status-open: var(--color-accent-gold-on-ink);
-  --color-status-partial: var(--color-western-gold);
   /* 破坏性/非法那一支在墨底上必须另给一档：浅底那支 #b23a2e 压深紫读不出字。
      值走 palette（西方块里不许写字面色），语义与 .qn-alert 的 danger-text 分开。 */
   --color-danger: var(--color-western-danger);

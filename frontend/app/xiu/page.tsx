@@ -327,7 +327,25 @@ export default function XiuPage() {
           </div>
         </>
       )}
-            {result && <ToolInterpretation tool="xiu" title="二十八宿 · 混沌自研 AI 解读" payload={result} />}
+            {result && <ToolInterpretation tool="xiu" title="二十八宿 · 混沌自研 AI 解读" payload={{
+              ben: {
+                fullName: result.ben.fullName, xiu: result.ben.xiu, yao: result.ben.yao,
+                wuxing: result.ben.wuxing, gong: result.ben.gong, sixiang: result.ben.sixiang,
+                luck: result.ben.luck, nature: result.ben.nature, index: result.ben.index,
+              },
+              pair: result.pair ? {
+                relationToMe: result.pair.a, relationToOther: result.pair.b,
+                sameXiu: result.pair.sameXiu, level: result.pair.level,
+                score: result.pair.score,
+                other: {
+                  fullName: result.pair.other.fullName, xiu: result.pair.other.xiu,
+                  yao: result.pair.other.yao, wuxing: result.pair.other.wuxing,
+                  gong: result.pair.other.gong, sixiang: result.pair.other.sixiang,
+                  luck: result.pair.other.luck, nature: result.pair.other.nature,
+                  index: result.pair.other.index,
+                },
+              } : null,
+            }} />}
       </main>
   );
 }

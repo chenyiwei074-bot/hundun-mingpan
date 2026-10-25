@@ -36,7 +36,7 @@ export default function ToolsPage() {
       <section className="qn-card qn-rise" style={{ marginBottom: 16 }}>
         <p className="qn-axis" style={{ margin: 0 }}>状态怎么标</p>
         <p className="qn-body" style={{ marginTop: 8 }}>
-          「可用」= 功能已开放；「部分可用」= 主要流程已开放，具体范围与缺项见对应卡片；「未开放」= 暂不可使用，因此没有入口。
+          「可用」= 当前页面列明的功能范围已开放；「未开放」= 暂不可使用，因此没有入口。每张卡片会说明适用问题、计算范围与依据。
         </p>
       </section>
 

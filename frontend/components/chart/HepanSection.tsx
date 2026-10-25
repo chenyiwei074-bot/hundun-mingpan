@@ -20,6 +20,7 @@ import { analyzeHepan } from '@/lib/hepan/engine';
 import type { HepanReport } from '@/lib/hepan/types';
 import { clearPartner, isPersisted, loadPartner, savePartner } from '@/lib/hepan/local-store';
 import type { PartnerDraft } from '@/lib/hepan/local-store';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 
 const MIN_OPTIONS = ['00', '15', '30', '45'];
 
@@ -279,6 +280,19 @@ export default function HepanSection({ chartData }: Props) {
               </ul>
             </div>
           )}
+          <ToolInterpretation
+            tool="hepan"
+            title="八字合盘 · 混沌自研 AI 解读"
+            payload={{
+              basis: report.口径戳,
+              observations: report.项目.map(item => ({
+                title: item.立项,
+                observation: item.观察,
+                facts: item.依据,
+                limits: item.不确定项,
+              })),
+            }}
+          />
         </div>
       )}
 

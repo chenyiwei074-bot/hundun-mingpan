@@ -93,12 +93,28 @@ export const TOOL_PROFILES: Record<AiTool, ToolProfile> = {
 };
 
 
+/** 每个工具只接受这些顶层字段；客户端多传的一律拒绝，不作为 prompt 输入。 */
+export const ALLOWED_KEYS: Record<AiTool, string[]> = {
+  meihua: ['method', 'dongYao', 'ben', 'hu', 'bian', 'ti', 'yong', 'relation', 'huRelation', 'bianRelation', 'huTi', 'huYong', 'readings'],
+  liuyao: ['method', 'questionType', 'ganZhi', 'dayGZ', 'monthZhi', 'xunKong', 'benGua', 'bianGua', 'yaoRecords', 'naJia', 'bianNaJia', 'dongYao', 'shiYing', 'liuShen', 'analysis'],
+  xiu: ['ben', 'pair'],
+  hepan: ['basis', 'observations'],
+  huangli: ['civil', 'lunarDate', 'ganZhi', 'yi', 'ji', 'jiShen', 'xiongSha', 'chong', 'sha', 'zhiXing', 'tianShen', 'xiu'],
+  'name-compat': ['grids', 'scope'],
+  numerology: ['lifePath', 'nameNumber', 'masterNumberPreserved'],
+  moon: ['utcMs', 'phaseName', 'phaseAngle', 'illumination', 'nextNewMoonUtcMs', 'nextFullMoonUtcMs'],
+  synastry: ['first', 'second', 'aspects'],
+  astro: ['positions', 'aspects', 'houses', 'ascendant', 'midheaven', 'frame', 'nodeMode'],
+  dayun: ['siZhu', 'dayMaster', 'shiShen', 'naYin', 'dayunStart', 'dayun'],
+  fengshui: ['判定', '未判定', '跨宫', '朝向', '关心点', '格数', '跨度'],
+};
+
 export interface ToolInterpretation {
   mode: 'ai' | 'unavailable';
   aiReady: boolean;
   title: string;
   summary: string;
-  sections: Array<{ title: string; body: string }>;
+  sections: Array<{ id: string; title: string; body: string; factRefs: string[]; sourceIds: string[] }>;
   notes: string[];
 }
 export type AiValidation = { ok: true; tool: AiTool; payload: unknown; question: string } | { ok: false; status: number; error: string };
@@ -112,7 +128,13 @@ export function validateAiRequest(body: unknown): AiValidation {
   if (!allowed.has(tool)) return { ok: false, status: 400, error: '这个工具暂未接入 AI 解读' };
   const question = String(b.question || '').trim().slice(0, 300);
   const payload = b.payload;
-  if (payload === null || typeof payload !== 'object') return { ok: false, status: 400, error: '缺少工具结果数据' };
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { ok: false, status: 400, error: '缺少工具结果数据' };
+  }
+  const keys = Object.keys(payload as Record<string, unknown>);
+  const allow = ALLOWED_KEYS[tool as AiTool];
+  const extras = keys.filter(k => !allow.includes(k));
+  if (extras.length) return { ok: false, status: 400, error: '结果里包含不允许的字段：' + extras.slice(0, 5).join('、') };
   let text = '';
   try { text = JSON.stringify(payload); } catch { return { ok: false, status: 400, error: '结果数据无法解析' }; }
   if (text.length > 40_000) return { ok: false, status: 413, error: '结果数据过大' };
@@ -125,6 +147,7 @@ export function promptFor(tool: AiTool, payload: unknown, question: string): str
 本页体系：${p.system}
 本页范围：${p.scope}
 明确禁止混入：${p.avoid.join('、')}。如果用户问题要求用其他体系，请直接说明“本页只做${p.system}，不跨体系下结论”，不要借用其他术数。
+本工具允许引用的字段：${ALLOWED_KEYS[tool].join('、')}
 用户问题：${question || '（未填写，做整体解读）'}
 本站已计算的结果数据（只读）：
 ${JSON.stringify(payload).slice(0, 30000)}
@@ -151,9 +174,15 @@ ${JSON.stringify(payload).slice(0, 30000)}
 function normalize(raw: Record<string, unknown>): ToolInterpretation | null {
   const summary = String(raw.summary || '').trim();
   const sections = Array.isArray(raw.sections)
-    ? raw.sections.map((s) => {
+    ? raw.sections.map((s, index) => {
       const x = s as Record<string, unknown>;
-      return { title: String(x.title || '').trim(), body: String(x.body || x.text || '').trim() };
+      return {
+        id: 'section-' + String(index + 1),
+        title: String(x.title || '').trim(),
+        body: String(x.body || x.text || '').trim(),
+        factRefs: [] as string[],
+        sourceIds: [] as string[],
+      };
     }).filter(s => s.title && s.body).slice(0, 5)
     : [];
   if (!summary || summary.length < 80 || sections.length < 3) return null;

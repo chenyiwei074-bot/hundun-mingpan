@@ -22,7 +22,6 @@ import Callout from '@/components/ui/Callout';
 
 const ZONES = availableZones();
 const ENTRY = WESTERN_TOOL_BY_SLUG['astro-natal'];
-const DONE = ENTRY.done ?? [];
 
 function failureText(why: MomentFail | PlanetsFailed): string {
   switch (why.reason) {
@@ -46,7 +45,6 @@ function formatLongitudePlace(longitude: number) {
   const value = zodiacFields(longitude);
   return `${value.星座} ${value.signDeg}°${String(value.signMin).padStart(2, '0')}′`;
 }
-const NOT_DONE = ENTRY.notDone ?? [];
 const deviceZone = () => {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; }
 };
@@ -175,7 +173,7 @@ export default function NatalPlanets() {
           本页展示太阳、月亮与其他行星的星座位置和角度。以下列出星座划分所参考的传统文献。
         </p>
           <p className="qn-meta" style={{ margin: '8px 0 0' }}>
-            本页给出行星位置、五类主要相位、上升点与五种宫制：整宫、等宫、三分、普拉西德与科赫。
+            本页给出行星位置、五类主要相位、上升点与七种宫制：整宫、等宫、三分、普拉西德、科赫、雷吉奥蒙塔努斯与坎帕纳斯。
           </p>
           <p className="qn-meta" style={{ margin: '6px 0 0' }}>
             每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
@@ -428,7 +426,7 @@ export default function NatalPlanets() {
       <section className="qn-card" style={{ marginTop: 14 }}>
         <p className="qn-cap" style={{ margin: 0 }}>当前结果范围</p>
         <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          当前展示十颗行星、凯龙星与南北交点的位置和相位，并支持回归黄道 / 拉希里恒星黄道及五种宫制。雷吉奥蒙塔努斯与坎帕纳斯等其他宫制尚未纳入。
+          当前展示十颗行星、凯龙星与南北交点的位置和相位，并支持回归黄道 / 拉希里恒星黄道及七种宫制。高纬极区的 Placidus、Koch、Regiomontanus 与 Campanus 会按适用范围明确提示，不以近似值替代。
         </p>
       </section>
       {!结果 && (
@@ -438,17 +436,12 @@ export default function NatalPlanets() {
       )}
 
       <section className="qn-card" style={{ marginTop: 14 }}>
-        <p className="qn-cap" style={{ margin: 0 }}>已做（{DONE.length} 项）</p>
-        <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
-          {DONE.map(s => <li key={s}>{s}</li>)}
-        </ul>
-        <p className="qn-cap" style={{ margin: '10px 0 0' }}>未做（{NOT_DONE.length} 项）</p>
-        <p className="qn-cap" style={{ margin: '2px 0 0' }}>缺的哪几样都写在门上，不藏在「部分可用」这四个字后面。</p>
-        <ul className="qn-meta" style={{ margin: '4px 0 0', paddingLeft: '1.2em' }}>
-          {NOT_DONE.map(s => <li key={s}>{s}</li>)}
-        </ul>
+        <p className="qn-cap" style={{ margin: 0 }}>宫制范围</p>
+        <p className="qn-meta" style={{ margin: '4px 0 0' }}>
+          整宫、等宫、三分、Placidus、Koch、Regiomontanus、Campanus。不同宫制依各自几何定义计算；极区不适用时会说明原因，不自动替换为另一种宫制。
+        </p>
         <p className="qn-note" style={{ margin: '10px 0 0' }}>
-        本页仍称「本命行星位置」，不叫星盘；还未纳入的宫制范围单独列出，已实现的小天体、交点和黄道方式按上方说明展示。
+        本页仍称「本命行星位置」，不叫星盘；行星、小天体、交点、黄道方式与宫头是分层计算结果，不把宫位划分直接写成确定性预测。
         </p>
         <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
       </section>

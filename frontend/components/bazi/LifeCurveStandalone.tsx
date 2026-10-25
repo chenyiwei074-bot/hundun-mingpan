@@ -104,7 +104,22 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
       ) : (
         <div data-dayun-state="ready">
         <LifeCurve chart={chart} />
-        {chart && <ToolInterpretation tool="dayun" title="大运流年 · 混沌自研 AI 解读" payload={chart} />}
+        {chart && <ToolInterpretation tool="dayun" title="大运流年 · 混沌自研 AI 解读" payload={{
+          siZhu: chart.siZhu,
+          dayMaster: chart.dayMaster,
+          shiShen: chart.shiShen,
+          naYin: chart.naYin,
+          dayunStart: chart.dayunStart,
+          dayun: chart.dayun.map(segment => ({
+            ganZhi: segment.ganZhi,
+            startAge: segment.startAge,
+            startYear: segment.startYear,
+            endYear: segment.endYear,
+            ganShiShen: segment.ganShiShen,
+            zhiShiShen: segment.zhiShiShen,
+            liuNian: segment.liuNian,
+          })),
+        }} />}
         </div>
       )}
 

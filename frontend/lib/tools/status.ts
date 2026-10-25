@@ -16,19 +16,17 @@ export function isLiveEntry(t: Pick<ToolEntry, 'status' | 'href'>): boolean {
  * 值走 token：`[data-mode="western"]` 里重指向，浅底与墨底各有各的达标取值 —— 同一支金
  * 在两种底上不可能同时达标（#b2955d 在白底只有 2.87:1）。
  * 实测对比度（非文本下限 3:1），底取 `#f5f5f7` / `#ffffff` 与 `#241a3d` / `#1b1030`：
- *   亮底 可用 4.44·4.83 / 部分可用 3.34·3.64 / 未开放 3.33·3.62
- *   墨底 可用 5.69·6.29 / 部分可用 8.48·9.38 / 未开放 4.49·4.98
+ *   亮底 可用 4.44·4.83 / 未开放 3.33·3.62
+ *   墨底 可用 5.69·6.29 / 未开放 4.49·4.98
  */
 export const STATUS_DOT: Record<ToolStatus, string> = {
   可用: 'var(--color-status-open)',
-  部分可用: 'var(--color-status-partial)',
   未开放: 'var(--color-status-closed)',
 };
 
 export interface StatusCount {
   live: number;
   open: number;
-  partial: number;
   closed: number;
   total: number;
 }
@@ -39,17 +37,14 @@ export function statusCounts(groups: IntentGroup[]): StatusCount {
   return {
     live: tools.filter(isLiveEntry).length,
     open: tools.filter(t => t.status === '可用').length,
-    partial: tools.filter(t => t.status === '部分可用').length,
     closed: tools.filter(t => t.status === '未开放').length,
     total: tools.length,
   };
 }
 
 /**
- * 门廊栏底那一行。原来写「已开放 9 / 10 项」，实测生产上就是这个数：分子把
- * "部分可用"（有入口但缺一段）也算进去了，读者看不出 9 里有几项是半开的。
- * 改成三档并列 + 总数，三个数相加必须等于总数（directory-acceptance 钉住这个不变量）。
+ * 门廊栏底那一行，计数始终由目录数据现场计算。
  */
 export function statusTally(c: StatusCount): string {
-  return `可用 ${c.open} · 部分可用 ${c.partial} · 未开放 ${c.closed} · 共 ${c.total} 项`;
+  return `已开放 ${c.open} · 未开放 ${c.closed} · 共 ${c.total} 项`;
 }

@@ -311,10 +311,10 @@ const catalogExpect = (src) => {
   const name = (e) => ((/name:\s*'([^']+)'/.exec(e) || [])[1] || '').trim();
   return {
     names: [...new Set(entries.map(name).filter(Boolean))],
-    liveNames: entries.filter(e => /status:\s*'(可用|部分可用)'/.test(e) && /href:\s*['"]\/[^'"]+['"]/.test(e))
+    liveNames: entries.filter(e => /status:\s*'可用'/.test(e) && /href:\s*['"]\/[^'"]+['"]/.test(e))
       .map(name).filter(Boolean),
     live: [...new Set((src.match(/href:\s*['"]\/[^'"]+['"]/g) || []).map(s => s.replace(/.*['"](\/[^'"]+)['"]/, '$1')))],
-    counts: ['可用', '部分可用', '未开放']
+    counts: ['可用', '未开放']
       .map(s => [s, (src.match(new RegExp(`status: '${s}'`, 'g')) || []).length]),
   };
 };
@@ -409,13 +409,11 @@ function astroProbe(computed, withAngles = false) {
     '依据（原文·白话·口径）', '本站白话', '非原文、非他人译本', '无古籍出处·近代约定',
     'Thetropicalsignsaretwo', 'mutualconfigurationattaches', 'ProjectGutenberg#70850', 'BookI第十四章', 'BookI第十六章'])
     if (flat.indexOf(s) < 0) miss.push('页面上找不到「' + s + '」');
-  const done = /已做（(\\d+)项）/.exec(flat), notDone = /未做（(\\d+)项）/.exec(flat);
-  if (!done || !notDone || !+done[1] || !+notDone[1])
-    miss.push('已做/未做两张清单没成对出现（只写"部分可用"不写缺什么 = 读者自己猜）：'
-      + JSON.stringify([done && done[1], notDone && notDone[1]]));
-  const lis = [...document.querySelectorAll('li')].map(x => (x.innerText || '').trim());
-  if (!lis.some(t => t.indexOf('上升点与整宫制') >= 0)) miss.push('「已做」里没有上升点与整宫制');
-  if (!lis.some(t => t.indexOf('相位') >= 0)) miss.push('已做/未做范围清单里没有相位说明');
+  const house = document.querySelector('#astro-house-system');
+  const requiredSystems = ['whole-sign', 'equal', 'porphyry', 'placidus', 'koch', 'regiomontanus', 'campanus'];
+  if (!flat.includes('宫制范围')) miss.push('页面没有说明宫制范围');
+  if (!house || requiredSystems.some(id => ![...house.options].some(o => o.value === id)))
+    miss.push('宫制选择器没有列出七种开放宫制');
   const zone = (document.querySelector('#astro-zone') || {}).value || '';
   const rows = [...document.querySelectorAll('table[data-astro-planets] tbody tr')];
   if (${computed}) {
@@ -459,7 +457,7 @@ function astroProbe(computed, withAngles = false) {
       else if (!btn.disabled) miss.push('两个时间都空着，按钮却是可点的（点了只会拿到一条"缺时刻"）');
     }
   }
-  return { miss, rows: rows.length, zone, done: done && +done[1], notDone: notDone && +notDone[1] };
+  return { miss, rows: rows.length, zone, houseSystems: house ? [...house.options].map(o => o.value) : [] };
 })()`;
 }
 
@@ -1780,7 +1778,7 @@ async function gateInteraction(tag) {
 // 源码里 var() 指对了、但落到底不是量过的那一块，照样掉下 3:1；西方那一档原来更狠 ——
 // 它 var() 的是一支全站从没定义过的令牌，于是安静地画成近乎透明。
 // 下限 3:1（非文本），并且每个徽章必须带文字：只靠颜色区分状态，色觉之外的人就读不到。
-const DOT_STATES = { tools: 'two', western: 'one' };
+const DOT_STATES = { tools: 'one', western: 'one' };
 // 页内对比度只留一套算法（lum / ground / ratio）。以前 dotProbe 内联一份、主审计另一份，
 // 两处口径不同就会量出两个数 —— 这一批已经因为"同一个比值手算出三个值"吃过教训。
 const CONTRAST_JS = `
@@ -1898,6 +1896,7 @@ const dotProbe = want => `(() => {
   if (!dots.length) miss.push('这一页一个状态徽章都没有（.qn-badge__dot = 0）—— 这一态从未被测到，不是通过');
   else if ('${want}' === 'three' && kinds.length < 3) miss.push('三档状态没集齐，实得 ' + kinds.join('/'));
   else if ('${want}' === 'two' && kinds.length < 2) miss.push('两档状态没集齐，实得 ' + kinds.join('/'));
+  else if ('${want}' === 'one' && (kinds.length !== 1 || !seen['可用'])) miss.push('开放目录应只显示「可用」徽章，实得 ' + kinds.join('/'));
   return { miss, n: dots.length, kinds: seen };
 })()`;
 
@@ -3094,16 +3093,15 @@ function check(tag, v) {
         bad(`门廊两张卡的入口必须是 ${want.join(' 与 ')}，实得 ${JSON.stringify(got)}`);
       for (const c of cards) {
         if (!c.fold) bad(`门廊卡片 ${c.href} 不在首屏内（这就是"进来先选体系"这件事没做到）`);
-        // 裁定①的补充：那行不再写「已开放 9 / 10」—— 分子把"部分可用"（有入口但缺一段）
-        // 也算进去了，读者看不出 9 里有几项是半开的。改成三档并列 + 总数，并当场验相加等于总数。
-        const m = /^可用 (\d+) · 部分可用 (\d+) · 未开放 (\d+) · 共 (\d+) 项$/.exec(c.tally || '');
-        if (!m) bad(`门廊卡片 ${c.href} 上那行数读不成「可用 N · 部分可用 N · 未开放 N · 共 N 项」：${JSON.stringify(c.tally)}`);
+        // 门廊只呈现开放与未开放两档；状态值来自目录，计数相加必须等于总项数。
+        const m = /^已开放 (\d+) · 未开放 (\d+) · 共 (\d+) 项$/.exec(c.tally || '');
+        if (!m) bad(`门廊卡片 ${c.href} 上那行数读不成「已开放 N · 未开放 N · 共 N 项」：${JSON.stringify(c.tally)}`);
         else {
-          const [open, partial, closed, total] = m.slice(1).map(Number);
-          if (open + partial + closed !== total)
-            bad(`门廊卡片 ${c.href} 上 ${open}+${partial}+${closed}≠${total} —— 数是从目录现算的，出现这种结果就是算错了`);
+          const [open, closed, total] = m.slice(1).map(Number);
+          if (open + closed !== total)
+            bad(`门廊卡片 ${c.href} 上 ${open}+${closed}≠${total} —— 数是从目录现算的，出现这种结果就是算错了`);
           if (total === 0) bad(`门廊卡片 ${c.href} 上总项数 0：那一侧的目录没读进来（空目录会安静地印出 0）`);
-          if (open > total || closed > total) bad(`门廊卡片 ${c.href} 上单项大于总数：${open}/${partial}/${closed} vs ${total}`);
+          if (open > total || closed > total) bad(`门廊卡片 ${c.href} 上单项大于总数：${open}/${closed} vs ${total}`);
         }
         // 批F②：眉标不再是手写的三个词，而是"这一套里真能进的那几项"。所以它必须能被目录复核：
         // 列出的每个名字都得是已开放条目的登记名，"等 N 项"的 N 必须等于目录里的已开放项数。
@@ -3539,14 +3537,14 @@ async function measure(tag, url) {
     if (!miss) fail.push(tag + ': 行星位置探针跑不起来 ' + JSON.stringify(got).slice(0, 160));
     else for (const x of miss) fail.push(tag + ': 本命行星位置不等于钉值 — ' + x);
     console.log(miss && miss.length ? '    ASTRO MISMATCH ' + miss.join(' | ')
-      : `    ${base === 'astro' ? '空态' : '算完那态'}：表 ${got.rows} 行 · 时区 ${got.zone} · 已做 ${got.done} 项 / 未做 ${got.notDone} 项 · 戳与"不叫星盘"都在屏上`);
+      : `    ${base === 'astro' ? '空态' : '算完那态'}：表 ${got.rows} 行 · 时区 ${got.zone} · 宫制选项 ${got.houseSystems.length} 种 · 戳与"不叫星盘"都在屏上`);
     if (base === 'astro-house-systems') {
       const changed = await evl(`(async () => {
         const wait = ms => new Promise(r => setTimeout(r, ms));
         const select = document.querySelector('#astro-house-system');
         const table = document.querySelector('[data-astro-house-cusps]');
         if (!select || !table) return '宫制选择器或宫头表不存在';
-        const required = ['whole-sign', 'equal', 'porphyry', 'placidus', 'koch'];
+        const required = ['whole-sign', 'equal', 'porphyry', 'placidus', 'koch', 'regiomontanus', 'campanus'];
         if (required.some(x => ![...select.options].some(o => o.value === x))) return '选择器缺少已实现宫制';
         const before = [...table.querySelectorAll('tbody tr')].map(r => r.innerText.replace(/\\s+/g, '')).join('|');
         Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'placidus');
@@ -3601,9 +3599,9 @@ async function measure(tag, url) {
       for (const h of hrefs) if (allow.indexOf(h) < 0) miss.push('目录页给了一个不在两套目录里的入口：' + h);
       const tally = (name, counts) => {
         const n = Object.fromEntries(counts);
-        const total = (n['可用'] || 0) + (n['部分可用'] || 0) + (n['未开放'] || 0);
-        const want = (name + '可用' + (n['可用'] || 0) + '·部分可用' + (n['部分可用'] || 0)
-          + '·未开放' + (n['未开放'] || 0) + '·共' + total + '项').replace(/\\s+/g, '');
+      const total = (n['可用'] || 0) + (n['未开放'] || 0);
+      const want = (name + '已开放' + (n['可用'] || 0)
+        + '·未开放' + (n['未开放'] || 0) + '·共' + total + '项').replace(/\\s+/g, '');
         if (flat.indexOf(want) < 0) miss.push('数不对或缺一行：页面上该有「' + want + '」');
       };
       tally('东方术数目录', expect.oriental.counts); tally('西方神秘学目录', expect.western.counts);
@@ -4166,17 +4164,15 @@ for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
     if (!list.length) fail.push('western: 西方目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（开第一项之后就不该再是空）');
     else if (missingW.length) fail.push(`western: 目录可点而 /western 页面上没挂（${missingW.length}/${list.length}）：${missingW.join('、')}`);
     else console.log(`  western 本套入口 ${list.length} 个都在页面上：${list.join('、')}`);
-    // 以前这里比的是「可用 N」== 页面入口数，西方整页未开放时那个 N 永远是 0，等式看着成立。
-    // E2 开出第一项（部分可用）之后这条必须改成三档相加：能进的门 = 可用 + 部分可用，
-    // 与 lib/tools/status.ts 的 isLiveEntry 同一条判据（只看"可用"会把半开的门数丢）。
-    const m = /可用 (\d+) · 部分可用 (\d+) · 未开放 (\d+) · 共 (\d+) 项/.exec(onPage.tally || '');
-    if (!m) fail.push(`western: 那行数读不成三档并列（页面上印的是 ${JSON.stringify(onPage.tally)}）`);
+    // 页面上已开放数应与从目录渲染出的真实入口数一致。
+    const m = /已开放 (\d+) · 未开放 (\d+) · 共 (\d+) 项/.exec(onPage.tally || '');
+    if (!m) fail.push(`western: 那行数读不成两档并列（页面上印的是 ${JSON.stringify(onPage.tally)}）`);
     else {
-      const [open, partial, closed, total] = m.slice(1).map(Number);
-      if (open + partial + closed !== total) fail.push(`western: ${open}+${partial}+${closed}≠${total}，目录那句数自己就不对`);
-      if (open + partial !== onPage.ownEntries)
-        fail.push(`western: 说「可用 ${open} + 部分可用 ${partial}」却有 ${onPage.ownEntries} 扇能进的门（门数必须等于这两档之和）`);
-      console.log(`  western ${onPage.tally || '没读到'} / 页面入口 ${onPage.ownEntries} 个（=可用+部分可用）`);
+      const [open, closed, total] = m.slice(1).map(Number);
+      if (open + closed !== total) fail.push(`western: ${open}+${closed}≠${total}，目录那句数自己就不对`);
+      if (open !== onPage.ownEntries)
+        fail.push(`western: 说「已开放 ${open}」却有 ${onPage.ownEntries} 扇能进的门（门数必须等于已开放项数）`);
+      console.log(`  western ${onPage.tally || '没读到'} / 页面入口 ${onPage.ownEntries} 个（=已开放）`);
     }
     // 西方目录里的入口也要走东方那一条判据：卡面上挂着「进入」的 href，工作页必须点得到。
     // 期望集仍然现读，不抄第二份清单。

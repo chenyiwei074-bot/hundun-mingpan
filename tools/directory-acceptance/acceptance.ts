@@ -191,7 +191,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('dir/tools-page-covers-both-catalogs', /import\s*\{[^}]*\bINTENTS\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(page)
     && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(page)
     && /<ToolCatalog/.test(page) && /statusCounts/.test(page),
-    '/tools 必须同时渲染东方与西方两套目录（共用 ToolCatalog），并按各自目录现算三档计数 —— 少一套就是"全部工具目录"说谎');
+    '/tools 必须同时渲染东方与西方两套目录（共用 ToolCatalog），并按各自目录现算两档计数 —— 少一套就是"全部工具目录"说谎');
   ok('dir/tools-page-no-forked-list', !/slug:\s*'|name:\s*'[^']*占星|title:\s*'/.test(page)
     && !/WESTERN_TOOLS\.map|TOOL_BY_SLUG\['/.test(page),
     '目录页不许自己列条目（抄一份就不会跟目录改）：所有条目必须由两套 catalog 现读');
@@ -203,9 +203,9 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     });
     return ownCards.length === 0;
   })(), '目录卡片只许有一份实现（components/tools/ToolCatalog）；目录页或工作页里再留一份字段表/按钮 = 两份迟早各说各话');
-  const statusLabels = ['可用', '部分可用', '未开放'];
+  const statusLabels = ['可用', '未开放'];
   ok('dir/status-vocabulary', statusLabels.every(s => statusSrc.includes(s)) && page.includes('「可用」') && page.includes('「未开放」'),
-    `状态只允许 ${statusLabels.join('/')} 三档（定义在 status.ts），且目录页给出每一档是什么意思（读者能据此判断标签含义）`);
+    `状态只允许 ${statusLabels.join('/')} 两档（定义在 status.ts），且目录页给出每一档是什么意思（读者能据此判断标签含义）`);
 
   // ⑤ 的牙齿：状态表全站只有一份，且没有任何 var() 指向一支并不存在的令牌。
   // 缺陷③的形状就是 `var(--color-border-strong, rgba(0,0,0,.22))` —— 全站从来没定义过那支令牌，
@@ -325,17 +325,17 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     `--color-danger 两主题都要声明（浅底一支、墨底另一支）：基础块 ${baseDefined.has('--color-danger') ? '有' : '无'} / 西方块 ${westernDefined.has('--color-danger') ? '有' : '无'}`);
   ok('dir/fp-stage-open-token', baseDefined.has('--color-fp-stage-open'),
     '--color-fp-stage-open（户型舞台上"还没确认"那一格）必须有定义 —— 批A 量到它被等轴测图引用却没声明，那一格一直没有颜色');
-  ok('dir/status-tokens-defined', ['--color-status-open', '--color-status-partial', '--color-status-closed']
+  ok('dir/status-tokens-defined', ['--color-status-open', '--color-status-closed']
     .every(t => css.includes(t + ':')) && /\[data-mode="western"\][\s\S]*?--color-status-open/.test(css),
-    '三个状态点各有令牌，且西方作用域真的重指向过（只定义浅底那一份 = 深底上那一档从没被量过）');
-  // 三数相加必须等于总数：门廊那行、目录页那行都靠它说话，缺一个状态词就是少报一类。
+    '两种状态点各有令牌，且西方作用域真的重指向过（只定义浅底那一份 = 深底上那一档从没被量过）');
+  // 两档相加必须等于总数：门廊那行、目录页那行都靠它说话，缺一个状态词就是少报一类。
   const oriental = statusCounts(INTENTS);
   const western = statusCounts(WESTERN_INTENTS);
-  ok('dir/status-counts-add-up', [oriental, western].every(c => c.open + c.partial + c.closed === c.total)
-    && oriental.live === oriental.open + oriental.partial,
-    `三档相加必须等于总项数，且"有入口的"= 可用 + 部分可用：东方 ${oriental.open}+${oriental.partial}+${oriental.closed}=${oriental.total}（live ${oriental.live}）/ 西方 ${western.open}+${western.partial}+${western.closed}=${western.total}（live ${western.live}）`);
+  ok('dir/status-counts-add-up', [oriental, western].every(c => c.open + c.closed === c.total)
+    && oriental.live === oriental.open && western.live === western.open,
+    `两档相加必须等于总项数，且开放入口数 = 可用数：东方 ${oriental.open}+${oriental.closed}=${oriental.total}（live ${oriental.live}）/ 西方 ${western.open}+${western.closed}=${western.total}（live ${western.live}）`);
   say(`MEASURED 门廊栏底那两行实际会印：「${statusTally(oriental)}」与「${statusTally(western)}」—— `
-    + `这是 lib/tools/status.ts 现算的，harness 从屏上读回来对同一份（旧写法「已开放 9 / 10」把部分可用混进分子）`);
+    + `这是 lib/tools/status.ts 现算的，harness 从屏上读回来对同一份`);
 }
 
 // ── 7. 首屏四类意图与游客 id 单源（裁定 ① 的数据侧；视觉侧由 harness 的 first-screen 探针测）──
@@ -444,8 +444,8 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     + `${(code.match(/(已开放|可用|未开放|共)\s*[0-9]+/g) || []).join('、') || '无'}`);
 
   const wTools = WESTERN_INTENTS.flatMap(g => g.tools);
-  ok('west/status-vocabulary', wTools.every(t => ['可用', '部分可用', '未开放'].includes(t.status)),
-    `西方目录与东方共用同一套状态词，不另立枚举：越界 ${wTools.filter(t => !['可用', '部分可用', '未开放'].includes(t.status)).map(t => `${t.slug}:${t.status}`).join('、') || '无'}`);
+  ok('west/status-vocabulary', wTools.every(t => ['可用', '未开放'].includes(t.status)),
+    `西方目录与东方共用同一套两档状态，不另立枚举：越界 ${wTools.filter(t => !['可用', '未开放'].includes(t.status)).map(t => `${t.slug}:${t.status}`).join('、') || '无'}`);
   ok('west/closed-has-no-entry', wTools.every(t => t.status === '未开放' ? !t.href : !!t.href),
     '未开放的西方条目一律不许带 href（带了就等于给了一条走不通的门）');
   ok('west/closed-explains-why', wTools.filter(t => t.status === '未开放').every(t => (t.note || '').length >= 8

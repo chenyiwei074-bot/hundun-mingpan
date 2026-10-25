@@ -1,7 +1,8 @@
-// 本命宫头的前端计算层：整宫、等宫、三分宫、Placidus 与 Koch。
+// 本命宫头的前端计算层：整宫、等宫、三分宫、Placidus、Koch、Regiomontanus 与 Campanus。
 // 不调用网络、不依赖后端，也不改变行星位置或东方排盘算法。
 // 球面计算以本项目现有上升点/天顶和 astronomy-engine 的时刻、黄赤交角为输入；
-// 20 组逐宫对拍见 tools/astro-acceptance/fixtures/house-systems-v1.json。
+// 等宫、三分、Placidus 与 Koch 的 20 组逐宫对拍见
+// tools/astro-acceptance/fixtures/house-systems-v1.json；新增两制尚待独立对拍夹具。
 
 import { MakeTime, SiderealTime, e_tilt } from 'astronomy-engine';
 import type { AnglesResult } from './angles';
@@ -12,7 +13,8 @@ export const HOUSE_BASIS = 'astro-houses-v1' as const;
 export const HOUSE_CROSS_CHECK = {
   toleranceDeg: 0.05,
   cases: 20,
-  systems: 4,
+  fixtureSystems: 4,
+  implementedNonWholeSystems: 6,
   references: ['Swiss Ephemeris', 'Celestine'] as const,
 } as const;
 
@@ -22,6 +24,8 @@ export const HOUSE_SYSTEMS = [
   { id: 'porphyry', label: '三分宫制 · Porphyry' },
   { id: 'placidus', label: '普拉西德制 · Placidus' },
   { id: 'koch', label: '科赫制 · Koch' },
+  { id: 'regiomontanus', label: '雷吉奥蒙塔努斯制 · Regiomontanus' },
+  { id: 'campanus', label: '坎帕纳斯制 · Campanus' },
 ] as const;
 
 export type HouseSystem = (typeof HOUSE_SYSTEMS)[number]['id'];
@@ -168,6 +172,32 @@ function kochCusps(asc: number, mc: number, armc: number, latitude: number, obli
     normAngle(asc + 180), normAngle(cusp2 + 180), normAngle(cusp3 + 180), mc, cusp11, cusp12];
 }
 
+function regiomontanusCusps(asc: number, mc: number, armc: number, latitude: number, sinE: number, cosE: number): number[] {
+  const pole30 = atand(tand(latitude) * 0.5);
+  const pole60 = atand(tand(latitude) * cosd(30));
+  const cusp11 = eclipticCrossing(armc + 30, pole30, sinE, cosE);
+  const cusp12 = eclipticCrossing(armc + 60, pole60, sinE, cosE);
+  const cusp2 = eclipticCrossing(armc + 120, pole60, sinE, cosE);
+  const cusp3 = eclipticCrossing(armc + 150, pole30, sinE, cosE);
+  return [asc, cusp2, cusp3, normAngle(mc + 180), normAngle(cusp11 + 180), normAngle(cusp12 + 180),
+    normAngle(asc + 180), normAngle(cusp2 + 180), normAngle(cusp3 + 180), mc, cusp11, cusp12];
+}
+
+function campanusCusps(asc: number, mc: number, armc: number, latitude: number, sinE: number, cosE: number): number[] {
+  const pole30 = asind(sind(latitude) / 2);
+  const pole60 = asind((Math.sqrt(3) / 2) * sind(latitude));
+  const cosineLatitude = cosd(latitude);
+  if (Math.abs(cosineLatitude) < EPS) throw new Error('坎帕纳斯制在当前纬度无法稳定计算。');
+  const equatorOffset60 = atand(Math.sqrt(3) / cosineLatitude);
+  const equatorOffset30 = atand(1 / (Math.sqrt(3) * cosineLatitude));
+  const cusp11 = eclipticCrossing(armc + 90 - equatorOffset60, pole30, sinE, cosE);
+  const cusp12 = eclipticCrossing(armc + 90 - equatorOffset30, pole60, sinE, cosE);
+  const cusp2 = eclipticCrossing(armc + 90 + equatorOffset30, pole60, sinE, cosE);
+  const cusp3 = eclipticCrossing(armc + 90 + equatorOffset60, pole30, sinE, cosE);
+  return [asc, cusp2, cusp3, normAngle(mc + 180), normAngle(cusp11 + 180), normAngle(cusp12 + 180),
+    normAngle(asc + 180), normAngle(cusp2 + 180), normAngle(cusp3 + 180), mc, cusp11, cusp12];
+}
+
 export function computeHouseCusps(angles: AnglesResult, system: HouseSystem): HouseCalculation | HouseFailure {
   if (system === 'whole-sign') return {
     ok: true, basis: HOUSE_BASIS, system,
@@ -184,14 +214,21 @@ export function computeHouseCusps(angles: AnglesResult, system: HouseSystem): Ho
     const obliquity = e_tilt(instant).tobl;
     const armc = normAngle((SiderealTime(instant) + angles.longitude / 15) * 15);
     if (Math.abs(angles.latitude) >= 90 - obliquity) {
+      const systemName = HOUSE_SYSTEMS.find(item => item.id === system)?.label ?? system;
       return {
         ok: false, reason: '极区不适用',
-        detail: `${system === 'placidus' ? 'Placidus' : 'Koch'} 在纬度 ${angles.latitude.toFixed(2)}° 附近无法稳定划分宫头；请改用整宫、等宫或三分宫制。`,
+        detail: `${systemName} 在纬度 ${angles.latitude.toFixed(2)}° 附近无法按本站定义稳定划分宫头；请改用整宫、等宫或三分宫制。`,
       };
     }
+    const sinE = sind(obliquity);
+    const cosE = cosd(obliquity);
     const cusps = system === 'placidus'
       ? placidusCusps(angles.ascendant.lon, angles.midheaven.lon, armc, angles.latitude, obliquity)
-      : kochCusps(angles.ascendant.lon, angles.midheaven.lon, armc, angles.latitude, obliquity);
+      : system === 'koch'
+        ? kochCusps(angles.ascendant.lon, angles.midheaven.lon, armc, angles.latitude, obliquity)
+        : system === 'regiomontanus'
+          ? regiomontanusCusps(angles.ascendant.lon, angles.midheaven.lon, armc, angles.latitude, sinE, cosE)
+          : campanusCusps(angles.ascendant.lon, angles.midheaven.lon, armc, angles.latitude, sinE, cosE);
     if (!cusps || cusps.length !== 12 || cusps.some(value => !Number.isFinite(value))) {
       return { ok: false, reason: '宫制计算失败', detail: '当前时刻无法稳定求出全部十二宫宫头，请切换其他宫制后重试。' };
     }

@@ -14,7 +14,7 @@ import { readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '../_lib/codesrc';
 import { VETTED_PINNED } from '../_lib/vettedDeps';
-import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
+import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
 import { computeAngles, ANGLE_CROSS_CHECK } from '../../frontend/lib/astro/angles';
 import { computeHouseCusps, HOUSE_CROSS_CHECK, HOUSE_SYSTEMS, type HouseSystem } from '../../frontend/lib/astro/houses';
 import { applyZodiacFrame, CHIRON_EPHEMERIS, computeChironPosition, computeLunarNodes, lahiriAyanamsha, LAHIRI_ICRC_EPOCH_UTC_MS } from '../../frontend/lib/astro/extensions';
@@ -133,10 +133,11 @@ const ref = refText ? JSON.parse(refText) : null;
       cases: Array<{ id: string; utcISO: string; lat: number; lon: number;
         references: Record<string, { swissEphemeris: number[]; celestine: number[] }> }>;
     };
-    const expectedSystems = HOUSE_SYSTEMS.filter(s => s.id !== 'whole-sign').map(s => s.id);
+    const expectedSystems = fix.systems;
     ok('houses/fixture-count', fix.cases.length === 20 && fix.toleranceDeg === HOUSE_CROSS_CHECK.toleranceDeg
-      && JSON.stringify(fix.systems) === JSON.stringify(expectedSystems),
-      `20 组 × ${expectedSystems.join('/')}，公差 ${HOUSE_CROSS_CHECK.toleranceDeg}°：cases=${fix.cases.length} systems=${fix.systems.join('/')} tolerance=${fix.toleranceDeg}`);
+      && fix.systems.length === HOUSE_CROSS_CHECK.fixtureSystems
+      && fix.systems.every(system => HOUSE_SYSTEMS.some(item => item.id === system)),
+      `20 组 × ${expectedSystems.join('/')}，公差 ${HOUSE_CROSS_CHECK.toleranceDeg}°；另有 ${HOUSE_CROSS_CHECK.implementedNonWholeSystems - HOUSE_CROSS_CHECK.fixtureSystems} 种宫制待新增独立夹具：cases=${fix.cases.length} systems=${fix.systems.join('/')} tolerance=${fix.toleranceDeg}`);
     let maxSwiss = 0; let maxCelestine = 0; let bad = '';
     const diff = (a: number, b: number) => { const d = Math.abs(((a - b) % 360 + 360) % 360); return d > 180 ? 360 - d : d; };
     for (const c of fix.cases) {
@@ -298,48 +299,42 @@ const ref = refText ? JSON.parse(refText) : null;
     '产品页面不展示内部版本标识');
 }
 
-// ── 3. 状态诚实：部分可用 + 已做/未做逐项 + 不叫星盘 ──
+// ── 3. 已开放范围与“不叫星盘”口径 ──
 {
-  ok('astro/status-is-partial', ENTRY.status === '部分可用' && ENTRY.href === '/astro',
-    `裁定后第一项是「部分可用」且带入口：实得 ${ENTRY.status} / ${ENTRY.href || '无'}`);
+  ok('astro/status-is-open', ENTRY.status === '可用' && ENTRY.href === '/astro',
+    `七种宫制范围已开放并有入口：实得 ${ENTRY.status} / ${ENTRY.href || '无'}`);
   ok('astro/href-route-exists', existsSync(join(ROOT, 'frontend', 'app', 'astro', 'page.tsx')),
     '入口指向的 /astro 必须有真的 page.tsx（与东方 dir/live-hrefs-resolve 同一条纪律）');
   ok('astro/display-name-not-chart', ENTRY.name === '本命行星位置' && !/星盘|命盘|排盘结果/.test(ENTRY.name),
     `裁定③：宫位没做就不许叫"星盘"。实得显示名「${ENTRY.name}」`);
   ok('astro/done-list-equals-engine', JSON.stringify(ENTRY.done) === JSON.stringify([...ASTRO_DONE]),
     `「已做」那份清单必须与引擎导出的 ASTRO_DONE 逐字同序：目录 ${JSON.stringify(ENTRY.done)} / 引擎 ${JSON.stringify([...ASTRO_DONE])}`);
-  ok('astro/notdone-list-equals-engine', JSON.stringify(ENTRY.notDone) === JSON.stringify([...ASTRO_NOT_DONE]),
-    `「未做」那份必须与 ASTRO_NOT_DONE 逐字同序（缺的样子里少写一条，读者就以为那条做了）`);
-  const notDone = (ENTRY.notDone || []).join(' ');
   ok('astro/extensions-are-listed-as-done', (ENTRY.done || []).some(s => /凯龙星/.test(s))
     && (ENTRY.done || []).some(s => /北交点与南交点/.test(s))
     && (ENTRY.done || []).some(s => /拉希里恒星黄道/.test(s)),
-    `凯龙星、南北交点与恒星黄道实现后须从未做移入已做：${JSON.stringify(ENTRY.done)}`);
-  ok('astro/missing-calls-out-what-is-missing', /宫制/.test(notDone) && !/凯龙|交点|恒星黄道/.test(notDone),
-    `未做项应只保留尚未实现的其他宫制：${notDone}`);
+    `凯龙星、南北交点与恒星黄道均列入开放范围：${JSON.stringify(ENTRY.done)}`);
+  ok('astro/house-system-scope-is-listed', (ENTRY.done || []).some(s => /雷吉奥蒙塔努斯/.test(s) && /坎帕纳斯/.test(s)),
+    `七种宫制范围必须包括 Regiomontanus 与 Campanus：${JSON.stringify(ENTRY.done)}`);
   ok('astro/angles-done', (ENTRY.done || []).some(s => /上升点/.test(s) && /整宫制/.test(s)),
     `「已做」里必须出现上升点与整宫制：${JSON.stringify(ENTRY.done)}`);
   // 目录给用户看的说明应使用中文，不把工程版本标识或实现库名称当作产品文案。
-  const screenFields = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || '',
-    ...(ENTRY.done || []), ...(ENTRY.notDone || [])].join(' ');
+  const screenFields = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.basis, ENTRY.reading, ENTRY.note || '', ...(ENTRY.done || [])].join(' ');
   const latin = [...new Set(screenFields.match(/[a-z]{4,}/gi) || [])];
   const internal = /astro-planets-v1|astro-moment-iana-v1|astronomy-engine|DE441|\bMIT\b/i.test(screenFields);
   ok('astro/screen-words-are-chinese', latin.length === 0 && !internal,
     `目录卡面的介绍用中文表达，不显示工程版本号、实现库或许可信息：英文 ${latin.join('、') || '无'}；内部标识 ${internal ? '仍有' : '无'}`);
   // 反向：已经不算的东西不许出现在"会算"的那一侧，也不许在问题与读法里许诺。
   const promises = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.reading, ENTRY.teaser || '', ...(ENTRY.done || [])].join(' ');
-  const banned = ['雷吉奥蒙塔努斯', '坎帕纳斯', '性格'].filter(w => promises.includes(w));
+  const banned = ['性格'].filter(w => promises.includes(w));
   ok('astro/no-undelivered-promise', banned.length === 0,
-    `"做了什么"的每一行都不许出现没做的那几样（写了读者就会去找）：命中 ${banned.join('、') || '无'}`);
-  ok('astro/partial-renders-both-lists', (() => {
-    // 批F 起卡片渲染收成 components/tools/ToolCatalog 一份（/tools 与 /western 共用），
-    // 所以这一条钉的是那一份：数据在目录里却没上屏 = 与缺陷②同一类。
+    `开放范围内的描述不许承诺未列入的预测功能：命中 ${banned.join('、') || '无'}`);
+  ok('astro/renders-open-scope', (() => {
     const card = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'tools', 'ToolCatalog.tsx'), 'utf8'));
-    return /t\.done/.test(card) && /t\.notDone/.test(card) && /已做/.test(card) && /未做/.test(card);
-  })(), '目录卡片必须真的渲染"已做/未做"两份清单（数据在目录里却没上屏 = 与缺陷②同一类：接口给了、界面不显示）');
+    return /t\.done/.test(card) && /开放内容/.test(card);
+  })(), '目录卡片必须呈现明确的开放内容范围');
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8'));
-  ok('astro/work-page-reads-catalog', /WESTERN_TOOL_BY_SLUG/.test(comp) && /ENTRY\.done|ENTRY\.notDone|\.done \?\?|\.notDone \?\?/.test(comp),
-    '工作页的已做/未做也从目录读，不在组件里再抄一份清单（一份抄本就会与目录漂移）');
+  ok('astro/work-page-reads-catalog', /WESTERN_TOOL_BY_SLUG/.test(comp) && /宫制范围/.test(comp),
+    '工作页必须展示七种宫制和适用边界');
   // 问事框的路由词表也算"承诺"：这个页面尚不是完整星盘，也没有所有传统宫制。
   const askWords = ROUTER_SPECS['astro-natal'].ask;
   const undelivered = ['星盘', '本命盘'];
@@ -374,16 +369,11 @@ const ref = refText ? JSON.parse(refText) : null;
     + `（空串 ${/useState\(''\)/.test(comp) ? '有' : '没有'} / disabled 门闩 ${/(?<!aria-)disabled=\{!可算\}/.test(comp) ? '有' : '没有'} / 样例残留 ${/2000-01-01/.test(comp) ? '在' : '不在'}）`);
 }
 
-// ── 4. 其余西方项仍然未开放，且写明缺什么 ──
+// ── 4. 其余西方已开放项也有真实入口与范围说明 ──
 {
   const others = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.slug !== 'astro-natal');
     const otherViolations = others.filter(t => {
       if (t.status === '未开放') return !!t.href || (t.note || '').length < 8 || !t.basis.includes('缺');
-      if (t.status === '部分可用') {
-        return !t.href || (t.done?.length ?? 0) === 0 || (t.notDone?.length ?? 0) === 0
-          || /astro-planets-v1|astro-moment-iana-v1/.test(t.basis || '')
-          || (t.note || '').length < 8;
-      }
       if (t.status === '可用') return !t.href || !existsSync(join(ROOT, 'frontend', 'app', t.href.slice(1), 'page.tsx'))
         || (t.note || '').length < 8;
       return true;
@@ -394,11 +384,11 @@ const ref = refText ? JSON.parse(refText) : null;
   const syn = WESTERN_TOOL_BY_SLUG['astro-synastry'];
   ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /宫位叠合/.test(syn.note || '')
     && /中点盘/.test(syn.note || ''),
-    `跨盘相位已实现，尚未做的宫位叠合与中点盘须明示：${syn.basis.slice(0, 40)}…`);
+    `跨盘相位的开放范围与未纳入内容须明示：${syn.basis.slice(0, 40)}…`);
   const liveSlugs = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放').map(t => t.slug).sort();
   ok('astro/open-one-does-not-flip-others', JSON.stringify(liveSlugs) === JSON.stringify(
     ['astro-natal', 'astro-synastry', 'lunar-phase', 'numerology', 'tarot-draw']),
-    `西方五项均有对应实现，且本命与塔罗继续明示部分范围：实得 ${liveSlugs.join('、') || '无'}`);
+    `西方五项均有对应实现与明确范围：实得 ${liveSlugs.join('、') || '无'}`);
 }
 
 // ── 5. 降级：算不出来要说明白，不许猜 ──

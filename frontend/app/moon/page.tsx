@@ -96,7 +96,11 @@ export default function MoonPage() {
         <p className="qn-note">这里显示天文月相，不以黄历宜忌替代，也不推断个人吉凶。</p>
       </section>
       <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-            {cycle && <ToolInterpretation tool="moon" title="月相周期 · 混沌自研 AI 解读" payload={cycle} />}
+            {cycle && <ToolInterpretation tool="moon" title="月相周期 · 混沌自研 AI 解读" payload={{
+              utcMs: cycle.utcMs, phaseName: cycle.phaseName, phaseAngle: cycle.phaseAngle,
+              illumination: cycle.illumination, nextNewMoonUtcMs: cycle.nextNewMoonUtcMs,
+              nextFullMoonUtcMs: cycle.nextFullMoonUtcMs,
+            }} />}
       </main>
   );
 }

@@ -323,7 +323,37 @@ export default function LiuyaoResultPage() {
       </div>
       <p className="qn-cap" style={{ textAlign: 'center', marginTop: 16 }}>仅供参考 · 不构成决策建议</p>
     
-      {result && <ToolInterpretation tool="liuyao" title="六爻纳甲 · 混沌自研 AI 解读" payload={{ result, analysisData }} />}
+      {result && <ToolInterpretation tool="liuyao" title="六爻纳甲 · 混沌自研 AI 解读" question={result.question} payload={{
+        method: result.method,
+        questionType: result.questionType,
+        ganZhi: result.ganZhi,
+        dayGZ: { gan: result.dayGZ.gan, zhi: result.dayGZ.zhi },
+        monthZhi: result.monthZhi,
+        xunKong: result.xunKong,
+        benGua: result.benGua,
+        bianGua: result.bianGua,
+        yaoRecords: result.yaoRecords.map(({ position, value, label, isDong }) => ({ position, value, label, isDong })),
+        naJia: result.naJia,
+        bianNaJia: result.bianNaJia,
+        dongYao: result.dongYao,
+        shiYing: result.shiYing,
+        liuShen: result.liuShen,
+        analysis: analysisData ? {
+          benGua: analysisData.benGua,
+          bianGua: analysisData.bianGua,
+          shiYing: analysisData.shiYing,
+          yongShen: analysisData.yongShen,
+          dongYao: analysisData.dongYao,
+          yaoStatus: analysisData.yaoStatus,
+          monthZhi: analysisData.monthZhi,
+          dayGZ: analysisData.dayGZ,
+          xunKong: analysisData.xunKong,
+          wangShuaiDetail: analysisData.wangShuaiDetail,
+          monthDayRelations: analysisData.monthDayRelations,
+          fuShen: analysisData.fuShen,
+          hexagramRelations: analysisData.hexagramRelations,
+        } : null,
+      }} />}
 </main>
   );
 }

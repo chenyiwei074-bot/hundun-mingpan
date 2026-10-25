@@ -337,7 +337,13 @@ export default function HuangliPage() {
           </section>
         </>
       )}
-            {result && <ToolInterpretation tool="huangli" title="黄历宜忌 · 混沌自研 AI 解读" payload={result} />}
+            {result && <ToolInterpretation tool="huangli" title="黄历宜忌 · 混沌自研 AI 解读" payload={{
+              civil: result.civil, lunarDate: result.lunarText, ganZhi: result.ganZhi,
+              yi: result.yi, ji: result.ji, jiShen: result.jiShen, xiongSha: result.xiongSha,
+              chong: result.chong, sha: result.sha, zhiXing: result.zhiXing,
+              tianShen: { name: result.tianShen.name, dao: result.tianShen.dao, luck: result.tianShen.luck },
+              xiu: { fullName: result.xiu.fullName, yao: result.xiu.yao, wuxing: result.xiu.wuxing, luck: result.xiu.luck },
+            }} />}
       </main>
   );
 }

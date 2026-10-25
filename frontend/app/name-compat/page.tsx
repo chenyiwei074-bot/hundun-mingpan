@@ -99,6 +99,14 @@ export default function NameCompatPage() {
       <p className="qn-note">字形与笔画的来源由填写者确认。这里展示五格的数与五行关系，不套用未经核验的 81 数理吉凶表。</p>
     </section>
     <p className="qn-linkrow"><Link className="qn-link" href="/hepan">返回关系工具</Link><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-          {result && <ToolInterpretation tool="name-compat" title="姓名五格 · 混沌自研 AI 解读" payload={result} />}
+          {result && <ToolInterpretation tool="name-compat" title="姓名五格 · 混沌自研 AI 解读" payload={{
+            grids: GRID_NAMES.map(name => ({
+              name,
+              first: { value: result.first.values[name].value, element: result.first.values[name].element },
+              second: { value: result.second.values[name].value, element: result.second.values[name].element },
+              relation: elementRelation(result.first.values[name].element, result.second.values[name].element),
+            })),
+            scope: '仅解释五格数与五行关系，不推断双方是否适合。',
+          }} />}
       </main>;
 }

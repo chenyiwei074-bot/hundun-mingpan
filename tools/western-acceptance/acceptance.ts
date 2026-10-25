@@ -1,8 +1,8 @@
 // 西方目录验收（批 D）。
 //
 // 这一批没有引擎、没有算法，所以这里钉的全是"不许先许诺"：
-// 状态词表与东方共用、未开放一律无入口且写清缺什么、今天一项都不开放（开第一项时这条
-// 必须连同样例验收一起改）、页面全中文、以及不往依赖里塞任何来历不明的西方引擎
+// 状态词表与东方共用、未开放一律无入口且写清缺什么、开放项必须有完整使用范围与真实入口，
+// 页面全中文，以及不往依赖里塞任何来历不明的西方引擎
 // （AGPL 与 1★ 仓库那两条红线，写在计划里也写在这里）。
 //
 // 用法（与其余验收同一条命令形状）：
@@ -54,30 +54,29 @@ const ok = (id: string, cond: boolean, detail: string) => {
 
 // ── 2. 状态诚实 ──
 {
-  const bad = WESTERN_TOOLS.filter(t => !['可用', '部分可用', '未开放'].includes(t.status));
+  const bad = WESTERN_TOOLS.filter(t => !['可用', '未开放'].includes(t.status));
   ok('west/status-vocabulary', bad.length === 0,
-    `状态词表与东方共用同一三个值，不另立：越界 ${bad.map(t => `${t.slug}:${t.status}`).join('、') || '无'}`);
+    `状态词表与东方共用同一套两档状态，不另立：越界 ${bad.map(t => `${t.slug}:${t.status}`).join('、') || '无'}`);
   const withEntry = WESTERN_TOOLS.filter(t => t.status === '未开放' && t.href);
   ok('west/closed-no-entry', withEntry.length === 0,
     `未开放一律无 href：违规 ${withEntry.map(t => t.slug).join('、') || '无'}`);
   const thin = WESTERN_TOOLS.filter(t => t.status === '未开放' && ((t.note || '').length < 8 || !t.basis.includes('缺')));
   ok('west/closed-explains-what-is-missing', thin.length === 0,
     `未开放的每一项都要在 basis 里写"缺什么"、在 note 里给读者一句解释：不符 ${thin.map(t => t.slug).join('、') || '无'}`);
-  // 占星与塔罗各自实现了可核对的部分链路。不要强行要求两种独立体系共享一个引擎戳：
+  // 占星与塔罗各自实现了可核对的本地链路。不要强行要求两种独立体系共享一个引擎戳：
   // 占星戳由天文引擎验，塔罗抽取由其自身的种子复算测试验。
   const open = WESTERN_TOOLS.filter(t => t.status !== '未开放');
-  ok('west/open-items-have-scoped-evidence', open.length === 5 && open.every(t => !!t.href
-    && (t.status !== '部分可用' || ((t.done?.length ?? 0) > 0 && (t.notDone?.length ?? 0) > 0))),
-    `五个开放条目都有入口；标「部分可用」的逐项写明已做/未做：${open.map(t => t.slug).join('、') || '无开放项'}`);
+  ok('west/open-items-have-scoped-evidence', open.length === 5 && open.every(t => !!t.href && (t.done?.length ?? 0) > 0),
+    `五个开放条目都有入口和明确的开放范围：${open.map(t => t.slug).join('、') || '无开放项'}`);
   const astroLive = open.find(t => t.slug === 'astro-natal');
   const tarotLive = open.find(t => t.slug === 'tarot-draw');
   ok('west/astro-open-item-states-public-basis', !!astroLive && /地心观察/.test(astroLive.basis)
     && /回归黄道/.test(astroLive.basis) && !/astro-planets-v1|astro-moment-iana-v1|astronomy-engine|DE441/.test(astroLive.basis),
     '本命行星项说明采用的观察体系，不显示内部版本号或实现库');
-  ok('west/tarot-open-item-stays-honest', !!tarotLive && tarotLive.href === '/tarot'
+  ok('west/tarot-open-item-has-defined-scope', !!tarotLive && tarotLive.href === '/tarot'
     && /正位与逆位/.test(tarotLive.method) && /韦特 1910/.test([tarotLive.reading, ...(tarotLive.done || [])].join(' '))
-    && /跨传统牌义比较/.test(tarotLive.notDone?.join(' ') || ''),
-    `塔罗目录指向真实抽牌页面，标明正逆位、逐牌历史译述，并如实列出尚未完成的跨传统比较：${tarotLive?.href || '无入口'}`);
+    && /马赛牌系/.test([tarotLive.reading, ...(tarotLive.done || []), tarotLive.note || ''].join(' ')),
+    `塔罗目录指向真实抽牌页面，包含正逆位、逐牌来源与马赛牌系结构对读：${tarotLive?.href || '无入口'}`);
   const openStamps = [...new Set(open.flatMap(t => (t.basis || '').match(/[a-z]+(?:-[a-z]+)+-v\d+/g) || []))];
   ok('west/open-stamp-has-engine', openStamps.every(s => s === ASTRO_BASIS || s === MOMENT_BASIS),
     `目录里凡是长得像口径戳的字串，必须是引擎真的导出的那一个（写一个不存在的版本号 = 假出处）：实得 ${openStamps.join('、') || '无'}`);

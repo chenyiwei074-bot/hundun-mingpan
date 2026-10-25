@@ -143,6 +143,13 @@ export default function SynastryPage() {
       <p className="qn-note">这里只展示跨盘行星相位，不推断谁适合谁，也不包含宫位叠合、合盘中点或未来走势。古典角度定义可在 <Link href="/astro" className="qn-link" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center' }}>本命行星位置页</Link>的依据区查看。</p>
     </section>
     <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-          {result && <ToolInterpretation tool="synastry" title="跨盘相位 · 混沌自研 AI 解读" payload={{ first: result.first, second: result.second, aspects: result.aspects }} />}
+          {result && <ToolInterpretation tool="synastry" title="跨盘相位 · 混沌自研 AI 解读" payload={{
+            first: result.first.planets.positions.map(({ 名称, 星座, lon, lat }) => ({ 名称, 星座, 黄经: lon, 黄纬: lat })),
+            second: result.second.planets.positions.map(({ 名称, 星座, lon, lat }) => ({ 名称, 星座, 黄经: lon, 黄纬: lat })),
+            aspects: result.aspects.map(a => ({
+              甲方行星: a.first.名称, 乙方行星: a.second.名称, 相位: a.name,
+              标准角度: a.exactAngle, 实际角距: a.separation, 容许差: a.orb, 容许度: a.allowedOrb,
+            })),
+          }} />}
       </main>;
 }
