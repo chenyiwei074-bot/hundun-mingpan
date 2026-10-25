@@ -16,21 +16,35 @@ export default function MoonPage() {
   const [clock, setClock] = useState('12:00');
   const [zone, setZone] = useState('Asia/Shanghai');
   const [cycle, setCycle] = useState<MoonCycle | null>(null);
+  const [resultSource, setResultSource] = useState<'selected' | 'now' | null>(null);
   const [error, setError] = useState('');
 
-  const calculate = () => {
+  const calculateSelected = (selectedZone: string) => {
     const [year, month, day] = date.split('-').map(Number);
     const [hour, minute] = clock.split(':').map(Number);
-    const moment = toUtc({ year, month, day, hour, minute, timeZone: zone });
-    if (!moment.ok) { setCycle(null); setError(`无法换算这个时刻：${moment.reason}。请核对日期、时间与时区。`); return; }
+    const moment = toUtc({ year, month, day, hour, minute, timeZone: selectedZone });
+    if (!moment.ok) {
+      setCycle(null);
+      setResultSource(null);
+      setError(`无法换算这个时刻：${moment.reason}。请核对日期、时间与时区。`);
+      return;
+    }
     const next = computeMoonCycle(moment.utcMs);
     setCycle(next);
+    setResultSource(next ? 'selected' : null);
     setError(next ? '' : '这一天暂时无法计算月相，请换一个日期重试。');
   };
+  const calculate = () => calculateSelected(zone);
   const calculateNow = () => {
     const next = computeMoonCycle(Date.now());
     setCycle(next);
+    setResultSource(next ? 'now' : null);
     setError(next ? '' : '此刻暂时无法计算月相，请稍后重试。');
+  };
+  const changeZone = (nextZone: string) => {
+    setZone(nextZone);
+    if (resultSource === 'selected' && cycle) calculateSelected(nextZone);
+    else setError('');
   };
 
   return (
@@ -44,9 +58,9 @@ export default function MoonPage() {
 
       <section className="qn-card" style={{ marginTop: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-          <label className="qn-label">日期（公历）<input className="qn-input" type="date" value={date} onChange={e => { setDate(e.target.value); setCycle(null); }} style={{ marginTop: 5, minHeight: 44 }} /></label>
-          <label className="qn-label">当地钟面时间<input className="qn-input" type="time" value={clock} onChange={e => { setClock(e.target.value); setCycle(null); }} style={{ marginTop: 5, minHeight: 44 }} /></label>
-          <label className="qn-label">查看时区<select className="qn-input" value={zone} onChange={e => setZone(e.target.value)} style={{ marginTop: 5, minHeight: 44 }}>
+          <label className="qn-label">日期（公历）<input className="qn-input" type="date" value={date} onChange={e => { setDate(e.target.value); setCycle(null); setResultSource(null); setError(''); }} style={{ marginTop: 5, minHeight: 44 }} /></label>
+          <label className="qn-label">当地钟面时间<input className="qn-input" type="time" value={clock} onChange={e => { setClock(e.target.value); setCycle(null); setResultSource(null); setError(''); }} style={{ marginTop: 5, minHeight: 44 }} /></label>
+          <label className="qn-label">查看时区<select className="qn-input" value={zone} onChange={e => changeZone(e.target.value)} style={{ marginTop: 5, minHeight: 44 }}>
             {ZONES.map(value => <option key={value} value={value}>{value}</option>)}
           </select></label>
         </div>
@@ -63,7 +77,7 @@ export default function MoonPage() {
             <text x="80" y="122" textAnchor="middle" fontSize="130">{cycle.phaseSymbol}</text>
           </svg>
           <div>
-            <p className="qn-cap" style={{ margin: 0 }}>{localTime(cycle.utcMs, zone)} · {zone}</p>
+            <p className="qn-cap" style={{ margin: 0 }}>{resultSource === 'now' ? '此刻' : '所选当地时刻'} · {localTime(cycle.utcMs, zone)} · {zone}</p>
             <h2 className="qn-title" style={{ margin: '8px 0' }}>{cycle.phaseName}</h2>
             <p className="qn-meta" style={{ margin: 0 }}>照亮比例 {(cycle.illumination * 100).toFixed(1)}% · 月相角 {cycle.phaseAngle.toFixed(2)}°</p>
           </div>
@@ -77,7 +91,7 @@ export default function MoonPage() {
 
       <section className="qn-card" style={{ marginTop: 14 }}>
         <p className="qn-cap" style={{ margin: 0 }}>规则与来源</p>
-        <p className="qn-meta">朔为地心日月黄经差 0°，望为 180°；计算使用 <a className="qn-link" href="https://github.com/cosinekitty/astronomy/blob/master/source/js/README.md" target="_blank" rel="noreferrer">Astronomy Engine 的 MoonPhase、Illumination 与 SearchMoonPhase</a>。阶段图标按 45° 分段，是本站的显示规则。</p>
+        <p className="qn-meta">朔为地心日月黄经差 0°，望为 180°；计算使用 <a className="qn-link" href="https://github.com/cosinekitty/astronomy/blob/master/source/js/README.md" target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Astronomy Engine 的 MoonPhase、Illumination 与 SearchMoonPhase</a>。阶段图标按 45° 分段，是本站的显示规则。</p>
         <p className="qn-note">这里显示天文月相，不以黄历宜忌替代，也不推断个人吉凶。</p>
       </section>
       <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
