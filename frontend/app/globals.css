@@ -1832,10 +1832,10 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 .tarot-dashboard__toggle { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; min-height: 60px; padding: 4px 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .tarot-dashboard__mark { display: grid; flex: 0 0 40px; width: 40px; height: 40px; place-items: center; border: 1px solid color-mix(in srgb, var(--color-accent-gold-text) 55%, var(--color-hairline)); border-radius: 50%; color: var(--color-accent-gold-text); font: 600 var(--qn-fs-body)/1 "Noto Serif SC", "Source Han Serif SC", serif; }
 .tarot-dashboard__item-copy { display: grid; gap: 4px; min-width: 0; }
-.tarot-dashboard__item-copy strong { overflow-wrap: anywhere; color: var(--color-text-primary); font-weight: 600; }
+.tarot-dashboard__item-copy strong { overflow-wrap: anywhere; color: var(--color-text-primary); font-size: var(--qn-fs-meta); font-weight: 600; }
 .tarot-dashboard__item-copy span { color: var(--color-text-secondary); font-size: var(--qn-fs-eyebrow); }
 .tarot-dashboard__chevron { flex: 0 0 auto; margin-left: auto; color: var(--color-accent-gold-text); font-size: var(--qn-fs-meta); }
-.tarot-dashboard__delete { flex: 0 0 auto; min-width: 64px; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-western-line); border-radius: 999px; background: transparent; color: var(--color-western-muted); font: inherit; cursor: pointer; }
+.tarot-dashboard__delete { flex: 0 0 auto; min-width: 64px; min-height: 44px; padding: 0 12px; border: 1px solid var(--color-western-line); border-radius: 999px; background: transparent; color: var(--color-text-secondary); font-size: var(--qn-fs-meta); font-weight: 500; cursor: pointer; }
 .tarot-dashboard__delete:hover:not(:disabled) { border-color: var(--color-danger); color: var(--color-danger); }
 .tarot-dashboard__delete:disabled { opacity: .65; cursor: progress; }
 .tarot-dashboard__detail { padding: 14px 18px 18px; border-top: 1px solid var(--color-hairline); background: color-mix(in srgb, var(--color-bg-primary) 58%, transparent); }
