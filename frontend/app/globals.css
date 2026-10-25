@@ -1736,7 +1736,7 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 .tarot-insight h3 span { color: var(--color-western-muted); font: 400 var(--qn-fs-eyebrow)/1.4 Georgia, serif; letter-spacing: .04em; }
 .tarot-insight p:not(.tarot-insight__eyebrow) { margin: 8px 0 4px; color: var(--color-western-text); font-size: var(--qn-fs-body); line-height: 1.6; }
 .tarot-insight small { color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.5; }
-.tarot-insight__close { flex: 0 0 auto; min-width: 54px; min-height: 44px; border: 1px solid var(--color-western-line); border-radius: 999px; background: transparent; color: var(--color-western-gold); cursor: pointer; font: inherit; }
+.tarot-insight__close { flex: 0 0 auto; min-width: 54px; min-height: 44px; border: 1px solid var(--color-western-line); border-radius: 999px; background: transparent; color: var(--color-western-gold); cursor: pointer; font-size: var(--qn-fs-meta); font-weight: 500; }
 .tarot-insight__close:hover { background: color-mix(in srgb, var(--color-western-gold) 12%, transparent); }
 .tarot-tradition { margin-top: 12px; padding: 0 12px; border: 1px solid var(--color-western-line); border-radius: 12px; background: color-mix(in srgb, var(--color-western-surface) 84%, transparent); }
 .tarot-tradition > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--color-western-gold); font-size: var(--qn-fs-body); font-weight: 600; }
@@ -1994,3 +1994,5 @@ details[open] > :not(summary) { animation: qn-disclosure-in 300ms cubic-bezier(.
     scale: none !important;
   }
 }
+
+.astro-source-links .qn-link { display: inline-flex; align-items: center; min-height: 44px; }

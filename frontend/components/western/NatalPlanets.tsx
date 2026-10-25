@@ -181,7 +181,7 @@ export default function NatalPlanets() {
             黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°。超出此范围的结果尚未达到同等核验标准，本站不打包票。
           </p>
         <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
-        <p className="qn-note" style={{ margin: '8px 0 0' }}>
+        <p className="qn-note astro-source-links" style={{ margin: '8px 0 0' }}>
           计算口径资料：{' '}
           <a className="qn-link" href="https://ssd-api.jpl.nasa.gov/doc/horizons.html" target="_blank" rel="noreferrer">NASA/JPL Horizons 星历说明</a>
           {' · '}<a className="qn-link" href="https://ssd.jpl.nasa.gov/planets/eph_export.html" target="_blank" rel="noreferrer">JPL 行星星历与 DE441</a>
