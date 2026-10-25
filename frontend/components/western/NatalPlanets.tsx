@@ -268,6 +268,21 @@ export default function NatalPlanets() {
         </div>
       )}
 
+      <section className="qn-card" style={{ marginTop: 14 }}>
+        <p className="qn-cap" style={{ margin: 0 }}>宫制范围</p>
+        <label className="qn-label" htmlFor="astro-house-system" style={{ marginTop: 6 }}>
+          选择宫制
+          <select id="astro-house-system" className="qn-input" value={houseSystem}
+            data-astro-house-selector="1" style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
+            onChange={e => setHouseSystem(e.target.value as HouseSystem)}>
+            {HOUSE_SYSTEMS.map(system => <option key={system.id} value={system.id}>{system.label}</option>)}
+          </select>
+        </label>
+        <p className="qn-meta" style={{ margin: '6px 0 0' }}>
+          整宫、等宫、三分、普拉西德、科赫、雷吉奥蒙塔努斯与坎帕纳斯；极区不适用时会明确提示，不静默换制。
+        </p>
+      </section>
+
       {got && (
         <>
           <section className="qn-card" style={{ marginTop: 14 }}>
@@ -353,15 +368,6 @@ export default function NatalPlanets() {
             data-astro-house-system={houseResult?.ok ? houseSystem : 'unavailable'}>
             <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', alignItems: 'end' }}>
               <p className="qn-cap" style={{ margin: 0 }}>上升点与宫制</p>
-              <label className="qn-label" htmlFor="astro-house-system" style={{ margin: 0 }}>
-                选择宫制
-                <select id="astro-house-system" className="qn-input" value={houseSystem}
-                  disabled={!got?.angles?.ok}
-                  data-astro-house-selector="1" style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
-                  onChange={e => setHouseSystem(e.target.value as HouseSystem)}>
-                  {HOUSE_SYSTEMS.map(system => <option key={system.id} value={system.id}>{system.label}</option>)}
-                </select>
-              </label>
             </div>
             {got.angles?.ok ? (
               <>
