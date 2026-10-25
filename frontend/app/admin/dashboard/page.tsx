@@ -32,6 +32,7 @@ const COLORS: Record<string, string> = {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const eventOrder = ['page_view', 'create_click', 'chart_complete', 'wechat_click'];
 
   useEffect(() => {
     // 2026-10-16 安全修复：/api/admin/stats 需要口令，从网址 ?token= 取并放进请求头
@@ -46,10 +47,64 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <main className="qn-shell qn-shell--wide">
-        <section className="qn-card" style={{ minHeight: 360, display: 'grid', placeItems: 'center' }} aria-label="正在加载运营数据">
-          <div aria-hidden="true" style={{ width: 44, height: 44, borderRadius: '50%', border: '2px solid rgba(178,149,93,0.2)', borderTopColor: 'var(--color-accent-gold)', animation: 'qn-spin 0.9s linear infinite' }} />
+      <main className="qn-shell qn-shell--wide" aria-busy="true">
+        <header className="qn-rise" style={{ textAlign: 'center', marginBottom: 24 }}>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>混沌 · 数据概览</p>
+          <h1 className="qn-hero" style={{ margin: '10px 0 6px' }}>运营面板</h1>
+          <p className="qn-meta">
+            {new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric' })}
+          </p>
+        </header>
+
+        <section aria-label="正在加载今日数据" className="grid grid-cols-2 md:grid-cols-4 gap-3 qn-rise qn-rise--2">
+          {eventOrder.map(k => (
+            <article key={k} className="qn-card" style={{ padding: 18, textAlign: 'center' }}>
+              <div aria-hidden="true" style={{ fontSize: 22, marginBottom: 8 }}>{ICONS[k]}</div>
+              <div aria-hidden="true" style={{ width: 64, height: 34, margin: '0 auto', borderRadius: 6, background: 'var(--color-hairline)' }} />
+              <p className="qn-cap" style={{ marginTop: 6 }}>{LABELS[k]}</p>
+            </article>
+          ))}
         </section>
+
+        <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }} aria-label="正在加载转化漏斗">
+          <h2 className="qn-axis" style={{ margin: '0 0 12px', textAlign: 'center' }}>转化漏斗</h2>
+          <div aria-hidden="true">
+            {eventOrder.map((k, i) => (
+              <div key={k}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
+                  <div style={{ flex: '0 0 88px', fontSize: 12, textAlign: 'right' }}>{LABELS[k]}</div>
+                  <div style={{ flex: '1 1 auto', minWidth: 0 }}>
+                    <div style={{ height: 18, width: '72%', borderRadius: 999, background: 'var(--color-hairline)' }} />
+                  </div>
+                  <div style={{ flex: '0 0 auto', minWidth: 74, display: 'flex', justifyContent: 'flex-end' }}>
+                    <span style={{ width: 36, height: 22, borderRadius: 5, background: 'var(--color-hairline)' }} />
+                  </div>
+                </div>
+                {i < eventOrder.length - 1 && (
+                  <p className="qn-cap" style={{ textAlign: 'center', margin: '0 0 4px', minHeight: 18 }}>
+                    <span style={{ display: 'inline-block', width: 48, height: 14, borderRadius: 4, background: 'var(--color-hairline)' }} />
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }} aria-label="正在加载累计数据">
+          <h2 className="qn-axis" style={{ margin: '0 0 14px', textAlign: 'center' }}>累计数据</h2>
+          <dl style={{ display: 'grid', gap: 10, margin: 0 }}>
+            {eventOrder.map(k => (
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, borderBottom: '1px solid var(--color-hairline)', paddingBottom: 10 }}>
+                <dt className="qn-meta">{LABELS[k]}</dt>
+                <dd aria-hidden="true" style={{ width: 40, height: 24, borderRadius: 5, margin: 0, background: 'var(--color-hairline)' }} />
+              </div>
+            ))}
+          </dl>
+        </section>
+
+        <p className="qn-cap" style={{ textAlign: 'center', marginTop: 22 }}>
+          混沌 · 本地运营面板 · 无需登录
+        </p>
       </main>
     );
   }
@@ -67,7 +122,6 @@ export default function AdminDashboard() {
     );
   }
 
-  const eventOrder = ['page_view', 'create_click', 'chart_complete', 'wechat_click'];
   const maxVal = Math.max(...eventOrder.map(k => stats.today[k] || 0), 1);
 
   return (
