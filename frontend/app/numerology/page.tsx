@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 import { calculateLifePath, calculateNameNumber, LETTER_ROW,
   type LifePathResult, type NameNumberResult } from '@/lib/numerology/core';
 
@@ -68,5 +69,6 @@ export default function NumerologyPage() {
       <p className="qn-note">这是现代拉丁字母数字表的一种实现选择，汉字没有被直接映射到英文字母；本站不把它称为古籍算法。输入只在本机计算，不上传或保存。</p>
     </section>
     <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-  </main>;
+          {result && <ToolInterpretation tool="numerology" title="数字命理 · 混沌自研 AI 解读" payload={result} />}
+      </main>;
 }

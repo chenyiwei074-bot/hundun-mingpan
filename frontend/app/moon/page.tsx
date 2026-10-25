@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { availableZones, toUtc } from '@/lib/astro/moment';
 import { computeMoonCycle, type MoonCycle } from '@/lib/astro/moon-cycle';
 
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 const ZONES = availableZones();
 const localTime = (utcMs: number, zone: string) => new Intl.DateTimeFormat('zh-CN', {
   timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -95,6 +96,7 @@ export default function MoonPage() {
         <p className="qn-note">这里显示天文月相，不以黄历宜忌替代，也不推断个人吉凶。</p>
       </section>
       <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-    </main>
+            {cycle && <ToolInterpretation tool="moon" title="月相周期 · 混沌自研 AI 解读" payload={cycle} />}
+      </main>
   );
 }

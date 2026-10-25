@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { qiGuaByNumbers, qiGuaByTime, trigramInfo } from '@/lib/meihua/engine';
 import type { HexagramInfo, MeiHuaMethod, MeiHuaResult } from '@/lib/meihua/engine';
 
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 // 五行色是冻结的数据编码，只当圆点用，不落进文字（与八字卡同一纪律）。
 const WX_COLOR: Record<string, string> = {
   木: 'var(--color-wx-mu)', 火: 'var(--color-wx-huo)', 土: 'var(--color-wx-tu)',
@@ -248,6 +249,7 @@ export default function MeiHuaPage() {
           </div>
         </>
       )}
-    </main>
+            {result && <ToolInterpretation tool="meihua" title="梅花易数 · 混沌自研 AI 解读" payload={result} />}
+      </main>
   );
 }

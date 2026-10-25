@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { analyzeFloor } from '@/lib/fengshui/analysis';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 import { MAX_SPAN_M, buildWalkGrid, openingSegment, palaceCells, toFloorInput } from '@/lib/fengshui/geometry';
 import type { FloorGeometry, Opening, Pt, RoomShape, Wall } from '@/lib/fengshui/geometry';
 import {
@@ -681,6 +682,9 @@ export default function FloorPlanStudio() {
             <FloorReportView report={report} 判定={排过.排序后} 跨宫={translated.跨宫}
               关心点={关心点} 朝向={朝向}
               格数={walkable ? `${walkable.列}×${walkable.行}` : '无'} 跨度={span} />
+            <ToolInterpretation tool="fengshui" title="户型九宫 · 混沌自研 AI 解读"
+              payload={{ 判定: report.判定, 未判定: report.未判定, 跨宫: translated.跨宫,
+                朝向, 关心点, 格数: walkable ? `${walkable.列}×${walkable.行}` : '无', 跨度: span }} />
           </div>
         </>
       )}

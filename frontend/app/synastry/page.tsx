@@ -6,6 +6,7 @@ import { availableZones, toUtc, type MomentOk } from '@/lib/astro/moment';
 import { computePlanets, PLANETS, type PlanetsResult } from '@/lib/astro/planets';
 import { computeAspects, type PlanetAspect } from '@/lib/astro/aspects';
 
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 const ZONES = availableZones();
 type BirthInput = { date: string; clock: string; zone: string };
 const emptyInput = (): BirthInput => ({ date: '', clock: '', zone: 'Asia/Shanghai' });
@@ -142,5 +143,6 @@ export default function SynastryPage() {
       <p className="qn-note">这里只展示跨盘行星相位，不推断谁适合谁，也不包含宫位叠合、合盘中点或未来走势。古典角度定义可在 <Link href="/astro" className="qn-link" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center' }}>本命行星位置页</Link>的依据区查看。</p>
     </section>
     <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-  </main>;
+          {result && <ToolInterpretation tool="synastry" title="跨盘相位 · 混沌自研 AI 解读" payload={{ first: result.first, second: result.second, aspects: result.aspects }} />}
+      </main>;
 }

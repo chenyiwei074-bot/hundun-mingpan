@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getChartResult } from '@/app/lib/api';
 import type { BaziChart } from '@/app/lib/core/yiqi-core/types';
 import LifeCurve from '@/components/bazi/LifeCurve';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 
 type Preview = { chartId?: string; chart?: { bazi?: BaziChart } };
 
@@ -103,6 +104,7 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
       ) : (
         <div data-dayun-state="ready">
         <LifeCurve chart={chart} />
+        {chart && <ToolInterpretation tool="dayun" title="大运流年 · 混沌自研 AI 解读" payload={chart} />}
         </div>
       )}
 

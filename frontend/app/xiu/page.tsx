@@ -9,6 +9,7 @@ import {
 import { queryBenMingXiu, XIU_ORDER } from '@/lib/xiu/engine';
 import type { XiuResult } from '@/lib/xiu/engine';
 
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 // 五行色是冻结的数据编码，只当圆点/色块用，不落进文字（与八字卡、梅花页同一纪律）。
 const WX_COLOR: Record<string, string> = {
   木: 'var(--color-wx-mu)', 火: 'var(--color-wx-huo)', 土: 'var(--color-wx-tu)',
@@ -326,6 +327,7 @@ export default function XiuPage() {
           </div>
         </>
       )}
-    </main>
+            {result && <ToolInterpretation tool="xiu" title="二十八宿 · 混沌自研 AI 解读" payload={result} />}
+      </main>
   );
 }

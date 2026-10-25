@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 import { calculateFiveGrids, elementRelation, GRID_NAMES, parseStrokes,
   type FiveGrids } from '@/lib/name-compat/five-grids';
 
@@ -98,5 +99,6 @@ export default function NameCompatPage() {
       <p className="qn-note">字形与笔画的来源由填写者确认。这里展示五格的数与五行关系，不套用未经核验的 81 数理吉凶表。</p>
     </section>
     <p className="qn-linkrow"><Link className="qn-link" href="/hepan">返回关系工具</Link><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-  </main>;
+          {result && <ToolInterpretation tool="name-compat" title="姓名五格 · 混沌自研 AI 解读" payload={result} />}
+      </main>;
 }

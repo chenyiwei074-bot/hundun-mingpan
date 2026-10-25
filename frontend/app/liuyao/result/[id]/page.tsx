@@ -12,6 +12,7 @@ import ReceiptPanel from './ReceiptPanel';
 import { saveReport } from '@/lib/report/saveReport';
 import { RichText } from '@/lib/ui/richText';
 import ClassicalReferences from '@/components/chart/ClassicalReferences';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
 
@@ -321,6 +322,8 @@ export default function LiuyaoResultPage() {
         <Link href="/dashboard" className="qn-btn qn-btn--ghost">我的报告</Link>
       </div>
       <p className="qn-cap" style={{ textAlign: 'center', marginTop: 16 }}>仅供参考 · 不构成决策建议</p>
-    </main>
+    
+      {result && <ToolInterpretation tool="liuyao" title="六爻纳甲 · 混沌自研 AI 解读" payload={{ result, analysisData }} />}
+</main>
   );
 }

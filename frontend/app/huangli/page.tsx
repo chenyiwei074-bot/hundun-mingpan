@@ -9,6 +9,7 @@ import {
 import { queryHuangli, queryHuangliRange } from '@/lib/huangli/engine';
 import type { HuangliDay } from '@/lib/huangli/engine';
 
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 // 黄历页只做一件事：把通书逐日推算出来的宜忌与神煞按可读的顺序排出来。
 // 取数全在 lib/huangli/engine.ts（页面不许直接 import 八字引擎，验收 §7 钉住），
 // 干支走站里唯一干支层、值宿走宿引擎，这里不新建第二份历法，也不自建吉凶评分。
@@ -336,6 +337,7 @@ export default function HuangliPage() {
           </section>
         </>
       )}
-    </main>
+            {result && <ToolInterpretation tool="huangli" title="黄历宜忌 · 混沌自研 AI 解读" payload={result} />}
+      </main>
   );
 }

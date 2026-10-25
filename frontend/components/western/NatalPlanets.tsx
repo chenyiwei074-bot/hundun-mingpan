@@ -17,6 +17,7 @@ import { lookupGeo, type GeoLookup } from '@/app/lib/true-solar/birth-wiring';
 import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS } from '@/lib/astro/classics';
 import { WESTERN_TOOL_BY_SLUG } from '@/lib/tools/western-catalog';
 import BasisQuote from '@/components/western/BasisQuote';
+import ToolInterpretation from '@/components/ai/ToolInterpretation';
 import Callout from '@/components/ui/Callout';
 
 const ZONES = availableZones();
@@ -452,6 +453,12 @@ export default function NatalPlanets() {
         <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
       </section>
 
-    </>
+    
+      {got && (
+        <ToolInterpretation tool="astro" title="本命行星 · 混沌自研 AI 解读"
+          payload={{ positions: displayedPositions, aspects: ownAspects, houses: displayedCusps,
+            ascendant: displayedAscendant, midheaven: displayedMidheaven, frame: zodiacFrame, nodeMode }} />
+      )}
+</>
   );
 }
