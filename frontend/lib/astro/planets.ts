@@ -15,8 +15,8 @@ export const ASTRO_BASIS = 'astro-planets-v1' as const;
 
 /** 这一层算得出什么、算不出什么 —— 目录卡面与 /astro 页都读这两份清单，不各写一套。
  *  western-catalog 里那两条 done/notDone 字面量必须与此逐字相等（astro-acceptance 钉）。 */
-export const ASTRO_DONE = ['太阳、月亮与水金火木土天海冥八颗行星的地心黄道经度（落座与度数）', '太阳星座、月亮星座', '黄纬（一并给出，便于自查）', '上升点与整宫制宫位（按出生经纬度与时刻计算，20 组对拍公差 0.05°）', '等宫、三分、普拉西德与科赫宫制（20 组交叉核验，公差 0.05°）', '行星之间的五类主要相位（公开容许度与逐条角距）'] as const;
-export const ASTRO_NOT_DONE = ['雷吉奥蒙塔努斯与坎帕纳斯等其他宫制', '凯龙星等小行星', '南北交点', '恒星黄道体系'] as const;
+export const ASTRO_DONE = ['太阳、月亮与水金火木土天海冥八颗行星的地心黄道经度（落座与度数）', '太阳星座、月亮星座', '黄纬（一并给出，便于自查）', '上升点与整宫制宫位（按出生经纬度与时刻计算，20 组对拍公差 0.05°）', '等宫、三分、普拉西德与科赫宫制（20 组交叉核验，公差 0.05°）', '行星之间的五类主要相位（公开容许度与逐条角距）', '凯龙星地心黄道位置（公开权威星历每日插值，公历 1900—2100）', '月球北交点与南交点（平均交点与轨道状态向量真交点）', '回归黄道与拉希里恒星黄道（具名岁差模型与章动修正）'] as const;
+export const ASTRO_NOT_DONE = ['雷吉奥蒙塔努斯与坎帕纳斯等其他宫制'] as const;
 
 /** 与 JPL Horizons 对拍的口径：窗口内（公历 1850—2100）黄经与黄纬都按 0.02° 硬判。
  *  这三个数只有一个出处：页面上那句"对拍窗口"读它，tools/astro-acceptance 的夹具与
@@ -26,7 +26,7 @@ export const ASTRO_CROSS_CHECK = {
   authority: 'NASA JPL Horizons（DE441）', from: 1850, to: 2100, toleranceDeg: 0.02,
 } as const;
 
-export type PlanetKey = 'sun' | 'moon' | 'mercury' | 'venus' | 'mars' | 'jupiter' | 'saturn' | 'uranus' | 'neptune' | 'pluto';
+export type PlanetKey = 'sun' | 'moon' | 'mercury' | 'venus' | 'mars' | 'jupiter' | 'saturn' | 'uranus' | 'neptune' | 'pluto' | 'chiron' | 'north-node' | 'south-node';
 
 /** 展示名与引擎的 Body 枚举一一对应；这里不写第二种拉丁名，页面只出中文。 */
 export const PLANETS: { key: PlanetKey; 名称: string; body: Body }[] = [
@@ -48,7 +48,7 @@ export const SIGNS = ['白羊座', '金牛座', '双子座', '巨蟹座', '狮�
 export interface PlanetPlace {
   key: PlanetKey;
   名称: string;
-  /** 黄经 0..360（回归黄道、历元为当日真春分点） */
+  /** 黄经 0..360（调用方须说明使用的黄道参考系） */
   lon: number;
   /** 黄纬，度 */
   lat: number;

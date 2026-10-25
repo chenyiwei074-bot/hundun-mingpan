@@ -187,6 +187,7 @@ const STATIC_PAGES = [
   // 度数取整错一位，只有那一帧才看得见。空态也不是白跑：它钉的是"缺什么的清单已经在屏上"。
   ['astro', '/astro'],
   ['astro-computed', '/astro'],
+  ['astro-sidereal', '/astro'],
   // 已选出生地：真实选省/市，验证上升点与 12 宫头（数值由 astro acceptance 的 20 组夹具核）。
   ['astro-angles', '/astro'],
   ['astro-house-systems', '/astro'],
@@ -196,6 +197,7 @@ const STATIC_PAGES = [
   // 塔罗四种牌阵各有桌面/手机态，并覆盖保存与我的报告详情、删除闭环。
   ['tarot-idle', '/tarot'],
   ['tarot-drawn', '/tarot'],
+  ['tarot-compare', '/tarot'],
   ['tarot-record', '/tarot'],
   ['tarot-375', '/tarot'],
   ['tarot-single', '/tarot'],
@@ -413,7 +415,7 @@ function astroProbe(computed, withAngles = false) {
       + JSON.stringify([done && done[1], notDone && notDone[1]]));
   const lis = [...document.querySelectorAll('li')].map(x => (x.innerText || '').trim());
   if (!lis.some(t => t.indexOf('上升点与整宫制') >= 0)) miss.push('「已做」里没有上升点与整宫制');
-  if (!lis.some(t => t.indexOf('相位') >= 0)) miss.push('「未做」里没有相位');
+  if (!lis.some(t => t.indexOf('相位') >= 0)) miss.push('已做/未做范围清单里没有相位说明');
   const zone = (document.querySelector('#astro-zone') || {}).value || '';
   const rows = [...document.querySelectorAll('table[data-astro-planets] tbody tr')];
   if (${computed}) {
@@ -558,6 +560,18 @@ const tarotDrawHook = spreadId => {
 })()`;
 };
 const TAROT_DRAW_HOOK = tarotDrawHook('three-card');
+const TAROT_COMPARE_HOOK = `(async () => {
+  const drawn = await ${TAROT_DRAW_HOOK};
+  if (drawn !== true) return drawn;
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  const card = document.querySelector('.tarot-slot .tarot-card-trigger');
+  if (!card) return '抽牌后没有可打开牌义的牌面';
+  card.click(); await wait(50);
+  const details = document.querySelector('.tarot-tradition');
+  if (!details) return '选中牌后没有跨传统对读面板';
+  details.querySelector('summary')?.click(); await wait(50);
+  return details.open ? true : '跨传统对读面板无法展开';
+})()`;
 
 const TAROT_RECORD_HOOK = `(async () => {
   const drawn = await ${TAROT_DRAW_HOOK};
@@ -782,6 +796,7 @@ const AFTER = {
     return '无效分享页没有进入统一失效状态；当前内容=' + body + '；请求=' + JSON.stringify(window.__net || []);
   })()`,
   'tarot-drawn': TAROT_DRAW_HOOK,
+  'tarot-compare': TAROT_COMPARE_HOOK,
   'tarot-record': TAROT_RECORD_HOOK,
   'tarot-single': tarotDrawHook('single'),
   'tarot-five': tarotDrawHook('five-card'),
@@ -841,6 +856,35 @@ const AFTER = {
     const btn = [...document.querySelectorAll('button')].find(x => /算行星位置/.test(x.textContent || ''));
     if (!btn) return '「算行星位置」按钮不在页面上';
     return !btn.disabled || '两个值都填上了按钮还是灰的（可算判据与输入格式对不上）';
+  })()`,
+  'astro-sidereal': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const select = (selector, value) => {
+      const el = document.querySelector(selector); if (!el) return false;
+      Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true })); return true;
+    };
+    if (!select('#astro-zone', 'UTC') || !select('#astro-zodiac-frame', 'sidereal-lahiri') || !select('#astro-node-mode', 'mean'))
+      return '时区、黄道或交点下拉控件缺失';
+    for (const [id, value] of [['#astro-date', ${JSON.stringify(ASTRO_PINS.date)}], ['#astro-clock', ${JSON.stringify(ASTRO_PINS.clock)}]]) {
+      const input = document.querySelector(id); if (!input) return '缺出生输入 ' + id;
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await wait(120);
+    const button = [...document.querySelectorAll('button')].find(x => /算行星位置/.test(x.textContent || ''));
+    if (!button || button.disabled) return '出生资料填好后计算按钮仍不可用';
+    button.click();
+    for (let n = 0; n < 100; n++) {
+      const ext = document.querySelector('[data-astro-extensions]');
+      const points = [...document.querySelectorAll('[data-astro-point]')].map(x => x.dataset.astroPoint);
+      if (ext && points.includes('north-node') && points.includes('south-node') && points.includes('chiron')) {
+        if (!ext.textContent?.includes('拉希里恒星黄道')) return '扩展结果没有标出恒星黄道';
+        return points.length === 3 ? true : '凯龙与南北交点应有 3 行，实际 ' + points.length;
+      }
+      await wait(50);
+    }
+    return '凯龙星历表 / 南北交点结果未在期限内出现';
   })()`,
   // 农历态：先把历法切到农历，再把年/月设成 2025 年 6 月（该年闰六月），闰月开关才会出现。
   // select 是 React 受控的，必须走 HTMLSelectElement 的原生 setter + change 事件，
@@ -1490,7 +1534,7 @@ const THEME_STATES = {
   astro: 'dark', 'astro-computed': 'dark', 'astro-angles': 'dark', 'astro-house-systems': 'dark',
   synastry: 'dark', 'synastry-computed': 'dark', moon: 'dark', 'moon-computed': 'dark',
   numerology: 'dark', 'numerology-computed': 'dark',
-  'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-record': 'dark', 'tarot-375': 'dark',
+  'tarot-idle': 'dark', 'tarot-drawn': 'dark', 'tarot-compare': 'dark', 'tarot-record': 'dark', 'tarot-375': 'dark',
   'tarot-single': 'dark', 'tarot-five': 'dark', 'tarot-celtic': 'dark', 'tarot-save': 'dark',
   'tarot-keyboard': 'dark', 'tarot-reduced-motion': 'dark',
   oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
@@ -1555,7 +1599,7 @@ const tarotProbe = kind => {
   const miss = [];
   const state = main.dataset.tarotState;
   const wantsRecord = kind === 'record';
-  const wantsRevealed = ['drawn', 'keyboard', 'reduced', 'save', 'single', 'five', 'celtic'].includes(kind);
+  const wantsRevealed = ['drawn', 'keyboard', 'reduced', 'save', 'single', 'five', 'celtic', 'compare'].includes(kind);
   if (main.dataset.tarotSpread !== expected.key) miss.push('当前牌阵应为 ' + expected.key + '，实际 ' + main.dataset.tarotSpread);
   if (wantsRevealed && state !== 'revealed') miss.push('预期 revealed，实际 ' + state);
   if (wantsRecord && state !== 'reading') miss.push('预期 reading，实际 ' + state);
@@ -1570,6 +1614,13 @@ const tarotProbe = kind => {
   if (!/正位与逆位/.test(scope + body)) miss.push('页面没有说明支持正位与逆位');
   if (!/韦特—史密斯体系/.test(scope + body)) miss.push('页面没有说明牌组历史参考体系');
   if (main.querySelectorAll('.tarot-sources a').length < 2) miss.push('牌组资料依据链接不足两项');
+  if (kind === 'compare') {
+    const details = main.querySelector('.tarot-tradition');
+    if (!details?.open) miss.push('选中牌后跨传统对读面板没有展开');
+    if (!/韦特—史密斯与马赛牌系/.test(details?.textContent || '')) miss.push('对读没有注明两个比较传统');
+    if (!/不把韦特牌义冒充为马赛牌义/.test(details?.textContent || '')) miss.push('对读没有明确限制牌义归属');
+    if (details?.querySelectorAll('a[href^="https://"]').length !== 2) miss.push('对读面板缺少两项可核验来源链接');
+  }
   let ids = [], names = [], cards = [];
   if (wantsRevealed || wantsRecord) {
     cards = [...main.querySelectorAll('.tarot-slot .tarot-card__front')];
@@ -3511,6 +3562,26 @@ async function measure(tag, url) {
       else console.log('    宫制切换 whole-sign → Placidus，十二宫头随制式变化');
     }
   }
+  if (base === 'astro-sidereal') {
+    const got = await evl(`(() => {
+      const miss = [];
+      const selector = document.querySelector('#astro-zodiac-frame');
+      const extensionTable = document.querySelector('[data-astro-extensions]');
+      const points = [...document.querySelectorAll('[data-astro-point]')].map(x => x.dataset.astroPoint);
+      if (selector?.value !== 'sidereal-lahiri') miss.push('黄道选择器没有保留拉希里恒星黄道');
+      if (!extensionTable || !points.includes('north-node') || !points.includes('south-node') || !points.includes('chiron'))
+        miss.push('凯龙或南北交点数据缺失');
+      if (points.length !== 3) miss.push('扩展数据行数不是 3：' + points.length);
+      const body = document.body.innerText || '';
+      if (!body.includes('凯龙星与南北交点的位置和相位') || !body.includes('拉希里恒星黄道')) miss.push('结果范围未列明新增星历点与恒星黄道');
+      return { miss, points, frame: selector?.value || '' };
+    })()`);
+    const miss = got && Array.isArray(got.miss) ? got.miss : null;
+    if (!miss) fail.push(tag + ': 恒星黄道探针运行失败 ' + JSON.stringify(got).slice(0, 140));
+    else for (const x of miss) fail.push(tag + ': 恒星黄道未交付 — ' + x);
+    console.log(miss && miss.length ? '    SIDEREAL MISMATCH ' + miss.join(' | ')
+      : `    恒星黄道 / 交点 / 凯龙：${got.points.join('、')} 全部显示`);
+  }
   // 目录页（批F ①）：/tools 必须两套目录都在，且卡上的状态与计数与目录源码一致。
   // 为什么单独钉这一页：以前它只渲染东方那一套，而全站有四处页脚链接把它叫「全部工具目录」——
   // 名不副实是"读不出来"的那种错：页面自己看着完全正常，缺的是没被渲染的那一套。
@@ -3723,7 +3794,7 @@ const fsEditProbe = p => `(() => {
   }
   if (base.startsWith('tarot-')) {
     const tarotKind = ({
-      'tarot-idle': 'idle', 'tarot-drawn': 'drawn', 'tarot-375': 'mobile',
+      'tarot-idle': 'idle', 'tarot-drawn': 'drawn', 'tarot-compare': 'compare', 'tarot-375': 'mobile',
       'tarot-single': 'single', 'tarot-five': 'five',
       'tarot-celtic': 'celtic', 'tarot-save': 'save',
       'tarot-record': 'record',

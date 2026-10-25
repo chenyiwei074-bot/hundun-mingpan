@@ -1738,6 +1738,15 @@ body:has(main[data-mode="western"]) .qn-nav__brand::before {
 .tarot-insight small { color: var(--color-western-muted); font-size: var(--qn-fs-eyebrow); line-height: 1.5; }
 .tarot-insight__close { flex: 0 0 auto; min-width: 54px; min-height: 44px; border: 1px solid var(--color-western-line); border-radius: 999px; background: transparent; color: var(--color-western-gold); cursor: pointer; font: inherit; }
 .tarot-insight__close:hover { background: color-mix(in srgb, var(--color-western-gold) 12%, transparent); }
+.tarot-tradition { margin-top: 12px; padding: 0 12px; border: 1px solid var(--color-western-line); border-radius: 12px; background: color-mix(in srgb, var(--color-western-surface) 84%, transparent); }
+.tarot-tradition > summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--color-western-gold); font-size: var(--qn-fs-body); font-weight: 600; }
+.tarot-tradition__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 4px 0 8px; }
+.tarot-tradition__column { min-width: 0; padding: 10px; border: 1px solid var(--color-western-line); border-radius: 10px; }
+.tarot-tradition__column strong { color: var(--color-western-text); font-size: var(--qn-fs-body); }
+.tarot-tradition__column p, .tarot-tradition__scope { margin: 6px 0 0; color: var(--color-western-muted); font-size: var(--qn-fs-meta); line-height: 1.6; overflow-wrap: anywhere; }
+.tarot-tradition__sources { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 12px; }
+.tarot-tradition__sources a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-western-gold); font-size: var(--qn-fs-meta); line-height: 1.5; }
+@media (max-width: 640px) { .tarot-tradition__grid { grid-template-columns: 1fr; } }
 @keyframes tarot-insight-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .tarot-reading__question { margin: 10px 0 0; padding: 10px 14px; border-left: 2px solid var(--color-western-gold); color: var(--color-western-text); font-size: var(--qn-fs-body); line-height: 1.6; }
 .tarot-record-list { display: grid; gap: 8px; margin: 14px 0 0; padding: 0; list-style: none; }

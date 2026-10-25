@@ -4,10 +4,11 @@
 //
 // 日期/时间在本机换算；国内地点名称可向本站查询坐标，接口不可用时回退本地表。
 import { useEffect, useMemo, useState } from 'react';
-import { computePlanets, ASTRO_CROSS_CHECK, PLANETS, type PlanetsFailed, type PlanetsResult } from '@/lib/astro/planets';
-import { computeAngles, angleText, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
+import { computePlanets, ASTRO_CROSS_CHECK, PLANETS, SIGNS, type PlanetsFailed, type PlanetsResult, type PlanetPlace } from '@/lib/astro/planets';
+import { computeAngles, type AnglesResult, type AnglesFailed } from '@/lib/astro/angles';
 import { computeHouseCusps, HOUSE_CROSS_CHECK, HOUSE_SYSTEMS, type HouseSystem } from '@/lib/astro/houses';
 import { computeAspects } from '@/lib/astro/aspects';
+import { applyZodiacFrame, CHIRON_EPHEMERIS, computeChironPosition, computeLunarNodes, convertLongitude, lahiriAyanamsha, loadChironEphemeris, type ChironEphemerisData, type LunarNodeMode, type ZodiacFrame } from '@/lib/astro/extensions';
 import { toUtc, availableZones, type MomentFail, type MomentOk } from '@/lib/astro/moment';
 import { provinces } from '@/app/lib/region-data';
 import { lookupChinaGeo } from '@/app/lib/api';
@@ -32,6 +33,17 @@ function failureText(why: MomentFail | PlanetsFailed): string {
     case '本地时间有两次': return '这个地点在当天回拨时钟，所填时间对应两个时刻，暂时无法唯一确定；请核对出生记录。';
     case '引擎不可用': return '行星位置暂时无法计算，请稍后重试。';
   }
+}
+function zodiacFields(longitude: number) {
+  const lon = ((longitude % 360) + 360) % 360;
+  const signIndex = Math.min(11, Math.floor(lon / 30));
+  const within = lon - signIndex * 30;
+  const degree = Math.floor(within);
+  return { lon, signIndex, 星座: SIGNS[signIndex], signDeg: degree, signMin: Math.min(59, Math.floor((within - degree) * 60)) };
+}
+function formatLongitudePlace(longitude: number) {
+  const value = zodiacFields(longitude);
+  return `${value.星座} ${value.signDeg}°${String(value.signMin).padStart(2, '0')}′`;
 }
 const NOT_DONE = ENTRY.notDone ?? [];
 const deviceZone = () => {
@@ -59,6 +71,11 @@ export default function NatalPlanets() {
   const [date, setDate] = useState('');
   const [clock, setClock] = useState('');
   const [houseSystem, setHouseSystem] = useState<HouseSystem>('whole-sign');
+  const [zodiacFrame, setZodiacFrame] = useState<ZodiacFrame>('tropical');
+  const [nodeMode, setNodeMode] = useState<LunarNodeMode>('true');
+  const [chironEphemeris, setChironEphemeris] = useState<{
+    utcMs: number; status: 'loading' | 'ready' | 'outside' | 'error'; data?: ChironEphemerisData; error?: string;
+  } | null>(null);
   const [province, setProvince] = useState('');
   const [city, setCity] = useState('');
   const [已算, set已算] = useState<Input | null>(null);
@@ -105,8 +122,49 @@ export default function NatalPlanets() {
 
   const why = 结果 && 结果.kind === 'fail' ? 结果.why : null;
   const got = 结果 && 结果.kind === 'ok' ? 结果 : null;
+  useEffect(() => {
+    if (!got) return;
+    const utcMs = got.moment.utcMs;
+    if (utcMs < CHIRON_EPHEMERIS.fromUtcMs || utcMs > CHIRON_EPHEMERIS.throughUtcMs) return;
+    let active = true;
+    loadChironEphemeris().then(data => {
+      if (active) setChironEphemeris({ utcMs, status: 'ready', data });
+    }).catch(error => {
+      if (active) setChironEphemeris({ utcMs, status: 'error', error: error instanceof Error ? error.message : String(error) });
+    });
+    return () => { active = false; };
+  }, [got]);
+  const chironStatus = got
+    ? got.moment.utcMs < CHIRON_EPHEMERIS.fromUtcMs || got.moment.utcMs > CHIRON_EPHEMERIS.throughUtcMs
+      ? { utcMs: got.moment.utcMs, status: 'outside' as const }
+      : chironEphemeris?.utcMs === got.moment.utcMs
+        ? chironEphemeris
+        : { utcMs: got.moment.utcMs, status: 'loading' as const }
+    : null;
+  const ayanamsha = got ? lahiriAyanamsha(got.moment.utcMs) : 0;
+  const displayedPositions = useMemo<PlanetPlace[]>(() => {
+    if (!got) return [];
+    const positions = [...got.planets.positions, ...computeLunarNodes(got.moment.utcMs, nodeMode)];
+    const chiron = chironEphemeris?.utcMs === got.moment.utcMs && chironEphemeris.status === 'ready' && chironEphemeris.data
+      ? computeChironPosition(got.moment.utcMs, chironEphemeris.data) : null;
+    if (chiron) positions.push(chiron);
+    return positions.map(position => applyZodiacFrame(position, zodiacFrame, ayanamsha));
+  }, [got, nodeMode, zodiacFrame, ayanamsha, chironEphemeris]);
   const houseResult = got?.angles?.ok ? computeHouseCusps(got.angles, houseSystem) : null;
-  const ownAspects = got ? computeAspects(got.planets.positions) : [];
+  const ownAspects = got ? computeAspects(displayedPositions) : [];
+  const displayedAscendant = got?.angles?.ok
+    ? formatLongitudePlace(convertLongitude(got.angles.ascendant.lon, zodiacFrame, ayanamsha)) : '';
+  const displayedMidheaven = got?.angles?.ok
+    ? formatLongitudePlace(convertLongitude(got.angles.midheaven.lon, zodiacFrame, ayanamsha)) : '';
+  const validAngles = got?.angles?.ok ? got.angles : null;
+  const displayedCusps = houseResult?.ok && validAngles
+    ? houseSystem === 'whole-sign' && zodiacFrame === 'sidereal-lahiri'
+      ? Array.from({ length: 12 }, (_, index) => ({
+        house: index + 1,
+        ...zodiacFields(Math.floor(convertLongitude(validAngles.ascendant.lon, zodiacFrame, ayanamsha) / 30) * 30 + index * 30),
+      }))
+      : houseResult.cusps.map(cusp => ({ ...cusp, ...zodiacFields(convertLongitude(cusp.lon, zodiacFrame, ayanamsha)) }))
+    : [];
 
   return (
     <>
@@ -123,9 +181,32 @@ export default function NatalPlanets() {
             黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°。超出此范围的结果尚未达到同等核验标准，本站不打包票。
           </p>
         <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
+        <p className="qn-note" style={{ margin: '8px 0 0' }}>
+          计算口径资料：{' '}
+          <a className="qn-link" href="https://ssd-api.jpl.nasa.gov/doc/horizons.html" target="_blank" rel="noreferrer">NASA/JPL Horizons 星历说明</a>
+          {' · '}<a className="qn-link" href="https://ssd.jpl.nasa.gov/planets/eph_export.html" target="_blank" rel="noreferrer">JPL 行星星历与 DE441</a>
+          {' · '}<a className="qn-link" href="https://www.astro.com/swisseph/swisseph.htm" target="_blank" rel="noreferrer">Swiss Ephemeris：交点与拉希里版本说明</a>
+          {' · '}<a className="qn-link" href="https://www.iers.org/fileadmin/SharedDocs/Publikationen/EN/IERS/resolutions/IAU/IAU2006_Resolution_B1.pdf" target="_blank" rel="noreferrer">IAU 2006 岁差决议</a>
+        </p>
       </section>
 
       <section className="qn-card" style={{ marginTop: 14 }}>
+        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', marginBottom: 12 }}>
+          <label className="qn-label" htmlFor="astro-zodiac-frame">黃道參考系
+            <select id="astro-zodiac-frame" className="qn-input" value={zodiacFrame} style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
+              onChange={e => setZodiacFrame(e.target.value as ZodiacFrame)}>
+              <option value="tropical">回歸黃道 · 春分點起算</option>
+              <option value="sidereal-lahiri">恒星黃道 · 拉希里（本站實現）</option>
+            </select>
+          </label>
+          <label className="qn-label" htmlFor="astro-node-mode">月球交點算法
+            <select id="astro-node-mode" className="qn-input" value={nodeMode} style={{ display: 'block', marginTop: 4, minHeight: 44, width: '100%' }}
+              onChange={e => setNodeMode(e.target.value as LunarNodeMode)}>
+              <option value="true">真交点 · 瞬时轨道状态</option>
+              <option value="mean">平均交点 · 平滑平均值</option>
+            </select>
+          </label>
+        </div>
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
           <label className="qn-label" htmlFor="astro-province">出生地省份 / 地区
             <select id="astro-province" className="qn-input" value={province} style={{ marginTop: 4, minHeight: 44 }}
@@ -173,6 +254,9 @@ export default function NatalPlanets() {
         <p className="qn-cap" style={{ margin: '10px 0 0' }}>
           选省份和城市后会自动匹配当地时区；境外出生可直接选择时区。填写的是当地钟面时间，日期和时间必须填写。
         </p>
+        <p className="qn-note" style={{ margin: '6px 0 0' }}>
+          恒星黄道按拉希里 ICRC 1956 零点、IAU 2006 岁差与章动实现；不同拉希里版本可能略有差异。交点可切换平均值与瞬时轨道真值。
+        </p>
         <button type="button" className="qn-btn qn-btn--solid" style={{ marginTop: 12, minHeight: 44 }}
           disabled={!可算} aria-disabled={!可算} onClick={run}>
           算行星位置
@@ -196,11 +280,11 @@ export default function NatalPlanets() {
             )}
             <p className="qn-meta" style={{ margin: 0 }}>
               世界时 {got.moment.isoUtc}（当地相对 UTC {got.moment.offsetMin >= 0 ? '+' : '−'}
-              {Math.abs(got.moment.offsetMin / 60).toFixed(2).replace(/\.?0+$/, '')} 小时）· 十颗星的黄道位置都落在下面这张表里。
+              {Math.abs(got.moment.offsetMin / 60).toFixed(2).replace(/\.?0+$/, '')} 小时）· 行星位置按所选黄道参考系显示。
             </p>
             <p className="qn-title" style={{ margin: '12px 0 0' }}>
-              太阳 {got.planets.sun.星座} {got.planets.sun.signDeg}°{String(got.planets.sun.signMin).padStart(2, '0')}′
-              　月亮 {got.planets.moon.星座} {got.planets.moon.signDeg}°{String(got.planets.moon.signMin).padStart(2, '0')}′
+              太阳 {displayedPositions[0]?.星座} {displayedPositions[0]?.signDeg}°{String(displayedPositions[0]?.signMin ?? 0).padStart(2, '0')}′
+              　月亮 {displayedPositions[1]?.星座} {displayedPositions[1]?.signDeg}°{String(displayedPositions[1]?.signMin ?? 0).padStart(2, '0')}′
             </p>
           </section>
 
@@ -233,8 +317,30 @@ export default function NatalPlanets() {
             </table>
           </section>
 
+          <section className="qn-card" style={{ marginTop: 14, overflowX: 'auto' }} data-astro-extensions="1">
+            <p className="qn-cap" style={{ margin: 0 }}>凯龙星与月球交点 · {zodiacFrame === 'tropical' ? '回归黄道' : '拉希里恒星黄道'}</p>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--qn-fs-body)', marginTop: 6 }}>
+              <thead><tr>{['点位', '落座', '星座内', '黄经', '黄纬'].map(h => <th key={h} scope="col" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>{h}</th>)}</tr></thead>
+              <tbody>{displayedPositions.slice(10).map(point => (
+                <tr key={point.key} data-astro-point={point.key}>
+                  <th scope="row" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500 }}>{point.名称}</th>
+                  <td style={{ padding: '6px 8px' }}>{point.星座}</td>
+                  <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{point.signDeg}°{String(point.signMin).padStart(2, '0')}′</td>
+                  <td style={{ padding: '6px 8px' }}>{point.lon.toFixed(3)}°</td>
+                  <td style={{ padding: '6px 8px' }}>{point.lat >= 0 ? '+' : '−'}{Math.abs(point.lat).toFixed(3)}°</td>
+                </tr>
+              ))}</tbody>
+            </table>
+            {chironStatus?.status === 'loading' && <p className="qn-meta">正在读取本地凯龙星历表…</p>}
+            {chironStatus?.status === 'outside' && <p className="qn-meta">凯龙星历表覆盖公历 1900—2100；本次出生日期超出范围，因此不显示凯龙星。其他盘面结果仍可用。</p>}
+            {chironStatus?.status === 'error' && <p className="qn-alert" role="status">凯龙星历表暂时不可用：{chironStatus.error} 其他盘面结果仍可用。</p>}
+            <p className="qn-note" style={{ marginTop: 8 }}>
+              凯龙星位置由随站点部署的每日地心历表在本机插值，不会把出生日期发送到第三方；月球交点按所选平均或真交点方法计算。两者均不代表吉凶判断。
+            </p>
+          </section>
+
           <section className="qn-card" style={{ marginTop: 14 }} data-astro-aspects="1">
-            <p className="qn-cap" style={{ margin: 0 }}>行星主要相位 · {ownAspects.length} 条</p>
+            <p className="qn-cap" style={{ margin: 0 }}>行星、交点与凯龙星主要相位 · {ownAspects.length} 条</p>
             <p className="qn-meta" style={{ margin: '5px 0 12px' }}>按两颗行星的最小黄经角距，检查合、六分、四分、三分、对分五类；每条展示实际角距与偏差。</p>
             {ownAspects.length ? <div style={{ display: 'grid', gap: 8 }}>
               {ownAspects.map(aspect => <div className="qn-row" key={`${aspect.first.key}-${aspect.second.key}`} style={{ padding: 10 }}>
@@ -262,10 +368,10 @@ export default function NatalPlanets() {
             {got.angles?.ok ? (
               <>
                 <p className="qn-title" style={{ margin: '6px 0 0' }} data-astro-ascendant>
-                  上升点 {angleText(got.angles.ascendant)}
+                  上升点 {displayedAscendant}
                 </p>
                 <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-                  天顶 {angleText(got.angles.midheaven)}
+                  天顶 {displayedMidheaven}
                 </p>
                 {houseResult?.ok ? (
                   <div style={{ overflowX: 'auto', marginTop: 8 }} data-vh-scroll="angles-table">
@@ -279,7 +385,7 @@ export default function NatalPlanets() {
                         </tr>
                       </thead>
                       <tbody>
-                        {houseResult.cusps.map(c => (
+                        {displayedCusps.map(c => (
                           <tr key={c.house}>
                             <th scope="row" style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 500 }}>{c.house} 宫</th>
                             <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
@@ -298,8 +404,7 @@ export default function NatalPlanets() {
                   不同宫制会用不同规则划分十二宫。以上只展示计算出的宫头位置，不把宫位转成预测结论。
                 </p>
                 <p className="qn-note" style={{ margin: '6px 0 0' }}>
-                  上升点与宫头已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，宫头公差 {HOUSE_CROSS_CHECK.toleranceDeg}°。
-                  凯龙星、南北交点与恒星黄道尚未纳入。
+                  回归黄道宫头已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，公差 {HOUSE_CROSS_CHECK.toleranceDeg}°；恒星黄道宫头由所选岁差量统一换算。交点模式：{nodeMode === 'true' ? '真交点' : '平均交点'}。
                 </p>
               </>
             ) : (
@@ -322,7 +427,7 @@ export default function NatalPlanets() {
       <section className="qn-card" style={{ marginTop: 14 }}>
         <p className="qn-cap" style={{ margin: 0 }}>当前结果范围</p>
         <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          当前展示十颗行星的位置、主要相位，以及上升点与整宫制宫位。其他非整宫制宫位、凯龙星、南北交点和恒星黄道尚未纳入本页。
+          当前展示十颗行星、凯龙星与南北交点的位置和相位，并支持回归黄道 / 拉希里恒星黄道及五种宫制。雷吉奥蒙塔努斯与坎帕纳斯等其他宫制尚未纳入。
         </p>
       </section>
       {!结果 && (
@@ -342,7 +447,7 @@ export default function NatalPlanets() {
           {NOT_DONE.map(s => <li key={s}>{s}</li>)}
         </ul>
         <p className="qn-note" style={{ margin: '10px 0 0' }}>
-          本页仍称「本命行星位置」，不叫星盘：其他宫制与小天体尚未纳入；每一层已做范围都在上方单列。
+        本页仍称「本命行星位置」；还未纳入的宫制范围单独列出，已实现的小天体、交点和黄道方式按上方说明展示。
         </p>
         <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
       </section>

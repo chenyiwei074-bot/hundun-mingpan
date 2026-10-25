@@ -17,6 +17,7 @@ async function loadTs(relativePath) {
 
 const { TAROT_DECK, TAROT_SPREADS, drawSpread, drawThree } = await loadTs('deck.ts');
 const { TAROT_MEANINGS } = await loadTs('meanings.ts');
+const { getMarseilleCardReference } = await loadTs('traditions.ts');
 
 assert.equal(TAROT_DECK.length, 78, 'Rider-Waite-Smith-compatible deck has 78 named cards');
 const seed = '01'.repeat(32);
@@ -54,4 +55,12 @@ for (const card of TAROT_DECK) {
   assert.ok(meaning?.reversed?.length >= 4, `${card.id} has reversed meaning`);
   assert.ok(meaning?.source?.includes('1910'), `${card.id} names the historical source and date`);
 }
-console.log('PASS tarot deck: 78 cards, reproducible directions, and 78 source-attributed upright/reversed meaning pairs');
+const marseille = TAROT_DECK.map(card => [card, getMarseilleCardReference(card)]);
+assert.equal(marseille.length, 78, 'all 78 RWS cards have a Marseille naming/structure reference');
+assert.ok(marseille.every(([, ref]) => ref.title && !ref.title.startsWith('未匹配')), 'no card silently falls through the Marseille mapping');
+assert.equal(getMarseilleCardReference(TAROT_DECK.find(card => card.id === 'major-08')).number, 'XI', 'Marseille Force is numbered XI');
+assert.equal(getMarseilleCardReference(TAROT_DECK.find(card => card.id === 'major-11')).number, 'VIII', 'Marseille Justice is numbered VIII');
+assert.equal(getMarseilleCardReference(TAROT_DECK[0]).number, '无编号', 'Le Mat does not inherit the RWS Fool number');
+assert.match(getMarseilleCardReference(TAROT_DECK.find(card => card.id === 'minor-cups-7')).structure, /数字牌/);
+assert.match(getMarseilleCardReference(TAROT_DECK.find(card => card.id === 'minor-wands-q')).title, /Reine/);
+console.log('PASS tarot deck: 78 reproducible cards, upright/reversed meanings, and 78 Marseille naming/structure correspondences');

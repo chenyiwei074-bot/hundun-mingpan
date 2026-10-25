@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "body": "2060 Chiron",
+  "authority": "NASA/JPL Horizons API",
+  "ephemeris": "DE441 + SB441-N16 small-body perturbations",
+  "observer": "geocentric Earth (399)",
+  "coordinates": "apparent ecliptic of date, ObsEcLon / ObsEcLat, daily UTC samples",
+  "interpolation": "linear between daily samples; longitude follows the shortest arc",
+  "from": "1900-01-01T00:00:00Z",
+  "through": "2100-01-01T00:00:00Z",
+  "sampleCount": 73050,
+  "record": "little-endian float32 longitude degrees, float32 latitude degrees",
+  "binary": "chiron-jpl-1900-2100-v1.bin",
+  "sourceFiles": [
+    "chiron-1900-1925.txt",
+    "chiron-1925-1950.txt",
+    "chiron-1950-1975.txt",
+    "chiron-1975-2000.txt",
+    "chiron-2000-2025.txt",
+    "chiron-2025-2050.txt",
+    "chiron-2050-2075.txt",
+    "chiron-2075-2100.txt"
+  ]
+}

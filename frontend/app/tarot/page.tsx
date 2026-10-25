@@ -10,6 +10,7 @@ import { TAROT_MEANINGS } from '@/lib/tarot/meanings';
 import { createTarotReading, getClassicSources, saveTarotReading, type TarotReadingResponse, type TarotSavedReading, type ClassicSource } from '@/app/lib/api';
 import { getVisitorId } from '@/lib/auth/visitor';
 import { getDeckTilt } from '@/lib/tarot/interaction';
+import { getMarseilleCardReference, TAROT_TRADITION_SOURCES } from '@/lib/tarot/traditions';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -156,7 +157,7 @@ export default function TarotPage() {
 
   useEffect(() => {
     const ids = [...new Set((aiReading?.cards || []).flatMap(c => c.sourceIds))];
-    if (!ids.length) { setSourceRefs({}); return; }
+    if (!ids.length) return;
     let alive = true;
     getClassicSources(ids).then(list => {
       if (!alive) return;
@@ -551,6 +552,36 @@ export default function TarotPage() {
               <h3 id="tarot-insight-title">{selectedDraw.card.nameZh} <span data-proper-name>{selectedDraw.card.nameEn}</span></h3>
               <p>{selectedMeaning?.[selectedDraw.orientation === '正位' ? 'upright' : 'reversed'] ?? '此牌义暂缺，后续补充来源校核。'}</p>
               <small>历史牌义参照：{selectedMeaning?.source ?? '待校核'}。点击其他牌可切换查看。</small>
+              <details className="tarot-tradition" data-tarot-tradition-card={selectedDraw.card.id}>
+                <summary>跨传统对读 · 韦特—史密斯与马赛牌系</summary>
+                {(() => {
+                  const marseille = getMarseilleCardReference(selectedDraw.card);
+                  return (
+                    <>
+                      <div className="tarot-tradition__grid">
+                        <div className="tarot-tradition__column">
+                          <strong>本次牌义 · 韦特—史密斯</strong>
+                          <p>{selectedDraw.card.nameZh} · {selectedDraw.card.arcana === 'major' ? `${selectedDraw.card.numeral} 号` : `${selectedDraw.card.rank} · ${selectedDraw.card.suit}`}</p>
+                          <p>{selectedDraw.orientation}：{selectedMeaning?.[selectedDraw.orientation === '正位' ? 'upright' : 'reversed'] ?? '此牌义暂缺。'}</p>
+                        </div>
+                        <div className="tarot-tradition__column">
+                          <strong>牌名与结构参照 · 马赛牌系</strong>
+                          <p>{marseille.title} · {marseille.number}</p>
+                          <p>{marseille.structure}</p>
+                          {marseille.note && <p>{marseille.note}</p>}
+                        </div>
+                      </div>
+                      <p className="tarot-tradition__scope">
+                        这项对读比较牌名、编号与牌面结构。当前正逆位牌义只按韦特 1910 年文本呈现；本页不把韦特牌义冒充为马赛牌义，也不推导马赛逆位解释。
+                      </p>
+                      <div className="tarot-tradition__sources" aria-label="跨传统对读资料">
+                        <a href={TAROT_TRADITION_SOURCES.waite} target="_blank" rel="noreferrer">Waite 1910 · Part III 原文</a>
+                        <a href={TAROT_TRADITION_SOURCES.dodal} target="_blank" rel="noreferrer">大英博物馆 · Dodal 78 张牌组馆藏记录</a>
+                      </div>
+                    </>
+                  );
+                })()}
+              </details>
             </div>
             <button type="button" className="tarot-insight__close" onClick={() => setSelectedIndex(null)} aria-label="收起牌义">收起</button>
           </section>

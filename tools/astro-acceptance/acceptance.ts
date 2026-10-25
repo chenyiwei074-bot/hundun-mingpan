@@ -17,6 +17,7 @@ import { VETTED_PINNED } from '../_lib/vettedDeps';
 import { computePlanets, ASTRO_BASIS, ASTRO_CROSS_CHECK, ASTRO_DONE, ASTRO_NOT_DONE, PLANETS, SIGNS } from '../../frontend/lib/astro/planets';
 import { computeAngles, ANGLE_CROSS_CHECK } from '../../frontend/lib/astro/angles';
 import { computeHouseCusps, HOUSE_CROSS_CHECK, HOUSE_SYSTEMS, type HouseSystem } from '../../frontend/lib/astro/houses';
+import { applyZodiacFrame, CHIRON_EPHEMERIS, computeChironPosition, computeLunarNodes, lahiriAyanamsha, LAHIRI_ICRC_EPOCH_UTC_MS } from '../../frontend/lib/astro/extensions';
 import { toUtc, MOMENT_BASIS, availableZones } from '../../frontend/lib/astro/moment';
 import { TROPICAL_SIGNS_BASIS, ASPECT_GEOMETRY_BASIS, type BasisTriple } from '../../frontend/lib/astro/classics';
 import { readWesternBases } from '../_lib/classics';
@@ -39,6 +40,56 @@ const ok = (id: string, cond: boolean, detail: string) => {
   if (cond) pass++; else fail++;
   say(`${cond ? 'PASS' : 'FAIL'}  ${id}  ${detail}`);
 };
+
+// ── 本轮新增：凯龙、月球交点与拉希里恒星黄道 ──
+{
+  const epoch = lahiriAyanamsha(LAHIRI_ICRC_EPOCH_UTC_MS);
+  ok('astro/lahiri-icrc-anchor', Math.abs(epoch - 23.25) < 1e-7,
+    `拉希里 ICRC 1956 零点应为 23°15′；实得 ${epoch.toFixed(9)}°`);
+
+  const instant = Date.parse('2026-10-25T00:00:00.000Z');
+  const meanNodes = computeLunarNodes(instant, 'mean');
+  const trueNodes = computeLunarNodes(instant, 'true');
+  const antipodal = (rows: typeof meanNodes) => Math.abs(Math.abs(rows[0].lon - rows[1].lon) - 180) < 1e-8;
+  ok('astro/lunar-nodes-antipodal', antipodal(meanNodes) && antipodal(trueNodes),
+    '平均与真交点都应成 180° 对点');
+  ok('astro/lunar-node-mode-distinct', Math.abs(meanNodes[0].lon - trueNodes[0].lon) > 0.01,
+    `本例真交点与平均交点应体现短周期差异；实差 ${Math.abs(meanNodes[0].lon - trueNodes[0].lon).toFixed(4)}°`);
+  const trial = { ...PLANETS[0], 名称: '太阳', lon: 100, lat: 0, signIndex: 3, 星座: '巨蟹座', signDeg: 10, signMin: 0 };
+  const siderealTrial = applyZodiacFrame(trial, 'sidereal-lahiri', lahiriAyanamsha(instant));
+  ok('astro/sidereal-frame-offset', Math.abs(((trial.lon - siderealTrial.lon + 360) % 360) - lahiriAyanamsha(instant)) < 1e-8,
+    '恒星黄道位置必须与回归黄道位置相差同一拉希里岁差角');
+
+  const binaryPath = join(ROOT, 'frontend', 'public', 'ephemeris', 'chiron-jpl-1900-2100-v1.bin');
+  const bytes = readFileSync(binaryPath);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const magic = bytes.subarray(0, 4).toString('ascii');
+  const version = view.getUint32(4, true), count = view.getUint32(8, true), stride = view.getUint32(12, true);
+  const validHeader = magic === 'CHRN' && version === 1 && count === CHIRON_EPHEMERIS.samples && stride === 2 && bytes.byteLength === 16 + count * 8;
+  ok('astro/chiron-jpl-dataset-shape', validHeader,
+    `NASA/JPL 凯龙星历二进制结构、样本数与范围相符；${bytes.byteLength} bytes / ${count} samples`);
+  if (validHeader) {
+    const longitudes = new Float32Array(count), latitudes = new Float32Array(count);
+    for (let index = 0; index < count; index += 1) {
+      longitudes[index] = view.getFloat32(16 + index * 8, true);
+      latitudes[index] = view.getFloat32(20 + index * 8, true);
+    }
+    const data = { longitudes, latitudes, startUtcMs: CHIRON_EPHEMERIS.fromUtcMs, count };
+    const first = computeChironPosition(CHIRON_EPHEMERIS.fromUtcMs, data);
+    const last = computeChironPosition(CHIRON_EPHEMERIS.throughUtcMs, data);
+    const outside = computeChironPosition(CHIRON_EPHEMERIS.fromUtcMs - 1, data);
+    const mid = computeChironPosition(CHIRON_EPHEMERIS.fromUtcMs + 43_200_000, data);
+    ok('astro/chiron-range-and-interpolation', !!first && !!last && outside === null && !!mid
+      && Number.isFinite(mid.lon) && Number.isFinite(mid.lat),
+      `1900 / 2100 边界可算、范围外拒算、日内插值有效；首 ${first?.lon.toFixed(3)}° / 末 ${last?.lon.toFixed(3)}°`);
+  } else {
+    ok('astro/chiron-range-and-interpolation', false, '历表结构无效，无法检查边界和插值');
+  }
+  const source = readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8');
+  ok('astro/extension-sources-visible', /horizons\.html/.test(source) && /swisseph\.htm/.test(source)
+    && /IAU2006_Resolution_B1\.pdf/.test(source) && /britishmuseum/.test(readFileSync(join(ROOT, 'frontend', 'lib', 'tarot', 'traditions.ts'), 'utf8')),
+    '星历、交点 / 拉希里方法与塔罗马赛牌组应各有可打开的原始来源');
+}
 
 const ENTRY = WESTERN_TOOL_BY_SLUG['astro-natal'];
 const REF_FILE = join(HERE, 'cases', 'astro-ephemeris-reference.json');
@@ -260,9 +311,12 @@ const ref = refText ? JSON.parse(refText) : null;
   ok('astro/notdone-list-equals-engine', JSON.stringify(ENTRY.notDone) === JSON.stringify([...ASTRO_NOT_DONE]),
     `「未做」那份必须与 ASTRO_NOT_DONE 逐字同序（缺的样子里少写一条，读者就以为那条做了）`);
   const notDone = (ENTRY.notDone || []).join(' ');
-  ok('astro/missing-calls-out-what-is-missing', /凯龙/.test(notDone)
-    && /交点/.test(notDone) && /恒星黄道/.test(notDone) && /宫制/.test(notDone),
-    `凯龙/交点/恒星黄道/其他宫制都要在"未做"里点名（主要相位、上升点与整宫制已做）：${notDone.slice(0, 80)}…`);
+  ok('astro/extensions-are-listed-as-done', (ENTRY.done || []).some(s => /凯龙星/.test(s))
+    && (ENTRY.done || []).some(s => /北交点与南交点/.test(s))
+    && (ENTRY.done || []).some(s => /拉希里恒星黄道/.test(s)),
+    `凯龙星、南北交点与恒星黄道实现后须从未做移入已做：${JSON.stringify(ENTRY.done)}`);
+  ok('astro/missing-calls-out-what-is-missing', /宫制/.test(notDone) && !/凯龙|交点|恒星黄道/.test(notDone),
+    `未做项应只保留尚未实现的其他宫制：${notDone}`);
   ok('astro/angles-done', (ENTRY.done || []).some(s => /上升点/.test(s) && /整宫制/.test(s)),
     `「已做」里必须出现上升点与整宫制：${JSON.stringify(ENTRY.done)}`);
   // 目录给用户看的说明应使用中文，不把工程版本标识或实现库名称当作产品文案。
@@ -274,7 +328,7 @@ const ref = refText ? JSON.parse(refText) : null;
     `目录卡面的介绍用中文表达，不显示工程版本号、实现库或许可信息：英文 ${latin.join('、') || '无'}；内部标识 ${internal ? '仍有' : '无'}`);
   // 反向：已经不算的东西不许出现在"会算"的那一侧，也不许在问题与读法里许诺。
   const promises = [ENTRY.name, ENTRY.question, ENTRY.method, ENTRY.reading, ENTRY.teaser || '', ...(ENTRY.done || [])].join(' ');
-  const banned = ['凯龙', '交点', '性格'].filter(w => promises.includes(w));
+  const banned = ['雷吉奥蒙塔努斯', '坎帕纳斯', '性格'].filter(w => promises.includes(w));
   ok('astro/no-undelivered-promise', banned.length === 0,
     `"做了什么"的每一行都不许出现没做的那几样（写了读者就会去找）：命中 ${banned.join('、') || '无'}`);
   ok('astro/partial-renders-both-lists', (() => {
@@ -286,10 +340,9 @@ const ref = refText ? JSON.parse(refText) : null;
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8'));
   ok('astro/work-page-reads-catalog', /WESTERN_TOOL_BY_SLUG/.test(comp) && /ENTRY\.done|ENTRY\.notDone|\.done \?\?|\.notDone \?\?/.test(comp),
     '工作页的已做/未做也从目录读，不在组件里再抄一份清单（一份抄本就会与目录漂移）');
-  // 问事框的路由词表也算"承诺"：拿 上升/宫位/星盘 这些这一项**不做**的东西当关键词，
-  // 用户就会被领到一个装着"没做的东西"的页面上，而那句话是问事框说的，不是目录说的。
+  // 问事框的路由词表也算"承诺"：这个页面尚不是完整星盘，也没有所有传统宫制。
   const askWords = ROUTER_SPECS['astro-natal'].ask;
-  const undelivered = ['星盘', '本命盘', '凯龙', '交点'];
+  const undelivered = ['星盘', '本命盘'];
   const over = askWords.filter(k => undelivered.some(u => k.includes(u)));
   ok('astro/router-words-are-delivered', over.length === 0,
     `astro-natal 的路由关键词只能是我做得到的那几样（实得 ${askWords.join('、')}）：越界 ${over.join('、') || '无'}`);
@@ -301,8 +354,11 @@ const ref = refText ? JSON.parse(refText) : null;
     && /对拍|逐点核过|逐星核过/.test(comp) && /不打包票/.test(comp),
     '工作页必须写明"与权威星历核过、窗口是多少、窗口外不打包票"，且那几个数读的是引擎里那一个常量');
   ok('astro/work-page-client-only', /^'use client';/.test(stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8')).replace(/^\uFEFF/, ''))
-    && !/fetch\(/.test(comp) && !/\/api\//.test(comp),
-    '计算必须在这台设备：组件是 client、不 fetch、不打 /api（生辰不出设备的裁定要靠这三条同时成立才可信）');
+    && /fetch\(CHIRON_EPHEMERIS\.url/.test(comp) && !/fetch\(['"`]\/api\//.test(comp) && !/\/api\//.test(comp),
+    '出生资料仍只在本机参与计算；唯一读取的是随站点部署的静态凯龙星历文件，不调用 API 上传生辰');
+  ok('astro/extension-controls-and-rendering', /astro-zodiac-frame/.test(comp) && /astro-node-mode/.test(comp)
+    && /data-astro-extensions/.test(comp) && /data-astro-point=\{point\.key\}/.test(comp),
+    '页面必须提供两种黄道与交点模式选择，并渲染凯龙和南北交点扩展表');
   ok('astro/tap-targets-in-source', (comp.match(/minHeight: 44/g) || []).length >= 4,
     `日期、钟面、时区、按钮四个控件都要 44px 命中区（本批新增控件不许天生矮）：实得 ${(comp.match(/minHeight: 44/g) || []).length} 处`);
   // 批F③：E2 第一版把 2000-01-01 12:00 当预填样例，形状是"一张已经填好时间的表单"——
@@ -494,8 +550,8 @@ const ref = refText ? JSON.parse(refText) : null;
 // 计数锁：本套件的判据条数钉死。删一条就红（"更绿了"不等于"更好了"），
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
 // 批H-W 的 §8 有 8 条（底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
-// 近代词条分层／引文不进目录）；本轮新增 5 条宫制夹具判据，计数锁随之从 67 调至 72。
-const EXPECT = 72;
+// 近代词条分层／引文不进目录）；本轮新增 7 条凯龙、交点、黄道与来源判据。
+const EXPECT = 79;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

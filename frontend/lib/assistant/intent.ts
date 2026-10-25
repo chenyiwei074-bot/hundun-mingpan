@@ -27,11 +27,9 @@ export const ROUTER_SPECS: Record<string, Spec> = {
   'fengshui': { ask: ['户型', '房屋', '住宅', '房间', '采光', '动线', '朝向', '风水', '装修', '门窗'], needs: [] },
   'hepan': { ask: ['合盘', '两人合', '婚配', '配对', '合八字'], needs: ['date', 'time', 'gender'] },
   'xingming': { ask: ['姓名', '名字', '五格', '剖象', '测名'], needs: ['question'] },
-  // E2 裁定后 astro-natal 只到"落座与度数"这一层，所以路由词表里不许再留 上升 / 宫位 / 星盘 / 本命盘
-  // 这些**它不做**的说法：拿没做的东西当关键词，等于问事框替页面许愿（catalog 那边有
-  // astro/no-undelivered-promise 钉同一件事，两侧一起钉才咬得住）。
-  // 问"星盘/上升"的人会落到"没对上这一系已开放的工具"那一句，并被指向目录 —— 那里写着缺什么。
-  'astro-natal': { ask: ['占星', '本命行星位置', '太阳星座', '月亮星座', '行星', '落座', '黄经', '黄道'], needs: ['date', 'time', 'place'] },
+  // astro-natal 已支持凯龙、交点和两种黄道；这里仍不使用"星盘/本命盘"，
+  // 避免让用户误以为完整盘面图或其他未开放宫制也已提供。
+  'astro-natal': { ask: ['占星', '本命行星位置', '太阳星座', '月亮星座', '行星', '落座', '黄经', '黄道', '凯龙星', '北交点', '南交点', '拉希里', '恒星黄道', '真交点', '平均交点'], needs: ['date', 'time', 'place'] },
   'astro-synastry': { ask: ['占星合盘', '两人星盘', 'synastry'], needs: ['date', 'time', 'place'] },
   'tarot-draw': { ask: ['塔罗', '抽牌', '牌阵', '牌卡'], needs: ['question'] },
   'lunar-phase': { ask: ['月相', '满月', '新月', '朔望', '农历几时月'], needs: ['date'] },
