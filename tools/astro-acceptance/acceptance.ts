@@ -85,9 +85,9 @@ const ok = (id: string, cond: boolean, detail: string) => {
   } else {
     ok('astro/chiron-range-and-interpolation', false, '历表结构无效，无法检查边界和插值');
   }
-  const source = readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8');
+  const source = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8'));
   ok('astro/extension-sources-visible', /horizons\.html/.test(source) && /swisseph\.htm/.test(source)
-    && /IAU2006_Resolution_B1\.pdf/.test(source) && /britishmuseum/.test(readFileSync(join(ROOT, 'frontend', 'lib', 'tarot', 'traditions.ts'), 'utf8')),
+    && /IAU2006_Resolution_B1\.pdf/.test(source) && /britishmuseum/.test(stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'tarot', 'traditions.ts'), 'utf8'))),
     '星历、交点 / 拉希里方法与塔罗马赛牌组应各有可打开的原始来源');
 }
 
@@ -353,8 +353,10 @@ const ref = refText ? JSON.parse(refText) : null;
   ok('astro/page-states-cross-check-window', /ASTRO_CROSS_CHECK/.test(comp)
     && /对拍|逐点核过|逐星核过/.test(comp) && /不打包票/.test(comp),
     '工作页必须写明"与权威星历核过、窗口是多少、窗口外不打包票"，且那几个数读的是引擎里那一个常量');
+  const extensionSource = stripComments(readFileSync(join(ROOT, 'frontend', 'lib', 'astro', 'extensions.ts'), 'utf8'));
   ok('astro/work-page-client-only', /^'use client';/.test(stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8')).replace(/^\uFEFF/, ''))
-    && /fetch\(CHIRON_EPHEMERIS\.url/.test(comp) && !/fetch\(['"`]\/api\//.test(comp) && !/\/api\//.test(comp),
+    && /fetch\(CHIRON_EPHEMERIS\.url/.test(extensionSource) && !/fetch\(['"`]\/api\//.test(comp)
+    && !/\/api\//.test(comp) && !/\/api\//.test(extensionSource),
     '出生资料仍只在本机参与计算；唯一读取的是随站点部署的静态凯龙星历文件，不调用 API 上传生辰');
   ok('astro/extension-controls-and-rendering', /astro-zodiac-frame/.test(comp) && /astro-node-mode/.test(comp)
     && /data-astro-extensions/.test(comp) && /data-astro-point=\{point\.key\}/.test(comp),
@@ -551,7 +553,7 @@ const ref = refText ? JSON.parse(refText) : null;
 // 加一条要把这个数字一起改 —— 改的是这条锁，不是产品。
 // 批H-W 的 §8 有 8 条（底本在册／引文子串／无注号／元数据齐／哈希自洽／三层齐／
 // 近代词条分层／引文不进目录）；本轮新增 7 条凯龙、交点、黄道与来源判据。
-const EXPECT = 79;
+const EXPECT = 81;
 ok('astro/count-lock', pass + fail + 1 === EXPECT,
   `本套件必须恰好 ${EXPECT} 条判据（实得 ${pass + fail + 1} 条，含本条）：少了是有人删了一条，多了是有人加完没登记`);
 

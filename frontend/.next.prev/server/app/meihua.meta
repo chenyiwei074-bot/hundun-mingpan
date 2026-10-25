@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/meihua/layout,_N_T_/meihua/page,_N_T_/meihua"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/meihua/__PAGE__",
+    "/meihua",
+    "/_index",
+    "/_head"
+  ]
+}

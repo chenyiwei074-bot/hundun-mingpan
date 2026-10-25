@@ -1,0 +1,3 @@
+module.exports=[9383,a=>{"use strict";var b=a.i(57850),c=a.i(45056),d=a.i(93609);a.s(["default",0,function(){let a=(0,d.useRouter)();return(0,c.useEffect)(()=>{a.replace("/liuyao/create")},[a]),(0,b.jsx)("div",{style:{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh"},children:(0,b.jsx)("p",{className:"qn-meta",children:"跳转中..."})})}])}];
+
+//# sourceMappingURL=frontend_app_liuyao_page_tsx_0_e7282._.js.map

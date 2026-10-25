@@ -447,7 +447,7 @@ export default function NatalPlanets() {
           {NOT_DONE.map(s => <li key={s}>{s}</li>)}
         </ul>
         <p className="qn-note" style={{ margin: '10px 0 0' }}>
-        本页仍称「本命行星位置」；还未纳入的宫制范围单独列出，已实现的小天体、交点和黄道方式按上方说明展示。
+        本页仍称「本命行星位置」，不叫星盘；还未纳入的宫制范围单独列出，已实现的小天体、交点和黄道方式按上方说明展示。
         </p>
         <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
       </section>

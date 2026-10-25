@@ -665,6 +665,8 @@ function numericPaths(v: unknown, prefix = ''): string[] {
       + '（本条要验的就是那份表头自己写着 Center=Earth(399) / DE441 / ObsEcLon 三件事），剥"注释"等于把权威证据删掉。' },
     { where: "astro-acceptance/make-reference.ts|(file, 'utf8')", reason: '同上：parseRaw 读 horizons/*.txt，'
       + '认列靠 $$SOE..$$EOE 与表尾 Column meaning 那几行原文。' },
+    { where: 'astro-acceptance/acceptance.ts|binaryPath', reason: '读的是随站点部署的凯龙星历 .bin 二进制工件，'
+      + '没有注释这一层；不是拿产品源码文本做判定。' },
     { where: "astro-acceptance/make-reference.ts|(OUT, 'utf8')", reason: '读的是自家刚生成的 .json 夹具（--check 比逐字一致），'
       + '不是拿源码文本做判定。' },
   ];

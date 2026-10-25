@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/tarot/layout,_N_T_/tarot/page,_N_T_/tarot"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/tarot/__PAGE__",
+    "/tarot",
+    "/_index",
+    "/_head"
+  ]
+}
