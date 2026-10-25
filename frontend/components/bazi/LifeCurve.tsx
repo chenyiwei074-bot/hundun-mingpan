@@ -60,7 +60,7 @@ export default function LifeCurve({ chart, independentHref }: { chart?: BaziChar
       <section className="qn-card qn-kline qn-kline--empty" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h2 className="qn-title" style={{ margin: 0 }}>人生K线 · 十神视图</h2>
-          {independentHref && <a className="qn-link" href={independentHref}>独立查看</a>}
+          {independentHref && <a className="qn-link" href={independentHref} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44 }}>独立查看</a>}
         </div>
         <p className="qn-meta" style={{ marginTop: 8 }}>
           这一节把大运与流年按十神摆成泳道，读的是八字的大运干支与日主十神。
@@ -82,7 +82,7 @@ export default function LifeCurve({ chart, independentHref }: { chart?: BaziChar
     <section className="qn-card qn-kline" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h2 className="qn-title" style={{ margin: 0 }}>人生K线 · 十神视图</h2>
-        {independentHref && <a className="qn-link" href={independentHref}>独立查看</a>}
+        {independentHref && <a className="qn-link" href={independentHref} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 44, minWidth: 44 }}>独立查看</a>}
       </div>
 
       <p className="qn-meta" id="kline-axis-note" style={{ marginTop: 8 }}>
