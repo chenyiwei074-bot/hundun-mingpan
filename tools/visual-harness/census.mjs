@@ -2318,7 +2318,8 @@ const STUB_BOOT = `(() => {
     // invented a crash the app does not have. Every consumer gates on
     // d.success, so a false envelope puts them on their real "no data" path.
     if (url.includes('/api/')) return J({ success: false, error: 'visual-harness stub: no fixture for ' + url }, 404);
-    return of.apply(window, arguments);
+    // 箭头函数没有自己的 arguments；静态资源（凯龙星历）必须原样转发。
+    return of.call(window, u, init);
   };
 })()`;
 
