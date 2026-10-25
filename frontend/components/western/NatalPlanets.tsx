@@ -408,7 +408,7 @@ export default function NatalPlanets() {
                   不同宫制会用不同规则划分十二宫。以上只展示计算出的宫头位置，不把宫位转成预测结论。
                 </p>
                 <p className="qn-note" style={{ margin: '6px 0 0' }}>
-                  回归黄道宫头已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，公差 {HOUSE_CROSS_CHECK.toleranceDeg}°；恒星黄道宫头由所选岁差量统一换算。交点模式：{nodeMode === 'true' ? '真交点' : '平均交点'}。
+                  等宫、三分、普拉西德与科赫已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，公差 {HOUSE_CROSS_CHECK.toleranceDeg}°；雷吉奥蒙塔努斯与坎帕纳斯为本站球面几何实现，尚无独立参考夹具。恒星黄道宫头由所选岁差量统一换算。交点模式：{nodeMode === 'true' ? '真交点' : '平均交点'}。
                 </p>
               </>
             ) : (

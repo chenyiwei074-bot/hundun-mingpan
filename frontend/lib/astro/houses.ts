@@ -14,7 +14,10 @@ export const HOUSE_CROSS_CHECK = {
   toleranceDeg: 0.05,
   cases: 20,
   fixtureSystems: 4,
+  verifiedSystems: 4,
+  implementedSystems: 7,
   implementedNonWholeSystems: 6,
+  pendingReferenceSystems: ['regiomontanus', 'campanus'] as const,
   references: ['Swiss Ephemeris', 'Celestine'] as const,
 } as const;
 
