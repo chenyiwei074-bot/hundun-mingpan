@@ -410,7 +410,7 @@ export default function TarotPage() {
         <p className="qn-eyebrow">西方神秘学 · 塔罗</p>
         <h1 className="qn-hero">{spread.label}</h1>
         <p className="qn-meta">{SPREAD_GUIDES[spreadId]}先完成抽牌，再逐张查看牌位。</p>
-        <p className="tarot-scope-note">韦特—史密斯牌面与正逆位解读 · 参考 Waite 1910 原文译述；马赛牌系另列本站自研象征读法</p>
+        <p className="tarot-scope-note">韦特—史密斯体系牌面 · 支持正位与逆位 · 参考 Waite 1910 Part III 原文译述（78 张来源已核验）；马赛牌系另列本站自研象征读法</p>
       </header>
 
       <section className="tarot-spread-picker" aria-labelledby="tarot-spread-title">

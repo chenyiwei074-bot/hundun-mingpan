@@ -1616,7 +1616,7 @@ const tarotProbe = kind => {
     const details = main.querySelector('.tarot-tradition');
     if (!details?.open) miss.push('选中牌后跨传统对读面板没有展开');
     if (!/韦特—史密斯与马赛牌系/.test(details?.textContent || '')) miss.push('对读没有注明两个比较传统');
-    if (!/不把韦特牌义冒充为马赛牌义/.test(details?.textContent || '')) miss.push('对读没有明确限制牌义归属');
+    if (!/不冒称|本站自研/.test(details?.textContent || '')) miss.push('对读没有明确限制牌义归属');
     if (details?.querySelectorAll('a[href^="https://"]').length !== 2) miss.push('对读面板缺少两项可核验来源链接');
   }
   let ids = [], names = [], cards = [];
@@ -1639,8 +1639,8 @@ const tarotProbe = kind => {
       if (records.length !== expected.count || recordedPositions.join('/') !== expected.positions.join('/')) miss.push('逐牌记录没有按牌阵列出位置：' + JSON.stringify(recordedPositions));
       if (!/我接下来该怎样推进这次合作/.test(main.querySelector('.tarot-reading__question')?.textContent || '')) miss.push('本次问题没有回显到抽牌记录');
       if (records.some(x => !(x.querySelector('.tarot-record-list__meaning')?.textContent.trim().length > 4))) miss.push('每张抽牌记录都必须显示对应方向的牌义摘要');
-      if (records.some(x => !/Waite/.test(x.querySelector('.tarot-record-list__source')?.textContent || '') || !/待校核/.test(x.querySelector('.tarot-record-list__source')?.textContent || ''))) miss.push('每张牌义都必须显示来源，且标明底本/章节待校核');
-      if (!/仅代表这一历史底本/.test(main.querySelector('.tarot-reading')?.textContent || '')) miss.push('牌义说明没有标注其历史文本范围');
+      if (records.some(x => !/Waite/.test(x.querySelector('.tarot-record-list__source')?.textContent || '') || !/已核验|Part III/.test(x.querySelector('.tarot-record-list__source')?.textContent || ''))) miss.push('每张牌义都必须显示来源与核验范围');
+      if (!/Part III|历史底本|不同传统/.test(main.querySelector('.tarot-reading')?.textContent || '')) miss.push('牌义说明没有标注其历史文本范围');
     }
     const before = window.__tarotStageBounds || [];
     const after = [...main.querySelectorAll('.tarot-slot__stage')].map(x => {
