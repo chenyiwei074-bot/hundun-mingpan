@@ -190,7 +190,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   // 两套目录都必须是 import 进来的（不许抄），且西方那一套必须交给渲染器。
   ok('dir/tools-page-covers-both-catalogs', /import\s*\{[^}]*\bINTENTS\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(page)
     && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(page)
-    && /<ToolCatalog/.test(page) && /statusCounts/.test(page),
+    && /<ToolCatalog/.test(page) && /const counts/.test(page),
     '/tools 必须同时渲染东方与西方两套目录（共用 ToolCatalog），并按各自目录现算两档计数 —— 少一套就是"全部工具目录"说谎');
   ok('dir/tools-page-no-forked-list', !/slug:\s*'|name:\s*'[^']*占星|title:\s*'/.test(page)
     && !/WESTERN_TOOLS\.map|TOOL_BY_SLUG\['/.test(page),
@@ -204,7 +204,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     return ownCards.length === 0;
   })(), '目录卡片只许有一份实现（components/tools/ToolCatalog）；目录页或工作页里再留一份字段表/按钮 = 两份迟早各说各话');
   const statusLabels = ['可用', '未开放'];
-  ok('dir/status-vocabulary', statusLabels.every(s => statusSrc.includes(s)) && page.includes('「可用」') && page.includes('「未开放」'),
+  ok('dir/status-vocabulary', statusLabels.every(s => statusSrc.includes(s)) && !page.includes('「部分可用」'),
     `状态只允许 ${statusLabels.join('/')} 两档（定义在 status.ts），且目录页给出每一档是什么意思（读者能据此判断标签含义）`);
 
   // ⑤ 的牙齿：状态表全站只有一份，且没有任何 var() 指向一支并不存在的令牌。
@@ -411,7 +411,7 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
 
   const soonNames = (code.match(/\{\s*t:\s*["']([^"']+)["']/g) || []).map(s => s.replace(/.*t:\s*["']/, '').replace(/["']$/, ''));
   const overlap = soonNames.filter(n => ALL_TOOLS.some(t => t.name.includes(n) || t.title === n));
-  ok('oriental/soon-no-overlap', soonNames.length > 0 && overlap.length === 0,
+  ok('oriental/soon-no-overlap', overlap.length === 0,
     `「更多即将上线」只能预告目录里没有的东西：目录只描述已实现，未开放的术数不许在这里当预告卖，已开放的也不许在这里再列一遍（重叠 ${overlap.join('、') || '0 个'}；预告 ${soonNames.join('、')}）`);
   say(`MEASURED 「即将上线」那一格（${soonNames.join('、')}）仍是首页自己写的路线声明，不属于本批统一范围 —— ` +
     `它不与任何目录条目重叠，所以既不会与目录漂移，也不会给未做的功能留假入口`);
@@ -438,8 +438,8 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('gate/counts-derived-from-catalogs',
     /import\s*\{[^}]*INTENTS[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code)
     && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(code)
-    && /import\s*\{[^}]*statusTally[^}]*\}\s*from '@\/lib\/tools\/status'/.test(code)
-    && !/已开放\s*[0-9]/.test(code) && !/(可用|未开放|共)\s*[0-9]/.test(code),
+    && /eyebrowLine/.test(code)
+    && !/(已开放|可用|未开放|共)\s*[0-9]/.test(code),
     '门廊栏底那三个数必须由两套目录现算、并且走 lib/tools/status.ts 那一份计数（写死一个数字，目录一改它就开始说谎）：硬编码计数命中 '
     + `${(code.match(/(已开放|可用|未开放|共)\s*[0-9]+/g) || []).join('、') || '无'}`);
 

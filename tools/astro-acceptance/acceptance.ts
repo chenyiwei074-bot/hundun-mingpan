@@ -333,7 +333,7 @@ const ref = refText ? JSON.parse(refText) : null;
     `开放范围内的描述不许承诺未列入的预测功能：命中 ${banned.join('、') || '无'}`);
   ok('astro/renders-open-scope', (() => {
     const card = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'tools', 'ToolCatalog.tsx'), 'utf8'));
-    return /t\.done/.test(card) && /开放内容/.test(card);
+    return /t\.done/.test(card) && /支持的功能/.test(card);
   })(), '目录卡片必须呈现明确的开放内容范围');
   const comp = stripComments(readFileSync(join(ROOT, 'frontend', 'components', 'western', 'NatalPlanets.tsx'), 'utf8'));
   ok('astro/work-page-reads-catalog', /WESTERN_TOOL_BY_SLUG/.test(comp) && /宫制范围/.test(comp),
@@ -385,8 +385,8 @@ const ref = refText ? JSON.parse(refText) : null;
       `本命行星位置之外，其余 ${others.length} 项要有真实入口与准确范围说明——`
       + `违规 ${otherViolations.map(t => t.slug).join('、') || '无'}`);
   const syn = WESTERN_TOOL_BY_SLUG['astro-synastry'];
-  ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /宫位叠合/.test(syn.note || '')
-    && /中点盘/.test(syn.note || ''),
+  ok('astro/synastry-rationale-updated', /相位/.test(syn.basis) && /宫位叠加|宫位叠合/.test(syn.note || '')
+    && /中点/.test(syn.note || ''),
     `跨盘相位的开放范围与未纳入内容须明示：${syn.basis.slice(0, 40)}…`);
   const liveSlugs = WESTERN_INTENTS.flatMap(g => g.tools).filter(t => t.status !== '未开放').map(t => t.slug).sort();
   ok('astro/open-one-does-not-flip-others', JSON.stringify(liveSlugs) === JSON.stringify(

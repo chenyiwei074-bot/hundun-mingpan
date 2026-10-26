@@ -437,6 +437,16 @@ export default function NatalPlanets() {
           </div>
         </details>
       </section>
+
+      <section className="qn-legal" style={{ marginTop: 22 }}>
+        <h2>范围与核验</h2>
+        <p>
+          本页仍称「本命行星位置」，不叫星盘：这里展示行星、凯龙、交点、上升点和宫制，不把宫位划分写成确定性预测。
+        </p>
+        <p>
+          行星位置与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to}，黄经黄纬公差 {ASTRO_CROSS_CHECK.toleranceDeg}°；超出这个窗口不打包票。
+        </p>
+      </section>
 </>
   );
 }

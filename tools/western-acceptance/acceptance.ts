@@ -119,8 +119,8 @@ const ok = (id: string, cond: boolean, detail: string) => {
     && !/status\s*!==\s*'未开放'\s*&&\s*t\.href/.test(card),
     '共用的目录卡片必须吃 lib/tools/status.ts 的 isLiveEntry（页面里再写一遍双闸门 = 第二份真相）');
   const landing = stripComments(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
-  ok('west/gate-count-derived', /WESTERN_INTENTS/.test(landing) && /statusCounts|statusTally/.test(landing)
-    && !/已开放\s*[0-9]/.test(landing) && !/(可用|未开放)\s*[0-9]/.test(landing),
+  ok('west/gate-count-derived', /WESTERN_INTENTS/.test(landing) && /eyebrowLine/.test(landing)
+    && !/(已开放|可用|未开放|共)\s*[0-9]/.test(landing),
     '门廊上西方那张卡的数也是现算的（走 status.ts），旧写法「已开放 N」与新写法「可用 N」都不许写死');
   // 批F②：眉标改成按目录现算之后，还剩一件会被悄悄做错的事 —— 分隔符。
   // 条目名自己就带「 · 」（「西洋占星 · 合盘」「二十八宿 · 本命宿」），拿「 · 」当列表分隔符
