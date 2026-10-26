@@ -419,7 +419,7 @@ export default function XiuPage() {
             </section>
           )}
 
-          {result && <ToolInterpretation tool="xiu" title="通书值日宿与合宿 · 混沌自研 AI 解读" payload={{
+          {result && <ToolInterpretation tool="xiu" title="通书值日、合宿与三九 · 混沌自研 AI 解读" payload={{
             ben: {
               fullName: result.ben.fullName, xiu: result.ben.xiu, yao: result.ben.yao,
               wuxing: result.ben.wuxing, gong: result.ben.gong, sixiang: result.ben.sixiang,
@@ -437,11 +437,29 @@ export default function XiuPage() {
                 index: result.pair.other.index,
               },
             } : null,
+            sanJiu: sanJiu.mine ? {
+              basis: sanJiu.mine.basis,
+              self: {
+                natalXiu: sanJiu.mine.natalXiu,
+                rows: sanJiu.mine.rows.map(({ xiu, relation }) => ({ xiu, relation })),
+              },
+              partner: sanJiu.other ? {
+                natalXiu: sanJiu.other.natalXiu,
+                rows: sanJiu.other.rows.map(({ xiu, relation }) => ({ xiu, relation })),
+              } : null,
+              pairRelation: sanJiu.other ? {
+                partnerInSelf: {
+                  xiu: sanJiu.other.natalXiu,
+                  relation: sanJiu.mine.rows[(sanJiu.other.natalXiuIndex - sanJiu.mine.natalXiuIndex + 27) % 27].relation,
+                },
+                selfInPartner: {
+                  xiu: sanJiu.mine.natalXiu,
+                  relation: sanJiu.other.rows[(sanJiu.mine.natalXiuIndex - sanJiu.other.natalXiuIndex + 27) % 27].relation,
+                },
+              } : null,
+            } : null,
           }} />}
           {result && sanJiu.mine && <section className="qn-card" style={{ marginTop: 12 }}>
-            <p className="qn-cap" style={{ margin: 0 }}>
-              三九关系已在本页独立计算；当前解读只针对通书值日宿与原有合宿结果。
-            </p>
             <p className="qn-meta" style={{ marginBottom: 0 }}>
               《宿曜经》提供三九宿序与关系类别；出生宿定位为本站自研：取输入时刻的月球地心黄经，换算至拉希里恒星黄道后均分 27 宿。本口径不声称是古籍原有的天文算法。
             </p>

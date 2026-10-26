@@ -247,6 +247,18 @@ export default function SynastryPage() {
               甲方行星: a.first.名称, 乙方行星: a.second.名称, 相位: a.name,
               标准角度: a.exactAngle, 实际角距: a.separation, 容许差: a.orb, 容许度: a.allowedOrb,
             })),
+            houseOverlays: {
+              houseSystem,
+              firstPlanetsInSecond: {
+                available: Boolean(secondHouses?.ok),
+                rows: firstIntoSecond.map(({ key, name, sign, longitude, house }) => ({ key, name, sign, longitude, house })),
+              },
+              secondPlanetsInFirst: {
+                available: Boolean(firstHouses?.ok),
+                rows: secondIntoFirst.map(({ key, name, sign, longitude, house }) => ({ key, name, sign, longitude, house })),
+              },
+            },
+            compositeMidpoints: composite.map(({ key, name, longitude, sign, ambiguous }) => ({ key, name, longitude, sign, ambiguous })),
           }} />}
     <section className="qn-card" style={{ marginTop: 14 }}>
       <details>
@@ -255,7 +267,7 @@ export default function SynastryPage() {
         </summary>
         <div style={{ display: 'grid', gap: 8, paddingTop: 8 }}>
           <p className="qn-meta" style={{ margin: 0 }}>采用回归黄道的地心行星黄经；主要相位是 0°、60°、90°、120°、180°。合相/对分相或涉及日月时容许 ±8°，其余 ±6°。宫位叠加复用本命页的七种宫制；中点只计算十颗行星的黄经短弧中点。</p>
-          <p className="qn-note" style={{ margin: 0 }}>本页不推断谁适合谁，也不计算关系分数或未来走势。当前 AI 解读只读取双方行星位置与跨盘相位，尚未读取宫位叠加和中点结果；古典角度定义可在 <Link href="/astro" className="qn-link" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center' }}>本命行星位置页</Link>的依据区查看。</p>
+          <p className="qn-note" style={{ margin: 0 }}>本页不推断谁适合谁，也不计算关系分数或未来走势。解读结合双方行星位置、跨盘相位、双向宫位叠加与行星黄经中点；古典角度定义可在 <Link href="/astro" className="qn-link" style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center' }}>本命行星位置页</Link>的依据区查看。</p>
         </div>
       </details>
     </section>
