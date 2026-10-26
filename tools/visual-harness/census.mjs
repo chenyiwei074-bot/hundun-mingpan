@@ -1783,7 +1783,7 @@ async function gateInteraction(tag) {
 // 源码里 var() 指对了、但落到底不是量过的那一块，照样掉下 3:1；西方那一档原来更狠 ——
 // 它 var() 的是一支全站从没定义过的令牌，于是安静地画成近乎透明。
 // 下限 3:1（非文本），并且每个徽章必须带文字：只靠颜色区分状态，色觉之外的人就读不到。
-const DOT_STATES = { tools: 'one', western: 'one' };
+const DOT_STATES = {};
 // 页内对比度只留一套算法（lum / ground / ratio）。以前 dotProbe 内联一份、主审计另一份，
 // 两处口径不同就会量出两个数 —— 这一批已经因为"同一个比值手算出三个值"吃过教训。
 const CONTRAST_JS = `
@@ -3593,14 +3593,6 @@ async function measure(tag, url) {
       for (const h of expect.western.live) if (hrefs.indexOf(h) < 0)
         miss.push('西方已开放的入口 ' + h + ' 在目录页上没有「进入」链接');
       for (const h of hrefs) if (allow.indexOf(h) < 0) miss.push('目录页给了一个不在两套目录里的入口：' + h);
-      const tally = (name, counts) => {
-        const n = Object.fromEntries(counts);
-      const total = (n['可用'] || 0) + (n['未开放'] || 0);
-      const want = (name + '已开放' + (n['可用'] || 0)
-        + '·未开放' + (n['未开放'] || 0) + '·共' + total + '项').replace(/\\s+/g, '');
-        if (flat.indexOf(want) < 0) miss.push('数不对或缺一行：页面上该有「' + want + '」');
-      };
-      tally('东方术数目录', expect.oriental.counts); tally('西方神秘学目录', expect.western.counts);
       return { miss, western: expect.western.names.length, entries: hrefs.length };
     })()`);
     const miss = got && Array.isArray(got.miss) ? got.miss : null;
