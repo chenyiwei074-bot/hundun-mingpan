@@ -408,7 +408,7 @@ export default function NatalPlanets() {
             ascendant: displayedAscendant, midheaven: displayedMidheaven, frame: zodiacFrame, nodeMode }} />
       )}
       <section className="qn-legal" style={{ marginTop: 16 }}>
-        <details>
+        <details open>
           <summary className="qn-meta" style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             计算范围、交叉核验与参考资料
           </summary>

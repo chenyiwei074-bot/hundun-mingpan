@@ -744,6 +744,9 @@ function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, �
           </ul>
         </div>
       )}
+      <p className="qn-note" style={{ marginTop: 12 }}>
+        以上观察依据你标注的墙体、房间、门窗与朝向，不代表传统方位吉凶。本页规则由本站自研，目前不作八宅、玄空等传统方位判断。
+      </p>
     </section>
   );
 }
