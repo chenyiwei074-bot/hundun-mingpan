@@ -995,7 +995,7 @@ const AFTER = {
   // 钩子就会返回 false、页面被记成「没点开」，而 800ms 后的审计其实已经在审结果态。
   // evl 开了 awaitPromise，所以轮询到结果态真出现再返回，判定与实际审到的东西才对得上。
   'xiu': `(async () => { const b = [...document.querySelectorAll('button')]
-      .find(x => (x.textContent || '').trim() === '查命宿'); if (!b) return false;
+      .find(x => /查询星宿|查命宿/.test((x.textContent || '').trim())); if (!b) return false;
       const i = document.querySelector('input[type=date]'); if (!i) return false;
       const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
       set.call(i, '1994-08-15'); i.dispatchEvent(new Event('input', { bubbles: true }));
