@@ -66,6 +66,8 @@ export default function ModeLanding({ mode, hero, shellClass, children }: {
           <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
           {mode === 'oriental' && <Link className="qn-link" href="/dayun">人生曲线</Link>}
           {mode === 'oriental' && <Link className="qn-link" href="/name-compat">姓名五格</Link>}
+          {mode === 'oriental' && <Link className="qn-link" href="/face-reading">面相观察</Link>}
+          {mode === 'oriental' && <Link className="qn-link" href="/palm-reading">手相观察</Link>}
           <Link className="qn-link" href="/">返回选择体系</Link>
         </p>
       </section>
