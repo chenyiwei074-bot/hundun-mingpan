@@ -3719,6 +3719,7 @@ const fsEditProbe = p => `(() => {
   // 这一条同时管两件事：前端确实去读了额度，以及桩没有再假装有配额。
   if (/^create/.test(base)) {
     const q = await evl(`(() => {
+      if (/已知四柱/.test(document.querySelector('main')?.textContent || '')) return { miss: [], txt: '已知四柱模式不涉及排盘额度' };
       const n = document.getElementById('create-quota');
       const txt = n ? (n.innerText || '').replace(/\\s+/g, ' ').trim() : null;
       const miss = [];
