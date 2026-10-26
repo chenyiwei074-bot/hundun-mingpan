@@ -626,12 +626,17 @@ const SAVED_TAROT_DASHBOARD_HOOK = `(async () => {
 })()`;
 
 const AFTER = {
-  'create': `(() => {
+  'create': `(async () => {
+    const wait = ms => new Promise(r => setTimeout(r, ms));
     const buttons = [...document.querySelectorAll('form button')]
       .filter(button => getComputedStyle(button).display !== 'none')
       .map(button => (button.textContent || '').trim());
-    if (!buttons.includes('公历') || !buttons.includes('农历')) return '建盘页缺少公历或农历入口';
-    if (buttons.includes('四柱')) return '四柱直批仍作为正式建盘选项显示';
+    if (!buttons.includes('公历') || !buttons.includes('农历') || !buttons.includes('四柱')) return '建盘页缺少公历/农历/已知四柱入口';
+    const four = [...document.querySelectorAll('form button')].find(button => (button.textContent || '').trim() === '四柱');
+    four.click();
+    for (let i = 0; i < 20 && !/已知四柱/.test(document.querySelector('main')?.textContent || ''); i++) await wait(30);
+    if (!/已知四柱/.test(document.querySelector('main')?.textContent || '')) return '点击四柱后没有进入已知四柱模式';
+    if (document.querySelectorAll('select').length < 8) return '已知四柱模式缺少四柱干支选择器';
     return true;
   })()`,
   'bazi-chart': `(() => location.pathname === '/create' && !document.body.textContent.includes('当前展示的是固定样例盘')
