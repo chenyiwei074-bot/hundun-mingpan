@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { createChart as apiCreateChart, trackEvent, lookupChinaGeo } from '@/app/lib/api';
+import { calculateDirectPillars, createChart as apiCreateChart, trackEvent, lookupChinaGeo } from '@/app/lib/api';
 import { canPersist, validateCreateChart } from '@/lib/api/contract';
 import type { CreateChartPayload } from '@/lib/api/contract';
+import type { DirectPillarsInput, DirectPillarsResult } from '@/lib/bazi/direct-pillars';
+import { isValidSexagenaryPillar } from '@/lib/bazi/direct-pillars';
+import DirectPillarsReading from '@/components/bazi/DirectPillarsReading';
 import { describeQuota, fetchQuota } from '@/lib/api/quota';
 import type { QuotaView } from '@/lib/api/quota';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
@@ -47,6 +50,8 @@ export default function CreatePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [birthGeo, setBirthGeo] = useState<GeoLookup | null>(null);
+  const [directPillarsResult, setDirectPillarsResult] = useState<DirectPillarsResult | null>(null);
+  const directRequestRef = useRef(0);
 
   const [form, setForm] = useState({
     name: '', gender: '男' as '男'|'女', calendar: '公历' as '公历'|'农历'|'四柱',
@@ -67,10 +72,10 @@ export default function CreatePage() {
   // 出生地坐标优先走后端；提交时若还没拿到就现场请求一次，失败则交给本地兜底。
   useEffect(() => {
     let alive = true;
-    if (!form.birthProvince) { setBirthGeo(null); return () => { alive = false; }; }
+    if (form.calendar === '四柱' || !form.birthProvince) { setBirthGeo(null); return () => { alive = false; }; }
     lookupChinaGeo(form.birthProvince, form.birthCity || undefined).then(g => { if (alive) setBirthGeo(g ? { ...g } : null); });
     return () => { alive = false; };
-  }, [form.birthProvince, form.birthCity]);
+  }, [form.birthProvince, form.birthCity, form.calendar]);
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
   // 额度只在拿到访客 id 之后读一次（服务端按 visitor_id 查）。读失败保持"未知"，
@@ -83,9 +88,11 @@ export default function CreatePage() {
   }, [visitorId]);
   // 换年或换月就把闰月标记清掉：标记本身只在「所选月正好是该年闰月」时才生效，
   // 但留着 true 会让用户改回那个月时发现自己悄悄回到了闰月盘。可见的输入不该藏状态。
-  const setField = (f: string, v: string) => setForm(p => ({
-    ...p, [f]: v, ...(f === 'month' || f === 'year' ? { isLeapMonth: false } : null),
-  }));
+  const setField = (f: string, v: string) => {
+    directRequestRef.current += 1;
+    setDirectPillarsResult(null);
+    setForm(p => ({ ...p, [f]: v, ...(f === 'month' || f === 'year' ? { isLeapMonth: false } : null) }));
+  };
   const switchTab = (t: 'single'|'double') => { setTab(t); if (t === 'double' && form.calendar === '四柱') setField('calendar', '公历'); };
 
   const isLunar = form.calendar === '农历';
@@ -103,15 +110,28 @@ export default function CreatePage() {
     [form.partnerYear, form.partnerMonth, isLunar, partnerIsLeapOn]);
 
   const validate = (): string | null => {
-    const nameTrimmed = form.name.trim();
-    if (!nameTrimmed) return '请输入有缘人的称谓';
-    if (nameTrimmed.length > 10) return '姓名不超过10个字符';
-    if (!/^[一-龥·ꀀ-꓿]+$/.test(nameTrimmed)) return '请输入中文姓名';
+    if (form.calendar !== '四柱') {
+      const nameTrimmed = form.name.trim();
+      if (!nameTrimmed) return '请输入有缘人的称谓';
+      if (nameTrimmed.length > 10) return '姓名不超过10个字符';
+      if (!/^[一-龥·ꀀ-꓿]+$/.test(nameTrimmed)) return '请输入中文姓名';
+    }
     if (tab === 'single') {
       if (form.calendar !== '四柱' && (!form.year || !form.month || !form.day)) return '请选择完整出生日期';
-      if (form.calendar === '四柱' && (!form.yearGan || !form.yearZhi || !form.monthGan || !form.monthZhi || !form.dayGan || !form.dayZhi || !form.hourGan || !form.hourZhi)) return '请完整填写八字四柱';
+      if (form.calendar === '四柱') {
+        const pillars = [
+          { label: '年柱', gan: form.yearGan, zhi: form.yearZhi },
+          { label: '月柱', gan: form.monthGan, zhi: form.monthZhi },
+          { label: '日柱', gan: form.dayGan, zhi: form.dayZhi },
+          { label: '时柱', gan: form.hourGan, zhi: form.hourZhi },
+        ];
+        const missing = pillars.find(p => !p.gan || !p.zhi);
+        if (missing) return `请完整填写${missing.label}`;
+        const invalid = pillars.find(p => !isValidSexagenaryPillar({ gan: p.gan, zhi: p.zhi }));
+        if (invalid) return `${invalid.label}不是六十甲子中的合法干支组合，请重选`;
+      }
       if (form.calendar !== '四柱' && !isNaN(parseInt(form.year)) && parseInt(form.year) > currentYear) return '出生年份不能是未来';
-      if (!form.hour) return '请选择出生时间';
+      if (form.calendar !== '四柱' && !form.hour) return '请选择出生时间';
     } else {
       if (!form.partnerName.trim()) return '请输入对方称谓';
       if (!form.year || !form.month || !form.day) return '请选择您的完整出生日期';
@@ -135,13 +155,31 @@ export default function CreatePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (form.calendar === '四柱') {
-      setError('四柱直批暂不能生成可信命盘：仅有四柱干支无法确定出生日期、起运和紫微宫位。请改用公历或农历生日。');
-      return;
-    }
     const err = validate();
     if (err) { setError(err); return; }
     setLoading(true);
+
+    if (form.calendar === '四柱') {
+      const requestId = ++directRequestRef.current;
+      const siZhu: DirectPillarsInput = {
+        年: { gan: form.yearGan, zhi: form.yearZhi },
+        月: { gan: form.monthGan, zhi: form.monthZhi },
+        日: { gan: form.dayGan, zhi: form.dayZhi },
+        时: { gan: form.hourGan, zhi: form.hourZhi },
+      };
+      setDirectPillarsResult(null);
+      try {
+        const result = await calculateDirectPillars(siZhu);
+        if (requestId === directRequestRef.current) setDirectPillarsResult(result);
+      } catch (e) {
+        if (requestId === directRequestRef.current) {
+          setError(e instanceof Error ? e.message : '四柱结构暂时无法计算，请稍后重试。');
+        }
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       const pad = (s: string | number) => String(s).padStart(2, '0');
@@ -420,8 +458,8 @@ export default function CreatePage() {
 
       <main className="qn-shell" style={{ maxWidth: 520 }}>
         <div className="qn-rise" style={{ textAlign: 'center', paddingTop: 18, paddingBottom: 4 }}>
-          <h1 className="qn-hero">创建你的专属命理档案</h1>
-          <p className="qn-meta" style={{ marginTop: 10 }}>八字 × 紫微双体系命盘 · 混沌自研 AI 辅助解读</p>
+          <h1 className="qn-hero">{form.calendar === '四柱' ? '八字四柱独立解读' : '创建你的专属命理档案'}</h1>
+          <p className="qn-meta" style={{ marginTop: 10 }}>{form.calendar === '四柱' ? '按已知四柱计算 · 不生成紫微与大运' : '八字 × 紫微双体系命盘 · 混沌自研 AI 辅助解读'}</p>
           <div className="w-10 h-px mx-auto" style={{ marginTop: 22, background: 'rgba(178,149,93,0.4)' }} />
         </div>
 
@@ -440,17 +478,19 @@ export default function CreatePage() {
 
         <div className="qn-card qn-rise qn-rise--3" style={{ padding: '28px 28px 24px' }}>
             <form className="space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label className="qn-label">{tab === 'single' ? '有缘人之称谓' : '您的称谓'}</label>
-                <input type="text" placeholder="请输入称呼" className="qn-input" value={form.name} onChange={e => setField('name', e.target.value)} />
-              </div>
+              {form.calendar !== '四柱' && (
+                <div>
+                  <label className="qn-label">{tab === 'single' ? '有缘人之称谓' : '您的称谓'}</label>
+                  <input type="text" placeholder="请输入称呼" className="qn-input" value={form.name} onChange={e => setField('name', e.target.value)} />
+                </div>
+              )}
               {tab === 'double' && (
                 <div>
                   <label className="qn-label">对方称谓</label>
                   <input type="text" placeholder="请输入对方称呼" className="qn-input" value={form.partnerName} onChange={e => setField('partnerName', e.target.value)} />
                 </div>
               )}
-              <div>
+              {form.calendar !== '四柱' && <div>
                 <label className="qn-label">乾坤定性</label>
                 <div className="relative w-full rounded-lg p-1 flex items-center" style={{ background: 'rgba(0,0,0,0.04)', height: 52 }}>
                   <div className="absolute rounded-md transition-transform duration-300" style={{ height: 44, width: 'calc(50% - 4px)', transform: form.gender === '男' ? 'translateX(2px)' : 'translateX(calc(100% - 2px))', background: '#ffffff', boxShadow: '0 1px 4px rgba(0,0,0,0.10)' }} />
@@ -463,16 +503,16 @@ export default function CreatePage() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </div>}
 
               {tab === 'single' && (
                 <div>
                   <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
-                    <label className="qn-label" style={{ marginBottom: 0 }}>诞辰之候</label>
+                    <label className="qn-label" style={{ marginBottom: 0 }}>{form.calendar === '四柱' ? '已知四柱' : '诞辰之候'}</label>
                     <div style={{ display: 'inline-flex', padding: 2, borderRadius: 8, background: 'rgba(0,0,0,0.04)' }}>
-                      {['公历','农历'].map(cal => (
+                      {['公历','农历','四柱'].map(cal => (
                         <button key={cal} type="button" onClick={() => setField('calendar', cal)} className="qn-chip"
-                          style={{ minWidth: 46, padding: '0 12px', fontSize: 'var(--qn-fs-meta)',
+                          style={{ minWidth: 58, minHeight: 44, padding: '0 10px', fontSize: 'var(--qn-fs-meta)',
                             border: 'none', borderRadius: 6,
                             background: form.calendar === cal ? '#ffffff' : 'transparent',
                             color: form.calendar === cal ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
@@ -481,10 +521,9 @@ export default function CreatePage() {
                       ))}
                     </div>
                   </div>
-                  {/* 仅有干支无法反推唯一出生日期；现有排盘引擎不能据此计算起运与紫微。 */}
                   {form.calendar === '四柱' && (
                     <p className="qn-note" id="create-persist-note" style={{ marginTop: 8 }}>
-                      四柱直批暂未开放：仅凭四柱无法确定出生日期、起运与紫微宫位。请切回公历或农历，使用完整出生资料排盘。
+                      请按已知命盘输入年、月、日、时四柱。本模式只看八字结构，不推算生日、出生地、紫微、大运或起运。
                     </p>
                   )}
                   {renderDateGroup('')}
@@ -540,15 +579,18 @@ export default function CreatePage() {
 
               {/* D1：额度这一行只报服务端说了什么，读不到就说读不到。
                   它不是闸门 —— 本机引擎算得出盘，配额只管"能不能存进服务器"那一侧。 */}
-              <p className="qn-meta" id="create-quota" data-quota-kind={quota.kind} style={{ margin: '4px 0 10px' }}>
-                {quota.文本}
-              </p>
+              {form.calendar !== '四柱' && (
+                <p className="qn-meta" id="create-quota" data-quota-kind={quota.kind} style={{ margin: '4px 0 10px' }}>
+                  {quota.文本}
+                </p>
+              )}
 
-              <button type="submit" disabled={loading || form.calendar === '四柱'} className="qn-btn qn-btn--solid qn-btn--block" style={{ minHeight: 50 }}>
-                {loading ? '生成中...' : form.calendar === '四柱' ? '四柱直批暂不可用' : '生成我的双盘命格'}
+              <button type="submit" disabled={loading} className="qn-btn qn-btn--solid qn-btn--block" style={{ minHeight: 50 }}>
+                {loading ? '计算中...' : form.calendar === '四柱' ? '计算四柱结构' : '生成我的双盘命格'}
               </button>
             </form>
         </div>
+        {directPillarsResult && <div id="direct-pillar-result"><DirectPillarsReading result={directPillarsResult} /></div>}
         <p className="qn-note" style={{ textAlign: 'center', marginTop: 30 }}>混沌 · 东方术数与风水 · 混沌自研 AI 辅助解读 · 仅供参考</p>
       </main>
     </div>

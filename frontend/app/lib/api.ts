@@ -1,5 +1,6 @@
 import type { CreateChartPayload } from '@/lib/api/contract';
 import { getVisitorId } from '@/lib/auth/visitor';
+import type { DirectPillarsInput, DirectPillarsResult } from '@/lib/bazi/direct-pillars';
 
 const API_BASE = "/api";
 
@@ -17,6 +18,21 @@ export async function createChart(data: CreateChartPayload) {
     body: JSON.stringify(data),
   });
   return res.json();
+}
+
+/** 仅按用户提供的四柱计算八字增强结果；不创建完整命盘或持久化记录。 */
+export async function calculateDirectPillars(siZhu: DirectPillarsInput): Promise<DirectPillarsResult> {
+  const res = await fetch(API_BASE + '/bazi/pillars/calculate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ siZhu }),
+  });
+  const json = await res.json().catch(() => null);
+  const data = json?.data;
+  if (!res.ok || json?.success === false || !data || typeof data !== 'object' || !data.siZhu || !data.enrichment) {
+    throw new Error(json?.error || '四柱结构暂时无法计算，请稍后重试。');
+  }
+  return data as DirectPillarsResult;
 }
 
 export async function getChartStatus(id: string) {

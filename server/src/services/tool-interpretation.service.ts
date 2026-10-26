@@ -6,7 +6,7 @@ export const AI_TOOLS = {
   meihua: '梅花易数', liuyao: '六爻纳甲', xiu: '二十八宿', hepan: '合盘对照',
   huangli: '黄历宜忌', 'name-compat': '姓名五格', numerology: '数字命理',
   moon: '月相周期', synastry: '跨盘相位', astro: '本命行星位置',
-  dayun: '大运流年', fengshui: '户型九宫',
+  dayun: '大运流年', fengshui: '户型九宫', 'bazi-pillars': '八字四柱',
 } as const;
 export type AiTool = keyof typeof AI_TOOLS;
 export interface ToolProfile {
@@ -84,6 +84,12 @@ export const TOOL_PROFILES: Record<AiTool, ToolProfile> = {
     avoid: ['紫微斗数', '六爻纳甲', '梅花易数', '塔罗牌义'],
     sections: ['四柱与起运', '当前大运', '流年结构', '边界'],
   },
+  'bazi-pillars': {
+    system: '八字四柱',
+    scope: '只解释用户输入的四柱与 enrichBazi 已算出的五行、旺衰、格局、调候、干支关系、自坐与整柱字段。',
+    avoid: ['紫微斗数', '大运流年', '起运', '六爻纳甲', '梅花易数', '塔罗牌义', '出生日期反推'],
+    sections: ['四柱结构', '日主与旺衰', '格局与调候', '关系与边界'],
+  },
   fengshui: {
     system: '户型九宫',
     scope: '只读已确认的户型几何、房间用途、门窗、朝向与九宫判定；不把识别候选当事实。',
@@ -107,6 +113,7 @@ export const ALLOWED_KEYS: Record<AiTool, string[]> = {
   astro: ['positions', 'aspects', 'houses', 'ascendant', 'midheaven', 'frame', 'nodeMode'],
   dayun: ['siZhu', 'dayMaster', 'shiShen', 'naYin', 'dayunStart', 'dayun'],
   fengshui: ['判定', '未判定', '跨宫', '朝向', '关心点', '格数', '跨度'],
+  'bazi-pillars': ['siZhu', 'enrichment'],
 };
 
 export interface ToolInterpretation {
