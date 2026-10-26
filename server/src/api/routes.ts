@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createLiuYao } from '../controllers/liuyao.controller';
 import { recognize, getFloorPlanImage, deleteFloorPlanImage } from '../controllers/fengshui.controller';
+import { recognizePhysiognomyImage } from '../controllers/physiognomy.controller';
 import { getClassicSources } from '../controllers/classics.controller';
 import { lookupPlace } from '../controllers/geo.controller';
 import { createTarotReading } from '../controllers/tarot.controller';
@@ -24,6 +25,7 @@ const router = Router();
 router.post('/fengshui/recognize', recognize);
 router.get('/fengshui/image/:id', getFloorPlanImage);
 router.delete('/fengshui/image/:id', deleteFloorPlanImage);
+router.post('/physiognomy/recognize', recognizePhysiognomyImage);
 
 router.get('/classics/sources', getClassicSources);
 router.get('/geo/lookup', lookupPlace);
@@ -55,4 +57,3 @@ router.get('/reports', listReports);
 router.get('/reports/:id', getReport);
 
 export default router;
-

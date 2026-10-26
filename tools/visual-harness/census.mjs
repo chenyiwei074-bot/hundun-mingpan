@@ -157,6 +157,10 @@ const STATIC_PAGES = [
   ['home', '/'],
   ['oriental', '/oriental'],
   ['western', '/western'],
+  ['face-reading', '/face-reading'],
+  ['face-consent', '/face-reading'],
+  ['palm-reading', '/palm-reading'],
+  ['palm-consent', '/palm-reading'],
   // 关系中心：桌面与窄屏都检查页面真实渲染和两条可用入口。
   ['hepan', '/hepan'],
   ['name-compat', '/name-compat'],
@@ -641,6 +645,47 @@ const AFTER = {
   })()`,
   'bazi-chart': `(() => location.pathname === '/create' && !document.body.textContent.includes('当前展示的是固定样例盘')
     ? true : '旧八字演示页未跳到正式建盘页，或仍展示固定样例')()`,
+  'face-reading': `(() => {
+    const main = document.querySelector('main[data-physiognomy="face"]');
+    const input = document.getElementById('face-photo');
+    const consent = main?.querySelector('input[type="checkbox"]');
+    if (!main || !/面相观察/.test(main.textContent || '')) return '面相页面缺少专属主内容';
+    if (!consent || consent.checked || !input?.disabled) return '面相初始态未锁住选图控件';
+    if (main.querySelector('[data-ai-interpret]')) return '尚未确认特征就出现 AI 解读';
+    if ((window.__net || []).some(x => String(x.u).includes('/api/physiognomy/recognize'))) return '页面加载或选图前已请求照片识别';
+    return true;
+  })()`,
+  'face-consent': `(() => {
+    const consent = document.querySelector('main[data-physiognomy="face"] input[type="checkbox"]');
+    const input = document.getElementById('face-photo');
+    if (!consent || !input) return '面相同意态缺控件';
+    consent.click();
+    if (!consent.checked || input.disabled) return '同意后照片选择控件没有开放';
+    if ((window.__net || []).some(x => String(x.u).includes('/api/physiognomy/recognize'))) return '勾选同意时不应自动上传照片';
+    return true;
+  })()`,
+  'palm-reading': `(() => {
+    const main = document.querySelector('main[data-physiognomy="palm"]');
+    const input = document.getElementById('palm-photo');
+    const consent = main?.querySelector('input[type="checkbox"]');
+    const radios = [...(main?.querySelectorAll('input[type="radio"]') || [])];
+    if (!main || !/手相观察/.test(main.textContent || '')) return '手相页面缺少专属主内容';
+    if (!consent || consent.checked || !input?.matches(':disabled') || radios.length !== 2 || radios.some(x => !x.matches(':disabled'))) return '手相初始态未锁住选图与左右手控件';
+    if (main.querySelector('[data-ai-interpret]')) return '尚未确认特征就出现 AI 解读';
+    if ((window.__net || []).some(x => String(x.u).includes('/api/physiognomy/recognize'))) return '页面加载或选图前已请求照片识别';
+    return true;
+  })()`,
+  'palm-consent': `(() => {
+    const main = document.querySelector('main[data-physiognomy="palm"]');
+    const consent = main?.querySelector('input[type="checkbox"]');
+    const input = document.getElementById('palm-photo');
+    const radios = [...(main?.querySelectorAll('input[type="radio"]') || [])];
+    if (!consent || !input || radios.length !== 2) return '手相同意态缺控件';
+    consent.click();
+    if (!consent.checked || input.matches(':disabled') || radios.some(x => x.matches(':disabled'))) return '同意后照片或左右手控件没有开放';
+    if ((window.__net || []).some(x => String(x.u).includes('/api/physiognomy/recognize'))) return '勾选同意时不应自动上传照片';
+    return true;
+  })()`,
   'orphan-chart-preview': `(() => location.pathname === '/create'
     ? true : '无 ID 的旧命盘预览页未跳到正式建盘页')()`,
   'name-compat': `(() => document.querySelectorAll('main input').length >= 6 || '姓名五格缺少双方逐字笔画输入')()`,
@@ -1542,6 +1587,7 @@ const THEME_STATES = {
   'tarot-keyboard': 'dark', 'tarot-reduced-motion': 'dark',
   oriental: 'light', tools: 'light', create: 'light', 'bazi-chart': 'light',
   hepan: 'light', 'name-compat': 'light', 'name-compat-computed': 'light',
+  'face-reading': 'light', 'face-consent': 'light', 'palm-reading': 'light', 'palm-consent': 'light',
   'admin-dashboard': 'light', fengshui: 'light', home: 'gate',
   'dayun-empty': 'light', 'dayun-result': 'light',
   // 答完之后那一帧也必须还是那个主题：答案卡里塞一块浅底，就是"两套体系混在一页"的开始。

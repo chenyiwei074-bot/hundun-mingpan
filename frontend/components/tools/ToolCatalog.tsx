@@ -20,6 +20,8 @@ function ToolGlyph({ slug }: { slug: string }) {
   const western = WESTERN_GLYPHS.has(slug);
   const mark = (() => {
     switch (slug) {
+      case 'face-reading': return <><path d="M12 3.5c-4.4 0-7 3.1-7 7.3V13c0 4.1 2.7 7.5 7 7.5s7-3.4 7-7.5v-2.2c0-4.2-2.6-7.3-7-7.3Z" /><path d="M8.5 10.5h.01m7-.0h.01M9 15.2c1.7 1.4 4.3 1.4 6 0M4.5 8.5C5.4 5 8.1 3 12 3" /></>;
+      case 'palm-reading': return <><path d="M7 21v-6.2a1.5 1.5 0 0 1 3 0V8a1.5 1.5 0 0 1 3 0v5-6a1.5 1.5 0 0 1 3 0v6-4a1.5 1.5 0 0 1 3 0v7c0 3-2.5 5-5.5 5H11c-1.8 0-3.2-.7-4-2Z" /><path d="M10 16c1.6-.8 3.1-.8 4.5 0m-4.2 2.1c1.5-.5 2.8-.4 4 .2" /></>;
       case 'bazi': return <><path d="M5 6h14M5 10h14M5 14h14M5 18h14" /><path d="M8 6v4m8 4v4" /></>;
       case 'xiu-benming':
       case 'xiu-he': return <><path d="m12 3 2.1 5.2L20 10l-5.9 1.8L12 18l-2.1-6.2L4 10l5.9-1.8L12 3Z" /><path d="M19 16v5m-2.5-2.5h5" /></>;
