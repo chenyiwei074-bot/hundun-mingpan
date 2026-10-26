@@ -325,7 +325,7 @@ const CATALOG_EXPECT = { oriental: catalogExpect(CATALOG_INTENTS.oriental), west
 const QA_PINS = {
   'oriental-ask': {
     q: '帮我排个八字看看命格',
-    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数（可用）', '还要补：日期或生日、出生时辰、出生地点', '混沌自研 AI 助手已为你整理相关工具建议'],
+    mustSay: ['你问：帮我排个八字看看命格', '该用的是', '八字 & 紫微斗数', '还要补：日期或生日、出生时辰、出生地点', '混沌自研 AI 助手已为你整理相关工具建议'],
     entry: { text: '进入 · 八字 & 紫微斗数', href: '/create' },
     absent: [],
   },
@@ -341,7 +341,7 @@ const QA_PINS = {
   // 「哪一宿」各命中一次 → 并列。钉的是"两个 chip 都在、系统一个都没替我选"。
   'oriental-choices': {
     q: '我出生那天值哪一宿',
-    mustSay: ['你要先看哪一个', '八字 & 紫微斗数', '二十八宿 · 本命宿', '混沌自研 AI 助手已为你整理相关工具建议'],
+    mustSay: ['你要先看哪一个', '八字 & 紫微斗数', '二十八宿 · 值日与三九秘宿', '混沌自研 AI 助手已为你整理相关工具建议'],
     entry: null,
     absent: ['进入 ·'],
     chips: 2,
