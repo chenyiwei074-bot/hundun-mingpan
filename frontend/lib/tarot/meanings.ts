@@ -4,7 +4,7 @@ export type TarotMeaning = {
   source: string;
 };
 
-const MAJOR = '参考 A. E. Waite《The Pictorial Key to the Tarot》（1910）· 本站译述（章节对应与底本待校核）';
+const MAJOR = '参考 A. E. Waite《The Pictorial Key to the Tarot》（1910）Part III · 本站中文译述（78 张逐牌出处已核验）';
 const MINOR = MAJOR;
 const SUPPLEMENT = MAJOR;
 

@@ -136,8 +136,11 @@ const ref = refText ? JSON.parse(refText) : null;
     const expectedSystems = fix.systems;
     ok('houses/fixture-count', fix.cases.length === 20 && fix.toleranceDeg === HOUSE_CROSS_CHECK.toleranceDeg
       && fix.systems.length === HOUSE_CROSS_CHECK.fixtureSystems
+      && HOUSE_CROSS_CHECK.verifiedSystems === fix.systems.length
+      && HOUSE_CROSS_CHECK.pendingReferenceSystems.length === 0
+      && HOUSE_CROSS_CHECK.implementedNonWholeSystems === fix.systems.length
       && fix.systems.every(system => HOUSE_SYSTEMS.some(item => item.id === system)),
-      `20 组 × ${expectedSystems.join('/')}，公差 ${HOUSE_CROSS_CHECK.toleranceDeg}°；另有 ${HOUSE_CROSS_CHECK.implementedNonWholeSystems - HOUSE_CROSS_CHECK.fixtureSystems} 种宫制待新增独立夹具：cases=${fix.cases.length} systems=${fix.systems.join('/')} tolerance=${fix.toleranceDeg}`);
+      `20 组 × ${expectedSystems.join('/')}，已实现的非整宫制均有独立夹具，公差 ${HOUSE_CROSS_CHECK.toleranceDeg}°：cases=${fix.cases.length} systems=${fix.systems.join('/')} tolerance=${fix.toleranceDeg}`);
     let maxSwiss = 0; let maxCelestine = 0; let bad = '';
     const diff = (a: number, b: number) => { const d = Math.abs(((a - b) % 360 + 360) % 360); return d > 180 ? 360 - d : d; };
     for (const c of fix.cases) {
@@ -156,9 +159,9 @@ const ref = refText ? JSON.parse(refText) : null;
       if (bad) break;
     }
     ok('houses/fixture-match-swiss', !bad && maxSwiss <= HOUSE_CROSS_CHECK.toleranceDeg,
-      bad ? `Swiss Ephemeris 对拍失败 ${bad}` : `80 组宫头对拍通过，最大差 ${maxSwiss.toFixed(6)}°`);
+      bad ? `Swiss Ephemeris 对拍失败 ${bad}` : `${fix.cases.length * expectedSystems.length * 12} 个宫头对拍通过，最大差 ${maxSwiss.toFixed(6)}°`);
     ok('houses/fixture-match-celestine', !bad && maxCelestine <= HOUSE_CROSS_CHECK.toleranceDeg,
-      bad ? `Celestine 对拍失败 ${bad}` : `80 组宫头对拍通过，最大差 ${maxCelestine.toFixed(6)}°`);
+      bad ? `Celestine 对拍失败 ${bad}` : `${fix.cases.length * expectedSystems.length * 12} 个宫头对拍通过，最大差 ${maxCelestine.toFixed(6)}°`);
   }
   const sampleAngles = computeAngles(Date.parse('2000-01-01T12:00:00.000Z'), 67, 0);
   const polar = sampleAngles.ok ? computeHouseCusps(sampleAngles, 'placidus') : sampleAngles;

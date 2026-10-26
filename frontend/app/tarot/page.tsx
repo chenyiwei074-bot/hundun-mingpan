@@ -11,6 +11,7 @@ import { createTarotReading, getClassicSources, saveTarotReading, type TarotRead
 import { getVisitorId } from '@/lib/auth/visitor';
 import { getDeckTilt } from '@/lib/tarot/interaction';
 import { getMarseilleCardReference, TAROT_TRADITION_SOURCES } from '@/lib/tarot/traditions';
+import { getMarseilleReading } from '@/lib/tarot/marseille-readings';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -409,7 +410,7 @@ export default function TarotPage() {
         <p className="qn-eyebrow">西方神秘学 · 塔罗</p>
         <h1 className="qn-hero">{spread.label}</h1>
         <p className="qn-meta">{SPREAD_GUIDES[spreadId]}先完成抽牌，再逐张查看牌位。</p>
-        <p className="tarot-scope-note">韦特—史密斯体系原创绘制 · 正位与逆位 · 参考 Waite 1910 牌义译述（近代文献 · 非古籍；底本待校核）</p>
+        <p className="tarot-scope-note">韦特—史密斯牌面与正逆位解读 · 参考 Waite 1910 原文译述；马赛牌系另列本站自研象征读法</p>
       </header>
 
       <section className="tarot-spread-picker" aria-labelledby="tarot-spread-title">
@@ -551,11 +552,13 @@ export default function TarotPage() {
               <p className="tarot-insight__eyebrow">{selectedDraw.position}牌 · {selectedDraw.orientation}</p>
               <h3 id="tarot-insight-title">{selectedDraw.card.nameZh} <span data-proper-name>{selectedDraw.card.nameEn}</span></h3>
               <p>{selectedMeaning?.[selectedDraw.orientation === '正位' ? 'upright' : 'reversed'] ?? '此牌义暂缺，后续补充来源校核。'}</p>
-              <small>历史牌义参照：{selectedMeaning?.source ?? '待校核'}。点击其他牌可切换查看。</small>
+              <small>牌义参照：Waite 1910 · Part III（韦特牌系）；点击其他牌可切换查看。</small>
               <details className="tarot-tradition" data-tarot-tradition-card={selectedDraw.card.id}>
                 <summary>跨传统对读 · 韦特—史密斯与马赛牌系</summary>
                 {(() => {
                   const marseille = getMarseilleCardReference(selectedDraw.card);
+                  const marseilleReading = getMarseilleReading(selectedDraw.card);
+                  const orientationKey = selectedDraw.orientation === '正位' ? 'upright' : 'reversed';
                   return (
                     <>
                       <div className="tarot-tradition__grid">
@@ -565,14 +568,15 @@ export default function TarotPage() {
                           <p>{selectedDraw.orientation}：{selectedMeaning?.[selectedDraw.orientation === '正位' ? 'upright' : 'reversed'] ?? '此牌义暂缺。'}</p>
                         </div>
                         <div className="tarot-tradition__column">
-                          <strong>牌名与结构参照 · 马赛牌系</strong>
+                          <strong>马赛牌系 · 本站自研象征读法</strong>
                           <p>{marseille.title} · {marseille.number}</p>
                           <p>{marseille.structure}</p>
+                          <p>{selectedDraw.orientation}：{marseilleReading?.[orientationKey] ?? '本牌结构暂缺，暂不推测。'}</p>
                           {marseille.note && <p>{marseille.note}</p>}
                         </div>
                       </div>
                       <p className="tarot-tradition__scope">
-                        这项对读比较牌名、编号与牌面结构。当前正逆位牌义只按韦特 1910 年文本呈现；本页不把韦特牌义冒充为马赛牌义，也不推导马赛逆位解释。
+                        韦特牌义依据 Waite 1910 年文本译述；马赛一栏把牌名、数字与花色作为结构线索，属于本站自研读法，不冒称历史定本或学界统一解释。
                       </p>
                       <div className="tarot-tradition__sources" aria-label="跨传统对读资料">
                         <a href={TAROT_TRADITION_SOURCES.waite} target="_blank" rel="noreferrer">Waite 1910 · Part III 原文</a>
@@ -645,7 +649,7 @@ export default function TarotPage() {
             <p className="qn-eyebrow">本次抽牌记录</p>
             <h2 className="qn-title">{spread.label} · 逐牌记录</h2>
             {drawQuestion && <blockquote className="tarot-reading__question">「{drawQuestion}」</blockquote>}
-            <p className="qn-meta">下列含义参考 Waite 1910 年文本作中文译述（章节对应待校核），仅代表这一历史底本；不同传统与组合语境会有差异。</p>
+            <p className="qn-meta">下列韦特牌义参考 Waite 1910 年 Part III 作中文译述，78 张逐牌出处已核验；不同传统与组合语境仍会有差异。</p>
             <ol className="tarot-record-list">
               {drawnCards.map(({ card, position, orientation }, index) => {
                 const meaning = TAROT_MEANINGS[card.id];

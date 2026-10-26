@@ -1,8 +1,7 @@
 // 本命宫头的前端计算层：整宫、等宫、三分宫、Placidus、Koch、Regiomontanus 与 Campanus。
 // 不调用网络、不依赖后端，也不改变行星位置或东方排盘算法。
 // 球面计算以本项目现有上升点/天顶和 astronomy-engine 的时刻、黄赤交角为输入；
-// 等宫、三分、Placidus 与 Koch 的 20 组逐宫对拍见
-// tools/astro-acceptance/fixtures/house-systems-v1.json；新增两制尚待独立对拍夹具。
+// 六种非整宫制的 20 组逐宫对拍见 tools/astro-acceptance/fixtures/house-systems-v1.json。
 
 import { MakeTime, SiderealTime, e_tilt } from 'astronomy-engine';
 import type { AnglesResult } from './angles';
@@ -13,11 +12,11 @@ export const HOUSE_BASIS = 'astro-houses-v1' as const;
 export const HOUSE_CROSS_CHECK = {
   toleranceDeg: 0.05,
   cases: 20,
-  fixtureSystems: 4,
-  verifiedSystems: 4,
+  fixtureSystems: 6,
+  verifiedSystems: 6,
   implementedSystems: 7,
   implementedNonWholeSystems: 6,
-  pendingReferenceSystems: ['regiomontanus', 'campanus'] as const,
+  pendingReferenceSystems: [] as const,
   references: ['Swiss Ephemeris', 'Celestine'] as const,
 } as const;
 
