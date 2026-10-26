@@ -3098,16 +3098,7 @@ function check(tag, v) {
         bad(`门廊两张卡的入口必须是 ${want.join(' 与 ')}，实得 ${JSON.stringify(got)}`);
       for (const c of cards) {
         if (!c.fold) bad(`门廊卡片 ${c.href} 不在首屏内（这就是"进来先选体系"这件事没做到）`);
-        // 门廊只呈现开放与未开放两档；状态值来自目录，计数相加必须等于总项数。
-        const m = /^已开放 (\d+) · 未开放 (\d+) · 共 (\d+) 项$/.exec(c.tally || '');
-        if (!m) bad(`门廊卡片 ${c.href} 上那行数读不成「已开放 N · 未开放 N · 共 N 项」：${JSON.stringify(c.tally)}`);
-        else {
-          const [open, closed, total] = m.slice(1).map(Number);
-          if (open + closed !== total)
-            bad(`门廊卡片 ${c.href} 上 ${open}+${closed}≠${total} —— 数是从目录现算的，出现这种结果就是算错了`);
-          if (total === 0) bad(`门廊卡片 ${c.href} 上总项数 0：那一侧的目录没读进来（空目录会安静地印出 0）`);
-          if (open > total || closed > total) bad(`门廊卡片 ${c.href} 上单项大于总数：${open}/${closed} vs ${total}`);
-        }
+        // 门廊已移除工具状态计数行；只保留入口与眉标复核。
         // 批F②：眉标不再是手写的三个词，而是"这一套里真能进的那几项"。所以它必须能被目录复核：
         // 列出的每个名字都得是已开放条目的登记名，"等 N 项"的 N 必须等于目录里的已开放项数。
         // 这一条同时管住分隔符：条目名自己带「 · 」（「二十八宿 · 本命宿」），拿「 · 」当列表分隔
@@ -4170,16 +4161,7 @@ for (const [tag, url] of [['oriental', '/oriental'], ['western', '/western']]) {
     if (!list.length) fail.push('western: 西方目录里一个"进入"都没读到 —— 期望集为空，这条判据等于没跑（开第一项之后就不该再是空）');
     else if (missingW.length) fail.push(`western: 目录可点而 /western 页面上没挂（${missingW.length}/${list.length}）：${missingW.join('、')}`);
     else console.log(`  western 本套入口 ${list.length} 个都在页面上：${list.join('、')}`);
-    // 页面上已开放数应与从目录渲染出的真实入口数一致。
-    const m = /已开放 (\d+) · 未开放 (\d+) · 共 (\d+) 项/.exec(onPage.tally || '');
-    if (!m) fail.push(`western: 那行数读不成两档并列（页面上印的是 ${JSON.stringify(onPage.tally)}）`);
-    else {
-      const [open, closed, total] = m.slice(1).map(Number);
-      if (open + closed !== total) fail.push(`western: ${open}+${closed}≠${total}，目录那句数自己就不对`);
-      if (open !== onPage.ownEntries)
-        fail.push(`western: 说「已开放 ${open}」却有 ${onPage.ownEntries} 扇能进的门（门数必须等于已开放项数）`);
-      console.log(`  western ${onPage.tally || '没读到'} / 页面入口 ${onPage.ownEntries} 个（=已开放）`);
-    }
+    // 西方目录已移除状态计数行；入口可达性仍由上面的目录入口判据覆盖。
     // 西方目录里的入口也要走东方那一条判据：卡面上挂着「进入」的 href，工作页必须点得到。
     // 期望集仍然现读，不抄第二份清单。
     await goto('/western'); guardWrites('可达性/western@期望集');
