@@ -309,7 +309,6 @@ export default function ChartResultPage() {
         </section>
         )}
         <ChartOverview chartData={enrichedChartData} chartName={chartName} />
-        <DoubleVerify chartData={enrichedChartData} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
         <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />
         {/* 无条件挂载：四柱不齐时组件自己走降级分支（说明 + /create），不在页面里玩条件渲染 ——
@@ -344,6 +343,7 @@ export default function ChartResultPage() {
             </div>
           )}
         </section>
+        <DoubleVerify chartData={enrichedChartData} />
       </div>
     </main>
   );

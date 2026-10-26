@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { IntentGroup } from '@/lib/tools/catalog';
-import { STATUS_DOT, isLiveEntry } from '@/lib/tools/status';
+import { isLiveEntry } from '@/lib/tools/status';
 
 // 东方与西方目录共用卡片、状态、字段和图标规则，只按体系切换主题色与图形语义。
 
@@ -67,10 +67,6 @@ export default function ToolCatalog({ groups }: { groups: IntentGroup[] }) {
                     <ToolGlyph slug={t.slug} />
                     <span>{t.name}</span>
                   </h2>
-                  <span className="qn-badge">
-                    <span className="qn-badge__dot" style={{ background: STATUS_DOT[t.status] }} />
-                    {t.status}
-                  </span>
                 </div>
                 <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
                   {[FIELDS[0]].map(f => (
@@ -95,19 +91,15 @@ export default function ToolCatalog({ groups }: { groups: IntentGroup[] }) {
                 </details>
                 {(t.done?.length ?? 0) > 0 && (
                   <div className="qn-row" style={{ marginTop: 10 }}>
-                    <p className="qn-cap" style={{ margin: 0 }}>开放内容（{t.done!.length} 项）</p>
+                    <p className="qn-cap" style={{ margin: 0 }}>支持的功能（{t.done!.length} 项）</p>
                     <ul className="qn-meta" style={{ margin: '2px 0 0', paddingLeft: '1.2em' }}>
                       {t.done!.map(s => <li key={s}>{s}</li>)}
                     </ul>
                   </div>
                 )}
                 {t.note && <p className="qn-note" style={{ marginTop: 10 }}>{t.note}</p>}
-                {isLiveEntry(t) && t.href ? (
+                {isLiveEntry(t) && t.href && (
                   <Link href={t.href} className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 14 }}>进入 · {t.name}</Link>
-                ) : (
-                  <p className="qn-cap" style={{ marginTop: 14 }}>
-                    {t.status === '未开放' ? '未开放，因此没有入口。' : '还没有页面链接，因此没有入口。'}
-                  </p>
                 )}
               </article>
             ))}

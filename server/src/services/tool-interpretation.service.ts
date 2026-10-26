@@ -31,10 +31,10 @@ export const TOOL_PROFILES: Record<AiTool, ToolProfile> = {
     sections: ['卦与世应', '用神与六亲', '动变与月日', '结论边界'],
   },
   xiu: {
-    system: '二十八宿',
-    scope: '只读本命宿、宿性、吉凶意象与合宿关系，按星宿体系解释。',
-    avoid: ['六爻纳甲', '八字十神', '紫微斗数', '塔罗牌义'],
-    sections: ['宿性与本命', '合宿关系', '现实取用', '边界'],
+    system: '二十八宿与三九秘宿',
+    scope: '分别解释通书二十八宿值日/原有合宿与三九二十七宿；两套宿法分开陈述。sanJiu 为空时不得声称已分析三九。三九序列的宿名与关系类别参考《宿曜经》；basis xiu-sanjiao-lahiri-v1 是本站自研的出生宿定位（地心月球黄经转拉希里恒星黄经，再均分 27 宿），不是《宿曜经》原有的天文算法。双人时只根据 partnerInSelf 与 selfInPartner 分别叙述，不压成匹配分，不把一方关系套到另一方。',
+    avoid: ['六爻纳甲', '八字十神', '紫微斗数', '塔罗牌义', '把三九说成《宿曜经》原有算法', '把两套宿法混成一套'],
+    sections: ['本命宿与宿性', '三九二十七宿', '合宿/双向关系', '现实取用与边界'],
   },
   hepan: {
     system: '东方双盘对照',
@@ -68,9 +68,9 @@ export const TOOL_PROFILES: Record<AiTool, ToolProfile> = {
   },
   synastry: {
     system: '西方跨盘相位',
-    scope: '只读双方行星黄经之间的合、六分、四分、三分、对分相位与容许度。',
-    avoid: ['东方合盘', '六爻纳甲', '八字十神', '紫微斗数', '塔罗牌义', '匹配分数'],
-    sections: ['跨盘结构', '主要相位', '关系中的张力', '边界'],
+    scope: '只读双方行星黄经之间的合、六分、四分、三分、对分相位与容许度，以及双方行星落入对方宫位的方向性关系和行星黄经短弧中点。宫位不可用时按 available:false 说明无法判断，不得解释为空宫；ambiguous:true 且经度/星座为空时，明确说明中点有两个同等方向，不得替用户任选。不得推导组合盘宫头、上升点或中天。',
+    avoid: ['东方合盘', '六爻纳甲', '八字十神', '紫微斗数', '塔罗牌义', '匹配分数', '确定性的未来预测', '无数据时猜测落宫或中点'],
+    sections: ['跨盘相位结构', '宫位叠加方向', '组合中点与歧义', '边界'],
   },
   astro: {
     system: '西方本命行星',
@@ -103,13 +103,13 @@ export const TOOL_PROFILES: Record<AiTool, ToolProfile> = {
 export const ALLOWED_KEYS: Record<AiTool, string[]> = {
   meihua: ['method', 'dongYao', 'ben', 'hu', 'bian', 'ti', 'yong', 'relation', 'huRelation', 'bianRelation', 'huTi', 'huYong', 'readings'],
   liuyao: ['method', 'questionType', 'ganZhi', 'dayGZ', 'monthZhi', 'xunKong', 'benGua', 'bianGua', 'yaoRecords', 'naJia', 'bianNaJia', 'dongYao', 'shiYing', 'liuShen', 'analysis'],
-  xiu: ['ben', 'pair'],
+  xiu: ['ben', 'pair', 'sanJiu'],
   hepan: ['basis', 'observations'],
   huangli: ['civil', 'lunarDate', 'ganZhi', 'yi', 'ji', 'jiShen', 'xiongSha', 'chong', 'sha', 'zhiXing', 'tianShen', 'xiu'],
   'name-compat': ['grids', 'scope'],
   numerology: ['lifePath', 'nameNumber', 'masterNumberPreserved'],
   moon: ['utcMs', 'phaseName', 'phaseAngle', 'illumination', 'nextNewMoonUtcMs', 'nextFullMoonUtcMs'],
-  synastry: ['first', 'second', 'aspects'],
+  synastry: ['first', 'second', 'aspects', 'houseOverlays', 'compositeMidpoints'],
   astro: ['positions', 'aspects', 'houses', 'ascendant', 'midheaven', 'frame', 'nodeMode'],
   dayun: ['siZhu', 'dayMaster', 'shiShen', 'naYin', 'dayunStart', 'dayun'],
   fengshui: ['判定', '未判定', '跨宫', '朝向', '关心点', '格数', '跨度'],

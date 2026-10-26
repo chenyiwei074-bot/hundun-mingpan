@@ -7,6 +7,8 @@ import { getVisitorId } from '@/lib/auth/visitor';
 import type { ReportListItem, ReportType } from '@/lib/report/types';
 import { deleteTarotReading, getTarotReading, listTarotReadings } from '@/app/lib/api';
 import type { TarotSavedReadingDetail, TarotSavedReadingListItem } from '@/app/lib/api';
+import { TAROT_DECK } from '@/lib/tarot/deck';
+import { getMarseilleReading } from '@/lib/tarot/marseille-readings';
 
 const TYPE_MARKS: Record<ReportType, string> = { bazi: '八', ziwei: '紫', liuyao: '六', tarot: '塔' };
 
@@ -192,17 +194,23 @@ export default function DashboardPage() {
                         <>
                           <p className="tarot-dashboard__summary">{detail.reading.summary}</p>
                           <ol className="tarot-dashboard__cards">
-                            {detail.reading.cards.map((card, index) => (
-                              <li key={`${card.cardId}-${index}`}>
-                                <div className="tarot-dashboard__card-title">
-                                  <span>{card.position}</span>
-                                  <strong>{card.nameZh || card.cardId}</strong>
-                                  <span>{card.orientation}</span>
-                                </div>
-                                <p>{card.text}</p>
-                                {card.source && <small>牌义出处：{card.source}</small>}
-                              </li>
-                            ))}
+                            {detail.reading.cards.map((card, index) => {
+                              const deckCard = TAROT_DECK.find(item => item.id === card.cardId);
+                              const marseille = deckCard ? getMarseilleReading(deckCard) : null;
+                              const orientationKey = card.orientation === '正位' ? 'upright' : 'reversed';
+                              return (
+                                <li key={`${card.cardId}-${index}`}>
+                                  <div className="tarot-dashboard__card-title">
+                                    <span>{card.position}</span>
+                                    <strong>{card.nameZh || deckCard?.nameZh || card.cardId}</strong>
+                                    <span>{card.orientation}</span>
+                                  </div>
+                                  <p>{card.text}</p>
+                                  {card.source && <small>韦特牌义出处：{card.source}</small>}
+                                  {marseille && <small className="qn-cap" style={{ display: 'block', marginTop: 6 }}>马赛 · 本站自研象征读法：{marseille[orientationKey]}</small>}
+                                </li>
+                              );
+                            })}
                           </ol>
                           {detail.reading.notes.length > 0 && <p className="qn-cap">{detail.reading.notes.join(' ')}</p>}
                         </>

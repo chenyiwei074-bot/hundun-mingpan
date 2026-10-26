@@ -167,28 +167,6 @@ export default function NatalPlanets() {
 
   return (
     <>
-      <section className="qn-card" style={{ marginTop: 18 }}>
-        <p className="qn-cap" style={{ margin: 0 }}>行星位置与传统文献</p>
-        <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          本页展示太阳、月亮与其他行星的星座位置和角度。以下列出星座划分所参考的传统文献。
-        </p>
-          <p className="qn-meta" style={{ margin: '8px 0 0' }}>
-            本页给出行星位置、五类主要相位、上升点与七种宫制：整宫、等宫、三分、普拉西德、科赫、雷吉奥蒙塔努斯与坎帕纳斯。
-          </p>
-          <p className="qn-meta" style={{ margin: '6px 0 0' }}>
-            每颗星都与权威星历逐点核过：公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 这一段，
-            黄经与黄纬的偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°。超出此范围的结果尚未达到同等核验标准，本站不打包票。
-          </p>
-        <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
-        <p className="qn-note astro-source-links" style={{ margin: '8px 0 0' }}>
-          计算口径资料：{' '}
-          <a className="qn-link" href="https://ssd-api.jpl.nasa.gov/doc/horizons.html" target="_blank" rel="noreferrer">NASA/JPL Horizons 星历说明</a>
-          {' · '}<a className="qn-link" href="https://ssd.jpl.nasa.gov/planets/eph_export.html" target="_blank" rel="noreferrer">JPL 行星星历与 DE441</a>
-          {' · '}<a className="qn-link" href="https://www.astro.com/swisseph/swisseph.htm" target="_blank" rel="noreferrer">Swiss Ephemeris：交点与拉希里版本说明</a>
-          {' · '}<a className="qn-link" href="https://www.iers.org/fileadmin/SharedDocs/Publikationen/EN/IERS/resolutions/IAU/IAU2006_Resolution_B1.pdf" target="_blank" rel="noreferrer">IAU 2006 岁差决议</a>
-        </p>
-      </section>
-
       <section className="qn-card" style={{ marginTop: 14 }}>
         <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', marginBottom: 12 }}>
           <label className="qn-label" htmlFor="astro-zodiac-frame">黃道參考系
@@ -407,9 +385,6 @@ export default function NatalPlanets() {
                 <p className="qn-note" style={{ margin: '10px 0 0' }}>
                   不同宫制会用不同规则划分十二宫。以上只展示计算出的宫头位置，不把宫位转成预测结论。
                 </p>
-                <p className="qn-note" style={{ margin: '6px 0 0' }}>
-                  等宫、三分、普拉西德与科赫已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，公差 {HOUSE_CROSS_CHECK.toleranceDeg}°；雷吉奥蒙塔努斯与坎帕纳斯为本站球面几何实现，尚无独立参考夹具。恒星黄道宫头由所选岁差量统一换算。交点模式：{nodeMode === 'true' ? '真交点' : '平均交点'}。
-                </p>
               </>
             ) : (
               <p className="qn-meta" style={{ margin: '6px 0 0' }}>
@@ -424,39 +399,44 @@ export default function NatalPlanets() {
 
       {!结果 && (
         <div style={{ marginTop: 14 }}>
-          <Callout tier="info">填写出生日期、当地时间与时区后，即可查看行星位置。</Callout>
-        </div>
-      )}
-
-      <section className="qn-card" style={{ marginTop: 14 }}>
-        <p className="qn-cap" style={{ margin: 0 }}>当前结果范围</p>
-        <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          当前展示十颗行星、凯龙星与南北交点的位置和相位，并支持回归黄道 / 拉希里恒星黄道及七种宫制。高纬极区的 Placidus、Koch、Regiomontanus 与 Campanus 会按适用范围明确提示，不以近似值替代。
-        </p>
-      </section>
-      {!结果 && (
-        <div style={{ marginTop: 14 }}>
           <Callout tier="info">还没算。按下按钮后由本机计算行星位置；选国内地点时仅用地点名称向本站查询坐标。</Callout>
         </div>
       )}
-
-      <section className="qn-card" style={{ marginTop: 14 }}>
-        <p className="qn-cap" style={{ margin: 0 }}>宫制范围</p>
-        <p className="qn-meta" style={{ margin: '4px 0 0' }}>
-          整宫、等宫、三分、Placidus、Koch、Regiomontanus、Campanus。不同宫制依各自几何定义计算；极区不适用时会说明原因，不自动替换为另一种宫制。
-        </p>
-        <p className="qn-note" style={{ margin: '10px 0 0' }}>
-        本页仍称「本命行星位置」，不叫星盘；行星、小天体、交点、黄道方式与宫头是分层计算结果，不把宫位划分直接写成确定性预测。
-        </p>
-        <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
-      </section>
-
-    
       {got && (
         <ToolInterpretation tool="astro" title="本命行星 · 混沌自研 AI 解读"
           payload={{ positions: displayedPositions, aspects: ownAspects, houses: displayedCusps,
             ascendant: displayedAscendant, midheaven: displayedMidheaven, frame: zodiacFrame, nodeMode }} />
       )}
+      <section className="qn-legal" style={{ marginTop: 16 }}>
+        <details>
+          <summary className="qn-meta" style={{ minHeight: 44, display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            计算范围、交叉核验与参考资料
+          </summary>
+          <div style={{ display: 'grid', gap: 8, paddingTop: 8 }}>
+            <p className="qn-meta" style={{ margin: 0 }}>
+              本页展示十颗行星、凯龙星与南北交点的位置和相位，并支持回归黄道、拉希里恒星黄道及七种宫制。高纬极区的 Placidus、Koch、Regiomontanus 与 Campanus 会按适用范围提示，不以近似值替代。
+            </p>
+            <p className="qn-meta" style={{ margin: 0 }}>
+              行星星历在公历 {ASTRO_CROSS_CHECK.from} 至 {ASTRO_CROSS_CHECK.to} 范围逐点交叉核验，黄经、黄纬偏差不超过 {ASTRO_CROSS_CHECK.toleranceDeg}°；此范围外未达到同等核验标准。
+            </p>
+            {got?.angles?.ok && houseResult?.ok && <p className="qn-meta" style={{ margin: 0 }}>
+              等宫、三分、普拉西德与科赫已用 {HOUSE_CROSS_CHECK.cases} 组样例交叉核验，公差 {HOUSE_CROSS_CHECK.toleranceDeg}°；雷吉奥蒙塔努斯与坎帕纳斯为本站球面几何实现，尚无独立参考夹具。当前交点模式：{nodeMode === 'true' ? '真交点' : '平均交点'}。
+            </p>}
+            <p className="qn-meta" style={{ margin: 0 }}>
+              本页称「本命行星位置」；行星、小天体、交点、黄道方式与宫头分层展示，不把宫位划分直接写成确定性预测。
+            </p>
+            <BasisQuote basis={TROPICAL_SIGNS_BASIS} />
+            <BasisQuote basis={ASPECT_GEOMETRY_BASIS} 标题="依据 · 行星主要相位" />
+            <p className="qn-note astro-source-links" style={{ margin: 0 }}>
+              资料：{' '}
+              <a className="qn-link" href="https://ssd-api.jpl.nasa.gov/doc/horizons.html" target="_blank" rel="noreferrer">NASA/JPL Horizons 星历说明</a>
+              {' · '}<a className="qn-link" href="https://ssd.jpl.nasa.gov/planets/eph_export.html" target="_blank" rel="noreferrer">JPL 行星星历与 DE441</a>
+              {' · '}<a className="qn-link" href="https://www.astro.com/swisseph/swisseph.htm" target="_blank" rel="noreferrer">Swiss Ephemeris：交点与拉希里版本说明</a>
+              {' · '}<a className="qn-link" href="https://www.iers.org/fileadmin/SharedDocs/Publikationen/EN/IERS/resolutions/IAU/IAU2006_Resolution_B1.pdf" target="_blank" rel="noreferrer">IAU 2006 岁差决议</a>
+            </p>
+          </div>
+        </details>
+      </section>
 </>
   );
 }

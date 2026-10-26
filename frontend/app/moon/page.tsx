@@ -90,17 +90,18 @@ export default function MoonPage() {
         <p className="qn-note" style={{ marginBottom: 0 }}>这两个时刻在你选的时区显示；月相角按地心日月黄经差计算，照亮比例按光照几何计算。图标只表示月相阶段，不按所在地模拟月面朝向。</p>
       </section>}
 
+      {cycle && <ToolInterpretation tool="moon" title="月相周期 · 混沌自研 AI 解读" payload={{
+        utcMs: cycle.utcMs, phaseName: cycle.phaseName, phaseAngle: cycle.phaseAngle,
+        illumination: cycle.illumination, nextNewMoonUtcMs: cycle.nextNewMoonUtcMs,
+        nextFullMoonUtcMs: cycle.nextFullMoonUtcMs,
+      }} />}
+
       <section className="qn-card" style={{ marginTop: 14 }}>
         <p className="qn-cap" style={{ margin: 0 }}>规则与来源</p>
         <p className="qn-meta">朔为地心日月黄经差 0°，望为 180°；计算使用 <a className="qn-link" href="https://github.com/cosinekitty/astronomy/blob/master/source/js/README.md" target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Astronomy Engine 的 MoonPhase、Illumination 与 SearchMoonPhase</a>。阶段图标按 45° 分段，是本站的显示规则。</p>
         <p className="qn-note">这里显示天文月相，不以黄历宜忌替代，也不推断个人吉凶。</p>
       </section>
       <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-            {cycle && <ToolInterpretation tool="moon" title="月相周期 · 混沌自研 AI 解读" payload={{
-              utcMs: cycle.utcMs, phaseName: cycle.phaseName, phaseAngle: cycle.phaseAngle,
-              illumination: cycle.illumination, nextNewMoonUtcMs: cycle.nextNewMoonUtcMs,
-              nextFullMoonUtcMs: cycle.nextFullMoonUtcMs,
-            }} />}
       </main>
   );
 }

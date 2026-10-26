@@ -57,3 +57,19 @@ test('章节引用必须来自事实账本，伪造引用整份拒绝', () => {
   ] }, valid);
   assert.equal(fake, null);
 });
+
+test('xiu/synastry 新字段通过，旧字段仍兼容，未知字段仍拒绝', () => {
+  const xiu = validateAiRequest({ tool: 'xiu', payload: {
+    ben: { xiu: '角' }, pair: null,
+    sanJiu: { basis: 'xiu-sanjiao-lahiri-v1', self: { natalXiu: '角', rows: [] }, partner: null, pairRelation: null },
+  } });
+  assert.equal(xiu.ok, true);
+  assert.equal(validateAiRequest({ tool: 'xiu', payload: { ben: {}, extra: 1 } }).ok, false);
+  const syn = validateAiRequest({ tool: 'synastry', payload: {
+    first: [], second: [], aspects: [],
+    houseOverlays: { houseSystem: 'whole-sign', firstPlanetsInSecond: { available: false, rows: [] }, secondPlanetsInFirst: { available: false, rows: [] } },
+    compositeMidpoints: [{ key: 'sun', name: '太阳', longitude: null, sign: null, ambiguous: true }],
+  } });
+  assert.equal(syn.ok, true);
+  assert.equal(validateAiRequest({ tool: 'synastry', payload: { first: [], extra: 1 } }).ok, false);
+});

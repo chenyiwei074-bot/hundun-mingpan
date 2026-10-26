@@ -610,49 +610,18 @@ export default function TarotPage() {
 
       <p className="tarot-notice" role="status" aria-live="polite">{notice}</p>
 
-      <section className="tarot-integrity" aria-labelledby="tarot-integrity-title">
-        <div className="tarot-integrity__heading">
-          <div>
-            <p className="qn-eyebrow">本机抽牌记录</p>
-            <h2 className="qn-title" id="tarot-integrity-title">抽牌校验记录</h2>
-          </div>
-          <span className="tarot-integrity__state">{drawState === 'idle' ? '待生成' : drawState === 'shuffled' || drawState === 'drawing' ? '已锁定' : '已揭晓'}</span>
-        </div>
-        <div className="tarot-integrity__row">
-          <span>抽牌校验码</span>
-          <code data-tarot-commit-hash>{seedHash || '洗牌后生成，抽牌前固定'}</code>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minHeight: 44, marginTop: 8 }}>
-          <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }} disabled={!seedHash} onClick={() => void copyHash()}>
-            复制抽牌校验码
-          </button>
-          {copyStatus && <span className="qn-meta" role="status">{copyStatus}</span>}
-        </div>
-        <div className="tarot-integrity__row">
-          <span>校验用随机值</span>
-          <code>{drawState === 'revealed' || drawState === 'reading' ? seedHex : `${spread.count}张牌揭晓后公开`}</code>
-        </div>
-        <p className="tarot-integrity__note">
-          校验码在抽牌前固定，揭晓后公开随机值，供事后复算牌序。未点击保存时，抽牌记录只留在当前页面；保存后会归入本机访问者标识下的“我的报告”，7 天后自动清理。当前不是区块链存证。
-        </p>
-        <details style={{ marginTop: 8 }}>
-          <summary className="qn-meta" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>校验方式说明</summary>
-          <p className="qn-meta" style={{ marginTop: 6 }}>
-            抽牌前根据随机值生成校验码；结果揭晓后，可按相同规则重新生成牌序并对照本次记录。当前没有提交公开台账，因此不能证明校验码曾被外部记录。
-          </p>
-        </details>
-      </section>
-
       <section className="tarot-reading" aria-live="polite" aria-label="牌位说明">
         {drawState === 'reading' ? (
           <>
             <p className="qn-eyebrow">本次抽牌记录</p>
             <h2 className="qn-title">{spread.label} · 逐牌记录</h2>
             {drawQuestion && <blockquote className="tarot-reading__question">「{drawQuestion}」</blockquote>}
-            <p className="qn-meta">下列韦特牌义参考 Waite 1910 年 Part III 作中文译述，78 张逐牌出处已核验；不同传统与组合语境仍会有差异。</p>
+            <p className="qn-meta">韦特栏为 Waite 1910 年 Part III 中文译述；每张牌同时列出马赛牌系的本站自研正逆位象征读法。马赛读法不冒称历史定本或统一牌义。</p>
             <ol className="tarot-record-list">
               {drawnCards.map(({ card, position, orientation }, index) => {
                 const meaning = TAROT_MEANINGS[card.id];
+                const marseilleMeaning = getMarseilleReading(card);
+                const orientationKey = orientation === '正位' ? 'upright' : 'reversed';
                 return (
                 <li key={position} style={{ '--tarot-record-index': index } as CSSProperties}>
                   <span className="tarot-record-list__position">{position}</span>
@@ -661,6 +630,7 @@ export default function TarotPage() {
                   <span className="tarot-record-list__orientation">{orientation}</span>
                   <span className="tarot-record-list__meaning">{meaning ? meaning[orientation === '正位' ? 'upright' : 'reversed'] : '此牌义暂缺，后续补充来源校核。'}</span>
                   <span className="tarot-record-list__source">出处：{meaning?.source ?? '待校核'}</span>
+                  <span className="tarot-record-list__source">马赛 · 本站自研：{marseilleMeaning?.[orientationKey] ?? '本牌结构暂缺，暂不推测。'}</span>
                 </li>
                 );
               })}
@@ -740,6 +710,39 @@ export default function TarotPage() {
           {saveState === 'saved' && <Link href="/dashboard" className="tarot-save__link">查看我的报告 →</Link>}
         </section>
       )}
+
+      <section className="tarot-integrity" aria-labelledby="tarot-integrity-title">
+        <div className="tarot-integrity__heading">
+          <div>
+            <p className="qn-eyebrow">本机抽牌记录</p>
+            <h2 className="qn-title" id="tarot-integrity-title">抽牌校验记录</h2>
+          </div>
+          <span className="tarot-integrity__state">{drawState === 'idle' ? '待生成' : drawState === 'shuffled' || drawState === 'drawing' ? '已锁定' : '已揭晓'}</span>
+        </div>
+        <div className="tarot-integrity__row">
+          <span>抽牌校验码</span>
+          <code data-tarot-commit-hash>{seedHash || '洗牌后生成，抽牌前固定'}</code>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minHeight: 44, marginTop: 8 }}>
+          <button type="button" className="qn-btn qn-btn--ghost" style={{ minHeight: 44 }} disabled={!seedHash} onClick={() => void copyHash()}>
+            复制抽牌校验码
+          </button>
+          {copyStatus && <span className="qn-meta" role="status">{copyStatus}</span>}
+        </div>
+        <div className="tarot-integrity__row">
+          <span>校验用随机值</span>
+          <code>{drawState === 'revealed' || drawState === 'reading' ? seedHex : `${spread.count}张牌揭晓后公开`}</code>
+        </div>
+        <p className="tarot-integrity__note">
+          校验码在抽牌前固定，揭晓后公开随机值，供事后复算牌序。未点击保存时，抽牌记录只留在当前页面；保存后会归入本机访问者标识下的“我的报告”，7 天后自动清理。当前不是区块链存证。
+        </p>
+        <details style={{ marginTop: 8 }}>
+          <summary className="qn-meta" style={{ cursor: 'pointer', minHeight: 44, display: 'flex', alignItems: 'center' }}>校验方式说明</summary>
+          <p className="qn-meta" style={{ marginTop: 6 }}>
+            抽牌前根据随机值生成校验码；结果揭晓后，可按相同规则重新生成牌序并对照本次记录。当前没有提交公开台账，因此不能证明校验码曾被外部记录。
+          </p>
+        </details>
+      </section>
 
       <p className="sr-only" aria-live="polite">{announcement}</p>
       <p className="tarot-footnote">牌名与牌序参考韦特—史密斯体系，牌面为本站原创符号插画。所列牌义是指定历史文本的中文译述，不代表统一标准、学术共识或科学预测。</p>

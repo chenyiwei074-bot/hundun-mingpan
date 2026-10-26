@@ -2,7 +2,6 @@ import Link from 'next/link';
 import ToolCatalog from '@/components/tools/ToolCatalog';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
-import { statusCounts, statusTally } from '@/lib/tools/status';
 
 // 二级目录页：按「问什么」分组，再按术数查找。这一页只描述已经实现的东西，
 // 数据全部来自两套 catalog（东方 lib/tools/catalog.ts、西方 lib/tools/western-catalog.ts），
@@ -21,7 +20,7 @@ const BOOKS = [
 ];
 
 export default function ToolsPage() {
-  const tallies = BOOKS.map(b => ({ label: b.label, c: statusCounts(b.groups) }));
+  const counts = BOOKS.map(b => ({ label: b.label, count: b.groups.reduce((sum, group) => sum + group.tools.length, 0) }));
 
   return (
     <main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
@@ -29,22 +28,15 @@ export default function ToolsPage() {
         <p className="qn-eyebrow" style={{ margin: 0 }}>东西方工具总览</p>
         <h1 className="qn-hero" style={{ margin: '12px 0 6px' }}>先说要问什么，再看用哪个工具</h1>
         <p className="qn-meta" style={{ letterSpacing: '0.14em' }}>
-          {tallies.map(t => `${t.label} ${statusTally(t.c)}`).join(' · ')} · 每项均标注开放范围与参考依据
+          {counts.map(t => `${t.label} ${t.count} 项工具`).join(' · ')} · 每项列出适用问题、支持功能与参考依据
         </p>
       </header>
-
-      <section className="qn-card qn-rise" style={{ marginBottom: 16 }}>
-        <p className="qn-axis" style={{ margin: 0 }}>状态怎么标</p>
-        <p className="qn-body" style={{ marginTop: 8 }}>
-          「可用」= 当前页面列明的功能范围已开放；「未开放」= 暂不可使用，因此没有入口。每张卡片会说明适用问题、计算范围与依据。
-        </p>
-      </section>
 
       {BOOKS.map(b => (
         <section key={b.key} style={{ marginTop: 28 }}>
           <p className="qn-hero" style={{ margin: '0 0 2px' }}>{b.label}</p>
           <p className="qn-meta" style={{ margin: '0 0 4px' }}>
-            目录 {statusTally(statusCounts(b.groups))}
+            {counts.find(item => item.label === b.label)?.count ?? 0} 项工具
           </p>
           <ToolCatalog groups={b.groups} />
         </section>
@@ -52,7 +44,7 @@ export default function ToolsPage() {
 
       <section className="qn-legal" style={{ marginTop: 28 }}>
         <h2>阅读说明</h2>
-        <p>东方术数与西方神秘学遵循各自体系，不互相换算。每张卡片会说明适用问题、当前开放范围与参考依据；古籍出处尚未核实的内容会标注「本站自研」或「待校核」。</p>
+        <p>东方术数与西方神秘学遵循各自体系，不互相换算。每张卡片会说明适用问题、支持功能与参考依据；古籍出处尚未核实的内容会标注「本站自研」或「待校核」。</p>
         <p>所有内容仅供传统文化交流与个人参考，不构成医疗、法律、投资或其他专业建议。个人信息的处理和保存方式见隐私政策。</p>
         <p className="qn-linkrow">
           <Link href="/" className="qn-link">回首页</Link>

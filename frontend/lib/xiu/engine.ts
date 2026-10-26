@@ -1,4 +1,4 @@
-// 本命星宿：以出生当日的「值日二十八宿」为命宿，取通书二十八宿直日之法。
+// 通书二十八宿值日：以所选公历日取当日值日宿，不等同于三九法的本命宿。
 //
 // 表复用站里六爻常量副本（XIU28 / WUXING_SHENG / WUXING_KE），宿的五行由宿名中之曜推出
 // （日、月二宿属火），与已删除的 app/lib/core/liuyao/tianpan.ts 的 XIU_WUXING 逐宿实测一致，
@@ -12,6 +12,8 @@
 
 import { Solar } from 'lunar-typescript';
 import { XIU28, WUXING_KE, WUXING_SHENG } from '@/app/lib/core/liuyao/constants';
+import { computePlanets } from '@/lib/astro/planets';
+import { lahiriAyanamsha, normalizeLongitude } from '@/lib/astro/extensions';
 
 /** 宿名中之曜 → 五行。日、月二曜在星占里属火，其余曜即本行。 */
 const YAO_TO_WX: Record<string, string> = {
@@ -126,6 +128,7 @@ export interface XiuPair {
 }
 
 export interface XiuResult {
+  /** 当日通书值日宿（历史字段名 ben）。 */
   ben: BenMingXiu;
   /** 输入口径回显：用户给的是农历时，这里记原始农历串与换算出的公历。 */
   input: { civil: string; original: string; fromLunar: boolean };
@@ -194,7 +197,7 @@ function solarOf(y: number, m: number, d: number, who: string): Solar {
 }
 
 /**
- * 命宿查询。生日按公历轴给定；走农历输入时先经站里同一套 toCivilInput 换算，
+ * 通书值日宿查询。日期按公历轴给定；走农历输入时先经站里同一套 toCivilInput 换算，
  * 换算结果原样回显，方便复核。
  */
 export function queryBenMingXiu(
@@ -215,10 +218,10 @@ export function queryBenMingXiu(
   ];
 
   const basis = [
-    '命宿取通书「二十八宿值日」：28 日一周，跟着公历日连续排，不看农历月、不做闰月调整。',
+    '本结果是通书「二十八宿值日」：28 日一周，跟着公历日连续排，不看农历月、不做闰月调整；它与三九法的本命宿分开计算。',
     '宿名中之曜恒等于该日星期（角木蛟恒值木曜，即星期四），故本表相位可由星期自查。',
     '「吉 / 凶」是通书以此宿直日的宜忌口径，属择日一面，不等于命定吉凶。',
-    '命宿一律按公历日取；若你给的是农历生日，先经与本站命盘同一套换算（见上方输入回显）。',
+    '值日宿一律按公历日取；若你给的是农历日期，先经与本站命盘同一套换算（见上方输入回显）。',
     '不作真太阳时与子时换日：值日宿随公历日历日走，与八字日柱的夜子时规则互不影响。',
   ];
 
@@ -229,7 +232,7 @@ export function queryBenMingXiu(
     fromLunar,
   };
   if (fromLunar) {
-    basis.unshift(`输入历法为农历「${input.original}」，换算后公历为 ${ben.civil}，命宿按换算后的公历日取。`);
+    basis.unshift(`输入历法为农历「${input.original}」，换算后公历为 ${ben.civil}，通书值日宿按换算后的公历日取。`);
   }
 
   let pair: XiuResult['pair'];
@@ -244,6 +247,76 @@ export function queryBenMingXiu(
   }
 
   return { ben, input, steps, basis, pair };
+}
+
+/**
+ * 三九法所用的二十七宿顺序，依《宿曜经·序三九秘宿品第三》的次序整理。
+ * 《宿曜经》给出宿序与命/业/胎九宿分类；本函数以出生时刻月球黄经定位本命宿，
+ * 是本站明确标注的现代自研换算，不冒称古籍规定了拉希里黄道或 27 等分算法。
+ */
+export const XIU27_ORDER = [
+  '娄', '胃', '昴', '毕', '觜', '参', '井', '鬼', '柳', '星', '张', '翼', '轸',
+  '角', '亢', '氐', '房', '心', '尾', '箕', '斗', '女', '虚', '危', '室', '壁', '奎',
+] as const;
+
+export type SanJiuRelation = '命' | '荣' | '衰' | '安' | '危' | '成' | '坏' | '友' | '亲' | '业' | '胎';
+
+const SANJIU_NINES: readonly (readonly SanJiuRelation[])[] = [
+  ['命', '荣', '衰', '安', '危', '成', '坏', '友', '亲'],
+  ['业', '荣', '衰', '安', '危', '成', '坏', '友', '亲'],
+  ['胎', '荣', '衰', '安', '危', '成', '坏', '友', '亲'],
+];
+
+export interface SanJiuXiuResult {
+  ok: true;
+  basis: 'xiu-sanjiao-lahiri-v1';
+  tropicalMoonLongitude: number;
+  ayanamsha: number;
+  siderealMoonLongitude: number;
+  natalXiu: (typeof XIU27_ORDER)[number];
+  natalXiuIndex: number;
+  /** 从本人命宿起排，按原文标出 27 宿各自属于命/荣/衰/安/危/成/坏/友/亲/业/胎哪一类。 */
+  rows: { offset: number; xiu: (typeof XIU27_ORDER)[number]; relation: SanJiuRelation }[];
+}
+
+export type SanJiuXiuFailure = { ok: false; detail: string };
+
+/**
+ * 以出生瞬间地心月球黄经转为拉希里恒星黄经，并按本站约定的 27 个等分段定位宿。
+ * 需要完整出生时刻；时区换算由调用方完成。它与上面的通书二十八宿值日法并列，互不替代。
+ */
+export function calculateSanJiuXiu(utcMs: number): SanJiuXiuResult | SanJiuXiuFailure {
+  if (!Number.isFinite(utcMs)) return { ok: false, detail: '出生时刻无效，无法定位三九命宿。' };
+  try {
+    const planets = computePlanets(utcMs);
+    if (!planets.ok) return { ok: false, detail: `月球位置无法计算：${planets.detail}` };
+    const ayanamsha = lahiriAyanamsha(utcMs);
+    const siderealMoonLongitude = normalizeLongitude(planets.moon.lon - ayanamsha);
+    const natalXiuIndex = Math.min(XIU27_ORDER.length - 1,
+      Math.floor(siderealMoonLongitude / (360 / XIU27_ORDER.length)));
+    const natalXiu = XIU27_ORDER[natalXiuIndex];
+    const rows = Array.from({ length: XIU27_ORDER.length }, (_, offset) => {
+      const group = Math.floor(offset / 9);
+      const position = offset % 9;
+      return {
+        offset,
+        xiu: XIU27_ORDER[(natalXiuIndex + offset) % XIU27_ORDER.length],
+        relation: SANJIU_NINES[group][position],
+      };
+    });
+    return {
+      ok: true,
+      basis: 'xiu-sanjiao-lahiri-v1',
+      tropicalMoonLongitude: planets.moon.lon,
+      ayanamsha,
+      siderealMoonLongitude,
+      natalXiu,
+      natalXiuIndex,
+      rows,
+    };
+  } catch (error) {
+    return { ok: false, detail: `三九命宿计算失败：${error instanceof Error ? error.message : String(error)}` };
+  }
 }
 
 /** 宿序表由内核那一份提供，页面铺表时不再抄第二份。 */

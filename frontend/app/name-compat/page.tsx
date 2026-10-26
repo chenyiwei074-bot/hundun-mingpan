@@ -93,13 +93,7 @@ export default function NameCompatPage() {
       <p className="qn-note">五行末位映射：1/2 木、3/4 火、5/6 土、7/8 金、9/0 水。生克关系按木→火→土→金→水→木及木克土、土克水、水克火、火克金、金克木展示；它不代表双方是否适合。</p>
     </section>}
 
-    <section className="qn-card" style={{ marginTop: 14 }}>
-      <p className="qn-cap" style={{ margin: 0 }}>方法边界</p>
-      <p className="qn-meta">五格剖象是近代姓名数理方法，不作为中国古籍出处。单字姓或单字名的“虚数 1”只参与相应格；总格始终为全部真实笔画之和。比较层为本站自研。</p>
-      <p className="qn-note">字形与笔画的来源由填写者确认。这里展示五格的数与五行关系，不套用未经核验的 81 数理吉凶表。</p>
-    </section>
-    <p className="qn-linkrow"><Link className="qn-link" href="/hepan">返回关系工具</Link><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-          {result && <ToolInterpretation tool="name-compat" title="姓名五格 · 混沌自研 AI 解读" payload={{
+    {result && <ToolInterpretation tool="name-compat" title="姓名五格 · 混沌自研 AI 解读" payload={{
             grids: GRID_NAMES.map(name => ({
               name,
               first: { value: result.first.values[name].value, element: result.first.values[name].element },
@@ -108,5 +102,11 @@ export default function NameCompatPage() {
             })),
             scope: '仅解释五格数与五行关系，不推断双方是否适合。',
           }} />}
+    <section className="qn-card" style={{ marginTop: 14 }}>
+      <p className="qn-cap" style={{ margin: 0 }}>计算与方法说明</p>
+      <p className="qn-meta">五格剖象是近代姓名数理方法，不作为中国古籍出处。单字姓或单字名的“虚数 1”只参与相应格；总格始终为全部真实笔画之和。比较层为本站自研。</p>
+      <p className="qn-note">字形与笔画的来源由填写者确认。这里展示五格的数与五行关系，不套用未经核验的 81 数理吉凶表。</p>
+    </section>
+    <p className="qn-linkrow"><Link className="qn-link" href="/hepan">返回关系工具</Link><Link className="qn-link" href="/tools">查看全部工具</Link></p>
       </main>;
 }

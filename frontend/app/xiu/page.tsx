@@ -6,8 +6,9 @@ import {
   lunarDayCount,
   toCivilInput,
 } from '@/app/lib/core/yiqi-core/lunar-input';
-import { queryBenMingXiu, XIU_ORDER } from '@/lib/xiu/engine';
-import type { XiuResult } from '@/lib/xiu/engine';
+import { calculateSanJiuXiu, queryBenMingXiu, XIU_ORDER } from '@/lib/xiu/engine';
+import type { SanJiuXiuResult, XiuResult } from '@/lib/xiu/engine';
+import { availableZones, toUtc } from '@/lib/astro/moment';
 
 import ToolInterpretation from '@/components/ai/ToolInterpretation';
 // 五行色是冻结的数据编码，只当圆点/色块用，不落进文字（与八字卡、梅花页同一纪律）。
@@ -26,6 +27,7 @@ const QUADRANTS: { gong: string; name: string; from: number }[] = [
 
 // 宿表仍只有站里六爻内核那一份，这里只取单字用于铺表。
 const XIUZI = XIU_ORDER.map(n => n[0]);
+const TIME_ZONES = availableZones();
 
 type Mode = 'solar' | 'lunar';
 
@@ -36,9 +38,14 @@ interface DateDraft {
   lunarM: string;
   lunarD: string;
   leap: boolean;
+  birthTime: string;
+  timeZone: string;
 }
 
-const emptyDraft = (): DateDraft => ({ mode: 'solar', solar: '', lunarY: '', lunarM: '', lunarD: '', leap: false });
+const emptyDraft = (): DateDraft => ({
+  mode: 'solar', solar: '', lunarY: '', lunarM: '', lunarD: '', leap: false,
+  birthTime: '', timeZone: 'Asia/Shanghai',
+});
 
 const digits = (v: string) => v.replace(/[^\d]/g, '');
 
@@ -87,7 +94,96 @@ function DateFields({ id, draft, set, showLeap }: {
           )}
         </div>
       )}
+
+      <div style={{ borderTop: 'var(--qn-hairline)', marginTop: 16, paddingTop: 14 }}>
+        <p className="qn-cap" style={{ margin: 0 }}>
+          三九秘宿需出生时刻与时区；留空仍可查上面的通书二十八宿值日。
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10, marginTop: 10 }}>
+          <label className="qn-label" htmlFor={`${id}-birth-time`}>出生时刻（选填）
+            <input id={`${id}-birth-time`} className="qn-input" type="time" value={draft.birthTime}
+              onChange={e => set({ ...draft, birthTime: e.target.value })} style={{ marginTop: 4, minHeight: 44 }} />
+          </label>
+          <label className="qn-label" htmlFor={`${id}-time-zone`}>出生地时区
+            <select id={`${id}-time-zone`} className="qn-input" value={draft.timeZone}
+              onChange={e => set({ ...draft, timeZone: e.target.value })} style={{ marginTop: 4, minHeight: 44 }}>
+              {TIME_ZONES.map(zone => <option value={zone} key={zone}>{zone}</option>)}
+            </select>
+          </label>
+        </div>
+      </div>
     </>
+  );
+}
+
+function sanJiuFor(draft: DateDraft, date: { y: number; m: number; d: number }, who: string): SanJiuXiuResult | null {
+  if (!draft.birthTime) return null;
+  const match = /^(\d{2}):(\d{2})$/.exec(draft.birthTime);
+  if (!match) throw new Error(`${who}出生时刻格式无效，请重新选择`);
+  const moment = toUtc({
+    year: date.y, month: date.m, day: date.d,
+    hour: Number(match[1]), minute: Number(match[2]), timeZone: draft.timeZone,
+  });
+  if (!moment.ok) throw new Error(`${who}时刻无法按${draft.timeZone}唯一换算：${moment.detail}`);
+  const result = calculateSanJiuXiu(moment.utcMs);
+  if (!result.ok) throw new Error(`${who}${result.detail}`);
+  return result;
+}
+
+function SanJiuPanel({ mine, other, error }: {
+  mine: SanJiuXiuResult | null;
+  other: SanJiuXiuResult | null;
+  error: string;
+}) {
+  const groups = [
+    { title: '一九 · 命宿', rows: mine?.rows.slice(0, 9) ?? [] },
+    { title: '二九 · 业宿', rows: mine?.rows.slice(9, 18) ?? [] },
+    { title: '三九 · 胎宿', rows: mine?.rows.slice(18, 27) ?? [] },
+  ];
+  const otherInMine = mine && other
+    ? mine.rows[(other.natalXiuIndex - mine.natalXiuIndex + 27) % 27] : null;
+  const mineInOther = mine && other
+    ? other.rows[(mine.natalXiuIndex - other.natalXiuIndex + 27) % 27] : null;
+
+  return (
+    <section className="qn-card qn-rise qn-rise--2" style={{ marginTop: 16 }}>
+      <p className="qn-eyebrow" style={{ margin: 0 }}>三九秘宿 · 二十七宿</p>
+      {error ? <p className="qn-alert" role="alert" style={{ marginTop: 12 }}>{error}</p> : null}
+      {!mine ? (
+        <p className="qn-meta" style={{ marginTop: 10 }}>
+          填写本人出生时刻后，可按三九法查看命、业、胎三组宿序。当前结果仍保留通书二十八宿值日与原有合宿计算。
+        </p>
+      ) : (
+        <>
+          <p className="qn-meta" style={{ marginTop: 10 }}>
+            出生时月球恒星黄经 {mine.siderealMoonLongitude.toFixed(4)}°，按本站 27 等分定位为「{mine.natalXiu}宿」。定位方法与上方二十八宿值日法分别计算。
+          </p>
+          {otherInMine && mineInOther ? (
+            <div className="qn-row" style={{ display: 'grid', gap: 6, marginTop: 12, padding: 12 }}>
+              <p className="qn-body" style={{ margin: 0 }}>
+                对方「{other?.natalXiu}宿」落在你的三九关系中为「{otherInMine.relation}」；反向看，你的「{mine.natalXiu}宿」在对方关系中为「{mineInOther.relation}」。
+              </p>
+              <p className="qn-cap" style={{ margin: 0 }}>只列双方在三九序列中的对应宿名，不计算匹配分。</p>
+            </div>
+          ) : null}
+          {mine && !other && <p className="qn-cap" style={{ marginTop: 8 }}>要查看双方三九关系，请启用对象合宿并填写对方的出生时刻与时区。</p>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: 12, marginTop: 16 }}>
+            {groups.map(group => (
+              <div key={group.title} style={{ border: 'var(--qn-hairline)', borderRadius: 12, padding: 12 }}>
+                <h3 className="qn-axis" style={{ margin: '0 0 8px' }}>{group.title}</h3>
+                <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 5 }}>
+                  {group.rows.map(row => (
+                    <li key={`${row.offset}-${row.xiu}`} className="qn-meta" style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                      <span>{row.xiu}宿</span><span>{row.relation}宿</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -97,9 +193,10 @@ function XiuHeadline({ r }: { r: XiuResult }) {
     <div style={{ textAlign: 'center' }}>
       {r.input.fromLunar && (
         <p className="qn-cap" style={{ margin: '0 0 6px' }}>
-          输入为农历{r.input.original}，经本站命盘同一套换算得公历{r.input.civil}，命宿按此日取
+          输入为农历{r.input.original}，经本站命盘同一套换算得公历{r.input.civil}，通书值日宿按此日取
         </p>
       )}
+      <p className="qn-eyebrow" style={{ margin: '0 0 6px' }}>通书二十八宿值日</p>
       <p className="qn-cap" style={{ margin: 0 }}>{b.civil} · {b.lunar} · {b.dayGanZhi}日 · 星期{b.week}</p>
       <p style={{
         fontFamily: '"Noto Serif SC", "Source Han Serif SC", "STSong", Georgia, serif',
@@ -122,7 +219,7 @@ function XiuHeadline({ r }: { r: XiuResult }) {
   );
 }
 
-/** 28 宿直日表：按四象分段铺开，标出命宿落点，一眼看到自己在循环里的位置。 */
+/** 28 宿直日表：按四象分段铺开，标出当日值日宿在循环里的位置。 */
 function XiuRibbon({ active }: { active: number }) {
   return (
     <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
@@ -146,7 +243,7 @@ function XiuRibbon({ active }: { active: number }) {
           </div>
         </div>
       ))}
-      <p className="qn-cap" style={{ marginTop: 2 }}>二十八宿按公历日循环直日，28 日一周；上表按四象分段，金框即命宿。</p>
+      <p className="qn-cap" style={{ marginTop: 2 }}>二十八宿按公历日循环直日，28 日一周；上表按四象分段，金框即当日值日宿。</p>
     </div>
   );
 }
@@ -156,6 +253,8 @@ export default function XiuPage() {
   const [other, setOther] = useState<DateDraft>(emptyDraft);
   const [useOther, setUseOther] = useState(false);
   const [result, setResult] = useState<XiuResult | null>(null);
+  const [sanJiu, setSanJiu] = useState<{ mine: SanJiuXiuResult | null; other: SanJiuXiuResult | null }>({ mine: null, other: null });
+  const [sanJiuError, setSanJiuError] = useState('');
   const [error, setError] = useState('');
 
   const resolve = (d: DateDraft, who: string): { y: number; m: number; d: number; original: string; fromLunar: boolean } => {
@@ -183,12 +282,27 @@ export default function XiuPage() {
     try {
       const a = resolve(me, '本人');
       const b = useOther ? resolve(other, '对方') : null;
-      setResult(queryBenMingXiu(a.y, a.m, a.d, {
+      const next = queryBenMingXiu(a.y, a.m, a.d, {
         originalInput: a.original,
         fromLunar: a.fromLunar,
         other: b ? { y: b.y, m: b.m, d: b.d } : undefined,
-      }));
+      });
+      setResult(next);
+      setSanJiuError('');
+      try {
+        const mine = sanJiuFor(me, a, '本人');
+        const partner = mine && b ? sanJiuFor(other, b, '对方') : null;
+        setSanJiu({ mine, other: partner });
+        if (b && other.birthTime && !mine) setSanJiuError('要比较双方三九关系，请先填写本人的出生时刻。');
+        else if (b && mine && !other.birthTime) setSanJiuError('补充对方出生时刻后，可显示双方三九关系；现有通书合宿结果不受影响。');
+      } catch (e) {
+        setSanJiu({ mine: null, other: null });
+        setSanJiuError(e instanceof Error ? e.message : '三九定位失败');
+      }
     } catch (e) {
+      setResult(null);
+      setSanJiu({ mine: null, other: null });
+      setSanJiuError('');
       setError(e instanceof Error ? e.message : '查询失败');
     }
   }, [me, other, useOther]);
@@ -212,9 +326,9 @@ export default function XiuPage() {
   return (
     <main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
       <header className="qn-rise" style={{ textAlign: 'center', marginBottom: 24 }}>
-        <p className="qn-eyebrow" style={{ margin: 0 }}>二十八宿</p>
-        <h1 className="qn-hero" style={{ margin: '12px 0 6px' }}>值日一宿 · 命落何处</h1>
-        <p className="qn-meta" style={{ letterSpacing: '0.14em' }}>通书二十八宿直日 · 四象七曜一日一宿</p>
+        <p className="qn-eyebrow" style={{ margin: 0 }}>二十八宿 · 三九秘宿</p>
+        <h1 className="qn-hero" style={{ margin: '12px 0 6px' }}>值日宿与三九命宿</h1>
+        <p className="qn-meta" style={{ letterSpacing: '0.14em' }}>通书二十八宿直日 · 宿曜经三九二十七宿</p>
       </header>
 
       {!result && (
@@ -237,11 +351,11 @@ export default function XiuPage() {
             )}
 
             {error && <p className="qn-alert" role="alert" style={{ marginTop: 14 }}>{error}</p>}
-            <p className="qn-cap" style={{ marginTop: 14 }}>星宿只认生日，不认时辰；填到日即可。</p>
+            <p className="qn-cap" style={{ marginTop: 14 }}>通书二十八宿值日只认公历日历日；三九命宿另需具体出生时刻与时区。</p>
           </section>
 
           <button type="button" className="qn-btn qn-btn--solid qn-btn--block qn-rise qn-rise--3"
-            style={{ marginTop: 20 }} onClick={query}>查命宿</button>
+            style={{ marginTop: 20 }} onClick={query}>查询星宿</button>
         </>
       )}
 
@@ -260,9 +374,11 @@ export default function XiuPage() {
             <XiuRibbon active={result.ben.index} />
           </section>
 
+          <SanJiuPanel mine={sanJiu.mine} other={sanJiu.other} error={sanJiuError} />
+
           {result.pair && (
             <section className="qn-card qn-rise qn-rise--2" style={{ marginTop: 16 }}>
-              <p className="qn-eyebrow" style={{ margin: 0 }}>合宿</p>
+              <p className="qn-eyebrow" style={{ margin: 0 }}>二十八宿值日合宿 · 本站自研</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 12px', marginTop: 14 }}>
                 {[result.ben, result.pair.other].map((b, i) => (
                   <div key={b.civil + i} style={{ minWidth: 0, textAlign: 'center' }}>
@@ -303,6 +419,34 @@ export default function XiuPage() {
             </section>
           )}
 
+          {result && <ToolInterpretation tool="xiu" title="通书值日宿与合宿 · 混沌自研 AI 解读" payload={{
+            ben: {
+              fullName: result.ben.fullName, xiu: result.ben.xiu, yao: result.ben.yao,
+              wuxing: result.ben.wuxing, gong: result.ben.gong, sixiang: result.ben.sixiang,
+              luck: result.ben.luck, nature: result.ben.nature, index: result.ben.index,
+            },
+            pair: result.pair ? {
+              relationToMe: result.pair.a, relationToOther: result.pair.b,
+              sameXiu: result.pair.sameXiu, level: result.pair.level,
+              score: result.pair.score,
+              other: {
+                fullName: result.pair.other.fullName, xiu: result.pair.other.xiu,
+                yao: result.pair.other.yao, wuxing: result.pair.other.wuxing,
+                gong: result.pair.other.gong, sixiang: result.pair.other.sixiang,
+                luck: result.pair.other.luck, nature: result.pair.other.nature,
+                index: result.pair.other.index,
+              },
+            } : null,
+          }} />}
+          {result && sanJiu.mine && <section className="qn-card" style={{ marginTop: 12 }}>
+            <p className="qn-cap" style={{ margin: 0 }}>
+              三九关系已在本页独立计算；当前解读只针对通书值日宿与原有合宿结果。
+            </p>
+            <p className="qn-meta" style={{ marginBottom: 0 }}>
+              《宿曜经》提供三九宿序与关系类别；出生宿定位为本站自研：取输入时刻的月球地心黄经，换算至拉希里恒星黄道后均分 27 宿。本口径不声称是古籍原有的天文算法。
+            </p>
+          </section>}
+
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
             <p className="qn-eyebrow" style={{ margin: 0 }}>取数过程</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
@@ -323,29 +467,10 @@ export default function XiuPage() {
 
           <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
             <button type="button" className="qn-btn qn-btn--ghost"
-              onClick={() => { setResult(null); setError(''); }}>换个生日再查</button>
+              onClick={() => { setResult(null); setSanJiu({ mine: null, other: null }); setSanJiuError(''); setError(''); }}>换个生日再查</button>
           </div>
         </>
       )}
-            {result && <ToolInterpretation tool="xiu" title="二十八宿 · 混沌自研 AI 解读" payload={{
-              ben: {
-                fullName: result.ben.fullName, xiu: result.ben.xiu, yao: result.ben.yao,
-                wuxing: result.ben.wuxing, gong: result.ben.gong, sixiang: result.ben.sixiang,
-                luck: result.ben.luck, nature: result.ben.nature, index: result.ben.index,
-              },
-              pair: result.pair ? {
-                relationToMe: result.pair.a, relationToOther: result.pair.b,
-                sameXiu: result.pair.sameXiu, level: result.pair.level,
-                score: result.pair.score,
-                other: {
-                  fullName: result.pair.other.fullName, xiu: result.pair.other.xiu,
-                  yao: result.pair.other.yao, wuxing: result.pair.other.wuxing,
-                  gong: result.pair.other.gong, sixiang: result.pair.other.sixiang,
-                  luck: result.pair.other.luck, nature: result.pair.other.nature,
-                  index: result.pair.other.index,
-                },
-              } : null,
-            }} />}
       </main>
   );
 }

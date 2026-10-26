@@ -32,6 +32,47 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /** 只给公历日历日，时刻一律正午，避免子时换日与时钟前跳把日推走一天。 */
 const isoOf = (y: number, m: number, d: number) => `${y}-${pad(m)}-${pad(d)}`;
 
+type DateSearchSide = 'yi' | 'ji' | 'either';
+type DateSearchHit = { day: HuangliDay; matchedYi: string[]; matchedJi: string[] };
+type DateSearchResult = { scannedDays: number; matches: DateSearchHit[] };
+
+function parseCivilDate(value: string, label: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) throw new Error(`请选择${label}`);
+  const [, ys, ms, ds] = match;
+  const y = Number(ys); const m = Number(ms); const d = Number(ds);
+  if (y < 1901 || y > 2099) throw new Error(`${label}年份需在 1901 至 2099 之间`);
+  const check = new Date(Date.UTC(y, m - 1, d));
+  if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m - 1 || check.getUTCDate() !== d) {
+    throw new Error(`${label}不是有效日期`);
+  }
+  return { y, m, d, utc: Date.UTC(y, m - 1, d) };
+}
+
+/** 按通书原有宜/忌词条做整词匹配；不做同义词猜测、个性化吉凶或日期评分。 */
+function searchHuangliActivity(from: string, to: string, keyword: string, side: DateSearchSide): DateSearchResult {
+  const start = parseCivilDate(from, '开始日期');
+  const end = parseCivilDate(to, '结束日期');
+  const term = keyword.trim();
+  if (!term) throw new Error('请输入通书词条，例如「入宅」「嫁娶」或「开市」');
+  if (end.utc < start.utc) throw new Error('结束日期不能早于开始日期');
+  const scannedDays = Math.floor((end.utc - start.utc) / 86_400_000) + 1;
+  if (scannedDays > 366) throw new Error('一次最多检索 366 天，请缩小日期范围');
+
+  const matches: DateSearchHit[] = [];
+  for (let offset = 0; offset < scannedDays; offset += 1) {
+    const date = new Date(start.utc + offset * 86_400_000);
+    const day = queryHuangli(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate());
+    const matchedYi = day.yi.filter(item => item === term);
+    const matchedJi = day.ji.filter(item => item === term);
+    const matched = side === 'yi' ? matchedYi.length > 0
+      : side === 'ji' ? matchedJi.length > 0
+        : matchedYi.length > 0 || matchedJi.length > 0;
+    if (matched) matches.push({ day, matchedYi, matchedJi });
+  }
+  return { scannedDays, matches };
+}
+
 const emptyDraft = (): DateDraft => ({ mode: 'solar', solar: '', lunarY: '', lunarM: '', lunarD: '', leap: false });
 
 /** 一栏日期：公历走单个日期控件，农历走年/月/日 + 闰月，换算交给站里同一套 toCivilInput。 */
@@ -145,6 +186,9 @@ export default function HuangliPage() {
   const [strip, setStrip] = useState<HuangliDay[]>([]);
   const [error, setError] = useState('');
   const [today, setToday] = useState('');
+  const [searchDraft, setSearchDraft] = useState({ from: '', to: '', keyword: '入宅', side: 'yi' as DateSearchSide });
+  const [searchResult, setSearchResult] = useState<DateSearchResult | null>(null);
+  const [searchError, setSearchError] = useState('');
 
   const show = useCallback((y: number, m: number, d: number, opts?: { originalInput?: string; fromLunar?: boolean }) => {
     const h = queryHuangli(y, m, d, opts);
@@ -158,7 +202,9 @@ export default function HuangliPage() {
   useEffect(() => {
     const now = new Date();
     const iso = isoOf(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const through = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30, 12, 0);
     setToday(iso);
+    setSearchDraft(value => ({ ...value, from: iso, to: isoOf(through.getFullYear(), through.getMonth() + 1, through.getDate()) }));
     setDraft(v => ({ ...v, solar: iso }));
     show(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }, [show]);
@@ -191,6 +237,16 @@ export default function HuangliPage() {
       setError(e instanceof Error ? e.message : '查询失败');
     }
   }, [draft, show]);
+
+  const searchActivity = useCallback(() => {
+    setSearchError('');
+    try {
+      setSearchResult(searchHuangliActivity(searchDraft.from, searchDraft.to, searchDraft.keyword, searchDraft.side));
+    } catch (e) {
+      setSearchResult(null);
+      setSearchError(e instanceof Error ? e.message : '检索失败');
+    }
+  }, [searchDraft]);
 
   const shift = useCallback((delta: number) => {
     if (!result) return;
@@ -238,6 +294,63 @@ export default function HuangliPage() {
           )}
         </div>
         <p className="qn-cap" style={{ marginTop: 12 }}>黄历只认日历日，不认时辰；填到日即可。农历生日一类输入会先换成公历再取数，换算与本站命盘同一套。</p>
+      </section>
+
+      <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
+        <h2 className="qn-title" style={{ marginTop: 0 }}>按事项检索日期</h2>
+        <p className="qn-meta" style={{ marginTop: 6 }}>
+          在日期范围内逐日精确匹配通书原有宜忌词条，按日历顺序列出结果；不打分、不替你选“最佳吉日”。请输入词条本身，不做“搬家 / 入宅”这类同义词猜测。
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: 10, marginTop: 12 }}>
+          <label className="qn-label">开始日期
+            <input aria-label="择日检索开始日期" type="date" min="1901-01-01" max="2099-12-31" className="qn-input" value={searchDraft.from}
+              onChange={e => { setSearchDraft(v => ({ ...v, from: e.target.value })); setSearchResult(null); }} style={{ marginTop: 4, minHeight: 44 }} />
+          </label>
+          <label className="qn-label">结束日期
+            <input aria-label="择日检索结束日期" type="date" min="1901-01-01" max="2099-12-31" className="qn-input" value={searchDraft.to}
+              onChange={e => { setSearchDraft(v => ({ ...v, to: e.target.value })); setSearchResult(null); }} style={{ marginTop: 4, minHeight: 44 }} />
+          </label>
+          <label className="qn-label">通书事项词条
+            <input aria-label="通书事项词条" className="qn-input" value={searchDraft.keyword} placeholder="例如：入宅、嫁娶、开市"
+              onChange={e => { setSearchDraft(v => ({ ...v, keyword: e.target.value })); setSearchResult(null); }} style={{ marginTop: 4, minHeight: 44 }} />
+          </label>
+          <label className="qn-label">筛选范围
+            <select aria-label="择日检索宜忌范围" className="qn-input" value={searchDraft.side}
+              onChange={e => { setSearchDraft(v => ({ ...v, side: e.target.value as DateSearchSide })); setSearchResult(null); }} style={{ marginTop: 4, minHeight: 44 }}>
+              <option value="yi">只看「宜」</option>
+              <option value="ji">只看「忌」</option>
+              <option value="either">宜或忌均检索</option>
+            </select>
+          </label>
+        </div>
+        <button type="button" className="qn-btn qn-btn--solid" onClick={searchActivity} style={{ marginTop: 14, minHeight: 44 }}>
+          检索日期
+        </button>
+        {searchError && <p className="qn-alert" role="alert" style={{ marginTop: 12 }}>{searchError}</p>}
+        {searchResult && (
+          <div aria-live="polite" style={{ marginTop: 16 }}>
+            <p className="qn-meta">已逐日检索 {searchResult.scannedDays} 天，命中 {searchResult.matches.length} 天</p>
+            {searchResult.matches.length === 0 ? <p className="qn-meta">这个范围内没有命中该词条的日期。可检查词条写法或扩大日期范围。</p> : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {searchResult.matches.map(({ day, matchedYi, matchedJi }) => (
+                  <article className="qn-row" key={day.civil} style={{ alignItems: 'center', gap: 12, padding: '10px 0' }}>
+                    <div style={{ minWidth: 0, flex: '1 1 auto' }}>
+                      <strong>{day.civil} · 星期{day.week}</strong>
+                      <p className="qn-cap" style={{ margin: '3px 0 0' }}>{day.ganZhi.day}日 · {day.lunarText}</p>
+                      {matchedYi.length > 0 && <p className="qn-cap" style={{ margin: '3px 0 0' }}>宜：{matchedYi.join('、')}</p>}
+                      {matchedJi.length > 0 && <p className="qn-cap" style={{ margin: '3px 0 0' }}>忌：{matchedJi.join('、')}</p>}
+                    </div>
+                    <button type="button" className="qn-btn qn-btn--ghost" onClick={() => {
+                      setDraft(v => ({ ...v, mode: 'solar', solar: day.civil }));
+                      const [y, m, d] = day.civil.split('-').map(Number);
+                      show(y, m, d);
+                    }} style={{ minHeight: 44, flex: '0 0 auto' }}>查看当日</button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       {result && (
@@ -317,6 +430,14 @@ export default function HuangliPage() {
             </div>
           </section>
 
+          <ToolInterpretation tool="huangli" title="黄历宜忌 · 混沌自研 AI 解读" payload={{
+            civil: result.civil, lunarDate: result.lunarText, ganZhi: result.ganZhi,
+            yi: result.yi, ji: result.ji, jiShen: result.jiShen, xiongSha: result.xiongSha,
+            chong: result.chong, sha: result.sha, zhiXing: result.zhiXing,
+            tianShen: { name: result.tianShen.name, dao: result.tianShen.dao, luck: result.tianShen.luck },
+            xiu: { fullName: result.xiu.fullName, yao: result.xiu.yao, wuxing: result.xiu.wuxing, luck: result.xiu.luck },
+          }} />
+
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
             <p className="qn-eyebrow" style={{ margin: 0 }}>推导步骤</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
@@ -337,13 +458,6 @@ export default function HuangliPage() {
           </section>
         </>
       )}
-            {result && <ToolInterpretation tool="huangli" title="黄历宜忌 · 混沌自研 AI 解读" payload={{
-              civil: result.civil, lunarDate: result.lunarText, ganZhi: result.ganZhi,
-              yi: result.yi, ji: result.ji, jiShen: result.jiShen, xiongSha: result.xiongSha,
-              chong: result.chong, sha: result.sha, zhiXing: result.zhiXing,
-              tianShen: { name: result.tianShen.name, dao: result.tianShen.dao, luck: result.tianShen.luck },
-              xiu: { fullName: result.xiu.fullName, yao: result.xiu.yao, wuxing: result.xiu.wuxing, luck: result.xiu.luck },
-            }} />}
       </main>
   );
 }

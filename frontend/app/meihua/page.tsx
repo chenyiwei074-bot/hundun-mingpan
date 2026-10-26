@@ -226,6 +226,22 @@ export default function MeiHuaPage() {
             </div>
           </section>
 
+          <ToolInterpretation tool="meihua" title="梅花易数 · 混沌自研 AI 解读" payload={{
+            method: result.method,
+            dongYao: result.dongYao,
+            ben: result.ben,
+            hu: result.hu,
+            bian: result.bian,
+            ti: result.ti,
+            yong: result.yong,
+            relation: result.relation,
+            huRelation: result.huRelation,
+            bianRelation: result.bianRelation,
+            huTi: result.huTi,
+            huYong: result.huYong,
+            readings: result.readings,
+          }} />
+
           <section className="qn-card qn-rise qn-rise--3" style={{ marginTop: 16 }}>
             <p className="qn-eyebrow" style={{ margin: 0 }}>起卦过程</p>
             <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
@@ -249,21 +265,6 @@ export default function MeiHuaPage() {
           </div>
         </>
       )}
-            {result && <ToolInterpretation tool="meihua" title="梅花易数 · 混沌自研 AI 解读" payload={{
-              method: result.method,
-              dongYao: result.dongYao,
-              ben: result.ben,
-              hu: result.hu,
-              bian: result.bian,
-              ti: result.ti,
-              yong: result.yong,
-              relation: result.relation,
-              huRelation: result.huRelation,
-              bianRelation: result.bianRelation,
-              huTi: result.huTi,
-              huYong: result.huYong,
-              readings: result.readings,
-            }} />}
       </main>
   );
 }

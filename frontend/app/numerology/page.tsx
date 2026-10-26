@@ -60,6 +60,13 @@ export default function NumerologyPage() {
       <p className="qn-note">结果是这套数表下的计算值，不代表人格、健康或关系的确定结论。</p>
     </section>}
 
+    {result && <ToolInterpretation tool="numerology" title="数字命理 · 混沌自研 AI 解读" payload={{
+      lifePath: result.life.total.value,
+      nameNumber: result.name.total.value,
+      masterNumberPreserved: [11, 22, 33].includes(result.life.total.value)
+        || [11, 22, 33].includes(result.name.total.value),
+    }} />}
+
     <section className="qn-card" style={{ marginTop: 14 }}>
       <p className="qn-cap" style={{ margin: 0 }}>取数表 · 1 至 9 循环</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginTop: 10 }}>
@@ -69,11 +76,5 @@ export default function NumerologyPage() {
       <p className="qn-note">这是现代拉丁字母数字表的一种实现选择，汉字没有被直接映射到英文字母；本站不把它称为古籍算法。输入只在本机计算，不上传或保存。</p>
     </section>
     <p className="qn-linkrow"><Link className="qn-link" href="/tools">查看全部工具</Link></p>
-          {result && <ToolInterpretation tool="numerology" title="数字命理 · 混沌自研 AI 解读" payload={{
-            lifePath: result.life.total.value,
-            nameNumber: result.name.total.value,
-            masterNumberPreserved: [11, 22, 33].includes(result.life.total.value)
-              || [11, 22, 33].includes(result.name.total.value),
-          }} />}
       </main>;
 }

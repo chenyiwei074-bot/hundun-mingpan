@@ -27,7 +27,8 @@ import {
   OPENING_LIMITS, addOpening, addWall, deleteOpening, deleteWall, moveRoomVertex, moveWallVertex,
   resizeOpening, setOpeningConfirmed, setRoomKind, setRoomName, shiftOpening, toggleOpeningKind,
 } from '@/lib/fengshui/edit';
-import { ROOM_KINDS } from '@/lib/fengshui/types';
+import { FACING_LIST, ROOM_KINDS } from '@/lib/fengshui/types';
+import type { FacingInput } from '@/lib/fengshui/types';
 import { openingTags, placeTag, tagOf } from '@/lib/fengshui/labels';
 import { CONCERNS, currentStep, orderNotes, stepStates } from '@/lib/fengshui/steps';
 import type { Concern } from '@/lib/fengshui/steps';
@@ -109,7 +110,7 @@ type 识别态 = '未识别' | '在识别' | '失败' | '候选待确认';
 
 export default function FloorPlanStudio() {
   const [geom, setGeom] = useState<FloorGeometry>(emptyGeom);
-  const [朝向, set朝向] = useState<'南' | '北' | '未确认'>('未确认');
+  const [朝向, set朝向] = useState<FacingInput>('未确认');
   const [已确认, set已确认] = useState(false);
   const [选中, set选中] = useState<string | null>(null);
   const [选中墙, set选中墙] = useState<string | null>(null);
@@ -375,7 +376,7 @@ export default function FloorPlanStudio() {
       <div className="fp-step-block" id="fp-orientation">
         <p className="qn-axis">② 定朝向</p>
         <div className="qn-row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          {(['南', '北', '未确认'] as const).map(k => (
+          {([...FACING_LIST, '未确认'] as const).map(k => (
             <button key={k} type="button" id={`fp-facing-${k}`}
               className={`qn-chip${朝向 === k ? ' qn-chip--on' : ''}`} style={{ minHeight: 44, minWidth: 44, borderRadius: 0 }}
               aria-pressed={朝向 === k}
@@ -685,6 +686,9 @@ export default function FloorPlanStudio() {
             <ToolInterpretation tool="fengshui" title="户型九宫 · 混沌自研 AI 解读"
               payload={{ 判定: report.判定, 未判定: report.未判定, 跨宫: translated.跨宫,
                 朝向, 关心点, 格数: walkable ? `${walkable.列}×${walkable.行}` : '无', 跨度: span }} />
+            <p className="qn-note" style={{ marginTop: 12 }}>
+              以上观察依据你标注的墙体、房间、门窗与朝向，不代表传统方位吉凶。本页规则由本站自研，目前不作八宅、玄空等传统方位判断。
+            </p>
           </div>
         </>
       )}
@@ -698,7 +702,7 @@ export default function FloorPlanStudio() {
 
 function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, 跨度 }: {
   report: ReturnType<typeof analyzeFloor>; 判定: ReturnType<typeof analyzeFloor>['判定'];
-  跨宫: string[]; 关心点: Concern[]; 朝向: '南' | '北' | '未确认'; 格数: string; 跨度: number;
+  跨宫: string[]; 关心点: Concern[]; 朝向: FacingInput; 格数: string; 跨度: number;
 }) {
   const over = 跨度 > MAX_SPAN_M;
   return (
@@ -740,12 +744,6 @@ function FloorReportView({ report, 判定, 跨宫, 关心点, 朝向, 格数, �
           </ul>
         </div>
       )}
-      {/* 边界话术跟着判定走，不能只写在旧表单那一版里：新工作室出同样一份清单，
-          少了这句话，用户就有理由把"离采光面远"读成方位吉凶。 */}
-      <p className="qn-note" style={{ marginTop: 12 }}>
-        以上是依据你标注的墙体、房间、门窗与朝向作出的几何和动线观察，不代表传统方位吉凶。
-        本页规则由本站自研，目前不作八宅、玄空等传统方位判断。
-      </p>
     </section>
   );
 }

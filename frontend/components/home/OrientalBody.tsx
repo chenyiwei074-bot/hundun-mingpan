@@ -7,7 +7,7 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { HOME_FEATURED_SLUGS, INTENT_ENTRIES, LAUNCHER_SLUGS, TOOL_BY_SLUG, homeCard } from '@/lib/tools/catalog';
 import type { HomeCard, ToolEntry } from '@/lib/tools/catalog';
-import { isLiveEntry, STATUS_DOT } from '@/lib/tools/status';
+import { isLiveEntry } from '@/lib/tools/status';
 import ModeLanding from '@/components/home/ModeLanding';
 
 gsap.registerPlugin(useGSAP, ScrollTrigger);
@@ -398,12 +398,12 @@ const rowSkin = (slug: string): Skin => SKIN[slug] ?? { zi: '?' };
 
 const ENGINES: (HomeCard & Skin)[] = HOME_FEATURED_SLUGS
   .map(s => { const c = homeCard(s); return c ? { ...c, ...rowSkin(s) } : null; })
-  .filter((x): x is HomeCard & Skin => !!x);
+  .filter((x): x is HomeCard & Skin => !!x && !!x.href);
 
-/** 启动器轨道：没有 href 的卡片就是未开放，按目录页同一套做法渲染（无链接、无按钮、写明原因）。 */
+/** 启动器只呈现有实际入口的工具；目录内部状态不作为页面标签显示。 */
 const LAUNCHER: (HomeCard & Skin)[] = LAUNCHER_SLUGS
   .map(s => { const c = homeCard(s); return c ? { ...c, ...rowSkin(s) } : null; })
-  .filter((x): x is HomeCard & Skin => !!x);
+  .filter((x): x is HomeCard & Skin => !!x && !!x.href);
 
 // 户型入口卡整份现读目录：名称、状态、那句隐私说明、href 都不在这里重写第二份。
 // isLiveEntry 为假就不画这张卡 —— 目录哪天把它改成未开放，这里不许还留着一扇门。
@@ -414,10 +414,6 @@ const FP_ENTRY: (ToolEntry & { href: string }) | null =
 // 「即将上线」只预告目录里确实没有的东西。星座命盘这一项已经归到西方目录
 // （lib/tools/western-catalog 里的 astro-natal / astro-synasty，状态未开放），
 // 再在这里挂一遍就是两处各说一套 —— 用户在东方页看到"即将上线"、在西方页看到"未开放"。
-const SOON = [
-  { t: "面相", d: "观察面部特征与传统相法的象征说法" },
-  { t: "手相", d: "认识主要掌纹与传统手相文化" },
-];
 
 /* 东方工作页的正文。原先它就是 app/page.tsx；#双体系 把 / 收成"选体系"的门廊之后，
    这一整块（首屏主视觉、四类意图、核心引擎、启动器与它自带的 .hp 作用域样式）整体搬到这里，
@@ -521,13 +517,7 @@ export default function OrientalBody() {
       <section className="band band-paper">
         <div className="wrap">
           <div className="qn-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h2 className="qn-title" style={{ margin: 0 }}>{FP_ENTRY.name}</h2>
-              <span className="qn-badge">
-                <span className="qn-badge__dot" style={{ background: STATUS_DOT[FP_ENTRY.status] }} />
-                {FP_ENTRY.status}
-              </span>
-            </div>
+            <h2 className="qn-title" style={{ margin: 0 }}>{FP_ENTRY.name}</h2>
             <p className="qn-meta" style={{ marginTop: 8, marginBlockEnd: 0 }}>{FP_ENTRY.question}</p>
             <p className="qn-note" style={{ margin: '8px 0 0' }}>
               五步走：选图或拍图 → 识别出墙与门窗 → 你逐条确认（没确认的一律画虚线）→
@@ -591,9 +581,7 @@ export default function OrientalBody() {
                 <div className="row-copy">
                   <h3 className="h3">{e.title}</h3>
                   <p className="body muted">{e.teaser}</p>
-                  {e.href
-                    ? <Link href={e.href} className="text-link">{e.go} <span aria-hidden="true">→</span></Link>
-                    : <span className="tag">未开放</span>}
+                  <Link href={e.href!} className="text-link">{e.go || '进入工具'} <span aria-hidden="true">→</span></Link>
                 </div>
               </div>
             ))}
@@ -603,17 +591,6 @@ export default function OrientalBody() {
             <Link href="/tools" className="text-link">全部工具与取数口径 <span aria-hidden="true">→</span></Link>
           </p>
 
-          <div className="tools">
-            <p className="eyebrow">更多即将上线</p>
-            <div className="tools-grid">
-              {SOON.map(m => (
-                <div key={m.t} className="tool">
-                  <h4 className="tool-t">{m.t}</h4>
-                  <p className="tool-d">{m.d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
 
@@ -652,8 +629,7 @@ export default function OrientalBody() {
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke={gold} strokeWidth="2"><path d="M10 3l-5 5 5 5"/></svg>
               </button>
 
-              {/* data-vh-scroll：这条横向轨永远溢出容器（7 张卡 × 100%），显式声明它的可滚动
-                  凭据是左右两个箭头按钮，视觉验收 harness 据此放行；没有声明的溢出会被判失败。 */}
+              {/* 横向工具轨由左右箭头控制，窄屏时卡片可逐项浏览。 */}
               <div id="ls" className="sheet-track" data-vh-scroll="arrows">
                 {LAUNCHER.map(item => {
                   const body = (
@@ -663,17 +639,15 @@ export default function OrientalBody() {
                         <text x="36" y="50" textAnchor="middle" fill={goldDeep} fontSize="32" fontWeight="700" fontFamily="serif">{item.zi}</text>
                       </svg>
                       <h3 className="h3 sheet-name">{item.title}</h3>
-                      {item.href ? <span className="sheet-rule" /> : <span className="tag">未开放</span>}
+                      <span className="sheet-rule" />
                       <p className="body muted sheet-desc">{item.teaser}</p>
-                      <span className={item.href ? 'sheet-go' : 'sheet-go is-dim'}>
-                        {item.href ? '进入' : '未开放'}
-                        {item.href && <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>}
+                      <span className="sheet-go">
+                        进入
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 3l5 5-5 5"/></svg>
                       </span>
                     </>
                   );
-                  return item.href
-                    ? <Link key={item.slug} href={item.href} onClick={() => setShowLauncher(false)} className="sheet-item">{body}</Link>
-                    : <div key={item.slug} className="sheet-item is-soon" aria-disabled="true">{body}</div>;
+                  return <Link key={item.slug} href={item.href!} onClick={() => setShowLauncher(false)} className="sheet-item">{body}</Link>;
                 })}
               </div>
 
@@ -881,7 +855,6 @@ export default function OrientalBody() {
           display: flex; flex-direction: column; align-items: center; text-align: center;
           padding: 0.5rem 1rem; text-decoration: none; cursor: pointer;
         }
-        .hp .sheet-item.is-soon { pointer-events: none; }
         .hp .sheet-zi { width: 72px; height: 72px; margin-bottom: 1.25rem; }
         .hp .sheet-name { font-size: var(--qn-fs-title); margin-bottom: 1rem; }
         .hp .sheet-rule { display: block; width: 2.5rem; height: 1px; margin: 0 0 1rem; background: rgba(178,149,93,0.24); }

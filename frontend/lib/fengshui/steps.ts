@@ -12,6 +12,9 @@
 //  3. ④ 关心点可以跳过，但跳过要显式按一次。没按之前它是"未开始"，
 //     不然步条会显示"四步都过了，就差结果"，而用户其实什么都没选。
 
+import { FACING_LIST } from './types';
+import type { FacingInput } from './types';
+
 export type StepState = '未开始' | '待补' | '已完成';
 
 export interface StepInput {
@@ -19,7 +22,7 @@ export interface StepInput {
   房间数: number;
   开口数: number;
   朝向已答: boolean;
-  朝向: '南' | '北' | '未确认';
+  朝向: FacingInput;
   关心点数: number;
   关心点已答: boolean;
   已确认: boolean;
@@ -51,7 +54,7 @@ export function stepStates(s: StepInput): Step[] {
     // 朝向不依赖几何存在，所以这一档也不被几何门住（把控件 disabled 掉是更坏的做法：
     // 一个"看着能点、点了没反应"的按钮，比一个随时能点的更骗人）。
     状态: s.朝向已答 ? '已完成' : '待补',
-    提示: s.朝向已答 ? `已答：${s.朝向}` : '朝南 / 朝北 / 都没有把握，都算答过',
+    提示: s.朝向已答 ? `已答：${s.朝向}` : '朝南 / 朝北 / 朝东 / 朝西 / 朝东南 / 朝西南 / 朝东北 / 朝西北 / 未确认，都算答过',
   });
 
   out.push({

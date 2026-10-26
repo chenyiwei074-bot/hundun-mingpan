@@ -243,26 +243,6 @@ export default function LiuyaoResultPage() {
         )}
       </section>
 
-      {/* ===== 取数过程（时间起卦，与梅花页面同源） ===== */}
-      {result.qiShu && (
-        <section className="qn-card" style={{ marginBottom: 16, padding: '20px 24px' }}>
-          <p className="qn-eyebrow" style={{ margin: 0 }}>起卦过程</p>
-          <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
-            {result.qiShu.steps.map((s, i) => (
-              <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
-                <span className="qn-axis" style={{ marginTop: 2 }}>{i + 1}</span>
-                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{s}</span>
-              </li>
-            ))}
-          </ol>
-          <div style={{ marginTop: 12, paddingTop: 12, borderTop: 'var(--qn-hairline)' }}>
-            {result.qiShu.basis.map(b => (
-              <p key={b} className="qn-cap" style={{ margin: '4px 0 0', overflowWrap: 'anywhere' }}>{b}</p>
-            ))}
-          </div>
-        </section>
-      )}
-
       {/* ===== AI REPORT ===== */}
       {!reportContent && !reportLoading && (
         <section className="qn-card" style={{ textAlign: 'center', padding: '32px 24px', marginBottom: 18, minHeight: 260, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -314,15 +294,6 @@ export default function LiuyaoResultPage() {
         </section>
       )}
 
-      {result && <ReceiptPanel result={result} reportText={reportContent} />}
-
-      {/* ===== BOTTOM ACTIONS ===== */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
-        <Link href="/liuyao/create" className="qn-btn qn-btn--ghost">重新起卦</Link>
-        <Link href="/dashboard" className="qn-btn qn-btn--ghost">我的报告</Link>
-      </div>
-      <p className="qn-cap" style={{ textAlign: 'center', marginTop: 16 }}>仅供参考 · 不构成决策建议</p>
-    
       {result && <ToolInterpretation tool="liuyao" title="六爻纳甲 · 混沌自研 AI 解读" question={result.question} payload={{
         method: result.method,
         questionType: result.questionType,
@@ -354,6 +325,33 @@ export default function LiuyaoResultPage() {
           hexagramRelations: analysisData.hexagramRelations,
         } : null,
       }} />}
+
+      {/* 解读之后再展示起卦过程、出处和可复核回执。 */}
+      {result.qiShu && (
+        <section className="qn-card" style={{ marginTop: 16, padding: '20px 24px' }}>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>起卦过程与取数依据</p>
+          <ol style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 8 }}>
+            {result.qiShu.steps.map((s, i) => (
+              <li key={i} className="qn-meta" style={{ display: 'flex', gap: 10, minWidth: 0 }}>
+                <span className="qn-axis" style={{ marginTop: 2 }}>{i + 1}</span>
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{s}</span>
+              </li>
+            ))}
+          </ol>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: 'var(--qn-hairline)' }}>
+            {result.qiShu.basis.map(b => (
+              <p key={b} className="qn-cap" style={{ margin: '4px 0 0', overflowWrap: 'anywhere' }}>{b}</p>
+            ))}
+          </div>
+        </section>
+      )}
+      {result && <ReceiptPanel result={result} reportText={reportContent} />}
+
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
+        <Link href="/liuyao/create" className="qn-btn qn-btn--ghost">重新起卦</Link>
+        <Link href="/dashboard" className="qn-btn qn-btn--ghost">我的报告</Link>
+      </div>
+      <p className="qn-cap" style={{ textAlign: 'center', marginTop: 16 }}>仅供参考 · 不构成决策建议</p>
 </main>
   );
 }

@@ -18,7 +18,6 @@ import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
-import { STATUS_DOT } from '@/lib/tools/status';
 import { routeByCatalogSlug } from '@/lib/assistant/intent';
 import { askRoute } from '@/lib/assistant/route-client';
 import type { RouteOutcome } from '@/lib/assistant/route-client';
@@ -210,7 +209,7 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
               {kind === 'matched' && tool && (
                 <>
                   <p className="qn-body" style={{ marginTop: 8 }}>
-                    该用的是{tool.name}（{tool.status}）。
+                    该用的是{tool.name}。
                   </p>
                   {/* 顺序是量出来的，不是排好看的：预留那一格是有限高的（globals.css 的 .qa-pane），
                       "怎么读"那句排在入口前面的话，入口底线要到 220px（375 那一档 258px）——
@@ -253,22 +252,17 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
               {kind === 'closed' && (
                 <>
                   <p className="qn-body" style={{ marginTop: 8 }}>
-                    <span className="qn-badge">
-                      <span className="qn-badge__dot" aria-hidden="true"
-                        style={{ background: STATUS_DOT['未开放'] }} />
-                      未开放
-                    </span>
-                    <span style={{ marginLeft: 8 }}>{closed ? closed.name : '这一项'}还没做，所以这里不给入口。</span>
+                    当前没有可直接进入的「{closed ? closed.name : '对应'}」工具页面，暂时无法替你打开这一项。
                   </p>
                   <p className="qn-meta" style={{ marginTop: 6 }}>
-                    {t.result.clarification || '缺的部分补齐之后才会开放。'}
+                    {t.result.clarification || '你可以从下方的工具目录选择入口，或换一种说法描述问题。'}
                   </p>
                 </>
               )}
 
               {kind === 'clarify' && (
                 <p className="qn-body" style={{ marginTop: 8 }}>
-                  {t.result.clarification || '这句话我没能对上已经开放的工具。'}
+                  {t.result.clarification || '这句话我没能对上本站现有的工具。'}
                 </p>
               )}
 
