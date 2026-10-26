@@ -127,7 +127,7 @@ export interface ToolInterpretation {
 export type AiValidation = { ok: true; tool: AiTool; payload: unknown; question: string } | { ok: false; status: number; error: string };
 
 const allowed = new Set(Object.keys(AI_TOOLS));
-const TIMEOUT_MS = Number(process.env.TOOL_AI_TIMEOUT_MS || 30000);
+const TIMEOUT_MS = Number(process.env.TOOL_AI_TIMEOUT_MS || 60000);
 
 export function validateAiRequest(body: unknown): AiValidation {
   const b = (body || {}) as Record<string, unknown>;
@@ -275,7 +275,7 @@ export async function interpretTool(input: { tool: AiTool; payload: unknown; que
         chartData: { tool: input.tool, question: input.question || '', facts },
         type: 'tool-interpretation',
         promptOverride: promptFor(input.tool),
-        maxTokens: 2000,
+        maxTokens: 2600,
       }), TIMEOUT_MS);
       const normalized = normalizeInterpretation(response.result, validFactIds);
       if (normalized) return normalized;
