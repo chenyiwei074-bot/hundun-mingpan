@@ -491,7 +491,7 @@ export default function TarotPage() {
             deck?.style.setProperty('--deck-tilt-y', '0deg');
           }}
           onClick={primaryAction}
-          disabled={!canAct || drawState === 'revealed' || drawState === 'reading' || (drawState === 'shuffled' && !question.trim())}
+          disabled={!canAct || drawState === 'revealed' || drawState === 'reading'}
           aria-label={drawState === 'idle' ? '洗牌并生成校验码' : `从牌堆抽出${spread.count}张牌`}
         >
           <span className="tarot-deck" aria-hidden="true">
@@ -592,7 +592,7 @@ export default function TarotPage() {
         )}
 
         <div className="tarot-action-row">
-          <button type="button" className="qn-btn qn-btn--solid tarot-action" onClick={primaryAction} disabled={!canAct || (drawState === 'shuffled' && !question.trim())}>
+          <button type="button" className="qn-btn qn-btn--solid tarot-action" onClick={primaryAction} disabled={!canAct}>
             {buttonLabel}
           </button>
           <button
@@ -606,6 +606,11 @@ export default function TarotPage() {
           >重新开始</button>
           <p className="tarot-keyboard-note">牌堆与按钮均可键盘聚焦，按回车或空格执行。</p>
         </div>
+        {drawState === 'shuffled' && !question.trim() && (
+          <p className="qn-note" role="status" data-tarot-need-question style={{ textAlign: 'center', margin: '8px 0 0' }}>
+            先写下这次想聚焦的问题，再抽出牌面；问题只用于本次解读，不会自动发送。
+          </p>
+        )}
       </section>
 
       <p className="tarot-notice" role="status" aria-live="polite">{notice}</p>
