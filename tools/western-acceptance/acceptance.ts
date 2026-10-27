@@ -127,7 +127,7 @@ const ok = (id: string, cond: boolean, detail: string) => {
   // 会把三个名字切成四个：分隔符不许出现在被分隔的数据里。首屏读的是渲染出来的那一行，
   // 这条读的是写法，两侧都钉才咬得住（harness 的 GATE 那段按名字逐个复核）。
   const withDot = WESTERN_TOOLS.filter(t => t.name.includes(' · ')).map(t => t.name);
-  ok('west/gate-eyebrow-from-catalog', /eyebrowLine\(e\.groups\)/.test(landing)
+  ok('west/gate-eyebrow-from-catalog', /eyebrowLine\((e\.groups|door\.world)\)/.test(landing)
     && !/eyebrow:\s*'/.test(landing) && /join\('、'\)/.test(landing) && !/join\(' · '\)/.test(landing),
     `门廊眉标必须由目录现算、并用「、」分隔：名字里带「 · 」的已有 ${withDot.length} 项`
     + `（${withDot.join('、') || '无'}），用「 · 」当分隔符就会把名字切错`);
