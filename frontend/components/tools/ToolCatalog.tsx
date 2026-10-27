@@ -56,58 +56,42 @@ function ToolGlyph({ slug }: { slug: string }) {
 
 export default function ToolCatalog({ groups }: { groups: IntentGroup[] }) {
   return (
-    <>
-      {groups.map((g, gi) => (
-        <section key={g.intent} style={{ marginTop: gi === 0 ? 0 : 28 }}>
-          <p className="qn-axis">{g.intent}</p>
-          <p className="qn-meta" style={{ margin: '6px 0 12px' }}>{g.lead}</p>
-          <div style={{ display: 'grid', gap: 12 }}>
+    <div className="hd-catalog">
+      {groups.map(g => (
+        <section key={g.intent} className="hd-tools-group">
+          <div className="hd-tools-group__head">
+            <h3>{g.intent}</h3>
+            <p>{g.lead}</p>
+          </div>
+          <div className="hd-tools-grid">
             {g.tools.map(t => (
-              <article key={t.slug} className="qn-card qn-rise">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                  <h2 className="qn-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <ToolGlyph slug={t.slug} />
-                    <span>{t.name}</span>
-                  </h2>
-                </div>
-                <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                  {[FIELDS[0]].map(f => (
-                    <div key={f.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
-                      <span className="qn-axis" style={{ flex: '0 0 76px' }}>{f.label}</span>
-                      <span className="qn-meta" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{t[f.key]}</span>
-                    </div>
-                  ))}
-                </div>
-                <details style={{ marginTop: 10, borderTop: 'var(--qn-hairline)', paddingTop: 4 }}>
-                  <summary className="qn-axis" style={{ minHeight: 44, padding: '10px 0', cursor: 'pointer' }}>
-                    展开使用方法、规则依据与结果说明
-                  </summary>
-                  <div style={{ display: 'grid', gap: 8, paddingBottom: 4 }}>
+              <article key={t.slug} className="hd-toolcard">
+                <div className="hd-toolcard__icon"><ToolGlyph slug={t.slug} /></div>
+                <h4>{t.name}</h4>
+                <p className="hd-toolcard__question">{t.question}</p>
+                {isLiveEntry(t) && t.href && (
+                  <Link href={t.href} className="hd-toolcard__enter">进入工具 <span aria-hidden="true">↗</span></Link>
+                )}
+                <details className="hd-toolcard__details">
+                  <summary>使用说明与依据</summary>
+                  <div className="hd-toolcard__detail-body">
                     {FIELDS.slice(1).map(f => (
-                      <div key={f.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0 }}>
-                        <span className="qn-axis" style={{ flex: '0 0 76px' }}>{f.label}</span>
-                        <span className="qn-meta" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{t[f.key]}</span>
-                      </div>
+                      <p key={f.key}><strong>{f.label}</strong><span>{t[f.key]}</span></p>
                     ))}
+                    {(t.done?.length ?? 0) > 0 && (
+                      <div>
+                        <strong>支持的功能（{t.done!.length} 项）</strong>
+                        <ul>{t.done!.map(s => <li key={s}>{s}</li>)}</ul>
+                      </div>
+                    )}
+                    {t.note && <p>{t.note}</p>}
                   </div>
                 </details>
-                {(t.done?.length ?? 0) > 0 && (
-                  <div className="qn-row" style={{ marginTop: 10 }}>
-                    <p className="qn-cap" style={{ margin: 0 }}>支持的功能（{t.done!.length} 项）</p>
-                    <ul className="qn-meta" style={{ margin: '2px 0 0', paddingLeft: '1.2em' }}>
-                      {t.done!.map(s => <li key={s}>{s}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {t.note && <p className="qn-note" style={{ marginTop: 10 }}>{t.note}</p>}
-                {isLiveEntry(t) && t.href && (
-                  <Link href={t.href} className="qn-btn qn-btn--ghost qn-btn--block" style={{ marginTop: 14 }}>进入 · {t.name}</Link>
-                )}
               </article>
             ))}
           </div>
         </section>
       ))}
-    </>
+    </div>
   );
 }

@@ -14,7 +14,7 @@
 //   clarify  缺料（日期/时辰/地点/要问的那件事）→ 就地给补料提示
 //   closed   对上的条目在目录里但没开放 → 说清缺什么，不给入口
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
@@ -23,6 +23,7 @@ import { askRoute } from '@/lib/assistant/route-client';
 import type { RouteOutcome } from '@/lib/assistant/route-client';
 import type { AskTurn, AssistantRouteResult, Mode } from '@/lib/assistant/types';
 import type { ToolEntry } from '@/lib/tools/catalog';
+import { useQuestionDraft } from '@/components/assistant/QuestionDraftContext';
 
 const GROUPS: Record<Mode, typeof INTENTS> = { oriental: INTENTS, western: WESTERN_INTENTS };
 const OTHER: Record<Mode, typeof INTENTS> = { oriental: WESTERN_INTENTS, western: INTENTS };
@@ -68,7 +69,12 @@ function outcomeOf(r: AssistantRouteResult): 'matched' | 'choices' | 'closed' | 
 // （`compact` 与 `.qa-pane[data-compact]` 那 152px 一起删掉，见 globals.css 同处注释）。
 // 两页共用一版，预留高度与"入口看得见"的读数才不会长成两套。
 export default function QuestionComposer({ mode }: { mode: Mode }) {
+  const { take } = useQuestionDraft();
   const [text, setText] = useState('');
+  useEffect(() => {
+    const carried = take(mode);
+    if (carried) setText(carried.slice(0, 500));
+  }, [mode, take]);
   const [turns, setTurns] = useState<AskTurn[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);

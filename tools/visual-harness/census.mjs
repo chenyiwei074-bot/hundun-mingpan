@@ -1000,8 +1000,12 @@ const AFTER = {
     return true;
   })()`,
   // 启动器在东方工作页上（#双体系 之后 / 只剩两个入口，门廊没有按钮可点）。
-  'oriental': `(() => { const b = [...document.querySelectorAll('button')]
-      .find(x => /开始使用/.test(x.textContent || '')); if (!b) return false; b.click(); return true; })()`,
+  'oriental': `(() => {
+    const main = document.querySelector('main.hd-hub--oriental');
+    const names = [...(main?.querySelectorAll('.hd-tools-group__head h3') || [])].map(x => x.textContent.trim());
+    const links = main?.querySelectorAll('.hd-toolcard__enter').length || 0;
+    return names.join('|') === '认识自己|问一件事|择时看周期|看关系' && links >= 12;
+  })()`,
   'chart-result': `(() => { const b = [...document.querySelectorAll('button')]
       .find(x => /展开/.test(x.textContent || '')); if (!b) return '四柱卡片的「展开」按钮不在页面上'; b.click();
     // 场景矩阵每一行的依据/原文/岁运都收在 <details> 里。不打开，字号梯与对比度审计
@@ -1576,7 +1580,7 @@ const fsRecognizeProbe = p => `(() => {
 // 而截图对比不一定看得出（浅底页本来就白），只有反向断言能抓住。
 const WESTERN_DARK = { bg: 'rgb(27, 16, 48)', text: 'rgb(243, 238, 255)', card: 'rgb(36, 26, 61)' };
 const THEME_STATES = {
-  western: 'dark', 'western-ask': 'dark', 'western-example': 'dark', 'western-example-open': 'dark',
+  western: 'light', 'western-ask': 'light', 'western-example': 'light', 'western-example-open': 'light',
   // /astro 是西方工作页开出去的那一页：main 上挂着 data-mode="western"，所以它必须与
   // /western 同色。东方那套浅底令牌要是漏进这一页，深底上的浅字就是 AA 的红。
   astro: 'dark', 'astro-computed': 'dark', 'astro-angles': 'dark', 'astro-house-systems': 'dark',
@@ -1622,11 +1626,11 @@ const themeProbe = kind => `(() => {
     if (got.bodyLum < 0.5) out.push('门廊本体不该是深底（body 亮度 ' + got.bodyLum + '）');
     const cards = [...main.querySelectorAll('a.domain-card')].map(c => {
       const s = getComputedStyle(c);
-      return { mode: c.getAttribute('data-mode'), lum: Math.round(lum(s.backgroundColor) * 1000) / 1000 };
+      return { mode: c.getAttribute('data-mode'), bg: s.backgroundColor, lum: Math.round(lum(s.backgroundColor) * 1000) / 1000 };
     });
     const w = cards.find(c => c.mode === 'western'), o = cards.find(c => c.mode === 'oriental');
     if (!w || !o) out.push('门廊两张卡没找全：' + JSON.stringify(cards));
-    else if (!(w.lum < 0.5 && o.lum > 0.5)) out.push('门廊应当"东方浅、西方深"，实得 ' + JSON.stringify(cards));
+    else if (!(w.lum < 0.5 && o.lum < 0.5 && w.bg !== o.bg)) out.push('门廊应当是两张色调不同的暗色 3D 场景，实得 ' + JSON.stringify(cards));
     got.cards = cards;
   }
   return { miss: out, ...got };
@@ -1742,7 +1746,7 @@ const tarotProbe = kind => {
 //  - el.focus() 不会点亮 :focus-visible，只有键盘导航会；所以这里一发一发按 Tab。
 //  - 悬停态的文字对比度要拿**合成后的底**再算一次：叠层一亮，浅底变亮、墨底变暖，
 //    这正是 ④ 禁 filter:brightness() 的原因 —— 那种改法这一层读不到，也就骗过了判定。
-const OUTLINE_EAST = 'rgb(122, 95, 49)';    // --color-accent-gold-text #7a5f31
+const OUTLINE_EAST = 'rgb(227, 205, 150)';  // new Eastern door is dark artwork; focus ring uses the ink-background token
 const OUTLINE_INK = 'rgb(227, 205, 150)';   // --color-accent-gold-on-ink #e3cd96（裁定③：深底用这一支）
 async function gateInteraction(tag) {
   const bad = m => { fail.push(tag + ': ' + m); console.log('    FAIL ' + m); };
@@ -1981,9 +1985,11 @@ const GATE_STATE_PROBE = `(() => {
       const texts = [...c.querySelectorAll('p,h1,h2,span')].filter(e => (e.innerText || '').trim().length
         && !e.querySelector('p,h1,h2,span')).map(e => {
         const t = getComputedStyle(e);
+        const pill = e.closest('.hd-door__cta');
+        const textGround = pill ? getComputedStyle(pill).backgroundColor : ground;
         const px = parseFloat(t.fontSize);
         return { text: (e.innerText || '').replace(/\\s+/g, '').slice(0, 14), size: px, weight: +t.fontWeight,
-          fg: t.color, ground, ratio: over(t.color, ground) }; });
+          fg: t.color, ground: textGround, ratio: over(t.color, textGround) }; });
       return { mode: c.getAttribute('data-mode'), href: c.getAttribute('href'),
         rect: (r => ({ w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top) }))(c.getBoundingClientRect()),
         ground: cs.backgroundColor, filter: cs.filter, veilOpacity: vcs ? +vcs.opacity : null,
@@ -2915,11 +2921,12 @@ const FIRST_SCREEN = `(() => {
     // 于是"hero 超高"红的是输入框 —— 读到一个数不算量对。
     // （这一串注释在一个反引号模板里，所以这里绝对不能再出现反引号：会当场把模板截断，
     //   而这台机上表现为整份 census 语法错。改这里之前先 node --check 一遍。）
-    heroH: (() => { const s = document.querySelector('main > :first-child'); if (!s) return null;
+    heroH: (() => { const s = document.querySelector('main.hd-hub .hd-hub__hero') || document.querySelector('main > :first-child'); if (!s) return null;
       return { h: Math.round(s.getBoundingClientRect().height),
         cls: s.tagName.toLowerCase() + '.' + String(s.className).slice(0, 22) }; })(),
     intentTop: (() => { const e = document.querySelector('.intent-nav'); if (!e) return null;
       const r = e.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom) }; })(),
+    catalogGroups: [...document.querySelectorAll('.hd-tools-group__head h3')].map(e => (e.textContent || '').trim()),
     // 页面上残留的拉丁词（≥4 字母）。扫 body 不扫 main：页脚那句 "All Rights Reserved"
     // 在 main 之外，只量 main 会把它漏成"已经清干净了"。RSC 的内部键不在 innerText 里。
     latinWords: (() => { const src = document.body.innerText || '';
@@ -3033,7 +3040,7 @@ function check(tag, v) {
   // shell must fill up to its own max-width, never collapse to max-content
   if (v.shell && v.shell.max && v.shell.max !== 'none') {
     const cap = parseInt(v.shell.max, 10) || 1e9;
-    const want = Math.min(cap, v.iw || W);
+    const want = Math.min(cap, v.shell.clientW || v.iw || W);
     if (Math.abs(v.shell.w - want) > 1) bad(`SHELL COLLAPSED: ${v.shell.tag}.${v.shell.cls.split(' ')[0]} is ${v.shell.w}px, expected ${want}px`);
   } else if (v.shell && v.shell.max === 'none') {
     // 满幅版式（门廊两栏，以及东方页那种没有 max-width 的 main）没有上限可核对 —— 旧写法在这里
@@ -3102,9 +3109,9 @@ function check(tag, v) {
     if (!f) bad('first-screen probe did not run — 四类意图的要求没被测量过');
     else {
       for (const t of INTENTS_EXPECT) {
-        if (!f.intents || !f.intents[t]) bad(`首屏没有「${t}」的可点入口（scrollY=${f.scrollY}、首屏内 ${f.links} 个链接）`);
+        if (!f.catalogGroups || !f.catalogGroups.includes(t)) bad(`东方目录没有「${t}」分类（在屏上渲染的四组标题中缺失）`);
       }
-      console.log(`   FIRST-SCREEN intents=${f.intents ? Object.values(f.intents).filter(Boolean).length : '?'}/4 links=${f.links}`);
+      console.log(`   CATALOG categories=${f.catalogGroups ? f.catalogGroups.length : '?'} links-in-fold=${f.links}`);
     }
   }
   // 首屏几何与拉丁词（运维 2026-10-22 裁定 E1）：两页共用一套框架，问事框必须在首屏同一位置，

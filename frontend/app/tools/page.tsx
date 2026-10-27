@@ -23,7 +23,7 @@ export default function ToolsPage() {
   const counts = BOOKS.map(b => ({ label: b.label, count: b.groups.reduce((sum, group) => sum + group.tools.length, 0) }));
 
   return (
-    <main className="qn-shell" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
+    <main className="qn-shell hd-all-tools" style={{ minHeight: 'calc(100vh - var(--qn-nav-h, 56px))' }}>
       <header className="qn-rise" style={{ textAlign: 'center', marginBottom: 24 }}>
         <p className="qn-eyebrow" style={{ margin: 0 }}>东西方工具总览</p>
         <h1 className="qn-hero" style={{ margin: '12px 0 6px' }}>先说要问什么，再看用哪个工具</h1>

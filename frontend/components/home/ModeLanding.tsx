@@ -1,76 +1,53 @@
 import Link from 'next/link';
 import QuestionComposer from '@/components/assistant/QuestionComposer';
-
-// 两套体系共用的工作页框架。
-//
-// 分工要说清楚：框架负责"这一系是哪一系、怎么回去、页脚那几句话"、主题作用域（data-mode），
-// 以及**问事框的位置** —— 这一条是批E 收进来的原因：两页的输入框必须落在首屏同一个 y 上，
-// 各自排一遍就会漂（东方那一版漂到 y=450，西方在 251，而两条判据本来都该是同一句话）。
-// 具体的工具内容各系自己给。
-//
-// hero 槽是给"自带主视觉的那一系"留的：传了 hero 就不渲染文字页头，h1 因此只有一份。
-// shellClass 同理：主视觉与通栏色带要满幅，不能被套进 760px 的阅读壳里 —— 壳是每页的属性，
-// 页头/输入框/页脚才是框架的。
-
-// Mode 只有一个出处：lib/assistant/types。这里再写一遍字面量联合，
-// 将来加第三套体系时就会有两份要同时改的东西 —— 而那正是本站最擅长漏掉的那种。
 import type { Mode } from '@/lib/assistant/types';
 
-const COPY: Record<Mode, { eyebrow: string; title: string; lead: string }> = {
+const COPY: Record<Mode, { eyebrow: string; title: string; lead: string; section: string }> = {
   oriental: {
-    eyebrow: '东方体系',
-    title: '东方工作页',
-    lead: '八字紫微、六爻、梅花、星宿、黄历与户型相关的一套。',
+    eyebrow: '混沌 / 东方',
+    title: '东方术数',
+    lead: '从命盘、卦象与空间开始，选择你想用的方法。',
+    section: '从象与数出发。',
   },
   western: {
-    eyebrow: '西方神秘学',
+    eyebrow: '混沌 / 西方',
     title: '西方神秘学',
-    lead: '本命行星、跨盘相位、塔罗三张牌、月相与数字取数，都可从下方直接进入。',
+    lead: '从星图、牌阵与月相开始，选择你想用的方法。',
+    section: '以星与牌为线索。',
   },
 };
 
-export default function ModeLanding({ mode, hero, shellClass, children }: {
-  mode: Mode;
-  hero?: React.ReactNode;
-  shellClass?: string;
-  children: React.ReactNode;
-}) {
-  const c = COPY[mode];
+export default function ModeLanding({ mode, children }: { mode: Mode; children: React.ReactNode }) {
+  const copy = COPY[mode];
   return (
-    <main className={shellClass || 'qn-shell qn-shell--wide'} data-mode={mode}>
-      {hero ?? (
-        <header className="qn-rise" style={{ paddingTop: 24 }}>
-          {/* 「← 返回选择体系」这一条搬进了导航（工作页导航里有「返回选择」）。
-              同一件事在页面上出现两次，第二次就会与第一次漂移。 */}
-          <p className="qn-eyebrow" style={{ marginTop: 0 }}>{c.eyebrow}</p>
-          <h1 className="qn-hero">{c.title}</h1>
-          <p className="qn-meta" style={{ marginTop: 10, maxWidth: '62ch' }}>{c.lead}</p>
+    <main className={'hd-hub hd-hub--' + mode} data-mode={mode}>
+      <div className="hd-hub__inner">
+        <header className="hd-hub__hero">
+          <div className="hd-hub__hero-art" aria-hidden="true" />
+          <div className="hd-hub__hero-shade" aria-hidden="true" />
+          <div className="hd-hub__hero-copy">
+            <p>{copy.eyebrow}</p>
+            <h1>{copy.title}</h1>
+            <span>{copy.lead}</span>
+          </div>
         </header>
-      )}
-      {/* 输入框永远紧跟在页头之后：两页的 qa.top 是同一个数，这才是"共用一套框架"的含义。
-          居中那份约束写在框架里而不是各页 —— 满幅那一系（东方）与 760 阅读壳那一系（西方）
-          拿到的输入框宽度必须一致，否则两页的预留格高度又会长成两个值。 */}
-      <section className="qn-card qn-rise ml-qa">
-        <QuestionComposer mode={mode} />
-      </section>
-      {children}
-      <section className="qn-legal ml-legal" style={{ marginTop: 22 }}>
-        <p className="qn-note" style={{ margin: 0 }}>
-          这一页只列{mode === 'western' ? '西方' : '东方'}体系里的工具；换体系请回到选体系那一页。
-          排盘与抽取结果由对应工具提供，混沌自研 AI 辅助解读与引导。
-        </p>
-        <p className="qn-linkrow">
-          {/* 裁定 ①：/tools 从门廊挪走，挂在两页工作页的页脚。门廊上再留一条聚合入口，
-              它就又变成"第三个地方"，两栏选体系这件事也被稀释了。
-              批F 起 /tools 真的两套目录都在，链接文字也终于能写「全部」二字。 */}
-          <Link className="qn-link" href="/tools">全部工具与取数口径</Link>
-          {mode === 'oriental' && <Link className="qn-link" href="/dayun">人生曲线</Link>}
-          {mode === 'oriental' && <Link className="qn-link" href="/name-compat">姓名五格</Link>}
-          {mode === 'oriental' && <Link className="qn-link" href="/face-reading">面相观察</Link>}
-          {mode === 'oriental' && <Link className="qn-link" href="/palm-reading">手相观察</Link>}
-          <Link className="qn-link" href="/">返回选择体系</Link>
-        </p>
-      </section>
+        <section className="hd-hub__question" aria-label="问事入口">
+          <QuestionComposer mode={mode} />
+        </section>
+        <div className="hd-hub__heading">
+          <div>
+            <p className="hd-kicker">全部工具</p>
+            <h2>{copy.section}</h2>
+          </div>
+          <p>每一种工具按自己的规则计算与解读。进入后可查看输入要求和结果范围。</p>
+        </div>
+        <div className="hd-hub__catalog">{children}</div>
+        <div className="hd-hub__endlinks">
+          <Link href="/tools">查看全站工具</Link>
+          <Link href={mode === 'oriental' ? '/western' : '/oriental'}>探索{mode === 'oriental' ? '西方' : '东方'}体系</Link>
+          <Link href="/">返回首页</Link>
+        </div>
+      </div>
     </main>
   );
 }

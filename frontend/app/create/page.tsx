@@ -43,8 +43,11 @@ export default function CreatePage() {
   const [quota, setQuota] = useState<QuotaView>(() => describeQuota(null));
   const [tab, setTab] = useState<'single'|'double'>('single');
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('mode') === 'double') {
+    const mode = new URLSearchParams(window.location.search).get('mode');
+    if (mode === 'double') {
       setTab('double');
+    } else if (mode === 'pillars') {
+      setForm(previous => ({ ...previous, calendar: '四柱' }));
     }
   }, []);
   const [loading, setLoading] = useState(false);

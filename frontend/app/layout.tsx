@@ -1,8 +1,10 @@
 ﻿import type { Metadata } from 'next';
 import './globals.css';
+import './sitewide.css';
 import Nav from '@/components/Nav';
 import Footer from '@/components/Footer';
 import MotionEnhancer from '@/components/MotionEnhancer';
+import { QuestionDraftProvider } from '@/components/assistant/QuestionDraftContext';
 
 export const metadata: Metadata = {
   title: '混沌｜东方术数与风水 · 西方神秘学',
@@ -15,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         <Nav />
         <MotionEnhancer />
-        {children}
+        <QuestionDraftProvider>{children}</QuestionDraftProvider>
         <Footer />
       </body>
     </html>

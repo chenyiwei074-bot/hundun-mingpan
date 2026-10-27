@@ -1,191 +1,180 @@
-// 门廊：只回答一个问题 —— 你要用哪一套体系。两栏铺满首屏，整栏就是链接。
-//
-// 栏内不许再嵌任何可点元素（裁定 ①）：一个 <a> 里再放 <a> 或 <button>，键盘要走两遍
-// 同一块地方，读屏软件报出来的层级也是假的。/tools 那条链接因此从门廊搬走了，
-// 改挂在两页工作页的页脚。
+'use client';
 
 import Link from 'next/link';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useQuestionDraft } from '@/components/assistant/QuestionDraftContext';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
-import type { IntentGroup } from '@/lib/tools/catalog';
-import { isLiveEntry } from '@/lib/tools/status';
+import { isLiveEntry, statusCounts } from '@/lib/tools/status';
 
-// 装饰只做"这一侧是谁"的形状，不参与阅读：全部 aria-hidden、pointer-events:none，
-// 描边走低透明度，绝不用来承托文字（文字底下变浅变深都会改对比度）。
-function HexagramArt() {
-  return (
-    <svg width="320" height="320" viewBox="0 0 320 320" fill="none" aria-hidden="true">
-      <defs>
-        <radialGradient id="east-bronze" cx="34%" cy="24%" r="78%">
-          <stop offset="0%" stopColor="#f4e5b9" />
-          <stop offset="24%" stopColor="#c4a66b" />
-          <stop offset="58%" stopColor="#866a3c" />
-          <stop offset="100%" stopColor="#4d402d" />
-        </radialGradient>
-        <radialGradient id="east-stone" cx="38%" cy="28%" r="78%">
-          <stop offset="0%" stopColor="#fffaf0" />
-          <stop offset="100%" stopColor="#d9d0bd" />
-        </radialGradient>
-        <filter id="east-shadow" x="-30%" y="-30%" width="160%" height="180%">
-          <feDropShadow dx="0" dy="18" stdDeviation="14" floodColor="#30251a" floodOpacity="0.24" />
-        </filter>
-      </defs>
-      <ellipse cx="170" cy="266" rx="112" ry="22" fill="#342719" opacity="0.18" />
-      <g filter="url(#east-shadow)" transform="translate(166 146) rotate(-18)">
-        <ellipse cy="28" rx="126" ry="104" fill="#453b2e" opacity="0.72" />
-        <ellipse cy="12" rx="124" ry="103" fill="url(#east-bronze)" stroke="#55442b" strokeWidth="5" />
-        <ellipse cy="10" rx="108" ry="88" fill="url(#east-stone)" stroke="#f0dfb4" strokeWidth="2" />
-        <ellipse cy="10" rx="91" ry="72" stroke="#866a3c" strokeWidth="1.5" opacity="0.72" />
-        <ellipse cy="10" rx="74" ry="58" stroke="#9b8154" strokeWidth="1" opacity="0.56" />
-        <path d="M-102 10H102M0-79V99M-71-42L71 62M71-42L-71 62" stroke="#9b8154" strokeWidth="1" opacity="0.28" />
-        <g stroke="#725b38" strokeLinecap="round" opacity="0.72">
-          {Array.from({ length: 24 }, (_, i) => {
-            const angle = (i * Math.PI) / 12;
-            const x1 = Math.cos(angle) * 96;
-            const y1 = 10 + Math.sin(angle) * 77;
-            const x2 = Math.cos(angle) * (i % 3 === 0 ? 108 : 102);
-            const y2 = 10 + Math.sin(angle) * (i % 3 === 0 ? 87 : 82);
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={i % 3 === 0 ? 2 : 1} />;
-          })}
-        </g>
-        <circle cy="10" r="42" fill="#ece2ce" stroke="#8a7045" strokeWidth="2" />
-        <path d="M0-35C20-35 35-20 35 0C35 20 20 35 0 35C-20 35-35 20-35 0C-35-20-20-35 0-35Z" fill="#f7f0df" />
-        <path d="M0-35C-8-21-8-10 0 0C8 10 8 21 0 35C20 35 35 20 35 0C35-20 20-35 0-35Z" fill="#4d4638" />
-        <circle cy="-17" r="5" fill="#4d4638" />
-        <circle cy="17" r="5" fill="#f7f0df" />
-        <circle cy="10" r="42" stroke="#fffaf0" strokeWidth="1" opacity="0.76" />
-      </g>
-      <g transform="translate(248 214) rotate(18)" fill="#7a5f31" opacity="0.72">
-        <path d="M0-35L6-6L0 0L-6-6Z" />
-        <path d="M0 35L-6 6L0 0L6 6Z" opacity="0.52" />
-        <circle r="5" fill="#d0b780" />
-      </g>
-    </svg>
-  );
-}
+type World = 'oriental' | 'western';
 
-function EclArt() {
-  return (
-    <svg width="320" height="320" viewBox="0 0 320 320" fill="none" aria-hidden="true">
-      <defs>
-        <radialGradient id="west-metal" cx="30%" cy="24%" r="78%">
-          <stop offset="0%" stopColor="#f4e7c1" />
-          <stop offset="26%" stopColor="#c8ad72" />
-          <stop offset="65%" stopColor="#806b4b" />
-          <stop offset="100%" stopColor="#352a48" />
-        </radialGradient>
-        <radialGradient id="west-moon" cx="30%" cy="25%" r="80%">
-          <stop offset="0%" stopColor="#fff9e9" />
-          <stop offset="45%" stopColor="#d8c6a2" />
-          <stop offset="100%" stopColor="#9280a8" />
-        </radialGradient>
-        <filter id="west-shadow" x="-30%" y="-30%" width="160%" height="180%">
-          <feDropShadow dx="0" dy="20" stdDeviation="16" floodColor="#080314" floodOpacity="0.52" />
-        </filter>
-      </defs>
-      <ellipse cx="161" cy="264" rx="112" ry="19" fill="#080314" opacity="0.4" />
-      <g filter="url(#west-shadow)" transform="translate(160 150) rotate(-22)">
-        <circle r="116" fill="#211936" stroke="url(#west-metal)" strokeWidth="12" />
-        <circle r="101" fill="#241a3d" stroke="#d9b877" strokeWidth="1.5" opacity="0.92" />
-        <circle r="82" stroke="#d9b877" strokeWidth="1" opacity="0.58" />
-        <ellipse rx="110" ry="43" stroke="#e3d2ac" strokeWidth="5" opacity="0.72" transform="rotate(48)" />
-        <ellipse rx="109" ry="38" stroke="#d9b877" strokeWidth="3" opacity="0.68" transform="rotate(-56)" />
-        <ellipse rx="102" ry="31" stroke="#a89abf" strokeWidth="2" opacity="0.66" transform="rotate(8)" />
-        <g stroke="#e7d5ad" strokeLinecap="round" opacity="0.75">
-          {Array.from({ length: 24 }, (_, i) => {
-            const angle = (i * Math.PI) / 12;
-            const x1 = Math.cos(angle) * 88;
-            const y1 = Math.sin(angle) * 88;
-            const x2 = Math.cos(angle) * (i % 3 === 0 ? 102 : 96);
-            const y2 = Math.sin(angle) * (i % 3 === 0 ? 102 : 96);
-            return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} strokeWidth={i % 3 === 0 ? 2 : 1} />;
-          })}
-        </g>
-        <circle r="46" fill="url(#west-moon)" stroke="#f2e2bf" strokeWidth="2" />
-        <path d="M10-43C-11-28-18-4-8 17C1 36 21 45 37 39C50 12 38-27 10-43Z" fill="#80738f" opacity="0.74" />
-        <circle r="46" stroke="#fff7e5" strokeWidth="1" opacity="0.75" />
-        <circle cx="-13" cy="-12" r="4" fill="#8d7b62" opacity="0.55" />
-        <circle cx="17" cy="14" r="6" fill="#8d7b62" opacity="0.34" />
-      </g>
-      <circle cx="247" cy="84" r="7" fill="#e9d6aa" opacity="0.86" />
-      <circle cx="247" cy="84" r="15" stroke="#d9b877" strokeWidth="1" opacity="0.42" />
-    </svg>
-  );
-}
-
-interface Entry {
-  href: string;
-  mode: 'oriental' | 'western';
-  name: string;
-  lead: string;
-  cta: string;
-  groups: IntentGroup[];
-  art: React.ReactNode;
-}
-
-const ENTRIES: Entry[] = [
-  {
-    href: '/oriental', mode: 'oriental',
-    name: '东方术数',
-    lead: '从八字、六爻到风水，在传统体系中寻找问题的脉络。',
-    cta: '进入东方世界 →',
-    groups: INTENTS,
-    art: <HexagramArt />,
-  },
-  {
-    href: '/western', mode: 'western',
-    name: '西方神秘学',
-    lead: '循西方神秘学自身的知识与方法，不与东方术数混用；每项工具都写明适用范围与依据。',
-    cta: '进入西方世界 →',
-    groups: WESTERN_INTENTS,
-    art: <EclArt />,
-  },
+const doors: { world: World; href: string; headline: string; lead: string; cta: string }[] = [
+  { world: 'oriental', href: '/oriental', headline: '观象入局', lead: '八字紫微 · 六爻梅花 · 风水星宿', cta: '进入东方' },
+  { world: 'western', href: '/western', headline: '向星而问', lead: '占星 · 塔罗 · 月相与数字', cta: '进入西方' },
 ];
 
-// 体系卡片只列实际有入口的工具名称；这行是内容提示，不展示内部状态或开放数量。
-const eyebrowLine = (groups: typeof INTENTS): string => {
-  const open = groups.flatMap(g => g.tools).filter(isLiveEntry).map(t => t.name);
-  if (!open.length) return '进入后查看本体系工具';
-  // 分隔符用「、」不用「 · 」：条目名自己就带「 · 」（「二十八宿 · 本命宿」「西洋占星 · 合盘」），
-  // 用「 · 」当列表分隔会把三个名字读成四个 —— 分隔符不能出现在被分隔的数据里。
-  return open.join('、');
-};
+function eyebrowLine(world: World) {
+  const count = statusCounts(world === 'oriental' ? INTENTS : WESTERN_INTENTS).total;
+  return `${world === 'oriental' ? '东方体系' : '西方体系'} · ${count} 项工具`;
+}
+
+function eyebrowNames(world: World) {
+  const names = (world === 'oriental' ? INTENTS : WESTERN_INTENTS)
+    .flatMap(group => group.tools).filter(isLiveEntry).map(tool => tool.name);
+  return `${names.slice(0, 3).join('、')} 等 ${names.length} 项`;
+}
+
+function AmbientScene({ world }: { world: World }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let mounted = true;
+    let dispose = () => {};
+
+    void import('three').then(THREE => {
+      if (!mounted || !canvas.isConnected) return;
+      try {
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 50);
+        camera.position.z = 7;
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: 'low-power' });
+        const mobile = window.matchMedia('(max-width: 760px)').matches;
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.25 : 1.5));
+        const count = mobile ? 70 : 120;
+        const positions = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = (Math.random() - 0.5) * 9;
+          positions[i * 3 + 1] = (Math.random() - 0.5) * 6;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 4 - 1;
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const pointMaterial = new THREE.PointsMaterial({
+          color: world === 'oriental' ? 0xd9bd88 : 0xd4bced,
+          size: 0.026,
+          transparent: true,
+          opacity: 0.65,
+          depthWrite: false,
+        });
+        const points = new THREE.Points(geometry, pointMaterial);
+        scene.add(points);
+        const ringGeometry = new THREE.TorusGeometry(2.15, 0.007, 4, 100);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: world === 'oriental' ? 0xd9bd88 : 0xd4bced,
+          transparent: true,
+          opacity: 0.13,
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = 1.1;
+        scene.add(ring);
+        const parent = canvas.parentElement;
+        if (!parent) return;
+        const resize = () => {
+          const { width, height } = parent.getBoundingClientRect();
+          renderer.setSize(width, height, false);
+          camera.aspect = width / Math.max(height, 1);
+          camera.updateProjectionMatrix();
+        };
+        const observer = new ResizeObserver(resize);
+        observer.observe(parent);
+        resize();
+        let running = true;
+        let frame = 0;
+        const render = () => {
+          if (!running) return;
+          if (!document.hidden) {
+            ring.rotation.z += 0.0005;
+            points.rotation.y += 0.00012;
+            renderer.render(scene, camera);
+          }
+          frame = requestAnimationFrame(render);
+        };
+        render();
+        dispose = () => {
+          running = false;
+          cancelAnimationFrame(frame);
+          observer.disconnect();
+          geometry.dispose();
+          pointMaterial.dispose();
+          ringGeometry.dispose();
+          ringMaterial.dispose();
+          renderer.dispose();
+        };
+        if (!mounted) dispose();
+      } catch {
+        // The static scene remains visible when WebGL is unavailable.
+      }
+    });
+    return () => { mounted = false; dispose(); };
+  }, [world]);
+
+  return <canvas ref={canvasRef} className="hd-door__webgl" aria-hidden="true" />;
+}
 
 export default function GatePage() {
+  const { put } = useQuestionDraft();
+  const [question, setQuestion] = useState('');
+  const [chooseWorld, setChooseWorld] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const carryQuestion = (world: World) => {
+    put(world, question.trim());
+  };
+
+  const onAsk = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!question.trim()) { inputRef.current?.focus(); return; }
+    setChooseWorld(true);
+  };
+
   return (
-    <main className="gate-shell" data-mode="gate">
-      <header className="gate-head qn-rise">
-        <p className="qn-eyebrow">混沌 · 两套体系</p>
-        <h1 className="qn-hero">先选一套体系</h1>
-        {/* 运维 2026-10-21 补的一行：站是干什么的，得在门廊就说清，不靠页面标题去猜。 */}
-        <p className="gate-head__tagline">东方术数与风水 · 西方神秘学工具箱</p>
-        <p className="gate-head__note">
-          东方与西方各有自己的知识体系与表达方式，混沌自研 AI 辅助解读与引导。
-        </p>
+    <main className="gate-shell hd-home" data-mode="gate">
+      <header className="gate-head hd-home__intro">
+        <h1>混沌 · 选择东方或西方体系</h1>
+        <p>东方术数与风水 · 西方神秘学工具箱</p>
       </header>
-
-      <div className="gate-grid">
-        {ENTRIES.map(e => {
-          return (
-            <Link key={e.href} href={e.href} className="domain-card" data-mode={e.mode}>
-              <span className="domain-card__veil" aria-hidden="true" />
-              <span className="domain-card__art" aria-hidden="true">{e.art}</span>
-              <div className="domain-card__copy">
-                <p className="qn-eyebrow">{eyebrowLine(e.groups)}</p>
-                <h2 className="domain-card__title">{e.name}</h2>
-                <p className="qn-body">{e.lead}</p>
-                <p className="domain-card__cta">{e.cta}</p>
-              </div>
-            </Link>
-          );
-        })}
+      <div className="gate-grid hd-door-row" aria-label="选择体系">
+        {doors.map(door => (
+          <Link key={door.world} href={door.href} className={'domain-card hd-door hd-door--' + door.world} data-mode={door.world}>
+            <span className="hd-door__scene" aria-hidden="true" />
+            <span className="hd-door__shade" aria-hidden="true" />
+            <span className="domain-card__veil" aria-hidden="true" />
+            <AmbientScene world={door.world} />
+            <span className="hd-door__copy">
+              <span className="hd-door__eyebrow domain-card__tally">{eyebrowLine(door.world)}</span>
+              <span className="qn-eyebrow hd-door__sr-tally">{eyebrowNames(door.world)}</span>
+              <span className="domain-card__title hd-door__title">{door.headline}</span>
+              <span className="hd-door__lead">{door.lead}</span>
+              <span className="domain-card__cta hd-door__cta">{door.cta}<span aria-hidden="true">↗</span></span>
+            </span>
+          </Link>
+        ))}
       </div>
-
-      <section className="qn-legal gate-legal">
-        <p className="qn-note" style={{ margin: 0 }}>
-          各体系工具、支持范围与使用说明，可进入对应页面查看。
-        </p>
+      <section className="hd-home__ask" aria-label="按问题寻找工具">
+        <div className="hd-home__ask-label">
+          <strong>有问题，直接问。</strong>
+          <span>混沌会帮你找到合适的工具</span>
+        </div>
+        <form onSubmit={onAsk} className="hd-home__ask-form">
+          <input ref={inputRef} value={question} onChange={e => { setQuestion(e.target.value); setChooseWorld(false); }}
+            aria-label="你想了解什么" placeholder="写下此刻想了解的事……" maxLength={280} />
+          <button type="submit">问一下 <span aria-hidden="true">↗</span></button>
+        </form>
       </section>
+      {chooseWorld && (
+        <section className="hd-home__choice" aria-label="选择问题所属体系">
+          <div>
+            <strong>选择一种方法来问</strong>
+            <p>每套体系会独立处理你的问题，不会把不同术数的结论混在一起。</p>
+          </div>
+          <div className="hd-home__choice-links">
+            <Link href="/oriental" onClick={() => carryQuestion('oriental')}>用东方方法问 <span aria-hidden="true">↗</span></Link>
+            <Link href="/western" onClick={() => carryQuestion('western')}>用西方方法问 <span aria-hidden="true">↗</span></Link>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

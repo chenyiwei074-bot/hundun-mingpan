@@ -45,7 +45,7 @@ const ok = (id: string, cond: boolean, detail: string) => {
 
 /** 路由是否存在：/chart/result/[id] 这类动态段按通配处理。 */
 function routeExists(href: string): boolean {
-  const clean = href.replace(/^\/+|\/+$/g, '');
+  const clean = href.split(/[?#]/, 1)[0].replace(/^\/+|\/+$/g, '');
   const segs = clean === '' ? [] : clean.split('/');
   const walk = (dir: string, rest: string[]): boolean => {
     if (rest.length === 0) return existsSync(join(dir, 'page.tsx'));
@@ -163,13 +163,11 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
     + `${missing.join('、') || '无'}`);
   // ① 的另一半：两栏各是一个 <a>，栏内不许嵌套第二个可点元素。
   // 嵌套一次，键盘就要在同一块地方走两遍，读屏报出来的层级也是假的。
-  const anchors = (gateSrc.match(/<Link\b/g) || []).length;
-  const nested = (gateSrc.match(/<(button|input|select|textarea|a)\b/g) || []).length;
-  // 源码里只该有 1 个 <Link>：它在 ENTRIES.map 里，运行时渲染成两栏。
-  // "两栏"这个数是 harness 从 DOM 数的（a.domain-card 恰好 2），这里钉的是另一件事：
-  // 栏内不许有第二种可点元素，也不许有人再往门廊上加第三个入口。
-  ok('gate/panel-is-single-anchor', anchors === 1 && nested === 0,
-    `门廊源码只许有一个 <Link>（两栏由同一个 map 产出）且没有任何 <button>/<a>/表单元素：实得 Link ${anchors} 个 / 其它可点 ${nested} 处`);
+  const doorBlock = gateSrc.match(/\{doors\.map\([\s\S]*?\)\}\s*<\/div>/)?.[0] || '';
+  const anchors = (doorBlock.match(/<Link\b/g) || []).length;
+  const nested = (doorBlock.match(/<(button|input|select|textarea|a)\b/g) || []).length;
+  ok('gate/panel-is-single-anchor', anchors === 1 && nested === 0 && /className=\{'domain-card hd-door/.test(doorBlock),
+    `两扇门由同一个 map 渲染，每扇门只是一枚 Link；独立提问框不能嵌入门内：门内 Link ${anchors} 个 / 其它可点 ${nested} 处`);
   ok('gate/no-in-page-back-link', !/domain-back/.test(gateSrc) && !/domain-back/.test(stripComments(readFileSync(ORIENTAL, 'utf8'))),
     '换体系这条路只走导航（工作页导航里有「返回选择」），正文里再来一条就是同一个动作的两个出处');
 }
@@ -345,9 +343,9 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('oriental/intent-entries-complete', JSON.stringify(got) === JSON.stringify(want) && INTENT_ENTRIES.every(e => routeExists(e.href)),
     `首页首屏的四类意图入口齐备且可达：${INTENT_ENTRIES.map(e => `${e.intent}→${e.href}`).join('  ')}`);
   const home = stripComments(readFileSync(ORIENTAL, 'utf8'));
-  ok('oriental/intents-come-from-catalog', /import\s*\{[^}]*\bINTENT_ENTRIES\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
-    /INTENT_ENTRIES\.map/.test(home),
-    '东方工作页首屏四类入口必须渲染自 catalog 的 INTENT_ENTRIES（不是页面里再抄一份）；import 里允许并列其它 catalog 名字，@/lib/tools/catalog 之外不许再有第二个来源');
+  ok('oriental/intents-come-from-catalog', /import\s*\{[^}]*\bINTENTS\b[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(home) &&
+    /<ToolCatalog groups=\{INTENTS\}/.test(home),
+    '东方四类工具入口必须直接渲染 catalog 的 INTENTS，不在页面复制一份');
   const visitor = stripComments(readFileSync(join(APP, '..', 'lib', 'auth', 'visitor.ts'), 'utf8'));
   const create = stripComments(readFileSync(join(APP, 'create', 'page.tsx'), 'utf8'));
   ok('visitor/id-single-source', /export function getVisitorId/.test(visitor) &&
@@ -363,10 +361,11 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const raw = stripComments(readFileSync(ORIENTAL, 'utf8'));
   const code = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '');
 
-  ok('oriental/lists-import-catalog',
-    /import\s*\{[^}]*HOME_FEATURED_SLUGS[^}]*LAUNCHER_SLUGS[^}]*homeCard[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code) &&
-    /HOME_FEATURED_SLUGS\s*\n?\s*\.map/.test(code) && /LAUNCHER_SLUGS\s*\n?\s*\.map/.test(code),
-    '首页两份清单必须是「slug 列表 → homeCard(slug)」的形状，名字/说明/入口不能自己写');
+  const catalogCard = stripComments(readFileSync(join(FE, 'components', 'tools', 'ToolCatalog.tsx'), 'utf8'));
+  ok('oriental/lists-import-catalog', /<ToolCatalog groups=\{INTENTS\}/.test(code)
+    && !/HOME_FEATURED_SLUGS|LAUNCHER_SLUGS|homeCard/.test(code)
+    && /groups\.map/.test(catalogCard) && /g\.tools\.map/.test(catalogCard),
+    '东方工作页只读目录分组并由共用卡片渲染；不维护第二份精选或启动器清单');
 
   const hrefLits = code.match(/href\s*:\s*['"]\/[^'"]*['"]/g) || [];
   const titleLits = code.match(/title\s*:\s*['"][^'"]*['"]/g) || [];
@@ -406,8 +405,10 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   const noZi = [...new Set([...HOME_FEATURED_SLUGS, ...LAUNCHER_SLUGS])].filter(s => !/zi\s*:/.test(skins[s] || ''));
   const openFeatured = HOME_FEATURED_SLUGS.filter(s => homeCard(s)?.href);
   const noGo = openFeatured.filter(s => !/go\s*:/.test(skins[s] || ''));
-  ok('oriental/skin-covers-lists', noZi.length === 0 && noGo.length === 0,
-    `展示层每个被引用的 slug 都要有刻字，已开放的核心行还要有按钮文案（缺了会渲染成空格子或空链接文字）：缺字 ${noZi.join('、') || '0 个'} / 缺按钮文案 ${noGo.join('、') || '0 个'}`);
+  ok('oriental/skin-covers-lists', /<ToolGlyph slug=\{t\.slug\}/.test(catalogCard)
+    && /<h4>\{t\.name\}<\/h4>/.test(catalogCard)
+    && /isLiveEntry\(t\) && t\.href/.test(catalogCard),
+    '所有目录卡片从条目读取图标、名称与入口；开放判断沿用 status.ts');
 
   const soonNames = (code.match(/\{\s*t:\s*["']([^"']+)["']/g) || []).map(s => s.replace(/.*t:\s*["']/, '').replace(/["']$/, ''));
   const overlap = soonNames.filter(n => ALL_TOOLS.some(t => t.name.includes(n) || t.title === n));
@@ -438,9 +439,10 @@ const OPEN = ALL_TOOLS.filter(t => t.status !== '未开放');
   ok('gate/counts-derived-from-catalogs',
     /import\s*\{[^}]*INTENTS[^}]*\}\s*from '@\/lib\/tools\/catalog'/.test(code)
     && /import\s*\{[^}]*WESTERN_INTENTS[^}]*\}\s*from '@\/lib\/tools\/western-catalog'/.test(code)
-    && /eyebrowLine/.test(code)
+    && /statusCounts\(world === 'oriental' \? INTENTS : WESTERN_INTENTS\)\.total/.test(code)
+    && /eyebrowLine\(door\.world\)/.test(code)
     && !/(已开放|可用|未开放|共)\s*[0-9]/.test(code),
-    '门廊栏底那三个数必须由两套目录现算、并且走 lib/tools/status.ts 那一份计数（写死一个数字，目录一改它就开始说谎）：硬编码计数命中 '
+    '门廊工具数量从两套目录现场计算，不写死数字或再显示开放状态标签：硬编码计数命中 '
     + `${(code.match(/(已开放|可用|未开放|共)\s*[0-9]+/g) || []).join('、') || '无'}`);
 
   const wTools = WESTERN_INTENTS.flatMap(g => g.tools);
