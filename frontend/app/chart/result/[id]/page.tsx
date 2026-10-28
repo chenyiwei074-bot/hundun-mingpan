@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createChartShareLink, getChartResult, revokeChartShareLink } from '@/app/lib/api';
+import { createChartShareLink, getChartResult, listChartShareLinks, revokeAllChartShareLinks, revokeChartShareLink } from '@/app/lib/api';
+import type { ChartShareLink } from '@/app/lib/api';
 import ChartOverview from '@/components/chart/ChartOverview';
 import BaziCard from '@/components/chart/BaziCard';
 import ScenarioMatrix from '@/components/bazi/ScenarioMatrix';
@@ -11,6 +12,7 @@ import HepanSection from '@/components/chart/HepanSection';
 import ZiweiCard from '@/components/chart/ZiweiCard';
 import DoubleVerify from '@/components/chart/DoubleVerify';
 import { saveReport } from '@/lib/report/saveReport';
+import { buildBaziReportText, buildZiweiReportText } from '@/lib/report/chart-text';
 import { aiWaitMessage, decideAiWait } from '@/lib/chart/ai-wait';
 import type { AiWaitState } from '@/lib/chart/ai-wait';
 import AiReading from '@/components/chart/AiReading';
@@ -50,7 +52,20 @@ export default function ChartResultPage() {
   const [shareBusy, setShareBusy] = useState(false);
   const [shareNotice, setShareNotice] = useState('');
   const [shareError, setShareError] = useState('');
+  const [shareLinks, setShareLinks] = useState<ChartShareLink[]>([]);
+  const [shareLinksBusy, setShareLinksBusy] = useState(false);
+  const [saveWarning, setSaveWarning] = useState('');
   const savedRef = useRef(false);
+
+  const refreshShareLinks = async () => {
+    if (!id) return;
+    try {
+      const result: any = await listChartShareLinks(id);
+      if (result?.success && Array.isArray(result.data)) setShareLinks(result.data);
+    } catch {
+      // 列表读取失败不挡住当前页；用户仍可生成新链接。
+    }
+  };
 
   const makeShareLink = async () => {
     if (!id || !canShare || shareBusy) return;
@@ -69,6 +84,7 @@ export default function ChartResultPage() {
       const url = new URL(`/share/chart/${encodeURIComponent(data.token)}`, window.location.origin).toString();
       setShare({ shareId: data.shareId, url, expiresAt: data.expiresAt });
       setShareNotice('链接已生成。复制后可发送给对方，7 天后自动失效。');
+      await refreshShareLinks();
     } catch (e) {
       setShareError(shareErrorText(e, '暂时无法生成分享链接，请稍后重试。'));
     } finally {
@@ -101,10 +117,29 @@ export default function ChartResultPage() {
       }
       setShare(null);
       setShareNotice('分享链接已撤回，持有者现在无法再查看这份命盘。');
+      await refreshShareLinks();
     } catch (e) {
       setShareError(shareErrorText(e, '暂时无法撤回分享链接，请稍后重试。'));
     } finally {
       setShareBusy(false);
+    }
+  };
+
+  const revokeAllLinks = async () => {
+    if (!id || shareLinksBusy) return;
+    setShareLinksBusy(true);
+    setShareNotice('');
+    setShareError('');
+    try {
+      const result: any = await revokeAllChartShareLinks(id);
+      if (!result?.success) throw new Error('暂时无法撤回分享链接，请稍后重试。');
+      setShare(null);
+      setShareNotice('所有有效分享链接已撤回，原链接现在无法再查看这份命盘。');
+      await refreshShareLinks();
+    } catch (e) {
+      setShareError(shareErrorText(e, '暂时无法撤回分享链接，请稍后重试。'));
+    } finally {
+      setShareLinksBusy(false);
     }
   };
 
@@ -205,41 +240,53 @@ export default function ChartResultPage() {
     return () => { cancelled = true; };
   }, [id]);
 
+  useEffect(() => {
+    if (canShare) void refreshShareLinks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, canShare]);
+
   // 统一接入报告保存：数据加载完成后保存八字和紫微报告
   useEffect(() => {
     if (chartOrigin !== 'server' || !chartData || !chartName || savedRef.current) return;
     savedRef.current = true;
+    setSaveWarning('');
 
     const birthInfo = chartData?.bazi?.birthInfo || {};
+    const inputJson = {
+      name: chartName,
+      gender: birthInfo.gender || '',
+      birthday: birthInfo.birthday || '',
+      birthPlace: birthInfo.birthPlace || '',
+      chartId: id,
+    };
 
-    // 保存八字报告
-    saveReport({
+    // 同一命盘用稳定来源键 upsert：刷新/重开不会新增重复记录。
+    const saveOne = async (params: Parameters<typeof saveReport>[0]) => {
+      const saved = await saveReport(params);
+      if (!saved) setSaveWarning('命盘已生成，但未能保存到“我的报告”。可以稍后在结果页重新打开再试；盘面内容不受影响。');
+      return saved;
+    };
+
+    void saveOne({
       type: 'bazi',
+      sourceKey: `chart:${id}:bazi`,
       title: `${chartName} - 八字命盘`,
-      inputJson: {
-        name: chartName,
-        gender: birthInfo.gender || '',
-        birthday: birthInfo.birthday || '',
-        birthPlace: birthInfo.birthPlace || '',
-      },
+      inputJson,
       resultJson: chartData?.bazi || undefined,
       analysisJson: chartData?.bazi?.enrichment || undefined,
-    }).catch(() => {});
+      reportText: buildBaziReportText(chartName, chartData?.bazi),
+    });
 
-    // 保存紫微报告
     if (chartData?.ziwei) {
-      saveReport({
+      void saveOne({
         type: 'ziwei',
+        sourceKey: `chart:${id}:ziwei`,
         title: `${chartName} - 紫微斗数`,
-        inputJson: {
-          name: chartName,
-          gender: birthInfo.gender || '',
-          birthday: birthInfo.birthday || '',
-          birthPlace: birthInfo.birthPlace || '',
-        },
+        inputJson,
         resultJson: chartData?.ziwei || undefined,
         analysisJson: undefined,
-      }).catch(() => {});
+        reportText: buildZiweiReportText(chartName, chartData?.ziwei),
+      });
     }
   }, [chartData, chartName, chartOrigin]);
 
@@ -306,8 +353,45 @@ export default function ChartResultPage() {
           )}
           {shareNotice && <p role="status" className="qn-meta" style={{ margin: '12px 0 0' }}>{shareNotice}</p>}
           {shareError && <p role="alert" className="qn-meta" style={{ margin: '12px 0 0', color: '#a13b31' }}>{shareError}</p>}
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: 'var(--qn-hairline)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+              <p className="qn-cap" style={{ margin: 0 }}>现存分享链接</p>
+              {shareLinks.some(x => x.active) && (
+                <button type="button" onClick={revokeAllLinks} disabled={shareLinksBusy} className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}>
+                  {shareLinksBusy ? '正在撤回…' : '撤回全部有效链接'}
+                </button>
+              )}
+            </div>
+            {shareLinks.length === 0 ? (
+              <p className="qn-meta" style={{ margin: '8px 0 0' }}>还没有分享链接。生成后可在此撤回；刷新页面也会保留列表。</p>
+            ) : (
+              <ul className="qn-meta" style={{ margin: '8px 0 0', paddingLeft: '1.1em' }}>
+                {shareLinks.map(link => (
+                  <li key={link.shareId} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 4 }}>
+                    <span>{new Date(link.createdAt).toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })} 创建 · {link.revokedAt ? '已撤回' : link.active ? `有效至 ${formatShareExpiry(link.expiresAt)}` : '已过期'}</span>
+                    {link.active && (
+                      <button type="button" className="qn-btn qn-btn--quiet" style={{ minHeight: 44 }}
+                        onClick={async () => {
+                          if (!id) return;
+                          setShareLinksBusy(true);
+                          try {
+                            const result: any = await revokeChartShareLink(id, link.shareId);
+                            if (!result?.success) throw new Error('暂时无法撤回分享链接，请稍后重试。');
+                            await refreshShareLinks();
+                            setShareNotice('这条分享链接已撤回。');
+                          } catch (e) {
+                            setShareError(shareErrorText(e, '暂时无法撤回分享链接，请稍后重试。'));
+                          } finally { setShareLinksBusy(false); }
+                        }} disabled={shareLinksBusy}>撤回这条</button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
         )}
+        {saveWarning && <p className="qn-alert" role="alert">{saveWarning}</p>}
         <ChartOverview chartData={enrichedChartData} chartName={chartName} />
         <BaziCard bazi={enrichedChartData.bazi} enrichment={enrichedChartData.bazi?.enrichment} />
         <ZiweiCard ziwei={enrichedChartData.ziwei} bazi={enrichedChartData.bazi} />

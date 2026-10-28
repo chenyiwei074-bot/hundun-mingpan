@@ -1,7 +1,7 @@
 ﻿// 统一报告记录模型 — 八字/紫微/六爻 共用
 
 export type ReportType = 'bazi' | 'ziwei' | 'liuyao' | 'tarot';
-export type ReportStatus = 'FREE' | 'GENERATING' | 'LOCKED' | 'UNLOCKED' | 'FAILED';
+export type ReportStatus = 'FREE' | 'GENERATING' | 'LOCKED' | 'UNLOCKED' | 'FAILED' | 'UNKNOWN';
 
 export interface ReportRecord {
   id: string;
@@ -57,12 +57,14 @@ export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   LOCKED: '免费',
   UNLOCKED: '免费',
   FAILED: '生成失败',
+  UNKNOWN: '状态待确认',
 };
 
 export const REPORT_STATUS_COLORS: Record<ReportStatus, string> = {
   FREE: '#4a9e6e',
   GENERATING: '#c9a84c',
-  LOCKED: '免费',
-  UNLOCKED: '免费',
+  LOCKED: '#8b6f3f',
+  UNLOCKED: '#4a9e6e',
   FAILED: '#d4544a',
+  UNKNOWN: '#888888',
 };

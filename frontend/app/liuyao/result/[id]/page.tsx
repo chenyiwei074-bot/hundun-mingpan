@@ -25,7 +25,6 @@ export default function LiuyaoResultPage() {
   const [reportSourceIds, setReportSourceIds] = useState<string[]>([]);
   const [reportError, setReportError] = useState('');
   const [loading, setLoading] = useState(true);
-  const savedRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -35,16 +34,6 @@ export default function LiuyaoResultPage() {
         setResult(r);
         const ad = analyzeLiuyao(r);
         setAnalysisData(ad);
-        if (!savedRef.current) {
-          savedRef.current = true;
-          saveReport({
-            type: 'liuyao',
-            title: r.question || '六爻占卜',
-            inputJson: { question: r.question || '', questionType: r.questionType || '', method: r.method || '' },
-            resultJson: r as any,
-            analysisJson: ad as any,
-          }).catch(() => {});
-        }
       }
     } catch(e) { console.error('Failed to load result:', e); }
     setLoading(false);
@@ -68,14 +57,17 @@ export default function LiuyaoResultPage() {
         ? rawSources.map((item: any) => typeof item === 'string' ? item : item?.sourceId || item?.id || '').filter(Boolean)
         : [];
       setReportSourceIds(Array.from(new Set(sourceIds)));
-      saveReport({
+      void saveReport({
         type: 'liuyao',
+        sourceKey: `liuyao:${result.id}`,
         title: result.question || '六爻占卜',
         inputJson: { question: result.question || '', questionType: result.questionType || '', method: result.method || '' },
         resultJson: result as any,
         analysisJson: analysisData as any,
         reportText: data.report,
-      }).catch(() => {});
+      }).then(saved => {
+        if (!saved) setReportError('解析已生成，但未能保存到“我的报告”；卦象盘面与本次解析仍可查看，可稍后重试。');
+      });
     } catch {
       setReportError('本次报告暂未生成，请稍后重试。卦象盘面仍可查看。');
     } finally {

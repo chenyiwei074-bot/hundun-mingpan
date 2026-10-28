@@ -10,6 +10,7 @@ interface SaveParams {
   resultJson?: Record<string, any>;
   analysisJson?: Record<string, any>;
   reportText?: string;
+  sourceKey?: string;
 }
 
 export async function saveReport(params: SaveParams): Promise<{ id: string } | null> {
@@ -28,6 +29,7 @@ export async function saveReport(params: SaveParams): Promise<{ id: string } | n
         resultJson: params.resultJson || null,
         analysisJson: params.analysisJson || null,
         reportText: params.reportText || null,
+        sourceKey: params.sourceKey,
       }),
     });
 

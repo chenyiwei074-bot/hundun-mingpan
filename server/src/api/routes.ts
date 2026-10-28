@@ -9,7 +9,7 @@ import { deleteTarotReading, getTarotReading, listTarotReadings, saveTarotReadin
 import { interpret as interpretTool } from '../controllers/ai.controller';
 import { rewrite as rewritePlainLanguage } from '../controllers/plain-language.controller';
 import { calculatePillars } from '../controllers/bazi-pillars.controller';
-import { createShareLink, getSharedChart, revokeShareLink } from '../controllers/share.controller';
+import { createShareLink, getSharedChart, listShareLinks, revokeAllShareLinks, revokeShareLink } from '../controllers/share.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
 import {
@@ -41,7 +41,9 @@ router.delete('/tarot/readings/:id', deleteTarotReading);
 router.post('/receipts', submitReceipt);
 router.get('/receipts/:recordHash', getReceiptStatus);
 
+router.get('/chart/:id/share-links', listShareLinks);
 router.post('/chart/:id/share-links', createShareLink);
+router.delete('/chart/:id/share-links', revokeAllShareLinks);
 router.get('/chart/share/:token', getSharedChart);
 router.delete('/chart/:id/share-links/:shareId', revokeShareLink);
 router.post('/chart/create', createChart);

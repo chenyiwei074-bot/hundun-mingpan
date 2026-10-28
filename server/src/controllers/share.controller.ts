@@ -16,6 +16,53 @@ async function readAiAnalysis(chartId: string): Promise<unknown> {
   }
 }
 
+/** GET /api/chart/:id/share-links —— 所有者查看现存链接状态；不返回原始 token。 */
+export async function listShareLinks(req: Request, res: Response) {
+  try {
+    const visitorId = readVisitorId(req);
+    if (!visitorId) return res.status(401).json({ success: false, error: '缺少本人标识' });
+    const chart = await prisma.chart.findUnique({ where: { id: String(req.params.id || '') } });
+    if (!chart || chart.visitorId !== visitorId) {
+      return res.status(404).json({ success: false, error: '命盘不存在' });
+    }
+    const shares = await prisma.chartShare.findMany({
+      where: { chartId: chart.id },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, createdAt: true, expiresAt: true, revokedAt: true },
+    });
+    return res.json({ success: true, data: shares.map(share => ({
+      shareId: share.id,
+      createdAt: share.createdAt.toISOString(),
+      expiresAt: share.expiresAt.toISOString(),
+      revokedAt: share.revokedAt ? share.revokedAt.toISOString() : null,
+      active: !share.revokedAt && share.expiresAt.getTime() > Date.now(),
+    })) });
+  } catch (error) {
+    console.error('[chart/share] 列表失败:', error instanceof Error ? error.name : 'unknown');
+    return res.status(500).json({ success: false, error: '服务器错误' });
+  }
+}
+
+/** DELETE /api/chart/:id/share-links —— 撤回该命盘全部尚未撤回的链接。 */
+export async function revokeAllShareLinks(req: Request, res: Response) {
+  try {
+    const visitorId = readVisitorId(req);
+    if (!visitorId) return res.status(401).json({ success: false, error: '缺少本人标识' });
+    const chart = await prisma.chart.findUnique({ where: { id: String(req.params.id || '') } });
+    if (!chart || chart.visitorId !== visitorId) {
+      return res.status(404).json({ success: false, error: '命盘不存在' });
+    }
+    const result = await prisma.chartShare.updateMany({
+      where: { chartId: chart.id, revokedAt: null, expiresAt: { gt: new Date() } },
+      data: { revokedAt: new Date() },
+    });
+    return res.json({ success: true, data: { revoked: result.count } });
+  } catch (error) {
+    console.error('[chart/share] 全部撤回失败:', error instanceof Error ? error.name : 'unknown');
+    return res.status(500).json({ success: false, error: '服务器错误' });
+  }
+}
+
 /** POST /api/chart/:id/share-links —— 所有者生成 7 天只读分享链接。 */
 export async function createShareLink(req: Request, res: Response) {
   try {

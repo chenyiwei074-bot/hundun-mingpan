@@ -59,6 +59,31 @@ export async function createChartShareLink(id: string) {
   return { ...json, httpStatus: res.status };
 }
 
+export type ChartShareLink = {
+  shareId: string;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  active: boolean;
+};
+
+export async function listChartShareLinks(id: string) {
+  const res = await fetch(API_BASE + "/chart/" + encodeURIComponent(id) + "/share-links", {
+    headers: visitorHeaders(),
+  });
+  const json = await res.json();
+  return { ...json, httpStatus: res.status };
+}
+
+export async function revokeAllChartShareLinks(id: string) {
+  const res = await fetch(API_BASE + "/chart/" + encodeURIComponent(id) + "/share-links", {
+    method: 'DELETE',
+    headers: visitorHeaders(),
+  });
+  const json = await res.json();
+  return { ...json, httpStatus: res.status };
+}
+
 export async function getSharedChart(token: string) {
   const res = await fetch(API_BASE + "/chart/share/" + encodeURIComponent(token));
   const json = await res.json();
