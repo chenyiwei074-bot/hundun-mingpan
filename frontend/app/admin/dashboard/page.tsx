@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface StatsData {
   today: Record<string, number>;
@@ -31,19 +31,50 @@ const COLORS: Record<string, string> = {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+  const [authError, setAuthError] = useState('');
+  const tokenRef = useRef('');
   const eventOrder = ['page_view', 'create_click', 'chart_complete', 'wechat_click'];
 
+  // 只清除旧 URL 里的口令；不再从 URL 读取，也不把它写进历史。
   useEffect(() => {
-    // 2026-10-16 安全修复：/api/admin/stats 需要口令，从网址 ?token= 取并放进请求头
-    const adminToken = new URLSearchParams(window.location.search).get('token') || '';
-    fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/admin/stats', {
-      headers: adminToken ? { 'x-admin-token': adminToken } : {},
-    })
-      .then(r => r.json())
-      .then(d => { if (d.success) setStats(d.data); })
-      .finally(() => setLoading(false));
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('token')) {
+        url.searchParams.delete('token');
+        window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      }
+    } catch {}
   }, []);
+
+  const load = async (token: string) => {
+    if (!token) { setAuthError('请输入运营口令。'); return; }
+    setLoading(true);
+    setAuthError('');
+    try {
+      const res = await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000') + '/admin/stats', {
+        headers: { 'x-admin-token': token },
+      });
+      const data = await res.json().catch(() => null);
+      if (res.status === 401) { setAuthError('运营口令不正确，请重试。'); return; }
+      if (!res.ok || !data?.success) { setAuthError('运营数据暂时无法加载，请稍后重试。'); return; }
+      tokenRef.current = token;
+      setTokenInput('');
+      setStats(data.data);
+    } catch {
+      setAuthError('运营数据暂时无法加载，请稍后重试。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitToken = (event: React.FormEvent) => {
+    event.preventDefault();
+    void load(tokenInput.trim());
+  };
+
+  const logout = () => { tokenRef.current = ''; setStats(null); setTokenInput(''); setAuthError(''); };
 
   if (loading) {
     return (
@@ -103,7 +134,7 @@ export default function AdminDashboard() {
         </section>
 
         <p className="qn-cap" style={{ textAlign: 'center', marginTop: 22 }}>
-          混沌 · 本地运营面板 · 无需登录
+          混沌 · 本地运营面板
         </p>
       </main>
     );
@@ -112,11 +143,21 @@ export default function AdminDashboard() {
   if (!stats) {
     return (
       <main className="qn-shell qn-shell--wide">
-        <section className="qn-card" style={{ textAlign: 'center', padding: '44px 24px' }}>
-          <h1 className="qn-title" style={{ margin: '0 0 12px' }}>运营数据暂不可用</h1>
-          <p className="qn-alert" role="alert" style={{ margin: 0 }}>
-            数据加载失败：请在网址后加 ?token=你的 ADMIN_STATS_TOKEN
-          </p>
+        <section className="qn-card" style={{ textAlign: 'center', padding: '44px 24px', maxWidth: 480, margin: '0 auto' }}>
+          <p className="qn-eyebrow" style={{ margin: 0 }}>混沌 · 数据概览</p>
+          <h1 className="qn-title" style={{ margin: '10px 0 12px' }}>进入运营面板</h1>
+          <p className="qn-meta" style={{ margin: '0 0 18px' }}>请输入运营口令。口令只在本次页面内存中使用，不会写进网址、历史记录或存储。</p>
+          <form onSubmit={submitToken} style={{ display: 'grid', gap: 10 }}>
+            <label className="qn-label" style={{ textAlign: 'left' }}>运营口令
+              <input type="password" className="qn-input" autoComplete="off" value={tokenInput}
+                onChange={event => setTokenInput(event.target.value)} disabled={loading}
+                style={{ marginTop: 6, minHeight: 44 }} />
+            </label>
+            <button type="submit" className="qn-btn qn-btn--solid" disabled={loading} style={{ minHeight: 44 }}>
+              {loading ? '验证中…' : '进入'}
+            </button>
+          </form>
+          {authError && <p className="qn-alert" role="alert" style={{ margin: '14px 0 0' }}>{authError}</p>}
         </section>
       </main>
     );
@@ -193,7 +234,7 @@ export default function AdminDashboard() {
       </section>
 
       <p className="qn-cap" style={{ textAlign: 'center', marginTop: 22 }}>
-        混沌 · 本地运营面板 · 无需登录
+        <button type="button" className="qn-btn qn-btn--quiet" onClick={logout} style={{ minHeight: 44 }}>退出运营面板</button>
       </p>
     </main>
   );

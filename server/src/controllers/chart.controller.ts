@@ -181,13 +181,13 @@ export async function trackEvent(req: Request, res: Response) {
 }
 
 // GET /api/admin/stats
-// 2026-10-16 安全修复：必须带 ADMIN_STATS_TOKEN（请求头 x-admin-token 或 ?token=）
+// 2026-10-16 安全修复：必须带 ADMIN_STATS_TOKEN（只接受请求头 x-admin-token）
 export async function getStats(req: Request, res: Response) {
   const expected = process.env.ADMIN_STATS_TOKEN;
   if (!expected) {
     return res.status(503).json({ success: false, error: 'admin stats 未配置访问口令' });
   }
-  const provided = String(req.get('x-admin-token') || req.query.token || '');
+  const provided = String(req.get('x-admin-token') || '');
   if (provided !== expected) {
     return res.status(401).json({ success: false, error: 'unauthorized' });
   }
