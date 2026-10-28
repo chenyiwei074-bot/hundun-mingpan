@@ -377,6 +377,7 @@ export default function ChartResultPage() {
                           try {
                             const result: any = await revokeChartShareLink(id, link.shareId);
                             if (!result?.success) throw new Error('暂时无法撤回分享链接，请稍后重试。');
+                            if (share?.shareId === link.shareId) setShare(null);
                             await refreshShareLinks();
                             setShareNotice('这条分享链接已撤回。');
                           } catch (e) {
