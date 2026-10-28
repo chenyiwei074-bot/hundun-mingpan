@@ -10,6 +10,9 @@ import { toCivilInput } from '../core/yiqi-core/lunar-input';
 // 防滥用靠网关层限速（不叫"免费次数"，也不暴露给用户）。
 
 // POST /api/chart/create
+const CHART_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const chartLiveSince = () => new Date(Date.now() - CHART_RETENTION_MS);
+
 export async function createChart(req: Request, res: Response) {
   try {
     const input = CreateChartSchema.parse(req.body);
@@ -82,8 +85,8 @@ export async function getChartStatus(req: Request, res: Response) {
     const visitorId = readVisitorId(req);
     if (!visitorId) return res.status(401).json({ success: false, error: '缺少本人标识' });
     const chart = await prisma.chart.findUnique({ where: { id: req.params.id as string } });
-    if (!chart || chart.visitorId !== visitorId) {
-      return res.status(404).json({ success: false, error: '命盘不存在' });
+    if (!chart || chart.visitorId !== visitorId || chart.createdAt < chartLiveSince()) {
+      return res.status(404).json({ success: false, error: '命盘不存在或已过保留期' });
     }
     return res.json({
       success: true,
@@ -103,8 +106,8 @@ export async function getChartResult(req: Request, res: Response) {
     const chart = await prisma.chart.findUnique({ where: { id } });
 
     // 本人标识不匹配时按"不存在"返回：不泄露这个 id 是否存在。
-    if (!chart || chart.visitorId !== visitorId) {
-      return res.status(404).json({ success: false, error: '命盘不存在' });
+    if (!chart || chart.visitorId !== visitorId || chart.createdAt < chartLiveSince()) {
+      return res.status(404).json({ success: false, error: '命盘不存在或已过保留期' });
     }
 
     if (chart.status === 'failed') {

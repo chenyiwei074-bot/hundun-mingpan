@@ -30,7 +30,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const vid = getVisitorId();
     setVisitorId(vid);
-    fetch(`/api/reports?visitorId=${encodeURIComponent(vid)}`)
+    fetch('/api/reports', { headers: vid ? { 'x-visitor-id': vid } : {} })
       .then(r => r.json())
       .then(d => {
         if (!d.success || !Array.isArray(d.data)) throw new Error(d.error || '加载失败，请稍后重试');

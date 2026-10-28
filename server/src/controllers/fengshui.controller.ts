@@ -69,7 +69,7 @@ export async function recognize(req: Request, res: Response) {
 
 /** 取回自己上传的图：只认 visitorId + id，路径全部走白名单拼接。 */
 export function getFloorPlanImage(req: Request, res: Response) {
-  const visitorId = String(req.query.visitorId || '').trim();
+  const visitorId = String(req.query.visitorId || req.header('x-visitor-id') || '').trim();
   const id = String(req.params.id || '').trim();
   if (!VISITOR_RE.test(visitorId)) return fail(res, 400, 'bad_visitor', 'visitorId 不合法');
   if (!UUID_RE.test(id)) return fail(res, 400, 'bad_id', 'id 不合法');

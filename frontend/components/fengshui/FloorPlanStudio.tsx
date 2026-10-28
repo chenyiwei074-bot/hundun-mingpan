@@ -171,7 +171,7 @@ export default function FloorPlanStudio() {
     if (serverImageId) {
       // 先删服务端那份：失败也不阻塞本地清空，但要如实提示（7 天内仍会保留）。
       const target = serverImageId;
-      void fetch(`/api/fengshui/image/${target}?visitorId=${encodeURIComponent(visitorId)}`, { method: 'DELETE' })
+      void fetch(`/api/fengshui/image/${target}`, { method: 'DELETE', headers: { 'x-visitor-id': visitorId } })
         .then(res => { if (!res.ok) say('danger', '页面已清空，但图片删除未能确认；主存储最长保留 7 天，备份副本最多再保留 7 天。'); })
         .catch(() => say('danger', '页面已清空，但图片删除未能确认；主存储最长保留 7 天，备份副本最多再保留 7 天。'));
       setServerImageId(null);

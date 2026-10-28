@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { calculateDirectPillars, createChart as apiCreateChart, trackEvent, lookupChinaGeo } from '@/app/lib/api';
+import type { ChinaGeoLookup } from '@/app/lib/api';
 import { canPersist, validateCreateChart } from '@/lib/api/contract';
 import type { CreateChartPayload } from '@/lib/api/contract';
 import type { DirectPillarsInput, DirectPillarsResult } from '@/lib/bazi/direct-pillars';
@@ -52,7 +53,7 @@ export default function CreatePage() {
   }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [birthGeo, setBirthGeo] = useState<GeoLookup | null>(null);
+  const [birthGeo, setBirthGeo] = useState<ChinaGeoLookup | null>(null);
   const [directPillarsResult, setDirectPillarsResult] = useState<DirectPillarsResult | null>(null);
   const directRequestRef = useRef(0);
 
@@ -76,9 +77,10 @@ export default function CreatePage() {
   useEffect(() => {
     let alive = true;
     if (form.calendar === '四柱' || !form.birthProvince) { setBirthGeo(null); return () => { alive = false; }; }
-    lookupChinaGeo(form.birthProvince, form.birthCity || undefined).then(g => { if (alive) setBirthGeo(g ? { ...g } : null); });
+    setBirthGeo(null);
+    lookupChinaGeo(form.birthProvince, form.birthCity || undefined, form.birthDistrict || undefined).then(g => { if (alive) setBirthGeo(g ? { ...g } : null); });
     return () => { alive = false; };
-  }, [form.birthProvince, form.birthCity, form.calendar]);
+  }, [form.birthProvince, form.birthCity, form.birthDistrict, form.calendar]);
 
   useEffect(() => { setVisitorId(getVisitorId()); }, []);
   // 额度只在拿到访客 id 之后读一次（服务端按 visitor_id 查）。读失败保持"未知"，
@@ -211,7 +213,7 @@ export default function CreatePage() {
       // 顺序：农历→公历换算 → 真太阳时校正（引擎内部在 Solar 构造前做）→ 晚子时换日
       let geoOverride: GeoLookup | null = birthGeo;
       if (!geoOverride && form.birthProvince) {
-        const fetched = await lookupChinaGeo(form.birthProvince, form.birthCity || undefined);
+        const fetched = await lookupChinaGeo(form.birthProvince, form.birthCity || undefined, form.birthDistrict || undefined);
         if (fetched) { geoOverride = fetched; setBirthGeo(fetched); }
       }
       const tstWiring = buildTrueSolarWiring(
@@ -256,7 +258,7 @@ export default function CreatePage() {
           year: form.partnerYear, month: form.partnerMonth, day: form.partnerDay,
           hour: form.partnerHour, minute: form.partnerMinute,
           isLunar: isLunar, isLeapMonth: partnerIsLeapOn,
-          省份: form.partnerBirthProvince, 城市: form.partnerBirthCity,
+          省份: form.partnerBirthProvince, 城市: form.partnerBirthCity, 区县: form.partnerBirthDistrict,
           savedAt: 0,
         }, false);
       } else {
@@ -559,7 +561,15 @@ export default function CreatePage() {
                 </>
               )}
 
-              {form.calendar !== '四柱' && <div className="space-y-4">{renderRegionGroup('birth', '诞生之地')}</div>}
+              {form.calendar !== '四柱' && <div className="space-y-4">
+                {renderRegionGroup('birth', '诞生之地')}
+                {birthGeo && tab === 'single' && (
+                  <p className="qn-note" style={{ margin: 0 }}>
+                    坐标精度：{birthGeo.precision === 'district' ? '区县命中' : birthGeo.precision === 'city' ? '城市级（区县未命中）' : '省级（更精确可填城市或区县）'}
+                    {birthGeo.districtMatched ? '，已用于真太阳时。' : '，已按可用坐标计算真太阳时。'}
+                  </p>
+                )}
+              </div>}
               {tab === 'single' && form.calendar !== '四柱' && <div className="space-y-4">{renderRegionGroup('current', '现居之地')}</div>}
               {/* 对方只取"诞生之地"：合盘要的是两张盘同口径排出来，现居之地在合盘里没有角色。
                   原来这里还渲染了一个 partnerCurrent 组，收上来的四个字段没有任何地方读 —— 删掉，

@@ -105,11 +105,11 @@ const SRC_LABEL: Record<string, string> = { city: '地级市', county: '区县�
 export function buildTrueSolarWiring(
   place: BirthPlaceInput,
   clock: CivilClock,
-  options: { fallbackTimeZone?: number; enable?: boolean } = {},
+  options: { fallbackTimeZone?: number; enable?: boolean; geoOverride?: GeoLookup | null } = {},
 ): TrueSolarWiring {
   const fallbackTimeZone = options.fallbackTimeZone ?? 8;
   const enable = options.enable !== false;
-  const geo = enable ? lookupGeo(place) : null;
+  const geo = enable ? (options.geoOverride ?? lookupGeo(place)) : null;
 
   if (!geo) {
     return { timeZone: fallbackTimeZone, dstOffset: 0, geo: null, ambiguousDst: false };

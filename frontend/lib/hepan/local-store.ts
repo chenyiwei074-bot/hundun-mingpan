@@ -18,14 +18,14 @@ export interface PartnerDraft {
   hour: string; minute: string;
   isLunar: boolean; isLeapMonth: boolean;
   /** 出生地只用来推真太阳时，与我自己排盘走同一个 buildTrueSolarWiring。 */
-  省份: string; 城市: string;
+  省份: string; 城市: string; 区县: string;
   /** 存下来时盖的时间戳，用来做上面的 TTL。 */
   savedAt: number;
 }
 
 const blank = (): PartnerDraft => ({
   称呼: '', 性别: '女', year: '', month: '', day: '', hour: '12', minute: '00',
-  isLunar: false, isLeapMonth: false, 省份: '北京', 城市: '北京', savedAt: 0,
+  isLunar: false, isLeapMonth: false, 省份: '北京', 城市: '北京', 区县: '', savedAt: 0,
 });
 
 const safe = <T,>(f: () => T): T | null => { try { return f(); } catch { return null; } };

@@ -54,11 +54,29 @@ function correctionPrompt(validation: { missing: string[]; warnings: string[] })
     + '。请重写全文，严格按上面的骨架与要求：六爻逐条都要写、结论先行、纯中文、不要 JSON/字段名/代码块、结尾带免责句。只输出正文，不要解释。';
 }
 
+function isLiuyaoResult(value: unknown): value is LiuyaoResult {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const r = value as Record<string, any>;
+  if (!['time', 'coin', 'number'].includes(String(r.method))) return false;
+  if (typeof r.question !== 'string' || typeof r.questionType !== 'string') return false;
+  if (!r.date || !r.ganZhi || !r.dayGZ || !r.benGua || !r.bianGua) return false;
+  if (!Array.isArray(r.naJia) || r.naJia.length !== 6) return false;
+  if (!Array.isArray(r.bianNaJia) || r.bianNaJia.length !== 6) return false;
+  if (!Array.isArray(r.yaoRecords) || r.yaoRecords.length !== 6) return false;
+  if (!Number.isInteger(r.dayGZ.ganIdx) || !Number.isInteger(r.dayGZ.zhiIdx)) return false;
+  if (typeof r.monthZhi !== 'string' || typeof r.xunKong !== 'string') return false;
+  return r.naJia.every((y: any) => y && Number.isInteger(y.position) && y.position >= 1 && y.position <= 6
+    && typeof y.isDong === 'boolean' && typeof y.label === 'string' && typeof y.liuQin === 'string'
+    && typeof y.ganZhi === 'string' && typeof y.naZhi === 'string');
+}
+
 export async function POST(req: Request) {
   try {
-    const { result } = await req.json() as { result: LiuyaoResult };
-    if (!result || !result.naJia) {
-      return NextResponse.json({ error: '无效的卦象数据' }, { status: 400 });
+    let body: unknown;
+    try { body = await req.json(); } catch { return NextResponse.json({ error: '请求格式无效' }, { status: 400 }); }
+    const result = (body as { result?: unknown } | null)?.result;
+    if (!isLiuyaoResult(result)) {
+      return NextResponse.json({ error: '卦象数据不完整或格式不符合要求' }, { status: 400 });
     }
     if (!AI_KEY) {
       return NextResponse.json({ error: '未配置 AI API Key' }, { status: 500 });
@@ -98,8 +116,9 @@ export async function POST(req: Request) {
       // 2026-10-24 契约：只返回已登记、可核验的出处；当前六爻无已入仓底本，留空由前端显示「本站自研」。
       sourceIds: [],
     });
-  } catch (e: any) {
-    console.error('Report generation error:', e);
-    return NextResponse.json({ error: e.message || '未知错误' }, { status: 500 });
+  } catch {
+    // 不把内部异常文本回给客户端；错误细节留在服务端排错里。
+    console.error('[liuyao-report] internal error');
+    return NextResponse.json({ error: '报告生成暂时失败，请稍后重试' }, { status: 500 });
   }
 }

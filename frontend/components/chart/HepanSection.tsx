@@ -14,6 +14,8 @@ import { createChart } from '@/app/lib/core/yiqi-core';
 import type { BirthInfo } from '@/app/lib/core/yiqi-core';
 import { enrichBazi } from '@/app/lib/core/bazi-enrich/enrich';
 import { buildTrueSolarWiring } from '@/app/lib/true-solar/birth-wiring';
+import { lookupChinaGeo } from '@/app/lib/api';
+import type { ChinaGeoLookup } from '@/app/lib/api';
 import { toCivilInput, leapMonthOfYear, lunarDayCount } from '@/app/lib/core/yiqi-core/lunar-input';
 import { provinces as regionProvinces } from '@/app/lib/region-data';
 import { analyzeHepan } from '@/lib/hepan/engine';
@@ -46,6 +48,7 @@ export default function HepanSection({ chartData }: Props) {
   const [已存, set已存] = useState(false);
   const [存成, set存成] = useState(false);
   const [提示, set提示] = useState<string | null>(null);
+  const [partnerGeo, setPartnerGeo] = useState<ChinaGeoLookup | null>(null);
 
   useEffect(() => {
     const p = loadPartner();
@@ -75,6 +78,14 @@ export default function HepanSection({ chartData }: Props) {
   // 闰月按「派生」方式使用：月或年一变，stale 的 isLeapMonth 立刻判 false，
   // 永远凑不出"month ≠ 该年闰月"这种换算层会直接抛错的组合（与建盘页同一手法）。
   // 提到组件作用域，是因为下方那个开关的显隐要用同一个值，两处各推一份迟早会分叉。
+  useEffect(() => {
+    if (!draft?.省份) { setPartnerGeo(null); return; }
+    let alive = true;
+    lookupChinaGeo(draft.省份, draft.城市 || undefined, draft.区县 || undefined)
+      .then(g => { if (alive) setPartnerGeo(g); });
+    return () => { alive = false; };
+  }, [draft?.省份, draft?.城市, draft?.区县]);
+
   const 闰 = draft?.isLunar && Number(draft.year) > 0 ? leapMonthOfYear(Number(draft.year)) : 0;
   const 闰月开 = !!(闰 > 0 && draft?.isLeapMonth && Number(draft?.month) === 闰);
 
@@ -96,8 +107,9 @@ export default function HepanSection({ chartData }: Props) {
       // 写明了这条）。换算只用于这两步，BirthInfo 仍报用户原始输入。
       const civil = toCivilInput({ year: y, month: m, day: d, hour: h, minute: mi, isLunar: draft.isLunar, isLeapMonth: 闰月开 });
       const wiring = buildTrueSolarWiring(
-        { province: draft.省份 || '北京', city: draft.城市 || '北京', district: '' },
+        { province: draft.省份 || '北京', city: draft.城市 || '北京', district: draft.区县 || '' },
         { year: civil.year, month: civil.month, day: civil.day, hour: civil.hour, minute: civil.minute },
+        partnerGeo ? { geoOverride: partnerGeo } : {},
       );
       const info: BirthInfo = {
         year: y, month: m, day: d, hour: h, minute: mi,
@@ -114,7 +126,7 @@ export default function HepanSection({ chartData }: Props) {
           meta: {
             称呼: draft.称呼 || '对方', 性别: draft.性别,
             原始输入: `${draft.isLunar ? '农历' : '公历'}${闰月开 ? `（闰${闰}月）` : ''} ${draft.year}-${draft.month}-${draft.day} ${draft.hour}:${draft.minute}`
-              + ` · ${draft.省份 || '北京'}${draft.城市 || ''}`
+              + ` · ${draft.省份 || '北京'}${draft.城市 || ''}${draft.区县 || ''}`
               + `${wiring.warning ? `（${wiring.warning}）` : ''}`,
           },
         },
@@ -122,7 +134,7 @@ export default function HepanSection({ chartData }: Props) {
     } catch (e) {
       return { err: `对方盘排不出来：${(e as Error)?.message || e}` };
     }
-  }, [draft]);
+  }, [draft, partnerGeo]);
 
   // 出错也走返回值，不在 memo 里 setState：memo 在 render 阶段跑，那时候改状态
   // 会触发 React 的"render 期间更新别的组件"告警，严重时会循环渲染。
@@ -180,7 +192,7 @@ export default function HepanSection({ chartData }: Props) {
             <Link href="/create" className="qn-link">进入 · 建盘页（双人合盘）</Link>
           </div>
           <button type="button" id="hp-open" className="qn-btn qn-btn--ghost" style={{ marginTop: 10, minHeight: 44 }}
-            onClick={() => { setDraft({ 称呼: '', 性别: '女', year: '', month: '', day: '', hour: '12', minute: '00', isLunar: false, isLeapMonth: false, 省份: '北京', 城市: '北京', savedAt: 0 }); }}>
+            onClick={() => { setDraft({ 称呼: '', 性别: '女', year: '', month: '', day: '', hour: '12', minute: '00', isLunar: false, isLeapMonth: false, 省份: '北京', 城市: '北京', 区县: '', savedAt: 0 }); }}>
             填写对方生辰
           </button>
         </div>
@@ -213,15 +225,28 @@ export default function HepanSection({ chartData }: Props) {
               {MIN_OPTIONS.map(x => <option key={x} value={x}>{x}</option>)}
             </select>
             <select className="qn-select" style={{ minHeight: 44, width: 110 }} value={draft.省份 ?? '北京'}
-              aria-label="对方出生省" onChange={e => patch({ 省份: e.target.value, 城市: '' })}>
+              aria-label="对方出生省" onChange={e => patch({ 省份: e.target.value, 城市: '', 区县: '' })}>
               {regionProvinces.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
             </select>
             <select className="qn-select" style={{ minHeight: 44, width: 120 }} value={draft.城市 ?? ''}
-              aria-label="对方出生市" onChange={e => patch({ 城市: e.target.value })}>
+              aria-label="对方出生市" onChange={e => patch({ 城市: e.target.value, 区县: '' })}>
               {(regionProvinces.find(p => p.name === (draft.省份 || '北京'))?.cities.map(c => c.name) || ['北京'])
                 .map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+            <select className="qn-select" style={{ minHeight: 44, width: 120 }} value={draft.区县 ?? ''}
+              aria-label="对方出生区县" onChange={e => patch({ 区县: e.target.value })}>
+              <option value="">区县</option>
+              {(regionProvinces.find(p => p.name === (draft.省份 || '北京'))?.cities
+                .find(c => c.name === (draft.城市 || '北京'))?.districts.map(d => d.name) || [])
+                .map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
+          {partnerGeo && (
+            <p className="qn-note" style={{ margin: 0 }}>
+              对方坐标精度：{partnerGeo.precision === 'district' ? '区县命中' : partnerGeo.precision === 'city' ? '城市级（区县未命中）' : '省级（更精确可填城市或区县）'}
+              {partnerGeo.districtMatched ? '，已用于真太阳时。' : '，已按可用坐标计算真太阳时。'}
+            </p>
+          )}
           {/* 与建盘页同一条规则：开关只在该年确实闰这个月时才出现，常显会让人以为任何月都能闰。 */}
           {draft.isLunar && 闰 > 0 && Number(draft.month || '0') === 闰 && (
             <div style={{ display: 'flex' }}>

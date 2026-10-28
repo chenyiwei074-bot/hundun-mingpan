@@ -1,6 +1,9 @@
 ﻿import { Request, Response } from 'express';
 import prisma from '../database';
 
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const liveSince = () => new Date(Date.now() - RETENTION_MS);
+
 // POST /api/reports — 保存报告（游客直连）
 export async function saveReport(req: Request, res: Response) {
   try {
@@ -68,13 +71,14 @@ export async function saveGuestReport(req: Request, res: Response) {
 // GET /api/reports?visitorId=xxx — 获取报告列表
 export async function listReports(req: Request, res: Response) {
   try {
-    const { visitorId, type } = req.query;
+    const visitorId = String(req.header('x-visitor-id') || req.query.visitorId || '').trim();
+    const type = req.query.type;
 
     if (!visitorId) {
       return res.status(400).json({ success: false, error: '缺少 visitorId' });
     }
 
-    const where: any = { visitorId: visitorId as string };
+    const where: any = { visitorId: visitorId as string, createdAt: { gte: liveSince() } };
     if (type) where.type = type as string;
 
     const reports = await prisma.report.findMany({
@@ -100,7 +104,7 @@ export async function getReport(req: Request, res: Response) {
 
     // 隐私修复（2026-10-18）：报告含姓名/生辰/分析原文，必须校验归属。
     // 用 404 而非 403：不确认报告是否存在，避免被枚举。
-    if (!report || !visitorId || report.visitorId !== visitorId) {
+    if (!report || !visitorId || report.visitorId !== visitorId || report.createdAt < liveSince()) {
       return res.status(404).json({ success: false, error: '报告不存在或无权访问' });
     }
 

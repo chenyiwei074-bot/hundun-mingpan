@@ -278,7 +278,7 @@ export default function LiuyaoResultPage() {
       {reportContent && (
         <section className="qn-card" style={{ marginBottom: 16, padding: '24px 28px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-            <p className="qn-title">六爻解析报告</p>
+            <p className="qn-title">六爻解析报告（详细）</p>
             <button type="button" onClick={() => { setReportContent(null); setReportSourceIds([]); setReportError(''); }} className="qn-btn qn-btn--quiet">
               收起
             </button>
@@ -297,7 +297,9 @@ export default function LiuyaoResultPage() {
         </section>
       )}
 
-      {result && <ToolInterpretation tool="liuyao" title="六爻纳甲 · 混沌自研 AI 解读" question={result.question} payload={{
+      {result && <>
+        <p className="qn-note" style={{ marginTop: 14 }}>上方“生成六爻解析报告”是独立的详细报告；下面这张卡是精简 AI 解读，两者各自生成，规则结果以页面盘面为准。</p>
+        <ToolInterpretation tool="liuyao" title="六爻纳甲 · 精简 AI 解读" question={result.question} payload={{
         method: result.method,
         questionType: result.questionType,
         ganZhi: result.ganZhi,
@@ -327,7 +329,8 @@ export default function LiuyaoResultPage() {
           fuShen: analysisData.fuShen,
           hexagramRelations: analysisData.hexagramRelations,
         } : null,
-      }} />}
+      }} />
+      </>}
 
       {/* 解读之后再展示起卦过程、出处和可复核回执。 */}
       {result.qiShu && (

@@ -122,7 +122,8 @@ export async function lookupChinaGeo(province: string, city?: string, district?:
     if (!res.ok || json?.success === false) return null;
     const d = json?.data;
     if (!d || !Number.isFinite(d.lng) || !Number.isFinite(d.lat) || typeof d.tz !== 'string') return null;
-    return { lng: d.lng, lat: d.lat, tz: d.tz, src: d.src };
+    return { lng: d.lng, lat: d.lat, tz: d.tz, src: d.src,
+      precision: d.precision, districtMatched: d.districtMatched === true };
   } catch { return null; }
 }
 
@@ -176,18 +177,15 @@ export async function saveTarotReading(visitorId: string, question: string, read
 
 export async function listTarotReadings(visitorId: string) {
   if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
-  const query = new URLSearchParams({ visitorId });
-  return requestTarotRecord<TarotSavedReadingListItem[]>(`/tarot/readings?${query}`, {}, '加载塔罗记录失败');
+  return requestTarotRecord<TarotSavedReadingListItem[]>('/tarot/readings', { headers: visitorHeaders() }, '加载塔罗记录失败');
 }
 
 export async function getTarotReading(visitorId: string, id: string) {
   if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
-  const query = new URLSearchParams({ visitorId });
-  return requestTarotRecord<TarotSavedReadingDetail>(`/tarot/readings/${encodeURIComponent(id)}?${query}`, {}, '记录不存在或已过期');
+  return requestTarotRecord<TarotSavedReadingDetail>(`/tarot/readings/${encodeURIComponent(id)}`, { headers: visitorHeaders() }, '记录不存在或已过期');
 }
 
 export async function deleteTarotReading(visitorId: string, id: string) {
   if (!visitorId) throw new Error('无法识别本机记录身份，请刷新页面后重试');
-  const query = new URLSearchParams({ visitorId });
-  return requestTarotRecord<{ deleted: true }>(`/tarot/readings/${encodeURIComponent(id)}?${query}`, { method: 'DELETE' }, '删除塔罗记录失败');
+  return requestTarotRecord<{ deleted: true }>(`/tarot/readings/${encodeURIComponent(id)}`, { method: 'DELETE', headers: visitorHeaders() }, '删除塔罗记录失败');
 }

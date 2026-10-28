@@ -1,6 +1,7 @@
 import { createChart, enrichBazi, getZhiCangGanFull } from '../core';
 import type { BirthInfo, ChartResult } from '../core';
 import { buildTrueSolarWiring } from '../lib/true-solar/birth-wiring';
+import { lookupGeoV2 } from './geo.service';
 import { toCivilInput } from '../core/yiqi-core/lunar-input';
 import type { CreateChartInput } from '../utils/types';
 
@@ -29,12 +30,16 @@ function parseBirthInfo(input: CreateChartInput): BirthInfo {
   // 再用内置 IANA 数据补历史夏令时；出生地缺失时 longitude 为 undefined，
   // 引擎行为与旧版完全一致（applied=false）。
   const [province, city, district] = String(input.birthPlace || '').trim().split(/\s+/);
+  // 正式建盘也必须走与 /api/geo/lookup 相同的区县精度；未命中时 lookupGeoV2
+  // 会明确回退到城市/省级，并把 districtMatched=false 带回来，不伪造命中。
+  const preciseGeo = lookupGeoV2({ province, city, district });
   const tst = buildTrueSolarWiring(
     { province, city, district },
     {
       year: civil.year, month: civil.month, day: civil.day,
       hour: civil.hour, minute: civil.minute,
     },
+    preciseGeo ? { geoOverride: preciseGeo } : {},
   );
 
   return {

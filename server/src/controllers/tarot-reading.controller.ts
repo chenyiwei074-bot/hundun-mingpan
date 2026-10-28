@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import prisma from '../database';
+
+const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const liveSince = () => new Date(Date.now() - RETENTION_MS);
 import { TAROT_CARDS, TAROT_SPREADS, type TarotSpread } from '../data/tarot';
 
 /**
@@ -76,7 +79,7 @@ export async function listTarotReadings(req: Request, res: Response) {
     const visitorId = String(req.query.visitorId || req.header('x-visitor-id') || '').trim();
     if (!visitorId) return res.status(400).json({ success: false, error: '缺少本人标识' });
     const rows = await prisma.report.findMany({
-      where: { visitorId, type: 'tarot' },
+      where: { visitorId, type: 'tarot', createdAt: { gte: liveSince() } },
       orderBy: { createdAt: 'desc' },
       take: 50,
       select: { id: true, title: true, createdAt: true },
@@ -92,7 +95,7 @@ export async function getTarotReading(req: Request, res: Response) {
   try {
     const visitorId = String(req.query.visitorId || req.header('x-visitor-id') || '').trim();
     if (!visitorId) return res.status(400).json({ success: false, error: '缺少本人标识' });
-    const row = await prisma.report.findFirst({ where: { id: String(req.params.id), visitorId, type: 'tarot' } });
+    const row = await prisma.report.findFirst({ where: { id: String(req.params.id), visitorId, type: 'tarot', createdAt: { gte: liveSince() } } });
     if (!row) return res.status(404).json({ success: false, error: '记录不存在或无权访问' });
     let reading: unknown = null;
     try { reading = row.resultJson ? JSON.parse(row.resultJson) : null; } catch { reading = null; }
@@ -107,7 +110,7 @@ export async function deleteTarotReading(req: Request, res: Response) {
   try {
     const visitorId = String(req.query.visitorId || req.header('x-visitor-id') || '').trim();
     if (!visitorId) return res.status(400).json({ success: false, error: '缺少本人标识' });
-    const r = await prisma.report.deleteMany({ where: { id: String(req.params.id), visitorId, type: 'tarot' } });
+    const r = await prisma.report.deleteMany({ where: { id: String(req.params.id), visitorId, type: 'tarot', createdAt: { gte: liveSince() } } });
     if (!r.count) return res.status(404).json({ success: false, error: '记录不存在或无权访问' });
     return res.json({ success: true, data: { deleted: true } });
   } catch (err: any) {
