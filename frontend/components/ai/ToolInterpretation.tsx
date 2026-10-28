@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ClassicalReferences from '@/components/chart/ClassicalReferences';
 import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
@@ -62,22 +62,53 @@ export default function ToolInterpretation({ tool, title, payload, question, dis
   const [state, setState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<InterpretationResult | null>(null);
   const [error, setError] = useState('');
+  const signature = JSON.stringify({ tool, payload, question: question || '', disabledReason: disabledReason || '' });
+  const signatureRef = useRef(signature);
+  const requestSeq = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // 输入一变，旧解读与旧 factRefs 必须一起消失；在途请求也不能再把旧结果写回来。
+  useEffect(() => {
+    if (signatureRef.current === signature) return;
+    signatureRef.current = signature;
+    requestSeq.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setState('idle');
+    setResult(null);
+    setError('');
+  }, [signature]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const run = async () => {
     if (disabledReason) return;
-    setState('loading'); setError('');
+    const seq = ++requestSeq.current;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const runSignature = signature;
+    setState('loading');
+    setResult(null);
+    setError('');
     try {
       const res = await fetch('/api/ai/interpret', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({ tool, payload, question: question || '' }),
       });
       const json = await res.json().catch(() => null);
+      if (seq !== requestSeq.current || signatureRef.current !== runSignature) return;
       if (!res.ok || !json?.success) throw new Error(json?.error || 'AI 解读暂时不可用');
       setResult(json.data as InterpretationResult);
       setState('done');
     } catch (e) {
+      if (seq !== requestSeq.current || signatureRef.current !== runSignature) return;
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : 'AI 解读暂时不可用');
       setState('error');
+    } finally {
+      if (abortRef.current === controller) abortRef.current = null;
     }
   };
 

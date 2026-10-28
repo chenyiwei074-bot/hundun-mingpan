@@ -2,8 +2,8 @@
 
 **这些不是抓包。** 字段名与嵌套取自 `server/src/services/vision.service.ts` 里那份
 `RecognizedPlan` 接口 + `PlanSchema`（zod）+ `PROMPT` 里给模型看的输出示例，
-外层 `{ ok, imageId, imageMime, imageBytes, plan, provider, model, latencyMs, attempts }`
-取自 `server/src/controllers/fengshui.controller.ts` 的成功分支。
+外层 `{ ok, imageId, imageMime, imageBytes, plan }`
+是 `server/src/controllers/fengshui.controller.ts` 的公开成功分支；provider/model/latency/attempts 只留服务端内部，不进入公开响应。
 几何数值是本站编的一段两室夹一厅。
 
 ## 为什么只校形状、不校数值（裁定 2026-10-20）

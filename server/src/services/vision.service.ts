@@ -155,14 +155,22 @@ export async function recognizeFloorPlan(imageDataUrl: string, opts?: { timeoutM
     const budget = Math.min(remaining - 3000, attempts.length === 0 ? Math.max(20000, remaining - 35000) : 35000);
     try {
       const { raw, ms } = await callOnce({ ...c, imageDataUrl, timeoutMs: budget });
-      attempts.push({ provider: c.provider, ok: true, ms });
       let parsed: unknown;
       try { parsed = extractJson(raw); } catch {
-        return { ok: false, code: 'bad_json', message: '模型没回 JSON：' + raw.replace(/\s+/g, ' ').slice(0, 200), attempts };
+        // 解析失败是可重试的：记录内部原因，继续下一个已配置供应商。
+        attempts.push({ provider: c.provider, ok: false, ms, error: 'bad_json' });
+        continue;
       }
       const p = PlanSchema.safeParse(parsed);
-      if (!p.success) return { ok: false, code: 'bad_json', message: 'JSON 形状不符：' + p.error.issues.slice(0, 3).map(i => i.path.join('.') + ' ' + i.message).join('; ') + ' | 原文：' + raw.replace(/\s+/g, ' ').slice(0, 160), attempts };
-      if (p.data.ok === false) return { ok: false, code: 'not_floorplan', message: p.data.reason || '模型认为这不是户型图', attempts };
+      if (!p.success) {
+        attempts.push({ provider: c.provider, ok: false, ms, error: 'bad_json' });
+        continue;
+      }
+      if (p.data.ok === false) {
+        attempts.push({ provider: c.provider, ok: true, ms });
+        return { ok: false, code: 'not_floorplan', message: p.data.reason || '模型认为这不是户型图', attempts };
+      }
+      attempts.push({ provider: c.provider, ok: true, ms });
       const clamp = (v: number) => Math.max(0, Math.min(1, v));
       const plan: RecognizedPlan = {
         rooms: p.data.rooms.map(r => ({ name: r.name, confidence: r.confidence, polygon: r.polygon.map(([x, y]) => [clamp(x), clamp(y)] as [number, number]) })),
@@ -178,5 +186,7 @@ export async function recognizeFloorPlan(imageDataUrl: string, opts?: { timeoutM
       continue;
     }
   }
-  return { ok: false, code: 'provider_error', message: '所有视觉供应商都失败了：' + attempts.map(a => a.provider + ':' + (a.error || '')).join(' | '), attempts };
+  const sawBadJson = attempts.some(a => a.error === 'bad_json');
+  return { ok: false, code: sawBadJson ? 'bad_json' : 'provider_error',
+    message: sawBadJson ? '视觉识别返回格式不符合要求，已尝试其他识别服务。' : '所有视觉供应商都失败了。', attempts };
 }

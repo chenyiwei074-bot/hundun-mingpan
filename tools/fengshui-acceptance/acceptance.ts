@@ -400,8 +400,8 @@ const base: FloorInput = {
   const studioFetchCount = (studio.match(/fetch\(/g) || []).length;
   ok('rc/no-multipart-left-in-page', !/FormData|multipart|form\.append/.test(studio)
     && studioFetchCount <= 2
-    && /fetch\(`\/api\/fengshui\/image\/\$\{target\}\?visitorId=/.test(studio)
-    && /method: 'DELETE'/.test(studio),
+    && /fetch\(`\/api\/fengshui\/image\/\$\{target\}`, \{ method: 'DELETE', headers: \{ 'x-visitor-id': visitorId \} \}\)/.test(studio)
+    && /x-visitor-id/.test(studio),
     `页面里没有 FormData；fetch 只允许「识别 + 删除本人图」两处（实测 ${studioFetchCount} 处），且第二处是 DELETE`);
 
   // C. 本地预校验：与控制器同一条正则，把注定 400 的请求拦在发出之前。
@@ -443,12 +443,12 @@ const base: FloorInput = {
 
   // F. 契约同步：样例里的字段必须还是服务端接口声明的那些。服务端改字段这条就红。
   const planKeys = Object.keys(successCase.plan).sort().join(',');
-  const declared = ['rooms', 'walls', 'doors', 'windows', 'notes', 'provider', 'model', 'latencyMs'].sort().join(',');
+  const declared = ['rooms', 'walls', 'doors', 'windows', 'notes'].sort().join(',');
   ok('rc/case-keys-match-server-interface', planKeys === declared,
-    `样例的 plan 键集合等于服务端 RecognizedPlan 声明的 8 个（实得 ${planKeys}）—— 服务端动字段而这里没红，就是契约同步漏了`);
+    `样例的 plan 键集合等于服务端公开几何声明的 5 个（实得 ${planKeys}）—— 服务端动字段而这里没红，就是契约同步漏了`);
   const envelope = Object.keys(successCase).sort().join(',');
-  ok('rc/envelope-keys-match-controller', ['attempts', 'imageBytes', 'imageId', 'imageMime', 'latencyMs', 'model', 'ok', 'plan', 'provider'].join(',') === envelope,
-    `外层信封键等于控制器成功分支的 9 个（实得 ${envelope}）`);
+  ok('rc/envelope-keys-match-controller', ['imageBytes', 'imageId', 'imageMime', 'ok', 'plan'].join(',') === envelope,
+    `外层信封键等于控制器公开成功分支的 5 个（实得 ${envelope}）`);
   const roomKeys = Object.keys(successCase.plan.rooms[0]).sort().join(',');
   const openKeys = Object.keys(successCase.plan.doors[0]).sort().join(',');
   ok('rc/field-names-live-in-server-schema', roomKeys === 'confidence,name,polygon' && openKeys === 'confidence,width,x,y'
@@ -467,7 +467,7 @@ const base: FloorInput = {
   }
   for (const r of scaled.plan.rooms) r.confidence = 0.13;
   for (const o of scaled.plan.doors) if ('confidence' in o) o.confidence = 0.97;
-  scaled.plan.latencyMs = 1; scaled.imageBytes = 7; scaled.imageId = 'x';
+  scaled.imageBytes = 7; scaled.imageId = 'x';
   const parsedPerturbed = parseRecognize(scaled, { spanM: RECOGNIZE_SPAN_M, aspect: 2 });
   const shapeOf = (p: typeof parsedCase) => (p.ok
     ? [p.geom.墙体.length, p.geom.房间.length, p.门数, p.窗数, p.未挂上数, p.未命名房间数,

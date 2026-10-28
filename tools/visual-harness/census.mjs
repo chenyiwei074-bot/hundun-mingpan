@@ -2356,8 +2356,7 @@ const STUB_BOOT = `(() => {
       } catch (e) { window.__recReq = { err: String(e).slice(0, 60) }; }
       const mode = new URLSearchParams(location.search).get('recognize');
       if (mode === 'ok') return new Response(${JSON.stringify(FS_OK_BODY)}, { status: 200, headers: { 'Content-Type': 'application/json' } });
-      return J({ ok: false, code: 'provider_error', message: '所有视觉供应商都失败了：glm-4v:timeout',
-        attempts: [{ provider: 'glm-4v', ok: false, ms: 0, error: 'timeout' }] }, 503);
+      return J({ ok: false, code: 'provider_error', message: '图片识别服务暂时不可用，请稍后重试或手工绘制。' }, 503);
     }
     if (url.includes('/api/chart/result/')) { let p = null; try { p = JSON.parse(sessionStorage.getItem('chart_preview') || 'null'); } catch (e) {}
       return J({ success: true, data: { chartData: p && p.chart, name: p && p.chartName } }); }

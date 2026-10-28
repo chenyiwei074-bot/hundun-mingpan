@@ -12,12 +12,31 @@ import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import path from 'node:path';
-import { recognizeFloorPlan } from '../services/vision.service';
+import { recognizeFloorPlan, type RecognizedPlan } from '../services/vision.service';
 
 const ROOT = '/srv/chaos/uploads/floorplan';
 const MAX_BYTES = 5 * 1024 * 1024;
 const VISITOR_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const PUBLIC_FAIL_MESSAGE: Record<string, string> = {
+  not_floorplan: '这张图里没有识别出清晰的户型结构，请换一张俯视户型图或手工绘制。',
+  timeout: '图片识别超时，请稍后重试或手工绘制。',
+  bad_json: '图片识别结果暂时无法解析，请稍后重试或手工绘制。',
+  provider_error: '图片识别服务暂时不可用，请稍后重试或手工绘制。',
+  no_provider: '图片识别服务暂时不可用，请稍后重试或手工绘制。',
+};
+
+/** 对外只保留用户可用的几何与图片元数据，不含模型/供应商/尝试记录。 */
+function publicPlan(plan: RecognizedPlan) {
+  return {
+    rooms: plan.rooms,
+    walls: plan.walls,
+    doors: plan.doors,
+    windows: plan.windows,
+    notes: plan.notes,
+  };
+}
 
 const MAGIC: Array<{ ext: 'jpg' | 'png' | 'webp'; mime: string; test: (b: Buffer) => boolean }> = [
   { ext: 'jpg', mime: 'image/jpeg', test: b => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
@@ -53,13 +72,17 @@ export async function recognize(req: Request, res: Response) {
     const outcome = await recognizeFloorPlan(`data:${kind.mime};base64,${b64}`);
     if (!outcome.ok) {
       const status = outcome.code === 'not_floorplan' ? 422 : outcome.code === 'timeout' ? 504 : 503;
-      return res.status(status).json({ ok: false, code: outcome.code, message: outcome.message, attempts: outcome.attempts, imageId: id });
+      // 公开失败体只留固定 code 与可执行中文；原始错误/供应商/attempts 只留在服务端。
+      return res.status(status).json({
+        ok: false,
+        code: outcome.code || 'provider_error',
+        message: PUBLIC_FAIL_MESSAGE[outcome.code || 'provider_error'] || PUBLIC_FAIL_MESSAGE.provider_error,
+        imageId: id,
+      });
     }
     return res.json({
       ok: true, imageId: id, imageMime: kind.mime, imageBytes: buf.length,
-      plan: outcome.plan,
-      provider: outcome.plan?.provider, model: outcome.plan?.model, latencyMs: outcome.plan?.latencyMs,
-      attempts: outcome.attempts,
+      plan: publicPlan(outcome.plan!),
     });
   } catch (e) {
     console.error('[fengshui/recognize] 失败:', e instanceof Error ? e.message : e);
