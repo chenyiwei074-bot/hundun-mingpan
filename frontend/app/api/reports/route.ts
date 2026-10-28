@@ -21,13 +21,14 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const visitorId = searchParams.get('visitorId');
+    const visitorId = req.headers.get('x-visitor-id') || searchParams.get('visitorId');
     const type = searchParams.get('type');
     const params = new URLSearchParams();
-    if (visitorId) params.set('visitorId', visitorId);
     if (type) params.set('type', type);
+    const headers: Record<string,string> = {};
+    if (visitorId) headers['x-visitor-id'] = visitorId;
 
-    const res = await fetch(`${BACKEND}/reports?${params.toString()}`);
+    const res = await fetch(`${BACKEND}/reports${params.size ? `?${params.toString()}` : ''}`, { headers });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (e: any) {

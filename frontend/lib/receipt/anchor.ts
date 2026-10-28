@@ -74,9 +74,9 @@ export async function submitReceiptSummary(receipt: Receipt, visitorId: string):
   if (!id) return { ok: false, error: '当前浏览器无法确认回执归属，暂时不能提交。' };
   let res: Response;
   try {
-    res = await fetch('/api/receipts?visitorId=' + encodeURIComponent(id), {
+    res = await fetch('/api/receipts', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-visitor-id': id },
       body: JSON.stringify(receiptSubmissionBody(receipt)),
     });
   } catch {

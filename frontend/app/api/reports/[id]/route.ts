@@ -11,8 +11,9 @@ const BASE = /^https?:\/\//.test(RAW)
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const visitorId = new URL(req.url).searchParams.get('visitorId') || '';
-      const res = await fetch(`${BASE}/reports/${id}?visitorId=${encodeURIComponent(visitorId)}`, { cache: 'no-store' });
+    const visitorId = req.headers.get('x-visitor-id') || new URL(req.url).searchParams.get('visitorId') || '';
+    const headers: Record<string,string> = visitorId ? { 'x-visitor-id': visitorId } : {};
+    const res = await fetch(`${BASE}/reports/${encodeURIComponent(id)}`, { headers, cache: 'no-store' });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (e: any) {
