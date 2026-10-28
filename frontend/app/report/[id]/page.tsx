@@ -8,6 +8,7 @@ import { checkReportAccess } from '@/lib/report/access';
 import type { ReportRecord } from '@/lib/report/types';
 import { getVisitorId } from '@/lib/auth/visitor';
 import { RichText } from '@/lib/ui/richText';
+import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
 /** 返回链接要撑到 44px 命中区，否则手机上只有 17px 高 */
 const BACK: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', minHeight: 44 };
@@ -71,7 +72,9 @@ export default function ReportDetailPage() {
 
 
       <article className="qn-card">
-        {displayText ? <RichText text={displayText} /> : (
+        {displayText ? <PlainLanguageView context="report" parts={[{ id: 'report', text: displayText }]}>
+          {textById => <RichText text={textById.report} />}
+        </PlainLanguageView> : (
           <p className="qn-meta" style={{ textAlign: 'center', padding: '28px 0' }}>暂无报告内容</p>
         )}
       </article>

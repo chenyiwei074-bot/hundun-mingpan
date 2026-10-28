@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { INTENTS } from '@/lib/tools/catalog';
 import { WESTERN_INTENTS } from '@/lib/tools/western-catalog';
-import { routeByCatalogSlug } from '@/lib/assistant/intent';
+import { isMonthlyFortuneQuestion, routeByCatalogSlug } from '@/lib/assistant/intent';
 import { askRoute } from '@/lib/assistant/route-client';
 import type { RouteOutcome } from '@/lib/assistant/route-client';
 import type { AskTurn, AssistantRouteResult, Mode } from '@/lib/assistant/types';
@@ -215,19 +215,25 @@ export default function QuestionComposer({ mode }: { mode: Mode }) {
               {kind === 'matched' && tool && (
                 <>
                   <p className="qn-body" style={{ marginTop: 8 }}>
-                    该用的是{tool.name}。
+                    {mode === 'oriental' && isMonthlyFortuneQuestion(t.text)
+                      ? `看流月，请进入「${tool.name}」的十二节月。`
+                      : `该用的是${tool.name}。`}
                   </p>
                   {/* 顺序是量出来的，不是排好看的：预留那一格是有限高的（globals.css 的 .qa-pane），
                       "怎么读"那句排在入口前面的话，入口底线要到 220px（375 那一档 258px）——
                       结论给了、下一步却要点不到。所以这一支是 结论 → 入口 → 还要补 → 怎么读，
                       由 harness 的"入口必须在预留格里看得见"那条判据钉住。 */}
-                  <Link href={tool.href!} className="qn-btn qn-btn--ghost" style={{ marginTop: 8, minHeight: 44 }}>
+                  <Link href={mode === 'oriental' && tool.slug === 'dayun' && isMonthlyFortuneQuestion(t.text)
+                    ? `${tool.href}#liuyue` : tool.href!} className="qn-btn qn-btn--ghost" style={{ marginTop: 8, minHeight: 44 }}>
                     进入 · {tool.name}
                   </Link>
                   {t.result.missingFields.length > 0 && (
                     <p className="qn-note" style={{ marginTop: 6 }}>
                       还要补：{t.result.missingFields.join('、')}。页面会再问你，这里不替你填。
                     </p>
+                  )}
+                  {t.result.clarification && (
+                    <p className="qn-note" style={{ marginTop: 6 }}>{t.result.clarification}</p>
                   )}
                   <p className="qn-meta" style={{ marginTop: 6 }}>{tool.reading}</p>
                 </>

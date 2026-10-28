@@ -2,12 +2,16 @@ import { FreeModelProvider } from './ai/FreeModelProvider';
 import { DeepSeekProvider } from './ai/DeepSeekProvider';
 import type { AIProvider } from './ai/AIProvider';
 import { z } from 'zod';
+import { Solar } from 'lunar-typescript';
+import { getShiShen } from '../core/bazi-enrich/tables';
+import { getZhiCangGanFull } from '../core/yiqi-core/bazi';
+import { zhiPairRelations } from '../core/bazi-enrich/zhi-relations';
 
 export const AI_TOOLS = {
   meihua: '梅花易数', liuyao: '六爻纳甲', xiu: '二十八宿', hepan: '合盘对照',
   huangli: '黄历宜忌', 'name-compat': '姓名五格', numerology: '数字命理',
   moon: '月相周期', synastry: '跨盘相位', astro: '本命行星位置',
-  dayun: '大运流年', fengshui: '户型九宫', 'bazi-pillars': '八字四柱',
+  dayun: '大运流年', liuyue: '八字流月', fengshui: '户型九宫', 'bazi-pillars': '八字四柱',
   'face-reading': '面部可见特征', 'palm-reading': '手掌可见特征',
 } as const;
 export type AiTool = keyof typeof AI_TOOLS;
@@ -86,6 +90,12 @@ export const TOOL_PROFILES: Record<AiTool, ToolProfile> = {
     avoid: ['紫微斗数', '六爻纳甲', '梅花易数', '塔罗牌义'],
     sections: ['四柱与起运', '当前大运', '流年结构', '边界'],
   },
+  liuyue: {
+    system: '八字流月',
+    scope: '只读当前选中的一个节月：交节时刻、月柱、日主十神、月支藏干以及与命局四柱、流年和大运的成对关系。按立春起年、节气精确时刻换月；不是公历自然月或农历月。只能说明结构与可留意的主题，不能断言具体事件、某月吉凶或财运好坏。',
+    avoid: ['紫微斗数', '六爻纳甲', '梅花易数', '塔罗牌义', '跨月比较评分', '把月柱关系写成必然发生的事'],
+    sections: ['本节月的时间与月柱', '十神与命局关系', '与流年及大运的关系', '现实取用与边界'],
+  },
   'bazi-pillars': {
     system: '八字四柱',
     scope: '只解释用户输入的四柱与 enrichBazi 已算出的五行、旺衰、格局、调候、干支关系、自坐与整柱字段。',
@@ -126,6 +136,9 @@ export const ALLOWED_KEYS: Record<AiTool, string[]> = {
   synastry: ['first', 'second', 'aspects', 'houseOverlays', 'compositeMidpoints'],
   astro: ['positions', 'aspects', 'houses', 'ascendant', 'midheaven', 'frame', 'nodeMode'],
   dayun: ['siZhu', 'dayMaster', 'shiShen', 'naYin', 'dayunStart', 'dayun'],
+  liuyue: ['basis', 'year', 'monthIndex', 'monthName', 'startBeijing', 'endBeijing',
+    'monthGanZhi', 'annualGanZhi', 'dayunGanZhi', 'dayMaster', 'ganShiShen',
+    'cangGan', 'natalRelations', 'yearRelations', 'dayunRelations'],
   fengshui: ['判定', '未判定', '跨宫', '朝向', '关心点', '格数', '跨度'],
   'bazi-pillars': ['siZhu', 'enrichment'],
   'face-reading': ['confirmedFeatures'],
@@ -176,6 +189,53 @@ export function validateAiRequest(body: unknown): AiValidation {
       ? z.object({ confirmedFeatures: featureList }).strict()
       : z.object({ hand: z.enum(['left', 'right']), confirmedFeatures: featureList }).strict();
     if (!schema.safeParse(payload).success) return { ok: false, status: 400, error: '已确认特征格式不符合要求' };
+  }
+  if (tool === 'liuyue') {
+    const gan = z.enum(['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']);
+    const zhi = z.enum(['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']);
+    const ganZhi = z.object({ gan, zhi }).strict();
+    const relation = z.array(z.string().trim().min(2).max(100)).max(20);
+    const monthNames = ['寅月', '卯月', '辰月', '巳月', '午月', '未月',
+      '申月', '酉月', '戌月', '亥月', '子月', '丑月'] as const;
+    const terms = ['立春', '惊蛰', '清明', '立夏', '芒种', '小暑',
+      '立秋', '白露', '寒露', '立冬', '大雪', 'XIAO_HAN', 'LI_CHUN'] as const;
+    const schema = z.object({
+      basis: z.literal('jieqi-liuyue-v1'), year: z.number().int().min(1900).max(2100),
+      monthIndex: z.number().int().min(1).max(12),
+      monthName: z.enum(monthNames),
+      startBeijing: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
+      endBeijing: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
+      monthGanZhi: ganZhi, annualGanZhi: ganZhi, dayunGanZhi: ganZhi,
+      dayMaster: gan, ganShiShen: z.string().trim().min(2).max(4),
+      cangGan: z.array(z.object({ gan, shiShen: z.string().trim().min(2).max(4) }).strict()).min(1).max(3),
+      natalRelations: relation, yearRelations: relation, dayunRelations: relation,
+    }).strict();
+    const parsed = schema.safeParse(payload);
+    if (!parsed.success) return { ok: false, status: 400, error: '流月结果格式不符合要求' };
+    const month = parsed.data;
+    const table = Solar.fromYmdHms(month.year, 6, 15, 12, 0, 0).getLunar().getJieQiTable();
+    const start = table[terms[month.monthIndex - 1]];
+    const end = table[terms[month.monthIndex]];
+    if (!start || !end || month.monthName !== monthNames[month.monthIndex - 1]
+      || month.monthGanZhi.zhi !== month.monthName[0]
+      || month.startBeijing !== start.toYmdHms().slice(0, 16)
+      || month.endBeijing !== end.toYmdHms().slice(0, 16)) {
+      return { ok: false, status: 400, error: '流月节气边界与月份不一致' };
+    }
+    const check = start.next(1).getLunar();
+    if (`${month.monthGanZhi.gan}${month.monthGanZhi.zhi}` !== check.getMonthInGanZhiExact()
+      || `${month.annualGanZhi.gan}${month.annualGanZhi.zhi}` !== check.getYearInGanZhiByLiChun()) {
+      return { ok: false, status: 400, error: '流月或流年干支与节气历法不一致' };
+    }
+    const relationLabels = (otherZhi: typeof month.monthGanZhi.zhi, label: string) =>
+      zhiPairRelations(month.monthGanZhi.zhi, otherZhi).map(relation =>
+        `流月支 ${month.monthGanZhi.zhi} × ${label} ${otherZhi} → ${relation.type}${relation.detail ? `·${relation.detail}` : ''}`);
+    if (month.ganShiShen !== getShiShen(month.dayMaster, month.monthGanZhi.gan)
+      || JSON.stringify(month.cangGan) !== JSON.stringify(getZhiCangGanFull(month.monthGanZhi.zhi, month.dayMaster))
+      || JSON.stringify(month.yearRelations) !== JSON.stringify(relationLabels(month.annualGanZhi.zhi, '流年支'))
+      || JSON.stringify(month.dayunRelations) !== JSON.stringify(relationLabels(month.dayunGanZhi.zhi, '大运支'))) {
+      return { ok: false, status: 400, error: '流月十神或成对关系与本站规则不一致' };
+    }
   }
   let text = '';
   try { text = JSON.stringify(payload); } catch { return { ok: false, status: 400, error: '结果数据无法解析' }; }

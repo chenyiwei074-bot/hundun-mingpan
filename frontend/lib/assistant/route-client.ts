@@ -7,7 +7,7 @@
 import type { ToolEntry } from '@/lib/tools/catalog';
 import { ASSISTANT_PROTOCOL, parseRouteResult, reconcile } from './types';
 import type { AssistantRouteResult, Mode } from './types';
-import { routeLocal } from './intent';
+import { isMonthlyFortuneQuestion, routeLocal } from './intent';
 
 // 缺陷①（批10 核出、运维已裁）：这里原来打的是 '/api/assistant/route'，
 // 而路由文件 app/api/assistant/route.ts 导出的路径是 '/api/assistant' —— 多出来的那一段
@@ -39,6 +39,9 @@ export async function askRoute(args: {
   const trimmed = args.text.trim();
   if (trimmed.length === 0) {
     return { ...local(), degraded: '还没输入问题' };
+  }
+  if (isMonthlyFortuneQuestion(trimmed)) {
+    return { ...local(), degraded: '月运问法按本站已实现的节月工具范围匹配，避免混入其他体系' };
   }
 
   const doFetch = args.fetchImpl ?? globalThis.fetch;

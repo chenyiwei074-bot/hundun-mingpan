@@ -13,6 +13,7 @@ import { saveReport } from '@/lib/report/saveReport';
 import { RichText } from '@/lib/ui/richText';
 import ClassicalReferences from '@/components/chart/ClassicalReferences';
 import ToolInterpretation from '@/components/ai/ToolInterpretation';
+import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
 const YAO_NAMES = ['初爻', '二爻', '三爻', '四爻', '五爻', '上爻'];
 
@@ -283,7 +284,9 @@ export default function LiuyaoResultPage() {
             </button>
           </div>
           <div className="qn-body">
-            <RichText text={reportContent} />
+            <PlainLanguageView context="liuyao" parts={[{ id: 'report', text: reportContent }]}>
+              {textById => <RichText text={textById.report} />}
+            </PlainLanguageView>
           </div>
           {reportSourceIds.length > 0
             ? <ClassicalReferences sourceIds={reportSourceIds} />

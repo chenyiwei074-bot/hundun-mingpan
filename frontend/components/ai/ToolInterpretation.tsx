@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ClassicalReferences from '@/components/chart/ClassicalReferences';
+import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
 export type InterpretationSection = {
   id?: string;
@@ -101,8 +102,11 @@ export default function ToolInterpretation({ tool, title, payload, question, dis
         <div style={{ marginTop: 12 }}>
           <p className="qn-title" style={{ margin: 0 }}>{result.title}</p>
           {result.mode === 'ai' && result.aiReady ? (
-            <>
-              <p className="qn-body" style={{ marginTop: 8 }}>{result.summary}</p>
+            <PlainLanguageView context="tool" parts={[
+              { id: 'summary', text: result.summary },
+              ...result.sections.map((section, index) => ({ id: `section-${index}`, text: section.body })),
+            ]}>{textById => <>
+              <p className="qn-body" style={{ marginTop: 8 }}>{textById.summary}</p>
               {result.sections.map((section, index) => (
                 <div key={section.id || `${section.title}-${index}`} style={{ marginTop: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
@@ -110,7 +114,7 @@ export default function ToolInterpretation({ tool, title, payload, question, dis
                     {section.factRefs?.length ? <span className="qn-cap" title={`${section.factRefs.length} 项本页计算数据`}>引用本页计算数据 · {section.factRefs.length} 项</span> : null}
                     {section.sourceIds?.length ? null : <span className="qn-cap" aria-label={`${section.title}：本站自研，无可核验古籍出处`}>本站自研</span>}
                   </div>
-                  <p className="qn-body" style={{ margin: '4px 0 0' }}>{section.body}</p>
+                  <p className="qn-body" style={{ margin: '4px 0 0' }}>{textById[`section-${index}`]}</p>
                   {section.factRefs?.length ? (
                     <details style={{ marginTop: 6 }}>
                       <summary className="qn-cap" style={{ cursor: 'pointer', minHeight: 36, display: 'inline-flex', alignItems: 'center' }}>
@@ -127,7 +131,7 @@ export default function ToolInterpretation({ tool, title, payload, question, dis
                   {section.sourceIds?.length ? <ClassicalReferences sourceIds={section.sourceIds} /> : null}
                 </div>
               ))}
-            </>
+            </>}</PlainLanguageView>
           ) : (
             <p className="qn-meta" style={{ marginTop: 8 }}>综合 AI 解读暂时不可用；上方规则结果仍然有效，AI 未参与本次解读。</p>
           )}

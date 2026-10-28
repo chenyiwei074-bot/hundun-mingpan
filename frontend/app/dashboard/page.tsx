@@ -9,6 +9,7 @@ import { deleteTarotReading, getTarotReading, listTarotReadings } from '@/app/li
 import type { TarotSavedReadingDetail, TarotSavedReadingListItem } from '@/app/lib/api';
 import { TAROT_DECK } from '@/lib/tarot/deck';
 import { getMarseilleReading } from '@/lib/tarot/marseille-readings';
+import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
 const TYPE_MARKS: Record<ReportType, string> = { bazi: '八', ziwei: '紫', liuyao: '六', tarot: '塔' };
 
@@ -192,7 +193,11 @@ export default function DashboardPage() {
                         <p className="qn-meta" role="status">正在读取这条记录…</p>
                       ) : detail ? (
                         <>
-                          <p className="tarot-dashboard__summary">{detail.reading.summary}</p>
+                          <PlainLanguageView context="tarot" parts={[
+                            { id: 'summary', text: detail.reading.summary },
+                            ...detail.reading.cards.map((card, index) => ({ id: `card-${index}`, text: card.text })),
+                          ]}>{textById => <>
+                          <p className="tarot-dashboard__summary">{textById.summary}</p>
                           <ol className="tarot-dashboard__cards">
                             {detail.reading.cards.map((card, index) => {
                               const deckCard = TAROT_DECK.find(item => item.id === card.cardId);
@@ -205,13 +210,14 @@ export default function DashboardPage() {
                                     <strong>{card.nameZh || deckCard?.nameZh || card.cardId}</strong>
                                     <span>{card.orientation}</span>
                                   </div>
-                                  <p>{card.text}</p>
+                                  <p>{textById[`card-${index}`]}</p>
                                   {card.source && <small>韦特牌义出处：{card.source}</small>}
                                   {marseille && <small className="qn-cap" style={{ display: 'block', marginTop: 6 }}>马赛 · 本站自研象征读法：{marseille[orientationKey]}</small>}
                                 </li>
                               );
                             })}
                           </ol>
+                          </>}</PlainLanguageView>
                           {detail.reading.notes.length > 0 && <p className="qn-cap">{detail.reading.notes.join(' ')}</p>}
                         </>
                       ) : !tarotDetailError ? <p className="qn-meta">展开时读取记录详情。</p> : null}

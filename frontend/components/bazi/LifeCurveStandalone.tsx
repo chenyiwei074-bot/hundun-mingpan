@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getChartResult } from '@/app/lib/api';
 import type { BaziChart } from '@/app/lib/core/yiqi-core/types';
 import LifeCurve from '@/components/bazi/LifeCurve';
+import LiuYuePanel from '@/components/bazi/LiuYuePanel';
 import ToolInterpretation from '@/components/ai/ToolInterpretation';
 
 type Preview = { chartId?: string; chart?: { bazi?: BaziChart } };
@@ -72,16 +73,23 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
     return () => { cancelled = true; };
   }, [chartId]);
 
+  useEffect(() => {
+    if (!chart || window.location.hash !== '#liuyue') return;
+    const frame = requestAnimationFrame(() => document.getElementById('liuyue')?.scrollIntoView({ block: 'start' }));
+    return () => cancelAnimationFrame(frame);
+  }, [chart]);
+
   return (
     <main className="qn-shell qn-shell--wide" data-mode="oriental"
       data-dayun-loading={loading && chartId ? 'true' : undefined}>
       <header className="qn-rise" style={{ paddingTop: 24 }}>
         <Link href="/oriental" className="domain-back">← 返回东方目录</Link>
         <p className="qn-eyebrow" style={{ marginTop: 14 }}>东方 · 岁运结构</p>
-        <h1 className="qn-hero">大运 · 流年 · 人生曲线</h1>
+        <h1 className="qn-hero">大运 · 流年 · 流月 · 人生曲线</h1>
         <p className="qn-meta" style={{ marginTop: 10, maxWidth: '62ch' }}>
-          按年份查看命盘中的大运、流年与十神对应关系。这里只呈现岁运结构，不提供吉凶评分或人生预测。
+          先看大运和流年，再按交节时刻查看十二个节月的月柱与十神关系。这里只呈现结构，不提供吉凶评分或确定性预测。
         </p>
+        <a className="qn-link" href="#liuyue" style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>直接看流月 ↓</a>
       </header>
 
       {loading ? (
@@ -120,12 +128,13 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
             liuNian: segment.liuNian,
           })),
         }} />}
+        {chart && <LiuYuePanel chart={chart} />}
         </div>
       )}
 
       <footer className="qn-legal qn-dayun-legal" style={{ marginTop: 22 }}>
         <p className="qn-note" style={{ margin: 0 }}>
-          曲线依据当前命盘已有的大运与流年数据生成；个人备注仅保存在当前设备，不进入报告。
+          大运、流年沿用当前命盘；流月使用同一排盘库的精确节气时刻和月柱计算。个人备注仅保存在当前设备，不进入报告。
         </p>
         <p className="qn-linkrow">
           <Link className="qn-link" href="/oriental">返回东方目录</Link>

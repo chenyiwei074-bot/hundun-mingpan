@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { aiReadingSections } from '@/lib/chart/aiReading';
 import { RichText } from '@/lib/ui/richText';
 import ClassicalReferences from '@/components/chart/ClassicalReferences';
+import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
 /**
  * AI 解读卡的内容区。
@@ -18,6 +19,9 @@ export default function AiReading({ aiAnalysis }: { aiAnalysis: unknown }) {
   }
   return (
     <div style={{ display: 'grid', gap: 20 }}>
+      <PlainLanguageView context="chart" parts={sections.map((section, index) => ({
+        id: `section-${index}`, text: section.body,
+      }))}>{textById => <>
       {sections.map((s, i) => (
         <section key={i}>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
@@ -48,10 +52,11 @@ export default function AiReading({ aiAnalysis }: { aiAnalysis: unknown }) {
               </span>
             )}
           </div>
-          {s.body ? <RichText text={s.body} /> : null}
+          {s.body ? <RichText text={textById[`section-${i}`]} /> : null}
           {s.sourceIds?.length ? <ClassicalReferences sourceIds={s.sourceIds} /> : null}
         </section>
       ))}
+      </>}</PlainLanguageView>
       {missingSources.length > 0 && (
         <p className="qn-note" role="note" style={{ margin: 0 }}>
           标注“本站自研”的部分未关联可核验的古籍出处。

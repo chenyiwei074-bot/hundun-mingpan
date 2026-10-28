@@ -12,6 +12,7 @@ import { getVisitorId } from '@/lib/auth/visitor';
 import { getDeckTilt } from '@/lib/tarot/interaction';
 import { getMarseilleCardReference, TAROT_TRADITION_SOURCES } from '@/lib/tarot/traditions';
 import { getMarseilleReading } from '@/lib/tarot/marseille-readings';
+import PlainLanguageView from '@/components/ai/PlainLanguageView';
 
 type DrawState = 'idle' | 'shuffled' | 'drawing' | 'revealed' | 'reading';
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -654,12 +655,15 @@ export default function TarotPage() {
                     {aiReading.mode === 'ai' && aiReading.aiReady ? '混沌自研 AI 综合解读' : '规则回退 · AI 未接入'}
                   </p>
                   {aiReading.mode === 'ai' && aiReading.aiReady ? (
-                    <>
-                      <p id="tarot-ai-title" className="qn-note" style={{ margin: '8px 0 0' }}>{aiReading.summary}</p>
+                    <PlainLanguageView context="tarot" parts={[
+                      { id: 'summary', text: aiReading.summary },
+                      ...aiReading.cards.map((card, index) => ({ id: `card-${index}`, text: card.text })),
+                    ]}>{textById => <>
+                      <p id="tarot-ai-title" className="qn-note" style={{ margin: '8px 0 0' }}>{textById.summary}</p>
                       <ul className="qn-meta" style={{ margin: '10px 0 0', paddingLeft: '1.2em' }}>
-                        {aiReading.cards.map(c => (
+                        {aiReading.cards.map((c, index) => (
                           <li key={c.cardId} style={{ marginTop: 8 }}>
-                            <strong>{c.position}「{c.nameZh}」{c.orientation}</strong>：{c.text}
+                            <strong>{c.position}「{c.nameZh}」{c.orientation}</strong>：{textById[`card-${index}`]}
                             <span className="qn-cap" style={{ display: 'block', marginTop: 2 }}>
                               牌义出处：{c.source}；AI 文本不等于牌面事实。
                             </span>
@@ -674,7 +678,7 @@ export default function TarotPage() {
                           </li>
                         ))}
                       </ul>
-                    </>
+                    </>}</PlainLanguageView>
                   ) : (
                     <p id="tarot-ai-title" className="qn-note" style={{ margin: '8px 0 0' }}>
                       {aiReading.notes[0] || 'AI 未参与本轮解读，当前仅显示已登记牌义。'}

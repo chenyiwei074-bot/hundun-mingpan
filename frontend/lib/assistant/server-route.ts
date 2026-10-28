@@ -11,7 +11,7 @@ import { WESTERN_INTENTS } from '../tools/western-catalog';
 import type { ToolEntry } from '../tools/catalog';
 import { parseRouteResult, reconcile } from './types';
 import type { AssistantRouteResult, Mode } from './types';
-import { routeLocal } from './intent';
+import { isMonthlyFortuneQuestion, routeLocal } from './intent';
 
 export const PROTOCOL = 'assistant-route-v1';
 export const MAX_TEXT = 200;          // 与输入框 maxLength 一致；服务端不信任前端
@@ -149,6 +149,9 @@ export function readUpstream(env: NodeJS.ProcessEnv = process.env): Upstream | n
 
 export async function askModel(u: Upstream, mode: Mode, text: string,
   fetchImpl: typeof fetch = globalThis.fetch): Promise<{ ok: true; result: AssistantRouteResult } | { ok: false; why: string }> {
+  if (isMonthlyFortuneQuestion(text)) {
+    return { ok: false, why: '月运按节月工具的确定性入口引导，避免模型误选其他体系' };
+  }
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), MODEL_TIMEOUT_MS);
   try {

@@ -22,7 +22,7 @@ export const ROUTER_SPECS: Record<string, Spec> = {
   'liuyao': { ask: ['六爻', '摇卦', '铜钱', '起卦', '这一卦', '占卜', '问事', '卦'], needs: ['question'] },
   'meihua': { ask: ['梅花', '时间起卦', '报数', '数字起卦', '易数'], needs: ['question'] },
   'huangli': { ask: ['黄历', '宜忌', '择日', '选日子', '好日子', '吉日', '冲煞', '哪天', '适合', '搬家', '入宅', '开业', '动土', '订婚'], needs: ['date'] },
-  'dayun': { ask: ['人生曲线', '人生k线', '运势走势', '走什么运', '近几年', '十年'], needs: ['date', 'time'] },
+  'dayun': { ask: ['人生曲线', '人生k线', '运势走势', '走什么运', '近几年', '十年', '月运', '流月', '月度运势', '本月运势', '这个月运势', '下个月运势'], needs: ['date', 'time'] },
   'xiu-he': { ask: ['合宿', '两人宿', '星宿配对'], needs: ['date'] },
   'fengshui': { ask: ['户型', '房屋', '住宅', '房间', '采光', '动线', '朝向', '风水', '装修', '门窗'], needs: [] },
   'face-reading': { ask: ['面相', '看相', '面部', '五官', '脸型', '额头', '眉毛', '眼睛', '鼻子', '面颊', '嘴巴', '下颌', '下巴'], needs: [] },
@@ -47,6 +47,12 @@ const DETECT: Record<NeedField, (t: string) => boolean> = {
 };
 
 const norm = (s: string) => s.toLowerCase().replace(/[\s，。、？！；：,.?!;:"'“”‘’()（）]/g, '');
+
+/** 月度运势是岁运类问法；东方有独立节月视图，西方仍无逐月推运工具。 */
+export function isMonthlyFortuneQuestion(text: string): boolean {
+  const t = norm(text);
+  return /月运|流月|月度运势|(?:本月|这个月|这月|下月|下个月|\d{1,2}月|[一二三四五六七八九十]{1,3}月)(?:的)?(?:运势|运程|运气|事业运|感情运|财运)/u.test(t);
+}
 
 /** 这一系里"能被问到"的候选：状态与 href 由调用方给的目录决定，本函数不看目录内容。 */
 function score(mode: Mode, text: string, catalog: ToolEntry[]) {
@@ -96,6 +102,20 @@ export function routeByCatalogSlug(mode: Mode, slug: string, question: string,
 
 export function routeLocal(mode: Mode, text: string, catalog: ToolEntry[], otherCatalog: ToolEntry[]): AssistantRouteResult {
   const trimmed = text.trim();
+  if (mode === 'western' && isMonthlyFortuneQuestion(trimmed)) {
+    return {
+      mode, toolSlug: null, confidence: 0, needsClarification: true, available: false,
+      clarification: '西方工具目前没有逐月推运计算。若要看八字流月，可切换东方体系，先建立命盘，再按节气查看流月结构。',
+      missingFields: [],
+    };
+  }
+  if (mode === 'oriental' && isMonthlyFortuneQuestion(trimmed)) {
+    const routed = routeByCatalogSlug(mode, 'dayun', trimmed, catalog, 0.95);
+    return routed.available ? {
+      ...routed,
+      clarification: '进入后可查看按节气交接的流月结构；需要先有一张完整命盘。流月干支与十神关系不等于确定的吉凶预测。',
+    } : routed;
+  }
   const { top, second, t } = score(mode, trimmed, catalog);
   const empty = (clarification: string): AssistantRouteResult => ({
     mode, toolSlug: null, confidence: 0, needsClarification: true,
