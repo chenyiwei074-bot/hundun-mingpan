@@ -46,6 +46,15 @@ function correctSameElementGloss(text: string): string {
   });
 }
 
+/** 模型若在句子里改写出相反的十神定义，整次改写作废并保留原解读。 */
+function contradictsSameElementGloss(text: string): boolean {
+  return text.split(/[。！？；\n]/).some(clause =>
+    (clause.includes('劫财') && /阴阳(?:上|也|都|方面)?[^，]{0,8}(?:相同|一样|一致)/.test(clause))
+    || (clause.includes('比肩') && /阴阳(?:上|也|都|方面)?[^，]{0,8}(?:相反|不同|相异)/.test(clause))
+    || ((clause.includes('劫财') || clause.includes('比肩'))
+      && /(?:同类五行相克|同五行相克)/.test(clause)));
+}
+
 /** 仅接受逐段对应的文字；数字和已引的书名、引文必须原样保留。 */
 export function normalizePlainLanguage(raw: Record<string, unknown>, original: PlainPart[]): PlainPart[] | null {
   if (!Array.isArray(raw.parts) || raw.parts.length !== original.length) return null;
@@ -55,6 +64,7 @@ export function normalizePlainLanguage(raw: Record<string, unknown>, original: P
     if (!part || part.id !== original[i].id || typeof part.text !== 'string') return null;
     const text = correctSameElementGloss(part.text.trim());
     if (text.length < 8 || text.length > 12000) return null;
+    if (contradictsSameElementGloss(text)) return null;
     if (JSON.stringify(protectedFragments(text)) !== JSON.stringify(protectedFragments(original[i].text))) return null;
     next.push({ id: original[i].id, text });
   }

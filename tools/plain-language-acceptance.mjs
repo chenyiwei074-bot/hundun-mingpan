@@ -45,7 +45,58 @@ try {
   assert.equal(await monthLink.count(), 1);
   assert.match(await monthLink.getAttribute('href'), /\/dayun#liuyue$/);
   assert.equal(await page.getByText(/按节气交接的流月结构/).count(), 1);
-  console.log('plain-language browser: toggle, payload, citations, monthly tool route passed');
+
+  const longPage = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  const longText = '这是一段需要用简单中文表达的传统文化解读。'.repeat(440);
+  const rewriteRequests = [];
+  await longPage.route('**/api/ai/interpret', route => route.fulfill({ status: 200,
+    contentType: 'application/json', body: JSON.stringify({ success: true, data: {
+      mode: 'ai', aiReady: true, title: '长解读', summary: longText, sections: [],
+    } }) }));
+  await longPage.route('**/api/ai/plain-language', route => {
+    const body = route.request().postDataJSON();
+    rewriteRequests.push(body);
+    return route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ success: true, data: { parts: body.parts.map(part => ({
+        id: part.id, text: `白话：${part.text}`,
+      })) } }),
+    });
+  });
+  await longPage.goto(`${base}/moon`);
+  await longPage.getByRole('button', { name: '查看此刻' }).click();
+  await longPage.getByRole('button', { name: '生成 AI 解读' }).click();
+  await longPage.getByRole('button', { name: '大白话' }).click();
+  await longPage.locator('[data-plain-mode="plain"]').waitFor();
+  assert.ok(rewriteRequests.length > 1, '超过 8000 字符的解读应分批改写');
+  assert.ok(rewriteRequests.every(request => request.parts.every(part => part.text.length <= 8000)));
+  assert.ok(rewriteRequests.every(request => request.parts.reduce((sum, part) => sum + part.text.length, 0) <= 3000));
+  assert.match(await longPage.locator('[data-plain-mode="plain"]').innerText(), /白话：/);
+  await longPage.getByRole('button', { name: '原解读' }).click();
+  assert.equal(await longPage.locator('[data-plain-mode="original"]').count(), 1);
+
+  const failurePage = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  let failedCalls = 0;
+  await failurePage.route('**/api/ai/interpret', route => route.fulfill({ status: 200,
+    contentType: 'application/json', body: JSON.stringify({ success: true, data: {
+      mode: 'ai', aiReady: true, title: '长解读', summary: longText, sections: [],
+    } }) }));
+  await failurePage.route('**/api/ai/plain-language', route => {
+    const body = route.request().postDataJSON();
+    failedCalls += 1;
+    return route.fulfill({ status: failedCalls === 2 ? 503 : 200,
+      contentType: 'application/json', body: failedCalls === 2
+        ? JSON.stringify({ success: false, error: '当前无法完成改写' })
+        : JSON.stringify({ success: true, data: { parts: body.parts.map(part => ({ id: part.id, text: `白话：${part.text}` })) } }),
+    });
+  });
+  await failurePage.goto(`${base}/moon`);
+  await failurePage.getByRole('button', { name: '查看此刻' }).click();
+  await failurePage.getByRole('button', { name: '生成 AI 解读' }).click();
+  await failurePage.getByRole('button', { name: '大白话' }).click();
+  await failurePage.getByRole('alert').getByText(/当前无法完成改写/).waitFor();
+  assert.equal(await failurePage.locator('[data-plain-mode="original"]').count(), 1);
+  assert.ok(failedCalls >= 2);
+  console.log('plain-language browser: toggle, payload, citations, monthly route, long report and failure fallback passed');
 } finally {
   await browser.close();
 }

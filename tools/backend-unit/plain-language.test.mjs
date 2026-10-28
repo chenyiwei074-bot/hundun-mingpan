@@ -37,3 +37,14 @@ test('大白话不得把比肩或劫财的同五行关系解释成相克', () =>
   assert.match(output[0].text, /比肩（日主同五行、阴阳相同的十神关系）/);
   assert.doesNotMatch(output[0].text, /相克/);
 });
+
+test('句子里出现相反的阴阳定义时拒绝改写，保留原解读', () => {
+  const source = [{ id: 'summary', text: '月干庚金对辛金日主是劫财，只按本站已算出的关系解释。' }];
+  const misleading = '庚金和辛金日主之间的关系就像是劫财，意思是它们在五行和阴阳上相同，但性质相反。简单来说，它们是相对的，但不是相互克制的。';
+  assert.equal(normalizePlainLanguage({ parts: [{ id: 'summary', text: misleading }] }, source), null);
+  assert.equal(normalizePlainLanguage({ parts: [{ id: 'summary', text: '比肩指日主同五行、阴阳相反的关系。' }] },
+    [{ id: 'summary', text: '比肩是十神之一。' }]), null);
+  assert.match(normalizePlainLanguage({ parts: [{ id: 'summary',
+    text: '月干庚金对辛金日主叫劫财（日主同五行、阴阳相反的十神关系）；这里只说明结构。',
+  }] }, source)?.[0].text ?? '', /阴阳相反/);
+});
