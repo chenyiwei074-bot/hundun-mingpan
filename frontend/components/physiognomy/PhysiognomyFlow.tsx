@@ -65,6 +65,14 @@ export default function PhysiognomyFlow({ kind }: { kind: Kind }) {
     setConsent(checked);
     if (!checked) clearPhoto();
   };
+  const onHandChange = (side: 'left' | 'right') => {
+    if (side === hand) return;
+    const needsRecognition = status === 'recognizing' || status === 'ready';
+    invalidatePending();
+    clearRecognition();
+    setHand(side);
+    if (needsRecognition) setMessage(`已切换为${side === 'left' ? '左手' : '右手'}，请重新识别当前照片。`);
+  };
   const onFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.files?.[0];
     if (!next) return;
@@ -159,7 +167,7 @@ export default function PhysiognomyFlow({ kind }: { kind: Kind }) {
           <legend className="qn-meta" style={{ marginBottom: 8 }}>请选择照片中的手</legend>
           <div className="qn-row" style={{ gap: 10, flexWrap: 'wrap' }}>
             {(['left', 'right'] as const).map(side => <label key={side} className="qn-btn qn-btn--ghost" style={{ minHeight: 44, display: 'inline-flex', alignItems: 'center', gap: 8, cursor: consent ? 'pointer' : 'not-allowed' }}>
-              <input type="radio" name="hand-side" value={side} checked={hand === side} onChange={() => setHand(side)} style={{ width: 44, height: 44, flex: '0 0 44px', accentColor: 'var(--color-accent-gold-text)' }} />{side === 'left' ? '左手' : '右手'}
+              <input type="radio" name="hand-side" value={side} checked={hand === side} onChange={() => onHandChange(side)} style={{ width: 44, height: 44, flex: '0 0 44px', accentColor: 'var(--color-accent-gold-text)' }} />{side === 'left' ? '左手' : '右手'}
             </label>)}
           </div>
         </fieldset>}

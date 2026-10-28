@@ -155,6 +155,11 @@ export default function TarotPage() {
   const stageRef = useRef<HTMLElement>(null);
   const deckRef = useRef<HTMLButtonElement>(null);
   const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const roundRef = useRef(0);
+  const currentSpreadRef = useRef(spreadId);
+  const currentCardsRef = useRef('');
+  currentSpreadRef.current = spreadId;
+  currentCardsRef.current = drawnCards.map(item => `${item.card.id}:${item.orientation}`).join('|');
   const spread = TAROT_SPREADS[spreadId];
 
   useEffect(() => {
@@ -181,6 +186,7 @@ export default function TarotPage() {
   };
 
   const shuffle = async () => {
+    roundRef.current += 1;
     if (!window.crypto?.getRandomValues || !window.crypto.subtle) {
       setNotice('当前浏览器无法提供安全随机数与摘要计算，请在安全连接中重试。');
       return;
@@ -212,6 +218,7 @@ export default function TarotPage() {
 
   const reveal = async () => {
     if (!seedHex || drawState !== 'shuffled') return;
+    roundRef.current += 1;
     if (!question.trim()) {
       setNotice(`先写下这次想聚焦的问题，再抽出${spread.count}张牌。`);
       return;
@@ -274,6 +281,7 @@ export default function TarotPage() {
   };
 
   const reset = () => {
+    roundRef.current += 1;
     timers.current.forEach(timer => window.clearTimeout(timer));
     timers.current = [];
     setDrawState('idle');
@@ -300,6 +308,7 @@ export default function TarotPage() {
     if (next === spreadId || drawState === 'drawing') return;
     timers.current.forEach(timer => window.clearTimeout(timer));
     timers.current = [];
+    roundRef.current += 1;
     const nextSpread = TAROT_SPREADS[next];
     setSpreadId(next);
     setDrawState('idle');
@@ -323,6 +332,8 @@ export default function TarotPage() {
 
   const persistReading = async () => {
     if (drawnCards.length !== spread.positions.length || saveState === 'saving' || savedId) return;
+    const saveRound = roundRef.current;
+    const saveCards = currentCardsRef.current;
     setSaveState('saving');
     setSaveError('');
     try {
@@ -352,6 +363,7 @@ export default function TarotPage() {
         notes: aiReading?.notes ?? ['本次保存包含本站生成的牌阵、牌面方向与逐牌牌义；未生成 AI 综合解读。'],
       };
       const saved = await saveTarotReading(visitorId, drawQuestion, reading);
+      if (saveRound !== roundRef.current || saveCards !== currentCardsRef.current) return;
       setSavedId(saved.id);
       setSaveState('saved');
       setNotice('已保存到我的报告；记录保留 7 天。');
@@ -363,6 +375,9 @@ export default function TarotPage() {
 
   const generateAiReading = async () => {
     if (drawnCards.length !== spread.positions.length || aiState === 'loading') return;
+    const requestRound = roundRef.current;
+    const requestSpread = currentSpreadRef.current;
+    const requestCards = currentCardsRef.current;
     setAiState('loading');
     setAiError('');
     try {
@@ -371,12 +386,16 @@ export default function TarotPage() {
         spread: spreadId,
         cards: drawnCards.map(({ card, position, orientation }) => ({ cardId: card.id, position, orientation })),
       });
+      if (requestRound !== roundRef.current || requestSpread !== currentSpreadRef.current
+        || requestCards !== currentCardsRef.current) return;
       setAiReading(next);
       setSavedId('');
       setSaveState('idle');
       setAiState('idle');
       setAnnouncement(next.aiReady ? '混沌自研 AI 综合解读已生成。' : '综合 AI 暂不可用，已回退逐牌牌义。');
     } catch {
+      if (requestRound !== roundRef.current || requestSpread !== currentSpreadRef.current
+        || requestCards !== currentCardsRef.current) return;
       setAiState('error');
       setAiError('综合 AI 解读暂时不可用，请稍后再试；逐牌牌义仍可查看。');
     }

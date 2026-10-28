@@ -26,7 +26,7 @@ function writeEvents(key: string, ev: Events): boolean {
   catch { return false; }
 }
 
-export default function LifeCurve({ chart, independentHref }: { chart?: BaziChart; independentHref?: string }) {
+export default function LifeCurve({ chart, independentHref, chartId }: { chart?: BaziChart; independentHref?: string; chartId?: string }) {
   const view = useMemo(() => buildKline(chart), [chart]);
   const [segIdx, setSegIdx] = useState(0);
   const [yearIdx, setYearIdx] = useState(0);
@@ -38,12 +38,15 @@ export default function LifeCurve({ chart, independentHref }: { chart?: BaziChar
   const sig = view && chart?.siZhu
     ? PILLARS.map(k => `${chart.siZhu[k].gan}${chart.siZhu[k].zhi}`).join('') + view.日主
     : '';
+  // 个人备注必须绑定命盘 ID；四柱相同的两张盘不能共享同一组备注。
+  // 没有 ID 时才退回四柱签名（旧路径兼容），不做旧键迁移，避免把别人的备注带进新盘。
+  const storageKey = chartId ? `chart:${chartId}` : sig;
 
   useEffect(() => {
-    if (!sig || typeof window === 'undefined') return;
-    setEvents(readEvents(sig));
+    if (!storageKey || typeof window === 'undefined') return;
+    setEvents(readEvents(storageKey));
     setSegIdx(0); setYearIdx(0); setDraft('');
-  }, [sig]);
+  }, [storageKey]);
 
   const seg = view ? view.段[Math.min(segIdx, view.段.length - 1)] : null;
   const mark = seg ? seg.流年[Math.min(yearIdx, seg.流年.length - 1)] : null;

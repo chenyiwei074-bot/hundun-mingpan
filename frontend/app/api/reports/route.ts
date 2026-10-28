@@ -1,11 +1,15 @@
 ﻿import { NextResponse } from 'next/server';
 
-const BACKEND = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// NEXT_PUBLIC_API_URL='/api' 是浏览器相对路径，不能在服务端 fetch 直接当 origin。
+const RAW = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
+const BASE = /^https?:\/\//.test(RAW)
+  ? RAW
+  : `http://127.0.0.1:3000${RAW.startsWith('/') ? RAW : '/api'}`;
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const res = await fetch(`${BACKEND}/reports`, {
+    const res = await fetch(`${BASE}/reports`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -28,7 +32,7 @@ export async function GET(req: Request) {
     const headers: Record<string,string> = {};
     if (visitorId) headers['x-visitor-id'] = visitorId;
 
-    const res = await fetch(`${BACKEND}/reports${params.size ? `?${params.toString()}` : ''}`, { headers });
+    const res = await fetch(`${BASE}/reports${params.size ? `?${params.toString()}` : ''}`, { headers });
     const data = await res.json();
     return NextResponse.json(data, { status: res.status });
   } catch (e: any) {

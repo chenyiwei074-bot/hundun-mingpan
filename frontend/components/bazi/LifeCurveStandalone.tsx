@@ -22,8 +22,10 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [noChart, setNoChart] = useState(false);
+  const [activeChartId, setActiveChartId] = useState<string | undefined>(chartId);
 
   useEffect(() => {
+    setActiveChartId(chartId);
     let cancelled = false;
     setChart(undefined);
     setError('');
@@ -33,6 +35,7 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
       const preview = readPreview();
       if (preview?.chart?.bazi && (!expectedId || preview.chartId === expectedId)) {
         setChart(preview.chart.bazi);
+        setActiveChartId(preview.chartId || expectedId);
         setLoading(false);
         return true;
       }
@@ -111,7 +114,7 @@ export default function LifeCurveStandalone({ chartId }: { chartId?: string }) {
         </section>
       ) : (
         <div data-dayun-state="ready">
-        <LifeCurve chart={chart} />
+        <LifeCurve chart={chart} chartId={activeChartId} />
         {chart && <ToolInterpretation tool="dayun" title="大运流年 · 混沌自研 AI 解读" payload={{
           siZhu: chart.siZhu,
           dayMaster: chart.dayMaster,

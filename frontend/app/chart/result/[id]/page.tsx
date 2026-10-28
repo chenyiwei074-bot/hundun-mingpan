@@ -399,7 +399,7 @@ export default function ChartResultPage() {
         {/* 无条件挂载：四柱不齐时组件自己走降级分支（说明 + /create），不在页面里玩条件渲染 ——
             整节静悄悄消失，用户分不清是"这站没这功能"还是"我的盘没算出来"。 */}
         <ScenarioMatrix chart={enrichedChartData.bazi} />
-        <LifeCurve chart={enrichedChartData.bazi} independentHref={`/dayun/${encodeURIComponent(id)}`} />
+        <LifeCurve chart={enrichedChartData.bazi} chartId={id} independentHref={`/dayun/${encodeURIComponent(id)}`} />
         {/* 合盘：同样无条件挂载。没有对方数据时它自己显示一张能当场填的表，
             而不是整节消失 —— 那一栏的隐私边界（本机算、不进 API/报告/台账）也在这节里说。 */}
         <HepanSection chartData={enrichedChartData} />

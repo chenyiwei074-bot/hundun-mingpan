@@ -29,6 +29,7 @@ const blank = (): PartnerDraft => ({
 });
 
 const safe = <T,>(f: () => T): T | null => { try { return f(); } catch { return null; } };
+const isExpired = (d: PartnerDraft) => d.savedAt > 0 && Date.now() - d.savedAt > HEPAN_TTL_MS;
 
 function parse(raw: string | null): PartnerDraft | null {
   if (!raw) return null;
@@ -38,21 +39,24 @@ function parse(raw: string | null): PartnerDraft | null {
   return { ...blank(), ...o, savedAt: Number(o.savedAt) || 0 } as PartnerDraft;
 }
 
-/** 读：先本会话，再本机长期（过期即当没有）。 */
+/** 读：两处存储都检查 7 天 TTL；任何一处过期就同时清掉，避免会话副本绕过。 */
 export function loadPartner(): PartnerDraft | null {
   const s = safe(() => sessionStorage.getItem(HEPAN_STORE_KEY));
   const fromSession = parse(s);
-  if (fromSession) return fromSession;
+  if (fromSession) {
+    if (isExpired(fromSession)) { clearPartner(); return null; }
+    return fromSession;
+  }
   const l = safe(() => localStorage.getItem(HEPAN_STORE_KEY));
   const fromLocal = parse(l);
-  if (!fromLocal) return null;
-  if (!fromLocal.savedAt || Date.now() - fromLocal.savedAt > HEPAN_TTL_MS) { clearPartner(); return null; }
+  if (!fromLocal || isExpired(fromLocal)) { if (fromLocal) clearPartner(); return null; }
   return fromLocal;
 }
 
 /** 写。persist=false 时只进 sessionStorage，关掉标签页就没了。 */
 export function savePartner(d: PartnerDraft, persist: boolean): void {
-  const stamped: PartnerDraft = { ...d, savedAt: persist ? Date.now() : 0 };
+  // 会话副本也盖时间戳：标签页长期不关时，7 天 TTL 仍然生效。
+  const stamped: PartnerDraft = { ...d, savedAt: Date.now() };
   safe(() => { sessionStorage.setItem(HEPAN_STORE_KEY, JSON.stringify(stamped)); });
   if (persist) safe(() => { localStorage.setItem(HEPAN_STORE_KEY, JSON.stringify(stamped)); });
   else safe(() => { localStorage.removeItem(HEPAN_STORE_KEY); });
@@ -66,5 +70,6 @@ export function clearPartner(): void {
 
 /** 长期留存是否真的落到了磁盘上 —— 页面要按实情显示"存在这台设备上"还是"只在本标签页"。 */
 export function isPersisted(): boolean {
-  return safe(() => !!parse(localStorage.getItem(HEPAN_STORE_KEY))) === true;
+  const local = safe(() => parse(localStorage.getItem(HEPAN_STORE_KEY)));
+  return !!local && !isExpired(local);
 }
