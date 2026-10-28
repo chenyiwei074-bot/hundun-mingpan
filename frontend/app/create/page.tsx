@@ -563,7 +563,7 @@ export default function CreatePage() {
 
               {form.calendar !== '四柱' && <div className="space-y-4">
                 {renderRegionGroup('birth', '诞生之地')}
-                {birthGeo && tab === 'single' && (
+                {birthGeo && (
                   <p className="qn-note" style={{ margin: 0 }}>
                     坐标精度：{birthGeo.precision === 'district' ? '区县命中' : birthGeo.precision === 'city' ? '城市级（区县未命中）' : '省级（更精确可填城市或区县）'}
                     {birthGeo.districtMatched ? '，已用于真太阳时。' : '，已按可用坐标计算真太阳时。'}
