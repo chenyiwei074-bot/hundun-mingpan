@@ -109,7 +109,7 @@ ${rows}
 
 请只输出严格 JSON（不要 Markdown、不要代码块）：
 {
-  "summary": "120-220 字：先回应用户问题，再提炼牌间联系（单牌略），最后给一个用户可选择的具体下一步；不预言结果",
+  "summary": "120-220 字：先回应用户问题，再提炼牌间联系；多牌时必须逐字写出至少两张牌名和对应牌位，说明它们如何呼应/冲突/变化；单牌略；最后给一个用户可选择的具体下一步；不预言结果",
   "cards": [
     { "cardId": "与输入相同的 cardId", "text": "80-150 字，先分清给定的传统牌义与本次情境解读，再结合牌位、方向和问题说清楚" }
   ],
@@ -118,6 +118,7 @@ ${rows}
 约束：
 - 每张牌的 cardId 必须与输入一一对应，顺序不变；
 - ${relationRule}
+- 多牌 summary 必须包含至少两个与输入完全一致的牌名（如「死神」「太阳」）及其牌位；没写齐视为不合格；
 - 牌面结构只用于观察，不按大牌比例、花色或逆位数量断言命运、吉凶或他人心理；
 - 建议须贴合用户问题、具体到用户可控的一步；不编造日程、事件或对方想法，不替用户做决定；
 - 用日常中文，少用术语；不要写“能量正在变化”“相信直觉”“一切都会好”等空泛句；
@@ -125,6 +126,12 @@ ${rows}
 - 不得编造古籍原文、页码或来源；没有出处就说“本站自研”；
 - 不得出现任何模型/供应商名称；
 - 解读用中文，不写“作为AI”之类自指。`;
+}
+
+function mentionsEnoughCards(summary: string, cards: TarotReadingCard[]): boolean {
+  if (cards.length <= 1) return true;
+  const names = [...new Set(cards.map(card => card.nameZh))];
+  return names.filter(name => summary.includes(name)).length >= 2;
 }
 
 function normalizeAI(raw: Record<string, unknown>, base: TarotReading, question: string): { summary: string; cards: TarotReadingCard[]; notes: string[] } | null {
@@ -174,7 +181,22 @@ export async function generateTarotReading(input: TarotReadingInput, now = new D
         chartData: { question, spread: base.data.spread, cards: base.data.cards.map(c => ({ cardId: c.cardId, position: c.position, orientation: c.orientation })) },
         type: 'tarot', promptOverride: buildTarotPrompt(input, base.data.cards), maxTokens: Math.min(2600, 900 + base.data.cards.length * 140),
       }), TIMEOUT_MS);
-      const normalized = normalizeAI(response.result, base.data, question);
+      let normalized = normalizeAI(response.result, base.data, question);
+      if (normalized && !mentionsEnoughCards(normalized.summary, base.data.cards)) {
+        // 多牌解读未点名牌间关系：给模型一次明确的纠错机会，仍不合格则不展示。
+        try {
+          const retry = await withTimeout(provider.generateAnalysis({
+            chartData: { question, spread: base.data.spread, cards: base.data.cards.map(c => ({ cardId: c.cardId, position: c.position, orientation: c.orientation })) },
+            type: 'tarot',
+            promptOverride: buildTarotPrompt(input, base.data.cards)
+              + '\n\n上一版 summary 没有按要求写出两个牌名和对应牌位。请重写，必须在 summary 中逐字包含至少两个牌名（例如「' + base.data.cards.slice(0, 2).map(c => c.nameZh).join('」「') + '」）及其牌位，否则视为不合格。',
+            maxTokens: Math.min(2600, 900 + base.data.cards.length * 140),
+          }), TIMEOUT_MS);
+          const retried = normalizeAI(retry.result, base.data, question);
+          if (retried && mentionsEnoughCards(retried.summary, base.data.cards)) normalized = retried;
+          else normalized = null;
+        } catch { normalized = null; }
+      }
       if (!normalized) {
         console.warn('[tarot] AI 输出不合格，尝试下一个 provider');
         continue;
