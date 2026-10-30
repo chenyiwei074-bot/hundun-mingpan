@@ -294,7 +294,7 @@ function numericPaths(v: unknown, prefix = ''): string[] {
   ok('storage/no-visitor-id', !/getVisitorId|visitor_id/.test(comp),
     '标注键只用四柱+日主，不挂 visitorId —— 那是报告归属凭据，不该把本地涂鸦与账号绑起来');
   const mounted = strip(readFileSync(join(ROOT, 'frontend', 'app', 'chart', 'result', '[id]', 'page.tsx'), 'utf8'));
-  ok('route/mounted-unconditional', /<LifeCurve chart=\{enrichedChartData\.bazi\} independentHref=\{`\/dayun\/\$\{encodeURIComponent\(id\)\}`\} \/>/.test(mounted)
+  ok('route/mounted-unconditional', /<LifeCurve chart=\{enrichedChartData\.bazi\} chartId=\{id\} independentHref=\{`\/dayun\/\$\{encodeURIComponent\(id\)\}`\} \/>/.test(mounted)
     && !/LifeCurve chart=\{[^}]*\}\s*&&/.test(mounted),
     '结果页无条件挂载，且提供与当前命盘绑定的独立岁运入口；降级由组件自己给');
   const home = strip(readFileSync(join(ROOT, 'frontend', 'app', 'page.tsx'), 'utf8'));
