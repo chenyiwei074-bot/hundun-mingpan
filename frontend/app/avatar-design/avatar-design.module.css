@@ -58,11 +58,20 @@
 .error { margin: 0; padding: 10px 12px; border: 1px solid #dfb4ae; border-radius: 10px; background: #fcf1ef; color: #812f29; font-size: 12px; line-height: 1.5; }
 
 .emptyState { display: grid; min-height: 570px; align-content: center; justify-items: center; max-width: 430px; margin: auto; text-align: center; }
-.emptyScene { position: relative; width: min(58vw, 252px); aspect-ratio: 1; overflow: hidden; margin-bottom: 24px; border: 1px solid #bda779; border-radius: 50%; background: radial-gradient(circle at 50% 45%, #fff7e6 0 15%, #ecd9b6 16% 17%, transparent 18%), linear-gradient(160deg, #4b3532, #1d1b20); }
-.emptySun { position: absolute; top: 23%; left: 50%; width: 33%; aspect-ratio: 1; transform: translateX(-50%); border-radius: 50%; background: linear-gradient(#f5e0ab, #c79d60); box-shadow: 0 0 38px rgba(223, 174, 93, .35); }
-.emptyMountain { position: absolute; right: -8%; bottom: 11%; left: -8%; height: 48%; background: linear-gradient(145deg, #716058, #25232a 73%); clip-path: polygon(0 68%, 24% 43%, 38% 55%, 57% 7%, 78% 60%, 91% 36%, 100% 56%, 100% 100%, 0 100%); }
-.emptyMountain::after { position: absolute; inset: 0; content: ''; background: linear-gradient(145deg, transparent 0 44%, #c3a06a 44.5% 45%, transparent 45.5%); }
-.emptyPath { position: absolute; bottom: -6%; left: 50%; width: 27%; height: 45%; transform: translateX(-50%); border: 5px solid #e2c37d; border-bottom: 0; border-radius: 55% 55% 0 0; clip-path: polygon(36% 0, 63% 0, 100% 100%, 0 100%); opacity: .9; }
+.elementOrbit { position: relative; display: grid; width: 172px; height: 172px; place-items: center; margin-bottom: 22px; border: 1px solid #d8c9a9; border-radius: 50%; background: radial-gradient(circle, #fff 0 19%, #f2ead8 20% 21%, transparent 22%), repeating-radial-gradient(circle, transparent 0 36px, rgba(151, 125, 79, .13) 37px 38px, transparent 39px 53px); box-shadow: inset 0 0 0 12px rgba(255, 255, 255, .52); }
+.elementOrbit::before, .elementOrbit::after { position: absolute; inset: 21px; border: 1px solid rgba(151, 125, 79, .28); border-radius: 50%; content: ''; }
+.elementOrbit::after { inset: 0; border-style: dashed; opacity: .65; animation: orbit 32s linear infinite; }
+.elementOrbit span { position: absolute; display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid rgba(151, 125, 79, .38); border-radius: 50%; background: #fbfaf7; color: #6e5a3b; font-family: 'Songti SC', 'Noto Serif CJK SC', serif; font-size: 14px; box-shadow: 0 3px 10px rgba(69, 55, 32, .08); }
+.elementOrbit span:nth-child(1) { top: 3px; left: calc(50% - 16px); }
+.elementOrbit span:nth-child(2) { top: 47px; right: 8px; }
+.elementOrbit span:nth-child(3) { right: 8px; bottom: 34px; }
+.elementOrbit span:nth-child(4) { bottom: 3px; left: calc(50% - 16px); }
+.elementOrbit span:nth-child(5) { top: 47px; left: 8px; }
+.elementOrbit span[data-element='木'] { color: #4d745a; }
+.elementOrbit span[data-element='火'] { color: #b45d3f; }
+.elementOrbit span[data-element='土'] { color: #927044; }
+.elementOrbit span[data-element='金'] { color: #887142; }
+.elementOrbit span[data-element='水'] { color: #4b7484; }
 .emptyState .outputEyebrow { margin-bottom: 8px; }
 .emptyState h2 { margin: 0; font-family: 'Songti SC', 'Noto Serif CJK SC', 'STSong', serif; font-size: 23px; font-weight: 600; line-height: 1.4; }
 .emptyState > p:not(.outputEyebrow) { max-width: 360px; margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
@@ -72,6 +81,7 @@
 .resultState { width: 100%; max-width: 570px; margin-inline: auto; animation: arrive .45s ease both; }
 .resultHeading { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 15px; }
 .resultHeading h2 { margin: 5px 0 0; font-family: 'Songti SC', 'Noto Serif CJK SC', 'STSong', serif; font-size: 26px; font-weight: 600; }
+.inspirationTitle { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .textButton { min-height: 36px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: #75694f; font: inherit; font-size: 12px; cursor: pointer; }
 .textButton:hover { background: #f1ede4; }
 .previewStage { display: grid; justify-items: center; padding: 18px 12px 13px; border: 1px solid #4c4440; border-radius: 18px; background: radial-gradient(ellipse at 50% 32%, #51413b, #252226 68%); }
@@ -79,7 +89,6 @@
 .avatarSvg { display: block; width: 100%; height: 100%; }
 .sunAura { animation: breathe 4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
 .sunDisc { animation: rise .85s cubic-bezier(.2, .7, .25, 1) both; }
-.goldenRoad { animation: roadReveal .9s .12s ease-out both; transform-origin: center bottom; }
 .composition { max-width: 420px; margin: 12px 0 0; color: #e8dfcf; text-align: center; font-size: 11px; line-height: 1.6; }
 .interpretationCard { margin-top: 14px; padding: 17px 18px; border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(145deg, #fff 0%, #f9f6f0 100%); }
 .cardLabel { margin: 0 0 7px; color: var(--bronze); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
@@ -103,7 +112,7 @@
 @keyframes arrive { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes breathe { 0%, 100% { opacity: .13; transform: scale(.98); } 50% { opacity: .22; transform: scale(1.04); } }
 @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes roadReveal { from { opacity: .35; transform: scaleY(.12); } to { opacity: 1; transform: scaleY(1); } }
+@keyframes orbit { to { transform: rotate(360deg); } }
 
 @media (max-width: 860px) {
   .page { padding: 26px 16px 34px; }
@@ -125,5 +134,5 @@
   .actionRow > * { flex: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .backLink, .primaryButton, .secondaryButton, .resultState, .sunAura, .sunDisc, .goldenRoad { animation: none; transition: none; }
+  .backLink, .primaryButton, .secondaryButton, .resultState, .sunAura, .sunDisc, .elementOrbit::after { animation: none; transition: none; }
 }

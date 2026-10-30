@@ -5,26 +5,14 @@ import Link from 'next/link';
 import styles from './avatar-design.module.css';
 import { provinces } from '@/app/lib/region-data';
 import { getVisitorId } from '@/lib/auth/visitor';
+import { TIANGAN_WUXING } from '@/app/lib/core/yiqi-core/ganzhi';
 
 type Calendar = '公历' | '农历';
-type MotifId = 'sunrise' | 'mountain' | 'ascending_path';
-type Palette = { background: string; base: string; accent: string; highlight: string };
-type Meaning = { motif: MotifId; label: string; plainText: string };
+type Wuxing = '木' | '火' | '土' | '金' | '水';
+type CareerMark = 'venture' | 'creative' | 'knowledge' | 'technical' | 'care' | 'craft' | 'general';
 type AvatarBrief = {
-  expiresAt: string;
-  concept: {
-    title: string;
-    plainSummary: string;
-    visual: {
-      theme: 'dawn-mountain-path';
-      palette: Palette;
-      motifs: MotifId[];
-      composition: string;
-    };
-    meaning: Meaning[];
-    basisNote: string;
-  };
-  chartSummary?: { year?: string; month?: string; day?: string; hour?: string; dayMaster?: string };
+  concept: { basisNote?: string };
+  chartSummary: { year?: string; month?: string; day?: string; hour?: string; dayMaster: string };
 };
 type FormState = {
   calendar: Calendar;
@@ -55,7 +43,55 @@ const ERROR_MESSAGES: Record<string, string> = {
   rate_limited: '请求有些频繁，请稍等片刻再试。',
 };
 
-const isHexColor = (value: unknown): value is string => typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+const ELEMENT_STYLE: Record<Wuxing, { label: string; imageMeaning: string; background: string; base: string; accent: string; highlight: string }> = {
+  木: { label: '木 · 生长', imageMeaning: '枝干向上舒展，表达持续生长。', background: '#17261F', base: '#496B55', accent: '#91B982', highlight: '#E7EBC3' },
+  火: { label: '火 · 光亮', imageMeaning: '日轮与火焰成为画面的中心。', background: '#291619', base: '#813E34', accent: '#E07849', highlight: '#FFE4A5' },
+  土: { label: '土 · 根基', imageMeaning: '层叠山体表达稳固的基础。', background: '#282119', base: '#796047', accent: '#C49D66', highlight: '#F1DDB0' },
+  金: { label: '金 · 锻造', imageMeaning: '圆环与切面表达清晰、利落的造型。', background: '#1E2226', base: '#5C6268', accent: '#CBB77A', highlight: '#F3E2B2' },
+  水: { label: '水 · 流动', imageMeaning: '水纹与河道构成画面的主要走向。', background: '#141E2A', base: '#3F6278', accent: '#70B4BF', highlight: '#D8E9E7' },
+};
+
+const CAREER_STYLE: Record<CareerMark, { label: string; meaning: string }> = {
+  venture: { label: '经营开拓', meaning: '阶梯形建筑代表把计划逐步落地。' },
+  creative: { label: '创作表达', meaning: '笔锋与色带代表创意的形成和表达。' },
+  knowledge: { label: '知识传递', meaning: '展开的书页代表学习、研究与分享。' },
+  technical: { label: '技术建造', meaning: '圆规与结构线代表设计、推演和建造。' },
+  care: { label: '支持服务', meaning: '灯与叶片代表照料、支持和服务。' },
+  craft: { label: '手艺实践', meaning: '工具与材料形状代表动手制作。' },
+  general: { label: '职业印记', meaning: '以职业首字作为个人识别印记。' },
+};
+
+function getWuxing(dayMaster?: string): Wuxing | null {
+  const stem = Array.from(dayMaster || '')[0] || '';
+  const value = TIANGAN_WUXING[stem as keyof typeof TIANGAN_WUXING];
+  return value && ['木', '火', '土', '金', '水'].includes(value) ? value as Wuxing : null;
+}
+
+function getCareerMark(occupation: string): CareerMark {
+  const value = occupation.replace(/\s/g, '').toLowerCase();
+  if (['创业', '老板', '企业', '经营', '商业', '管理', '运营', '销售', '金融', '投资', '市场'].some(word => value.includes(word))) return 'venture';
+  if (['设计', '艺术', '美术', '摄影', '写作', '作家', '文案', '媒体', '导演', '创意', '插画', '音乐', '创作者'].some(word => value.includes(word))) return 'creative';
+  if (['教师', '老师', '教育', '培训', '研究', '学者', '讲师', '教授', '学校', '导师'].some(word => value.includes(word))) return 'knowledge';
+  if (['工程', '技术', '程序', '开发', '科技', '数据', '建筑', '制造', '工程师', '产品经理'].some(word => value.includes(word))) return 'technical';
+  if (['医生', '医疗', '护士', '护理', '心理', '社工', '律师', '法律', '服务', '公益', '咨询'].some(word => value.includes(word))) return 'care';
+  if (['厨师', '餐饮', '烘焙', '手艺', '工艺', '维修', '木工', '装修', '园艺'].some(word => value.includes(word))) return 'craft';
+  return 'general';
+}
+
+function getOccupationStamp(occupation: string): string {
+  return Array.from(occupation.replace(/\s/g, '').trim()).slice(0, 2).join('') || '职';
+}
+
+function getAvatarSummary(occupation: string, dayMaster: string | undefined, element: Wuxing | null, careerMark: CareerMark): string {
+  const chartText = dayMaster && element
+    ? `排盘结果中的日主是${dayMaster}，本图据此采用${element}行的形态与配色。`
+    : '本图根据排盘主题采用对应的视觉形态与配色。';
+  return `${chartText}职业「${occupation.trim()}」以${CAREER_STYLE[careerMark].label}图形呈现。这里只说明图形如何对应输入，不代表职业评价或运势判断。`;
+}
+
+function getOccupationHash(value: string): number {
+  return Array.from(value).reduce((hash, char) => ((hash * 31) + char.codePointAt(0)!) >>> 0, 7);
+}
 
 async function requestAvatarBrief(body: Record<string, unknown>): Promise<AvatarBrief> {
   const visitorId = getVisitorId();
@@ -72,23 +108,8 @@ async function requestAvatarBrief(body: Record<string, unknown>): Promise<Avatar
     throw new Error(ERROR_MESSAGES[code] || envelope?.error || '主题暂时无法提炼，请稍后再试。');
   }
   const data = envelope.data as AvatarBrief;
-  const concept = data.concept;
-  const palette = concept?.visual?.palette;
-  const allowedMotifs: MotifId[] = ['sunrise', 'mountain', 'ascending_path'];
-  if (
-    concept?.visual?.theme !== 'dawn-mountain-path'
-    || !concept.title
-    || !concept.plainSummary
-    || !concept.visual.composition
-    || !Array.isArray(concept.meaning)
-    || !Array.isArray(concept.visual.motifs)
-    || !allowedMotifs.every(motif => concept.visual.motifs.includes(motif))
-    || !isHexColor(palette?.background)
-    || !isHexColor(palette?.base)
-    || !isHexColor(palette?.accent)
-    || !isHexColor(palette?.highlight)
-  ) {
-    throw new Error('主题方案返回不完整，请稍后重试。');
+  if (!data.concept || !data.chartSummary || !getWuxing(data.chartSummary.dayMaster)) {
+    throw new Error('排盘主题信息不完整，暂时无法生成专属头像。');
   }
   return data;
 }
@@ -104,9 +125,19 @@ function downloadBlob(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function AvatarIllustration({ brief, svgRef }: { brief: AvatarBrief; svgRef: Ref<SVGSVGElement> }) {
-  const { background, base, accent, highlight } = brief.concept.visual.palette;
-  const motifs = new Set(brief.concept.visual.motifs);
+function AvatarIllustration({ brief, occupation, svgRef }: { brief: AvatarBrief; occupation: string; svgRef: Ref<SVGSVGElement> }) {
+  const element = getWuxing(brief.chartSummary.dayMaster);
+  if (!element) return null;
+  const elementStyle = ELEMENT_STYLE[element];
+  const careerMark = getCareerMark(occupation);
+  const careerInitial = Array.from(occupation.trim())[0] || '业';
+  const careerStamp = getOccupationStamp(occupation);
+  const occupationHash = getOccupationHash(occupation.trim());
+  const sealShape = occupationHash % 3;
+  const background = elementStyle.background;
+  const base = elementStyle.base;
+  const accent = elementStyle.accent;
+  const highlight = elementStyle.highlight;
   return (
     <svg
       ref={svgRef}
@@ -116,8 +147,8 @@ function AvatarIllustration({ brief, svgRef }: { brief: AvatarBrief; svgRef: Ref
       aria-labelledby="avatar-svg-title avatar-svg-desc"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <title id="avatar-svg-title">{brief.concept.title}</title>
-      <desc id="avatar-svg-desc">{brief.concept.visual.composition}</desc>
+      <title id="avatar-svg-title">{occupation} · {element ? ELEMENT_STYLE[element].label : '命盘'}职业头像</title>
+      <desc id="avatar-svg-desc">{elementStyle.imageMeaning}职业符号：{CAREER_STYLE[careerMark].label}，职业印记为{careerStamp}</desc>
       <defs>
         <clipPath id="avatar-circle"><circle cx="256" cy="256" r="236" /></clipPath>
         <radialGradient id="avatar-sky" cx="50%" cy="38%" r="75%">
@@ -129,10 +160,6 @@ function AvatarIllustration({ brief, svgRef }: { brief: AvatarBrief; svgRef: Ref
           <stop offset="0" stopColor={highlight} />
           <stop offset="1" stopColor={accent} />
         </linearGradient>
-        <linearGradient id="avatar-road" x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0" stopColor={accent} />
-          <stop offset="1" stopColor={highlight} />
-        </linearGradient>
         <linearGradient id="avatar-mountain" x1="0" y1="0" x2=".75" y2="1">
           <stop offset="0" stopColor={base} />
           <stop offset="1" stopColor={background} />
@@ -140,32 +167,96 @@ function AvatarIllustration({ brief, svgRef }: { brief: AvatarBrief; svgRef: Ref
       </defs>
       <g clipPath="url(#avatar-circle)">
         <rect width="512" height="512" fill="url(#avatar-sky)" />
-        {motifs.has('sunrise') && <>
-          <circle cx="256" cy="224" r="133" fill={accent} opacity=".14" className={styles.sunAura} />
-          <circle cx="256" cy="226" r="79" fill="url(#avatar-sun)" className={styles.sunDisc} />
-          <circle cx="256" cy="226" r="91" fill="none" stroke={highlight} strokeWidth="1.5" opacity=".48" />
-        </>}
-        <path d="M0 304c70-25 127-25 182-8 54 17 102 17 153-1 68-23 121-18 177 5v212H0z" fill={background} opacity=".72" />
-        {motifs.has('mountain') && <>
-          <path d="M-24 391 80 267l57 66 82-132 82 134 54-58 82 111v155H-24z" fill="url(#avatar-mountain)" />
-          <path d="m80 267 57 66 82-132 82 134" fill="none" stroke={accent} strokeWidth="2.4" opacity=".8" />
-          <path d="m219 224 18 10-20-2-15 11zM298 334l4-17 18 9" fill={highlight} opacity=".8" />
-          <path d="M-18 391 80 352l63 23 76-35 67 29 62-32 74 33 85-26v170H-18z" fill={background} opacity=".88" />
-          <path d="m80 352 63 23 76-35 67 29 62-32 74 33" fill="none" stroke={base} strokeWidth="1.6" opacity=".78" />
-        </>}
-        {motifs.has('ascending_path') && <path
-          d="M213 512c2-39 14-69 33-92 17-21 27-38 22-53-4-13-18-23-35-31l19-32c34 15 57 36 62 63 6 30-13 56-34 82-19 23-29 43-30 63z"
-          fill="url(#avatar-road)"
-          className={styles.goldenRoad}
-        />}
-        {motifs.has('ascending_path') && <path d="M247 512c4-38 16-68 35-95 17-23 27-39 22-54-3-11-12-20-26-28" fill="none" stroke={highlight} strokeWidth="3" opacity=".9" strokeLinecap="round" />}
-        {motifs.has('sunrise') && <>
-          <path d="M256 203v-17m-18 38h-16m52 0h16" fill="none" stroke={highlight} strokeWidth="2" strokeLinecap="round" opacity=".78" />
-          <circle cx="256" cy="218" r="5" fill={highlight} />
-        </>}
+        <circle cx="256" cy="214" r="142" fill={accent} opacity=".12" className={styles.sunAura} />
+        {element === '木' && <g fill="none" stroke={highlight} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M256 392V139M256 218c-42-12-70-39-82-78 39 4 67 22 82 56M256 260c42-12 70-39 82-78-39 4-67 22-82 56M256 310c-31-6-55-22-72-50 33-2 57 8 72 31M256 333c31-6 55-22 72-50-33-2-57 8-72 31" strokeWidth="10" />
+          <path d="M256 171c-18-23-20-47-7-71 22 20 31 43 24 68" fill={accent} strokeWidth="3" />
+          <path d="M173 143c21-3 38 6 51 24-23 4-40-4-51-24ZM339 183c-21-3-38 6-51 24 23 4 40-4 51-24Z" fill={accent} strokeWidth="2" />
+        </g>}
+        {element === '火' && <g className={styles.sunDisc}>
+          <circle cx="256" cy="232" r="82" fill="url(#avatar-sun)" />
+          <path d="M256 178c32 33 8 51 0 70-9-19-32-37 0-70ZM210 222c18 17 8 31 4 43-11-12-22-25-4-43ZM302 222c-18 17-8 31-4 43 11-12 22-25 4-43Z" fill={highlight} opacity=".78" />
+          <circle cx="256" cy="232" r="96" fill="none" stroke={highlight} strokeWidth="2" opacity=".55" />
+        </g>}
+        {element === '土' && <g>
+          <path d="M42 372 126 287l42 35 88-130 85 126 39-46 100 101v150H42z" fill="url(#avatar-mountain)" />
+          <path d="m126 287 42 35 88-130 85 126M73 408c82-25 148-18 204 1 67 23 126 20 201-8" fill="none" stroke={accent} strokeWidth="3" opacity=".84" />
+          <path d="M111 420h290M149 438h214" stroke={highlight} strokeWidth="2" opacity=".5" />
+          <circle cx="256" cy="187" r="41" fill="url(#avatar-sun)" opacity=".9" />
+        </g>}
+        {element === '金' && <g>
+          <circle cx="256" cy="231" r="112" fill="none" stroke={accent} strokeWidth="4" opacity=".86" />
+          <circle cx="256" cy="231" r="91" fill="none" stroke={highlight} strokeWidth="1.5" opacity=".56" />
+          <path d="M213 188h86v86h-86z" fill="url(#avatar-sun)" />
+          <path d="M239 214h34v34h-34z" fill={background} />
+          <path d="M256 99v28M256 335v28M124 231h28M360 231h28M164 139l20 20M328 303l20 20M348 139l-20 20M184 303l-20 20" stroke={highlight} strokeWidth="3" strokeLinecap="round" opacity=".82" />
+        </g>}
+        {element === '水' && <g fill="none" strokeLinecap="round">
+          <circle cx="256" cy="193" r="61" fill="url(#avatar-sun)" stroke={highlight} strokeWidth="2" />
+          <path d="M0 306c73-39 141-36 208 2 54 31 103 31 156-1 51-30 100-33 148-9M-8 346c68-32 130-29 189 4 58 33 112 33 171-1 54-31 107-31 173 2M-10 389c70-30 127-27 184 4 62 34 120 34 183-2 53-30 100-29 165-1" stroke={accent} strokeWidth="8" opacity=".8" />
+          <path d="M258 249c-17 30-35 47-41 71-6 24 9 38 32 45 27-7 40-23 34-47-4-19-15-38-25-69z" fill={highlight} opacity=".72" />
+        </g>}
+        {element === '木' && <g fill="none" stroke={accent} strokeLinecap="round" opacity=".8">
+          <path d="M256 364c-2 49-38 58-66 91m66-65c12 40 48 51 73 87m-101-47c-39 3-61 23-84 50m151-40c39 4 58 24 79 48" strokeWidth="5" />
+        </g>}
+        {element === '火' && <g fill={accent} opacity=".68">
+          <path d="M0 512c41-62 67-70 98-34 26-61 54-88 88-50 23-78 48-106 70-64 27-63 56-64 82-6 23-47 53-41 82 7 32-33 61-17 92 27v120z" />
+          <path d="M100 512c35-39 59-45 80-18 31-57 48-70 71-31 30-48 58-48 83-7 32-34 59-22 82 14v42z" fill={highlight} opacity=".42" />
+        </g>}
+        {element === '土' && <g fill="none" stroke={accent} strokeLinecap="round" opacity=".82">
+          <path d="M42 407c76-36 151-37 214-3 71 39 142 37 214-1M55 442c74-27 137-26 197 5 67 34 133 32 205-3M87 478c67-18 119-13 169 12 53 26 107 24 166-5" strokeWidth="5" />
+        </g>}
+        {element === '金' && <g fill="none" stroke={accent} opacity=".82">
+          <path d="m50 480 206-102 206 102M80 512l176-86 176 86M120 512l136-66 136 66" strokeWidth="4" />
+          <path d="M58 407h396M93 428h326" stroke={highlight} strokeWidth="1.5" opacity=".65" />
+        </g>}
+        {element === '水' && <g fill="none" stroke={accent} strokeLinecap="round" opacity=".85">
+          <path d="M-10 407c76-38 138-35 201 2s123 41 187 2 112-40 144-21M-10 449c76-38 138-35 201 2s123 41 187 2 112-40 144-21M-10 491c76-38 138-35 201 2s123 41 187 2 112-40 144-21" strokeWidth="7" />
+        </g>}
+        <g transform="translate(364 350)">
+          {sealShape === 0 && <circle r="82" fill={background} stroke={accent} strokeWidth="5" />}
+          {sealShape === 1 && <path d="M0-89 77-45 77 45 0 89-77 45-77-45z" fill={background} stroke={accent} strokeWidth="5" />}
+          {sealShape === 2 && <path d="M0-89 82 0 0 89-82 0z" fill={background} stroke={accent} strokeWidth="5" />}
+          <circle r="68" fill="none" stroke={highlight} strokeWidth="1.5" opacity=".68" />
+          <g transform="scale(1.35)">
+          {careerMark === 'venture' && <g fill={highlight}>
+            <path d="M-25 21h50v8h-50zM-18 7h17v11h-17zM4-8h18v33H4zM-18-16h17v19h-17z" />
+            <path d="M-22-23v-5m22 6v-8m21 6v-5" stroke={highlight} strokeWidth="3" />
+          </g>}
+          {careerMark === 'creative' && <g fill="none" stroke={highlight} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m-21 18 30-34 13 12-31 30-13 4z" strokeWidth="5" />
+            <path d="M-25-18c9-8 18-8 27 0M-11 24c10-6 20-6 30 0" strokeWidth="2" />
+          </g>}
+          {careerMark === 'knowledge' && <g fill="none" stroke={highlight} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M-27-18c12-4 21-1 27 7 6-8 15-11 27-7v39c-12-4-21-1-27 7-6-8-15-11-27-7z" strokeWidth="3" />
+            <path d="M0-10v37m-19-18h12m14 0h12" strokeWidth="2" />
+          </g>}
+          {careerMark === 'technical' && <g fill="none" stroke={highlight} strokeLinecap="round" strokeLinejoin="round">
+            <circle r="17" strokeWidth="3" /><circle r="5" strokeWidth="3" />
+            <path d="M0-30v8m0 44v8m-30-30h8m44 0h8m-41-21 6 6m30 30 6 6m0-42-6 6m-30 30-6 6" strokeWidth="4" />
+          </g>}
+          {careerMark === 'care' && <g fill="none" stroke={highlight} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M0 23V-1m0 1c-18-2-25-13-22-25 14 1 22 8 22 25m0 0c1-18 9-26 23-27 2 13-5 25-23 27" strokeWidth="3" />
+            <path d="M-14 25h28" strokeWidth="3" />
+          </g>}
+          {careerMark === 'craft' && <g fill="none" stroke={highlight} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m-18 17 25-25m-6-14 15 15-8 8-15-15zM-24 24l9-3" strokeWidth="4" />
+            <path d="M-24-22h8m-4-4v8" strokeWidth="2" />
+          </g>}
+          {careerMark === 'general' && <text x="0" y="11" textAnchor="middle" fill={highlight} fontFamily="serif" fontSize="32" fontWeight="600">{careerInitial}</text>}
+          </g>
+          <path d="M-31 48h62" stroke={highlight} strokeWidth="1" opacity=".6" />
+          <text x="0" y="65" textAnchor="middle" fill={highlight} fontFamily="serif" fontSize="13" fontWeight="600" letterSpacing="2">{careerStamp}</text>
+        </g>
+        {[0, 1, 2].map(index => {
+          const angle = ((occupationHash % 360) + index * 120) * Math.PI / 180;
+          const x = 256 + Math.cos(angle) * 190;
+          const y = 256 + Math.sin(angle) * 190;
+          return <circle key={index} cx={x} cy={y} r={index === occupationHash % 3 ? 5 : 2.5} fill={index === occupationHash % 3 ? highlight : accent} opacity=".9" />;
+        })}
       </g>
-      <circle cx="256" cy="256" r="236" fill="none" stroke={accent} strokeWidth="5" />
-      <circle cx="256" cy="256" r="226" fill="none" stroke={highlight} strokeWidth="1" opacity=".54" />
+      <circle cx="256" cy="256" r="236" fill="none" stroke={accent} strokeWidth="7" />
+      <circle cx="256" cy="256" r="225" fill="none" stroke={highlight} strokeWidth="1.2" opacity=".62" />
     </svg>
   );
 }
@@ -179,6 +270,9 @@ export default function AvatarDesignPage() {
 
   const province = useMemo(() => provinces.find(item => item.name === form.province), [form.province]);
   const city = useMemo(() => province?.cities.find(item => item.name === form.city), [province, form.city]);
+  const element = useMemo(() => getWuxing(brief?.chartSummary?.dayMaster), [brief?.chartSummary?.dayMaster]);
+  const elementStyle = useMemo(() => element ? ELEMENT_STYLE[element] : null, [element]);
+  const careerMark = useMemo(() => getCareerMark(form.occupation), [form.occupation]);
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm(previous => ({ ...previous, [key]: value }));
@@ -340,39 +434,40 @@ export default function AvatarDesignPage() {
         <section className={styles.outputPanel} aria-live="polite" aria-label="头像创作结果">
           {!brief && (
             <div className={styles.emptyState}>
-              <div className={styles.emptyScene} aria-hidden="true">
-                <span className={styles.emptySun} />
-                <span className={styles.emptyMountain} />
-                <span className={styles.emptyPath} />
-              </div>
+              <div className={styles.elementOrbit} aria-hidden="true">{(['木', '火', '土', '金', '水'] as Wuxing[]).map(item => <span key={item} data-element={item}>{item}</span>)}</div>
               <p className={styles.outputEyebrow}>主题预览</p>
-              <h2>太阳、山峰、一条向上的路</h2>
-              <p>每个图形都会配上一句白话解释。头像表达创作主题，不替你作人生判断。</p>
-              <div className={styles.emptyLegend}><span>朝阳 · 成长</span><span>山峰 · 积累</span><span>登山路 · 行动</span></div>
+              <h2>按你的五行与职业组合构图</h2>
+              <p>日主五行会改变主画面，职业会改变识别符号。图形含义会用白话标明。</p>
+              <div className={styles.emptyLegend}><span>五行主画面</span><span>职业识别符号</span><span>本地绘制下载</span></div>
             </div>
           )}
 
           {brief && (
             <div className={styles.resultState}>
               <div className={styles.resultHeading}>
-                <div><p className={styles.outputEyebrow}>你的视觉主题</p><h2>{brief.concept.title}</h2></div>
+                <div>
+                  <p className={styles.outputEyebrow}>根据本次输入绘制</p>
+                  <h2>{form.occupation.trim()} × {element ? `${element}行` : '命盘'}视觉</h2>
+                  <p className={styles.inspirationTitle}>{elementStyle?.label || '命盘意象'} · {CAREER_STYLE[careerMark].label} · 印记「{getOccupationStamp(form.occupation)}」</p>
+                </div>
                 <button className={styles.textButton} type="button" onClick={resetAll}>重新填写</button>
               </div>
 
               <div className={styles.previewStage}>
                 <div className={styles.avatarFrame}>
-                  <AvatarIllustration brief={brief} svgRef={svgRef} />
+                  <AvatarIllustration brief={brief} occupation={form.occupation} svgRef={svgRef} />
                 </div>
-                <p className={styles.composition}>{brief.concept.visual.composition}</p>
+                <p className={styles.composition}>{element ? ELEMENT_STYLE[element].imageMeaning : '排盘主题图形'} 职业「{form.occupation.trim()}」以{CAREER_STYLE[careerMark].label}图形呈现。</p>
               </div>
 
               <div className={styles.interpretationCard}>
-                <p className={styles.cardLabel}>这张图在说什么</p>
-                <p className={styles.summary}>{brief.concept.plainSummary}</p>
+                <p className={styles.cardLabel}>这张图怎么对应你的输入</p>
+                <p className={styles.summary}>{getAvatarSummary(form.occupation, brief.chartSummary?.dayMaster, element, careerMark)}</p>
                 <ul className={styles.meaningList}>
-                  {brief.concept.meaning.map(item => <li key={item.motif}><strong>{item.label}</strong><span>{item.plainText}</span></li>)}
+                  <li><strong>{element ? `${element}行图形` : '命盘图形'}</strong><span>{element ? ELEMENT_STYLE[element].imageMeaning : '按主题方案绘制命盘视觉意象。'} 这只是视觉映射，不代表五行喜忌或运势判断。</span></li>
+                  <li><strong>{CAREER_STYLE[careerMark].label}</strong><span>{CAREER_STYLE[careerMark].meaning}</span></li>
                 </ul>
-                <p className={styles.basisNote}>{brief.concept.basisNote}</p>
+                {brief.concept.basisNote && <p className={styles.basisNote}>{brief.concept.basisNote}</p>}
               </div>
 
               {brief.chartSummary && <div className={styles.chartSummary} aria-label="排盘信息核对">
