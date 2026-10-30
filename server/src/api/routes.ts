@@ -9,6 +9,7 @@ import { deleteTarotReading, getTarotReading, listTarotReadings, saveTarotReadin
 import { interpret as interpretTool } from '../controllers/ai.controller';
 import { rewrite as rewritePlainLanguage } from '../controllers/plain-language.controller';
 import { calculatePillars } from '../controllers/bazi-pillars.controller';
+import { avatarBrief } from '../controllers/avatar.controller';
 import { createShareLink, getSharedChart, listShareLinks, revokeAllShareLinks, revokeShareLink } from '../controllers/share.controller';
 import { saveReport, listReports, getReport } from '../controllers/report.controller';
 import { submitReceipt, getReceiptStatus } from '../controllers/receipt.controller';
@@ -34,6 +35,7 @@ router.post('/tarot/reading', createTarotReading);
 router.post('/ai/interpret', interpretTool);
 router.post('/ai/plain-language', rewritePlainLanguage);
 router.post('/bazi/pillars/calculate', calculatePillars);
+router.post('/avatar/brief', avatarBrief);
 router.post('/tarot/readings', saveTarotReading);
 router.get('/tarot/readings', listTarotReadings);
 router.get('/tarot/readings/:id', getTarotReading);
